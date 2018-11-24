@@ -1,0 +1,3 @@
+class SAPCliError(Exception):
+
+    pass

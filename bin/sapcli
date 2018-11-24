@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+# Author: Jakub Filak <jakub@thefilaks.net>
+
+import os.path
+import sys
+import logging
+from argparse import ArgumentParser
+
+import sap
+import sap.cli
+import sap.adt
+import sap.rfc
+
+# pylint: disable=invalid-name
+log = sap.get_logger()
+
+
+def parse_command_line(argv):
+    """Parses command line arguments"""
+
+    arg_parser = ArgumentParser(os.path.basename(argv[0]))
+    arg_parser.add_argument(
+        '-v', '--verbose', dest='verbose_count', action='count', default=0,
+        help='make verbose output')
+    arg_parser.add_argument(
+        '--ashost', dest='ashost', type=str, default='localhost',
+        help='Application Server address (DNS or IP)')
+    arg_parser.add_argument(
+        '--client', dest='client', type=str, default='001',
+        help='Client (MANDT)')
+    arg_parser.add_argument(
+        '--no-ssl', dest='ssl', default=True, action='store_false',
+        help='Use SSL')
+    arg_parser.add_argument(
+        '--port', dest='port', type=int, default='443',
+        help='ADT HTTP port')
+    arg_parser.add_argument(
+        '--user', dest='user', type=str, default='DEVELOPER',
+        help='Logon user')
+    arg_parser.add_argument(
+        '--passwd', dest='passwd', type=str, default='Down1oad',
+        help='Password')
+
+    subparsers = arg_parser.add_subparsers()
+    for connection, cmd in sap.cli.get_commands():
+        cmd_args = subparsers.add_parser(cmd.name)
+        cmd_args.set_defaults(command=cmd)
+        cmd_args.set_defaults(connection_factory=connection)
+
+        cmd.install_parser(cmd_args)
+
+    args = arg_parser.parse_args(argv[1:])
+
+    log.setLevel(max(3 - args.verbose_count, 0) * 10)
+    return args
+
+
+def main(argv):
+    """Main function"""
+
+    try:
+        args = parse_command_line(argv)
+        connection = args.connection_factory(args)
+        return args.execute(connection, args)
+    except KeyboardInterrupt:
+        log.error('Program interrupted!')
+    finally:
+        logging.shutdown()
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
