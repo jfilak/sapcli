@@ -252,3 +252,17 @@ class AUnit(object):
         return self._connection.execute('POST', 'abapunit/testruns',
             headers={'Content-Type': 'application/vnd.sap.adt.abapunit.testruns.config.v4+xml'},
             body=test_config)
+
+
+class Package(ADTObject):
+
+    OBJTYPE = ADTObjectType(
+        'DEVC/K',
+        'packages',
+        ('pak', 'http://www.sap.com/adt/packages'),
+        'application/vnd.sap.adt.packages.v1+xml',
+        {}
+    )
+
+    def __init__(self, connection, name, metadata=None):
+        super(Package, self).__init__(connection, name, metadata)
