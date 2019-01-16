@@ -22,4 +22,4 @@ def read(connection, args):
     """
 
     program = sap.adt.Program(connection, args.name)
-    print program.text
+    print(program.text)

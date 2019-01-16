@@ -1,11 +1,12 @@
 """CLI basic functionality"""
 
 from collections import defaultdict
-from functools import partial
 
 
 class CommandGroup(object):
-    """Base class for CLI Commands.
+    """Base class for CLI Commands which should be implemented as methods
+       ancestor classes.
+
        Command objects should be adapters transforming command line parameters
        to functional method calls.
     """
@@ -14,6 +15,9 @@ class CommandGroup(object):
         self.name = name
 
     def install_parser(self, arg_parser):
+        """Add own commands as sub-parser of the given ArgParser.
+        """
+
         command_args = arg_parser.add_subparsers()
 
         for command in self.__class__.commands.values():
@@ -25,6 +29,18 @@ class CommandGroup(object):
 
     @classmethod
     def get_commands(cls):
+        """Get a dictionary of command definitions where the key is
+           an arbitrary key (in our case it is the name of the decorated function
+           implementing the command functionality) and the value is
+           a dictionary containing command definition.
+
+           The recognized command definition keys are the following:
+             - name: displayed named
+             - arguments: a tuple (*args, **kwargs) passed to
+                          the method add_argument() of ArgPasers
+             - execute: callable implementing the command
+        """
+
         if not hasattr(cls, 'commands'):
             cls.commands = defaultdict(lambda: {'arguments': []})
 
@@ -32,7 +48,13 @@ class CommandGroup(object):
 
     @classmethod
     def command(cls, cmd_name=None):
+        """Python Decorator marking a method a CLI command
+        """
+
         def p_command(func):
+            """A closure that actually processes the decorated function
+            """
+
             fname = func.__name__
 
             commands = cls.get_commands()
@@ -48,7 +70,15 @@ class CommandGroup(object):
 
     @classmethod
     def argument(cls, *args, **kwargs):
+        """Decorator adding argument to a cli command
+           The parameters *args and **kwargs will be passed to
+           the method add_argument() of ArgPasers
+        """
+
         def p_argument(func):
+            """A closure that actually processes the decorated function
+            """
+
             commands = cls.get_commands()
             commands[func.__name__]['arguments'].append((args, kwargs))
 

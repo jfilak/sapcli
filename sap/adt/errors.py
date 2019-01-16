@@ -1,8 +1,14 @@
+"""ADT error types"""
+
 from sap.errors import SAPCliError
 
+
 class HTTPRequestError(SAPCliError):
+    """Exception for unexpected HTTP responses"""
 
     def __init__(self, request, response):
+        super(HTTPRequestError, self).__init__()
+
         self.request = request
         self.response = response
 

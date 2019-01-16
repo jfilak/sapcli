@@ -6,15 +6,6 @@ Dependency modules are lazy loaded to enable partial modular installation.
 """
 
 
-def rfc_connection_from_args(args):
-    """Returns RFC connection constructed from the passed args (Namespace)
-    """
-
-    import sap.rfc
-
-    raise NotImplementedError
-
-
 def adt_connection_from_args(args):
     """Returns ADT connection constructed from the passed args (Namespace)
     """
@@ -22,19 +13,26 @@ def adt_connection_from_args(args):
     import sap.adt
 
     return sap.adt.Connection(
-            args.ashost, args.client, args.user, args.passwd,
-            port=args.port, ssl=args.ssl)
+        args.ashost, args.client, args.user, args.passwd,
+        port=args.port, ssl=args.ssl)
 
 
 def get_commands():
+    """Builds and returns a list of CLI commands where each item
+       is a tuple converting the common CLI parameters to a connection object
+       for the implemented command (ADT or RFC).
+    """
+
     import sap.cli.program
     import sap.cli.abapclass
     import sap.cli.aunit
+    import sap.cli.package
 
     return [
         (adt_connection_from_args, sap.cli.program.CommandGroup()),
         (adt_connection_from_args, sap.cli.abapclass.CommandGroup()),
-        (adt_connection_from_args, sap.cli.aunit.CommandGroup())
+        (adt_connection_from_args, sap.cli.aunit.CommandGroup()),
+        (adt_connection_from_args, sap.cli.package.CommandGroup())
     ]
 
 

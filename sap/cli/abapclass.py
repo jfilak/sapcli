@@ -20,4 +20,4 @@ def read(connection, args):
     """
 
     cls = sap.adt.Class(connection, args.name)
-    print cls.text
+    print(cls.text)

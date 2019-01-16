@@ -7,7 +7,8 @@ class DummyADTObject(sap.adt.ADTObject):
         'awesome/success',
         ('win', 'http://www.example.com/never/lose'),
         'application/super.cool.txt+xml',
-        {'text/plain': 'no/bigdeal'}
+        {'text/plain': 'no/bigdeal'},
+        'dummies'
     )
 
     def __init__(self):

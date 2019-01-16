@@ -4,16 +4,32 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger
+from sap.errors import SAPCliError
 from sap.adt.errors import HTTPRequestError
 
+from sap.adt.annotations import xml_attribute, xml_element
+
+
 def mod_log():
+    """ADT Module logger"""
+
     return get_logger()
 
 
 class Connection(object):
-    """ADT Connection"""
+    """ADT Connection for HTTP communication built on top Python requests.
+    """
 
     def __init__(self, host, client, user, passwd, port=None, ssl=True):
+        """Parameters:
+            - host: string host name
+            - client: string SAP client
+            - user: string user name
+            - passwd: string user password
+            - port: string TCP/IP port for ADT
+                    (default 80 or 443 - it depends on the parameter ssl)
+            - ssl: boolean to switch between http and https
+        """
 
         if ssl:
             protocol = 'https'
@@ -34,15 +50,25 @@ class Connection(object):
 
     @property
     def uri(self):
+        """ADT path for building URLs (e.g. sap/bc/adt)"""
+
         return self._adt_uri
 
     def _build_adt_url(self, adt_uri):
+        """Creates complete URL from a fragment of ADT URI
+           where the fragment usually refers to an ADT object
+        """
+
         return '{base_url}/{adt_uri}?{query_args}'.format(
             base_url=self._base_url, adt_uri=adt_uri,
             query_args=self._query_args)
 
     @staticmethod
     def _execute_with_session(session, method, url, headers=None, body=None):
+        """Executes the given URL using the given method in
+           the common HTTP session.
+        """
+
         req = requests.Request(method.upper(), url, data=body, headers=headers)
         req = session.prepare_request(req)
 
@@ -55,6 +81,11 @@ class Connection(object):
         return res
 
     def _get_session(self):
+        """Returns the working HTTP session.
+           The session's cookies are populated by executing a dummy GET which
+           also retrieves X-CSRF-Token.
+        """
+
         if self._session is None:
             self._session = requests.Session()
             self._session.auth = self._auth
@@ -67,158 +98,308 @@ class Connection(object):
 
         return self._session
 
-
     def execute(self, method, adt_uri, headers=None, body=None):
+        """Executes the given ADT URI as an HTTP request and returns
+           the requests response object
+        """
+
         session = self._get_session()
 
         url = self._build_adt_url(adt_uri)
 
-        return Connection._execute_with_session(self._session, method, url, headers=headers, body=body)
-
+        return Connection._execute_with_session(session, method, url, headers=headers, body=body)
 
     def get_text(self, relativeuri):
+        """Executes a GET HTTP request with the headers Accept = text/plain.
+        """
+
         return self.execute('GET', relativeuri, headers={'Accept': 'text/plain'}).text
 
 
 class ADTObjectType(object):
+    """Common ADT object type attributes.
+    """
 
-    def __init__(self, code, basepath, xmlnamespace, mimetype, typeuris):
+    def __init__(self, code, basepath, xmlnamespace, mimetype, typeuris, xmlname):
+        """Parameters:
+            - code: ADT object code
+            - basepath:
+            - xmlnamespace: a tuple where the first item is a nick and
+                            the second item is actually the namespace URI
+            - mimetype: object MIME type
+            - typeuris: patterns for the object format URL (text, xml, ...)
+            - xmlname: something from ADT ;)
+        """
+
         self._code = code
         self._basepath = basepath
         self._xmlnamespace = xmlnamespace
         self._mimetype = mimetype
         self._typeuris = typeuris
+        self._xmlname = xmlname
 
     @property
     def code(self):
+        """ADT object code"""
+
         return self._code
 
     @property
     def basepath(self):
+        """Object fragment of ADT URL"""
+
         return self._basepath
 
     @property
     def mimetype(self):
+        """ADT object MIME type"""
+
         return self._mimetype
 
     @property
     def xmlnamespace(self):
-        return self._mimetype
+        """A tuple (namespace nick, namespace URL)"""
+
+        return self._xmlnamespace
+
+    @property
+    def xmlname(self):
+        """XML element name"""
+
+        return self._xmlname
 
     def get_uri_for_type(self, mimetype):
+        """Returns and an ADT URL fragment for the given MIME type.
+        """
+
         try:
             return '/' + self._typeuris[mimetype]
         except KeyError:
             raise SAPCliError('Object {type} does not support plain \'text\' format')
 
 
+class ADTCoreData(object):
+    """Common SAP object attributes.
+    """
+
+    def __init__(self):
+        self._package = None
+        self._description = None
+        self._language = None
+        self._master_language = None
+        self._master_system = None
+        self._responsible = None
+
+    @property
+    def package(self):
+        """ABAP development package (DEVC)"""
+
+        return self._package
+
+    @property
+    def description(self):
+        """Object description"""
+
+        return self._description
+
+    @description.setter
+    def description(self, value):
+        """Object description setter"""
+
+        self._description = value
+
+    @property
+    def language(self):
+        """Language"""
+
+        return self._language
+
+    @property
+    def master_language(self):
+        """Original (master) language"""
+
+        return self._master_language
+
+    @property
+    def master_system(self):
+        """Original (master) system"""
+
+        return self._master_system
+
+    @master_system.setter
+    def master_system(self, value):
+        """Original (master) system setter"""
+
+        self._master_system = value
+
+    @property
+    def responsible(self):
+        """Object responsible person"""
+
+        return self._responsible
+
+    @responsible.setter
+    def responsible(self, value):
+        """Object responsible person setter"""
+
+        self._responsible = value
+
+
 class ADTObject(object):
+    """Abstract base class for ADT objects
+    """
 
     def __init__(self, connection, name, metadata=None):
+        """Parameters:
+            - connection: ADT.Connection
+            - name: string name
+            - metadata: ADTCoreData
+        """
+
         self._connection = connection
         self._name = name
-        self._metadata = metadata
+
+        self._metadata = metadata if metadata is not None else ADTCoreData()
 
     @property
     def connection(self):
+        """ADT Connection"""
+
         return self._connection
 
     @property
     def objtype(self):
+        """ADT type definition"""
+
+        # pylint: disable=no-member
         return self.__class__.OBJTYPE
 
     @property
     def name(self):
+        """SAP Object name"""
+
         return self._name
 
     @property
     def package(self):
+        """ABAP development package"""
+
         return self._metadata.package
 
     @property
     def description(self):
+        """SAP object description"""
+
         return self._metadata.description
+
+    @description.setter
+    def description(self, value):
+        """SAP object description setter"""
+
+        self._metadata.description = value
 
     @property
     def language(self):
+        """SAP object language"""
+
         return self._metadata.language
 
     @property
     def master_language(self):
+        """SAP object original (master) language"""
+
         return self._metadata.master_language
 
     @property
     def master_system(self):
+        """SAP object original (master) system"""
+
         return self._metadata.master_system
 
     @property
     def responsible(self):
+        """SAP object responsible"""
+
         return self._metadata.responsible
 
     @property
     def uri(self):
+        """ADT object URL fragment"""
+
         return self.objtype.basepath + '/' + self.name
 
     @property
     def text(self):
+        """Downloads text representation of the SAP Object
+           if the MIME Type 'text/plain'.
+        """
+
         text_uri = self.objtype.get_uri_for_type('text/plain')
 
         return self._connection.get_text('{objuri}{text_uri}'.format(
-            objuri=self.uri, name=self._name, text_uri=text_uri))
-
-    @text.setter
-    def text(self, data):
-        raise SAPCliError('Object {}'.format)
+            objuri=self.uri, text_uri=text_uri))
 
 
 class Program(ADTObject):
+    """ABAP Report/Program
+    """
 
     OBJTYPE = ADTObjectType(
         'PROG/P',
         'programs/programs',
         ('program', 'http://www.sap.com/adt/programs/programs'),
         'application/vnd.sap.adt.programs.programs.v2+xml',
-        {'text/plain': 'source/main'}
+        {'text/plain': 'source/main'},
+        'abapProgram'
     )
 
-    def __init__(self, connection, name, metadata=None):
-        super(Program, self).__init__(connection, name, metadata)
+    # @staticmethod
+    # def create()
+    #     POST /sap/bc/adt/programs/programs
 
-#    @staticmethod
-#    def create()
-        # POST /sap/bc/adt/programs/programs
-
-    #@text.setter
-    #def text(self, connection, content, metadata):
-    # POST /sap/bc/adt/programs/validation?objname=ZTEST_REPORT&packagename=%24TMP&description=test+reports&objtype=PROG%2FP HTTP/1.1
+    # @text.setter
+    # def text(self, connection, content, metadata):
+    #     POST /sap/bc/adt/programs/validation +
+    #          ?bjname=ZTEST_REPORT +
+    #          &packagename=%24TMP +
+    #          &description=test+reports +
+    #          &objtype=PROG%2FP HTTP/1.1
     #    return
 
 
 class Class(ADTObject):
+    """ABAP OO Class
+    """
 
     OBJTYPE = ADTObjectType(
         'CLAS/I',
         'oo/classes',
         ('class', 'http://www.sap.com/adt/oo/claases'),
         'application/vnd.sap.adt.oo.classes.v2+xml',
-        {'text/plain': 'source/main'}
+        {'text/plain': 'source/main'},
+        'abapClass'
     )
-
-    def __init__(self, connection, name, metadata=None):
-        super(Class, self).__init__(connection, name, metadata)
 
 
 class AUnit(object):
+    """ABAP Unit tests
+    """
 
     def __init__(self, connection):
         self._connection = connection
 
     @staticmethod
     def build_tested_object_uri(connection, adt_object):
+        """Build URL for the tested object.
+        """
+
         return '/' + connection.uri + '/' + adt_object.uri
 
     @staticmethod
     def build_test_configuration(adt_object_uri):
+        """Build the AUnit ADT URI of the tested object.
+        """
+
         test_config = '''<?xml version="1.0" encoding="UTF-8"?>
 <aunit:runConfiguration xmlns:aunit="http://www.sap.com/adt/aunit">
   <external>
@@ -246,23 +427,120 @@ class AUnit(object):
         return test_config
 
     def execute(self, adt_object):
+        """Executes ABAP Unit tests on the given ADT object
+        """
+
         adt_object_uri = AUnit.build_tested_object_uri(self._connection, adt_object)
         test_config = AUnit.build_test_configuration(adt_object_uri)
 
-        return self._connection.execute('POST', 'abapunit/testruns',
-            headers={'Content-Type': 'application/vnd.sap.adt.abapunit.testruns.config.v4+xml'},
+        return self._connection.execute(
+            'POST', 'abapunit/testruns',
+            headers={
+                'Content-Type': 'application/vnd.sap.adt.abapunit.testruns.config.v4+xml'},
             body=test_config)
 
 
 class Package(ADTObject):
+    """ABAP Package - Development class - DEVC"""
 
     OBJTYPE = ADTObjectType(
         'DEVC/K',
         'packages',
         ('pak', 'http://www.sap.com/adt/packages'),
         'application/vnd.sap.adt.packages.v1+xml',
-        {}
+        {},
+        'package'
     )
+
+    class SoftwareComponent(object):
+        """SAP Software component.
+        """
+
+        def __init__(self, name=None):
+            self._name = name
+
+        @xml_attribute('name')
+        def name(self):
+            """Software component name
+            """
+
+            return self._name
+
+    class Attributes(object):
+        """SAP Package attributes.
+        """
+
+        def __init__(self, name=None):
+            self._package_type = name
+
+        @xml_attribute('packageType')
+        def package_type(self):
+            """The Package's type
+            """
+
+            return self.package_type
+
+        @package_type.setter
+        def package_type(self, value):
+            """The Package's type setter
+            """
+
+            self._package_type = value
+
+    class Transport(object):
+        """SAP Package transport details.
+        """
+
+        def __init__(self):
+            self._software_component = Package.SoftwareComponent()
+
+        @xml_element('softwareComponent')
+        def software_component(self):
+            """The Package's software component
+            """
+
+            return self._software_component
+
+        @software_component.setter
+        def software_component(self, value):
+            """The Package's software component setter
+            """
+
+            self._software_component = value
 
     def __init__(self, connection, name, metadata=None):
         super(Package, self).__init__(connection, name, metadata)
+
+        self._transport = Package.Transport()
+        self._attributes = Package.Attributes()
+
+    @xml_element('attributes')
+    def attributes(self):
+        """The package's attributes.
+        """
+        return self._attributes
+
+    @xml_element('transport')
+    def transport(self):
+        """The package's transport configuration.
+        """
+
+        return self._transport
+
+    def set_package_type(self, package_type):
+        """Changes the Package's type
+        """
+
+        self._attributes.package_type = package_type
+
+    def set_software_component(self, name):
+        """Changes the Package's software component
+        """
+
+        self._transport.software_component = Package.SoftwareComponent(name)
+
+    def create(self):
+        """Creates ABAP Development class aka Package (obj type DEVC)
+        """
+
+        raise NotImplementedError()

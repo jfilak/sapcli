@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # Author: Jakub Filak <jakub@thefilaks.net>
+"""SAP Command Line tool"""
 
 import os.path
 import sys

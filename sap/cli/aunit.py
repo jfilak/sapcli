@@ -28,4 +28,4 @@ def run(connection, args):
 
     aunit = sap.adt.AUnit(connection)
     results = aunit.execute(obj)
-    print results.text
+    print(results.text)
