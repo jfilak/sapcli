@@ -82,7 +82,9 @@ class Marshal:
                 element = root.add_child(attr.name)
                 self._build_tree(element, getattr(obj, attr_name))
             elif isinstance(attr, XmlAttributeProperty):
-                root.add_attribute(attr.name, getattr(obj, attr_name))
+                value = getattr(obj, attr_name)
+                if value is not None:
+                    root.add_attribute(attr.name, value)
 
     def _tree_to_xml(self, tree):
         """Turn the given abstract XML tree to XML string"""

@@ -7,6 +7,7 @@ from sap import get_logger
 from sap.errors import SAPCliError
 from sap.adt.errors import HTTPRequestError
 
+import sap.adt.marshalling
 from sap.adt.annotations import xml_attribute, xml_element
 
 
@@ -459,6 +460,20 @@ class Package(ADTObject):
         'package'
     )
 
+    class Reference(object):
+        """Package Reference
+        """
+
+        def __init__(self, name=None):
+            self._name = name
+
+        @xml_attribute('adtcore:name')
+        def name(self):
+            """package reference name
+            """
+
+            return self._name
+
     class SoftwareComponent(object):
         """SAP Software component.
         """
@@ -466,7 +481,7 @@ class Package(ADTObject):
         def __init__(self, name=None):
             self._name = name
 
-        @xml_attribute('name')
+        @xml_attribute('pak:name')
         def name(self):
             """Software component name
             """
@@ -480,12 +495,12 @@ class Package(ADTObject):
         def __init__(self, name=None):
             self._package_type = name
 
-        @xml_attribute('packageType')
+        @xml_attribute('pak:packageType')
         def package_type(self):
             """The Package's type
             """
 
-            return self.package_type
+            return self._package_type
 
         @package_type.setter
         def package_type(self, value):
@@ -501,7 +516,7 @@ class Package(ADTObject):
         def __init__(self):
             self._software_component = Package.SoftwareComponent()
 
-        @xml_element('softwareComponent')
+        @xml_element('pak:softwareComponent')
         def software_component(self):
             """The Package's software component
             """
@@ -518,16 +533,24 @@ class Package(ADTObject):
     def __init__(self, connection, name, metadata=None):
         super(Package, self).__init__(connection, name, metadata)
 
+        self._reference = Package.Reference(name=name)
         self._transport = Package.Transport()
         self._attributes = Package.Attributes()
 
-    @xml_element('attributes')
+    @xml_element('adtcore:packageRef')
+    def reference(self):
+        """The package's reference.
+        """
+
+        return self._reference
+
+    @xml_element('pak:attributes')
     def attributes(self):
         """The package's attributes.
         """
         return self._attributes
 
-    @xml_element('transport')
+    @xml_element('pak:transport')
     def transport(self):
         """The package's transport configuration.
         """
@@ -550,4 +573,11 @@ class Package(ADTObject):
         """Creates ABAP Development class aka Package (obj type DEVC)
         """
 
-        raise NotImplementedError()
+        marshal = sap.adt.marshalling.Marshal()
+        xml = marshal.serialize(self)
+
+        return self._connection.execute(
+            'POST', 'packages',
+            headers={
+                'Content-Type': 'application/vnd.sap.adt.package.packages.v4+xml'},
+            body=xml)
