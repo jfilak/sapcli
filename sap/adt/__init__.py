@@ -474,6 +474,20 @@ class Package(ADTObject):
 
             return self._name
 
+    class SuperPackage(object):
+        """Super Package
+        """
+
+        def __init__(self, name=None):
+            self._name = name
+
+        @xml_attribute('adtcore:name')
+        def name(self):
+            """super package name
+            """
+
+            return self._name
+
     class SoftwareComponent(object):
         """SAP Software component.
         """
@@ -513,8 +527,23 @@ class Package(ADTObject):
         """SAP Package transport details.
         """
 
+        class Layer(object):
+            """SAP Software component.
+            """
+
+            def __init__(self, name=None):
+                self._name = name
+
+            @xml_attribute('pak:name')
+            def name(self):
+                """Software component name
+                """
+
+                return self._name
+
         def __init__(self):
             self._software_component = Package.SoftwareComponent()
+            self._layer = Package.Transport.Layer()
 
         @xml_element('pak:softwareComponent')
         def software_component(self):
@@ -530,10 +559,18 @@ class Package(ADTObject):
 
             self._software_component = value
 
+        @xml_element('pak:transportLayer')
+        def transport_layer(self):
+            """The Package's transport layer
+            """
+
+            return self._layer
+
     def __init__(self, connection, name, metadata=None):
         super(Package, self).__init__(connection, name, metadata)
 
         self._reference = Package.Reference(name=name)
+        self._superpkg = Package.SuperPackage()
         self._transport = Package.Transport()
         self._attributes = Package.Attributes()
 
@@ -543,6 +580,21 @@ class Package(ADTObject):
         """
 
         return self._reference
+
+    @xml_element('pak:superPackage')
+    def super_package(self):
+        """The package's super package.
+        """
+
+        return self._superpkg
+
+    @xml_element('pak:applicationComponent')
+    # pylint: disable=no-self-use
+    def app_component(self):
+        """The package's application component
+        """
+
+        return None
 
     @xml_element('pak:attributes')
     def attributes(self):
@@ -556,6 +608,38 @@ class Package(ADTObject):
         """
 
         return self._transport
+
+    @xml_element('pak:translation')
+    # pylint: disable=no-self-use
+    def translation(self):
+        """The package's translation flag
+        """
+
+        return None
+
+    @xml_element('pak:useAccesses')
+    # pylint: disable=no-self-use
+    def use_accesses(self):
+        """The package's Use Accesses
+        """
+
+        return None
+
+    @xml_element('pak:subPackages')
+    # pylint: disable=no-self-use
+    def sub_packages(self):
+        """The package's sub-packages
+        """
+
+        return None
+
+    @xml_element('pak:packageInterfaces')
+    # pylint: disable=no-self-use
+    def package_interfaces(self):
+        """The package's Interfaces
+        """
+
+        return None
 
     def set_package_type(self, package_type):
         """Changes the Package's type
@@ -579,5 +663,5 @@ class Package(ADTObject):
         return self._connection.execute(
             'POST', 'packages',
             headers={
-                'Content-Type': 'application/vnd.sap.adt.package.packages.v4+xml'},
+                'Content-Type': 'application/vnd.sap.adt.packages.v1+xml'},
             body=xml)

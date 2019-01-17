@@ -14,8 +14,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 
 @CommandGroup.command()
-@CommandGroup.argument('name')
 @CommandGroup.argument('description')
+@CommandGroup.argument('name')
 def create(connection, args):
     """Creates the requested ABAP package.
     """
