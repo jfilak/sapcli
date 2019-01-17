@@ -182,13 +182,14 @@ class ADTCoreData(object):
     """Common SAP object attributes.
     """
 
-    def __init__(self):
-        self._package = None
-        self._description = None
-        self._language = None
-        self._master_language = None
-        self._master_system = None
-        self._responsible = None
+    def __init__(self, package=None, description=None, language=None,
+                 master_language=None, master_system=None, responsible=None):
+        self._package = package
+        self._description = description
+        self._language = language
+        self._master_language = master_language
+        self._master_system = master_system
+        self._responsible = responsible
 
     @property
     def package(self):
@@ -262,6 +263,12 @@ class ADTObject(object):
         self._metadata = metadata if metadata is not None else ADTCoreData()
 
     @property
+    def coredata(self):
+        """ADT Core Data"""
+
+        return self._metadata
+
+    @property
     def connection(self):
         """ADT Connection"""
 
@@ -274,7 +281,7 @@ class ADTObject(object):
         # pylint: disable=no-member
         return self.__class__.OBJTYPE
 
-    @property
+    @xml_attribute('adtcore:name')
     def name(self):
         """SAP Object name"""
 
@@ -286,7 +293,7 @@ class ADTObject(object):
 
         return self._metadata.package
 
-    @property
+    @xml_attribute('adtcore:description')
     def description(self):
         """SAP object description"""
 
@@ -298,25 +305,25 @@ class ADTObject(object):
 
         self._metadata.description = value
 
-    @property
+    @xml_attribute('adtcore:language')
     def language(self):
         """SAP object language"""
 
         return self._metadata.language
 
-    @property
+    @xml_attribute('adtcore:masterLanguage')
     def master_language(self):
         """SAP object original (master) language"""
 
         return self._metadata.master_language
 
-    @property
+    @xml_attribute('adtcore:masterSystem')
     def master_system(self):
         """SAP object original (master) system"""
 
         return self._metadata.master_system
 
-    @property
+    @xml_attribute('adtcore:responsible')
     def responsible(self):
         """SAP object responsible"""
 
