@@ -72,7 +72,7 @@ class Marshal:
         if obj is None:
             return
 
-        for attr_name in dir(obj.__class__):
+        for attr_name in obj.__class__.__ordered__:
             if attr_name.startswith('_'):
                 continue
 

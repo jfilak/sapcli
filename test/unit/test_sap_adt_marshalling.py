@@ -2,7 +2,7 @@
 
 import unittest
 
-from sap.adt import ADTObject, ADTObjectType, ADTCoreData
+from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
 from sap.adt.annotations import xml_element, xml_attribute
 from sap.adt.marshalling import Marshal, Element
 
@@ -18,9 +18,9 @@ class Dummy(ADTObject):
         'dummyelem'
     )
 
-    class Nested:
+    class Nested(metaclass=OrderedClassMembers):
 
-        class SuperNested:
+        class SuperNested(metaclass=OrderedClassMembers):
 
             @xml_attribute('sup_nst_fst')
             def yetanother(self):

@@ -6,20 +6,21 @@ import sap.adt
 
 from mock import Connection
 
+
 FIXTURE_PACKAGE_XML="""<?xml version="1.0" encoding="UTF-8"?>
-<pak:package xmlns:pak="http://www.sap.com/adt/packages" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:version="active" adtcore:type="DEVC/K" adtcore:description="description" adtcore:name="$TEST">
-<pak:applicationComponent/>
-<pak:attributes pak:packageType="development"/>
-<pak:packageInterfaces/>
+<pak:package xmlns:pak="http://www.sap.com/adt/packages" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:version="active" adtcore:type="DEVC/K" adtcore:description="description" adtcore:language="EN" adtcore:name="$TEST" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:responsible="FILAK">
 <adtcore:packageRef adtcore:name="$TEST"/>
-<pak:subPackages/>
+<pak:attributes pak:packageType="development"/>
 <pak:superPackage/>
-<pak:translation/>
+<pak:applicationComponent/>
 <pak:transport>
 <pak:softwareComponent pak:name="LOCAL"/>
 <pak:transportLayer/>
 </pak:transport>
+<pak:translation/>
 <pak:useAccesses/>
+<pak:packageInterfaces/>
+<pak:subPackages/>
 </pak:package>"""
 
 class TestADTPackage(unittest.TestCase):
@@ -27,7 +28,8 @@ class TestADTPackage(unittest.TestCase):
     def test_init(self):
         conn = Connection()
 
-        package = sap.adt.Package(conn, '$TEST')
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', master_system='NPL', responsible='FILAK')
+        package = sap.adt.Package(conn, '$TEST', metadata=metadata)
         package.description = 'description'
         package.set_package_type('development')
         package.set_software_component('LOCAL')

@@ -1,5 +1,6 @@
 """Base classes for ADT functionality modules"""
 
+import collections
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -247,7 +248,33 @@ class ADTCoreData(object):
         self._responsible = value
 
 
-class ADTObject(object):
+class OrderedClassMembers(type):
+    """MetaClass to preserve get order of member declarations
+       to serialize the XML elements in the expected order.
+    """
+
+    @classmethod
+    # pylint: disable=unused-argument
+    def __prepare__(mcs, name, bases):
+        return collections.OrderedDict()
+
+    def __new__(mcs, name, bases, classdict):
+        members = []
+
+        if bases:
+            parent = bases[-1]
+            if hasattr(parent, '__ordered__'):
+                members.extend(parent.__ordered__)
+
+        members.extend([key for key in classdict.keys()
+                        if key not in ('__module__', '__qualname__')])
+
+        classdict['__ordered__'] = members
+
+        return type.__new__(mcs, name, bases, classdict)
+
+
+class ADTObject(metaclass=OrderedClassMembers):
     """Abstract base class for ADT objects
     """
 
@@ -282,12 +309,6 @@ class ADTObject(object):
         # pylint: disable=no-member
         return self.__class__.OBJTYPE
 
-    @xml_attribute('adtcore:name')
-    def name(self):
-        """SAP Object name"""
-
-        return self._name
-
     @property
     def package(self):
         """ABAP development package"""
@@ -311,6 +332,12 @@ class ADTObject(object):
         """SAP object language"""
 
         return self._metadata.language
+
+    @xml_attribute('adtcore:name')
+    def name(self):
+        """SAP Object name"""
+
+        return self._name
 
     @xml_attribute('adtcore:masterLanguage')
     def master_language(self):
@@ -460,7 +487,7 @@ class Package(ADTObject):
         'package'
     )
 
-    class Reference(object):
+    class Reference(metaclass=OrderedClassMembers):
         """Package Reference
         """
 
@@ -474,7 +501,7 @@ class Package(ADTObject):
 
             return self._name
 
-    class SuperPackage(object):
+    class SuperPackage(metaclass=OrderedClassMembers):
         """Super Package
         """
 
@@ -488,7 +515,7 @@ class Package(ADTObject):
 
             return self._name
 
-    class SoftwareComponent(object):
+    class SoftwareComponent(metaclass=OrderedClassMembers):
         """SAP Software component.
         """
 
@@ -502,7 +529,7 @@ class Package(ADTObject):
 
             return self._name
 
-    class Attributes(object):
+    class Attributes(metaclass=OrderedClassMembers):
         """SAP Package attributes.
         """
 
@@ -523,11 +550,11 @@ class Package(ADTObject):
 
             self._package_type = value
 
-    class Transport(object):
+    class Transport(metaclass=OrderedClassMembers):
         """SAP Package transport details.
         """
 
-        class Layer(object):
+        class Layer(metaclass=OrderedClassMembers):
             """SAP Software component.
             """
 
@@ -581,6 +608,12 @@ class Package(ADTObject):
 
         return self._reference
 
+    @xml_element('pak:attributes')
+    def attributes(self):
+        """The package's attributes.
+        """
+        return self._attributes
+
     @xml_element('pak:superPackage')
     def super_package(self):
         """The package's super package.
@@ -595,12 +628,6 @@ class Package(ADTObject):
         """
 
         return None
-
-    @xml_element('pak:attributes')
-    def attributes(self):
-        """The package's attributes.
-        """
-        return self._attributes
 
     @xml_element('pak:transport')
     def transport(self):
@@ -625,18 +652,18 @@ class Package(ADTObject):
 
         return None
 
-    @xml_element('pak:subPackages')
-    # pylint: disable=no-self-use
-    def sub_packages(self):
-        """The package's sub-packages
-        """
-
-        return None
-
     @xml_element('pak:packageInterfaces')
     # pylint: disable=no-self-use
     def package_interfaces(self):
         """The package's Interfaces
+        """
+
+        return None
+
+    @xml_element('pak:subPackages')
+    # pylint: disable=no-self-use
+    def sub_packages(self):
+        """The package's sub-packages
         """
 
         return None
