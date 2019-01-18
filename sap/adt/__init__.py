@@ -47,8 +47,15 @@ class Connection(object):
             protocol=protocol, host=host, port=port, adt_uri=self._adt_uri)
         self._query_args = 'sap-client={client}&saml2=disabled'.format(
             client=client)
+        self._user = user
         self._auth = HTTPBasicAuth(user, passwd)
         self._session = None
+
+    @property
+    def user(self):
+        """Connected user"""
+
+        return self._user
 
     @property
     def uri(self):
