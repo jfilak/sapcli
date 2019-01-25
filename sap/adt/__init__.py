@@ -187,18 +187,66 @@ class ADTObjectType(object):
             raise SAPCliError('Object {type} does not support plain \'text\' format')
 
 
+class OrderedClassMembers(type):
+    """MetaClass to preserve get order of member declarations
+       to serialize the XML elements in the expected order.
+    """
+
+    @classmethod
+    # pylint: disable=unused-argument
+    def __prepare__(mcs, name, bases):
+        return collections.OrderedDict()
+
+    def __new__(mcs, name, bases, classdict):
+        members = []
+
+        if bases:
+            parent = bases[-1]
+            if hasattr(parent, '__ordered__'):
+                members.extend(parent.__ordered__)
+
+        members.extend([key for key in classdict.keys()
+                        if key not in ('__module__', '__qualname__')])
+
+        classdict['__ordered__'] = members
+
+        return type.__new__(mcs, name, bases, classdict)
+
+
 class ADTCoreData(object):
     """Common SAP object attributes.
     """
 
+    class Reference(metaclass=OrderedClassMembers):
+        """Package Reference
+        """
+
+        def __init__(self, name=None):
+            self._name = name
+
+        @xml_attribute('adtcore:name')
+        def name(self):
+            """package reference name """
+
+            return self._name
+
+        @name.setter
+        def name(self, value):
+            """sets package reference name"""
+
+            self._name = value
+
+    # pylint: disable=too-many-arguments
     def __init__(self, package=None, description=None, language=None,
-                 master_language=None, master_system=None, responsible=None):
+                 master_language=None, master_system=None, responsible=None,
+                 package_reference=None):
         self._package = package
         self._description = description
         self._language = language
         self._master_language = master_language
         self._master_system = master_system
         self._responsible = responsible
+        self._package_reference = ADTCoreData.Reference(name=package_reference)
 
     @property
     def package(self):
@@ -254,31 +302,17 @@ class ADTCoreData(object):
 
         self._responsible = value
 
+    @property
+    def package_reference(self):
+        """The object's package reference"""
 
-class OrderedClassMembers(type):
-    """MetaClass to preserve get order of member declarations
-       to serialize the XML elements in the expected order.
-    """
+        return self._package_reference
 
-    @classmethod
-    # pylint: disable=unused-argument
-    def __prepare__(mcs, name, bases):
-        return collections.OrderedDict()
+    @package_reference.setter
+    def package_reference(self, value):
+        """Set the object's package reference"""
 
-    def __new__(mcs, name, bases, classdict):
-        members = []
-
-        if bases:
-            parent = bases[-1]
-            if hasattr(parent, '__ordered__'):
-                members.extend(parent.__ordered__)
-
-        members.extend([key for key in classdict.keys()
-                        if key not in ('__module__', '__qualname__')])
-
-        classdict['__ordered__'] = members
-
-        return type.__new__(mcs, name, bases, classdict)
+        self._package_reference = value
 
 
 class ADTObject(metaclass=OrderedClassMembers):
@@ -380,6 +414,12 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._connection.get_text('{objuri}{text_uri}'.format(
             objuri=self.uri, text_uri=text_uri))
+
+    @xml_element('adtcore:packageRef')
+    def reference(self):
+        """The object's package reference"""
+
+        return self._metadata.package_reference
 
 
 class Program(ADTObject):
@@ -494,20 +534,6 @@ class Package(ADTObject):
         'package'
     )
 
-    class Reference(metaclass=OrderedClassMembers):
-        """Package Reference
-        """
-
-        def __init__(self, name=None):
-            self._name = name
-
-        @xml_attribute('adtcore:name')
-        def name(self):
-            """package reference name
-            """
-
-            return self._name
-
     class SuperPackage(metaclass=OrderedClassMembers):
         """Super Package
         """
@@ -603,17 +629,10 @@ class Package(ADTObject):
     def __init__(self, connection, name, metadata=None):
         super(Package, self).__init__(connection, name, metadata)
 
-        self._reference = Package.Reference(name=name)
         self._superpkg = Package.SuperPackage()
         self._transport = Package.Transport()
         self._attributes = Package.Attributes()
-
-    @xml_element('adtcore:packageRef')
-    def reference(self):
-        """The package's reference.
-        """
-
-        return self._reference
+        self._metadata.package_reference.name = name
 
     @xml_element('pak:attributes')
     def attributes(self):

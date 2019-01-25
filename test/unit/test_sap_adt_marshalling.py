@@ -77,12 +77,14 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(xmltree.attributes['attr_first'], '11111')
         self.assertEqual(xmltree.attributes['attr_second'], '22222')
 
-        self.assertEqual(xmltree.children[0].name, 'first_elem')
-        self.assertEqual(xmltree.children[0].attributes['nst_fst'], 'nst_fst_val')
-        self.assertEqual(xmltree.children[0].attributes['nst_scn'], 'nst_scn_val')
+        self.assertEqual(xmltree.children[0].name, 'adtcore:packageRef')
 
-        self.assertEqual(xmltree.children[0].children[0].name, 'child_nst')
-        self.assertEqual(xmltree.children[0].children[0].attributes['sup_nst_fst'], 'yetanother')
+        self.assertEqual(xmltree.children[1].name, 'first_elem')
+        self.assertEqual(xmltree.children[1].attributes['nst_fst'], 'nst_fst_val')
+        self.assertEqual(xmltree.children[1].attributes['nst_scn'], 'nst_scn_val')
+
+        self.assertEqual(xmltree.children[1].children[0].name, 'child_nst')
+        self.assertEqual(xmltree.children[1].children[0].attributes['sup_nst_fst'], 'yetanother')
 
     def test_xml_formatting(self):
         marshal = Marshal()
