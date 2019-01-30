@@ -435,9 +435,10 @@ class Program(ADTObject):
         'abapProgram'
     )
 
-    # @staticmethod
-    # def create()
-    #     POST /sap/bc/adt/programs/programs
+    def __init__(self, connection, name, package=None, metadata=None):
+        super(Program, self).__init__(connection, name, metadata)
+
+        self._metadata.package_reference.name = package
 
     # @text.setter
     # def text(self, connection, content, metadata):
@@ -447,6 +448,18 @@ class Program(ADTObject):
     #          &description=test+reports +
     #          &objtype=PROG%2FP HTTP/1.1
     #    return
+
+    def create(self):
+        """Creates ABAP Program aka Report"""
+
+        marshal = sap.adt.marshalling.Marshal()
+        xml = marshal.serialize(self)
+
+        return self._connection.execute(
+            'POST', 'programs/programs',
+            headers={
+                'Content-Type': 'application/vnd.sap.adt.programs.programs.v2+xml'},
+            body=xml)
 
 
 class Class(ADTObject):

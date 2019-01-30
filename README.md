@@ -13,6 +13,14 @@ build your CI tools.
 
 ### Programs
 
+#### create
+
+Create executable program
+
+```bash
+sapcli program create "ZHELLOWORLD" "Just a description" "$TMP"
+```
+
 #### read
 
 Download source codes
