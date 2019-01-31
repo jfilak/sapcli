@@ -1,5 +1,6 @@
 """ADT proxy for ABAP Program (Report)"""
 
+import sys
 import sap.adt
 import sap.cli.core
 
@@ -36,3 +37,21 @@ def create(connection, args):
     program = sap.adt.Program(connection, args.name.upper(), package=args.package.upper(), metadata=metadata)
     program.description = args.description
     program.create()
+
+
+@CommandGroup.command()
+@CommandGroup.argument('source', help='a path or - for stdin')
+@CommandGroup.argument('name')
+def write(connection, args):
+    """Creates the requested program"""
+
+    text = None
+
+    if args.source == '-':
+        text = sys.stdin.readlines()
+    else:
+        with open(args.source) as filesrc:
+            text = filesrc.readlines()
+
+    program = sap.adt.Program(connection, args.name.upper())
+    program.change_text(''.join(text))

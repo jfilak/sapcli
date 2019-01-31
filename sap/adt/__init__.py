@@ -440,14 +440,16 @@ class Program(ADTObject):
 
         self._metadata.package_reference.name = package
 
-    # @text.setter
-    # def text(self, connection, content, metadata):
-    #     POST /sap/bc/adt/programs/validation +
-    #          ?bjname=ZTEST_REPORT +
-    #          &packagename=%24TMP +
-    #          &description=test+reports +
-    #          &objtype=PROG%2FP HTTP/1.1
-    #    return
+    def change_text(self, content):
+        """Changes the source code"""
+
+        text_uri = self.objtype.get_uri_for_type('text/plain')
+
+        return self._connection.execute(
+            'PUT', self.uri + text_uri,
+            headers={
+                'Content-Type': 'text/plain; charset=utf-8'},
+            body=content)
 
     def create(self):
         """Creates ABAP Program aka Report"""
