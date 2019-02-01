@@ -73,12 +73,12 @@ class Connection(object):
             query_args=self._query_args)
 
     @staticmethod
-    def _execute_with_session(session, method, url, headers=None, body=None):
+    def _execute_with_session(session, method, url, params=None, headers=None, body=None):
         """Executes the given URL using the given method in
            the common HTTP session.
         """
 
-        req = requests.Request(method.upper(), url, data=body, headers=headers)
+        req = requests.Request(method.upper(), url, params=params, data=body, headers=headers)
         req = session.prepare_request(req)
 
         mod_log().debug('Executing %s %s', method, url)
@@ -107,7 +107,7 @@ class Connection(object):
 
         return self._session
 
-    def execute(self, method, adt_uri, headers=None, body=None):
+    def execute(self, method, adt_uri, params=None, headers=None, body=None):
         """Executes the given ADT URI as an HTTP request and returns
            the requests response object
         """
@@ -116,13 +116,28 @@ class Connection(object):
 
         url = self._build_adt_url(adt_uri)
 
-        return Connection._execute_with_session(session, method, url, headers=headers, body=body)
+        return Connection._execute_with_session(session, method, url, params=params, headers=headers, body=body)
 
     def get_text(self, relativeuri):
         """Executes a GET HTTP request with the headers Accept = text/plain.
         """
 
         return self.execute('GET', relativeuri, headers={'Accept': 'text/plain'}).text
+
+
+LOCK_ACCESS_MODE_MODIFY = 'MODIFY'
+
+
+def lock_params(access_mode):
+    """Returns parameters for Action Lock"""
+
+    return {'_action': 'LOCK', 'accessMode': access_mode}
+
+
+def unlock_params(lock_handle):
+    """Returns parameters for Action Unlock"""
+
+    return {'_action': 'UNLOCK', 'lockHandle': lock_handle}
 
 
 class ADTObjectType(object):
@@ -331,6 +346,8 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         self._metadata = metadata if metadata is not None else ADTCoreData()
 
+        self._lock = None
+
     @property
     def coredata(self):
         """ADT Core Data"""
@@ -420,6 +437,38 @@ class ADTObject(metaclass=OrderedClassMembers):
         """The object's package reference"""
 
         return self._metadata.package_reference
+
+    def lock(self):
+        """Locks the object"""
+
+        if self._lock is not None:
+            raise SAPCliError(f'Object {self.uri}: already locked')
+
+        resp = self._connection.execute(
+            'POST',
+            self.uri,
+            params=lock_params(LOCK_ACCESS_MODE_MODIFY),
+            headers={
+                'Accept': 'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8' +
+                          ', application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9'
+            }
+        )
+
+        if 'dataname=com.sap.adt.lock.Result' not in resp.headers['Content-Type']:
+            raise SAPCliError(f'Object {self.uri}: lock response does not have lock result\n' + resp.text)
+
+        # TODO: check encoding
+        self._lock = resp.text
+
+    def unlock(self):
+        """Locks the object"""
+
+        if self._lock is None:
+            raise SAPCliError(f'Object {self.uri}: not locked')
+
+        self._connection.execute('POST', self.uri, params=unlock_params(self._lock))
+
+        self._lock = None
 
 
 class Program(ADTObject):
