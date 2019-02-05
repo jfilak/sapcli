@@ -21,6 +21,14 @@ Create executable program
 sapcli program create "ZHELLOWORLD" "Just a description" "$TMP"
 ```
 
+#### write
+
+Change code of an executable program without activation.
+
+```bash
+sapcli program write "ZHELLOWORLD" zhelloworld.abap
+```
+
 #### read
 
 Download source codes

@@ -5,14 +5,8 @@ import unittest
 from sap.errors import SAPCliError
 import sap.adt
 
-from fixtures_adt import DummyADTObject
+from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK
 from mock import Response, Connection
-
-
-FIXTURE_LOCK_RESPONSE_OK = Response(text='win',
-                                    status_code=200,
-                                    headers={'Content-Type': 'dataname=com.sap.adt.lock.Result'})
-
 
 class TestADTObject(unittest.TestCase):
 
@@ -22,11 +16,11 @@ class TestADTObject(unittest.TestCase):
         self.assertEquals(victory.uri, 'awesome/success/noobject')
 
     def test_lock_modify_ok(self):
-        connection = Connection([FIXTURE_LOCK_RESPONSE_OK])
+        connection = Connection([LOCK_RESPONSE_OK])
 
         victory = DummyADTObject(connection=connection)
         victory.lock()
-        self.assertEquals(victory._lock, FIXTURE_LOCK_RESPONSE_OK.text)
+        self.assertEquals(victory._lock, 'win')
 
         try:
             victory.lock()
@@ -56,7 +50,7 @@ class TestADTObject(unittest.TestCase):
             self.assertEquals(str(ex), f'Object {victory.uri}: lock response does not have lock result\ninvalid')
 
     def test_unlock_ok(self):
-        connection = Connection([FIXTURE_LOCK_RESPONSE_OK, None])
+        connection = Connection([LOCK_RESPONSE_OK, None])
 
         victory = DummyADTObject(connection=connection)
         victory.lock()

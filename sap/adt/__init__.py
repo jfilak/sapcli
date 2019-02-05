@@ -1,6 +1,8 @@
 """Base classes for ADT functionality modules"""
 
+import re
 import collections
+import urllib.parse
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -419,7 +421,7 @@ class ADTObject(metaclass=OrderedClassMembers):
     def uri(self):
         """ADT object URL fragment"""
 
-        return self.objtype.basepath + '/' + self.name
+        return self.objtype.basepath + '/' + self.name.lower()
 
     @property
     def text(self):
@@ -449,6 +451,7 @@ class ADTObject(metaclass=OrderedClassMembers):
             self.uri,
             params=lock_params(LOCK_ACCESS_MODE_MODIFY),
             headers={
+                'X-sap-adt-sessiontype': 'stateful',
                 'Accept': 'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8' +
                           ', application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9'
             }
@@ -457,8 +460,11 @@ class ADTObject(metaclass=OrderedClassMembers):
         if 'dataname=com.sap.adt.lock.Result' not in resp.headers['Content-Type']:
             raise SAPCliError(f'Object {self.uri}: lock response does not have lock result\n' + resp.text)
 
+        mod_log().debug(resp.text)
+
         # TODO: check encoding
-        self._lock = resp.text
+        self._lock = re.match('.*<LOCK_HANDLE>(.*)</LOCK_HANDLE>.*', resp.text)[1]
+        mod_log().debug('LockHandle=%s', self._lock)
 
     def unlock(self):
         """Locks the object"""
@@ -466,7 +472,14 @@ class ADTObject(metaclass=OrderedClassMembers):
         if self._lock is None:
             raise SAPCliError(f'Object {self.uri}: not locked')
 
-        self._connection.execute('POST', self.uri, params=unlock_params(self._lock))
+        self._connection.execute(
+            'POST',
+            self.uri,
+            params=unlock_params(self._lock),
+            headers={
+                'X-sap-adt-sessiontype': 'stateful',
+            }
+        )
 
         self._lock = None
 
@@ -494,11 +507,16 @@ class Program(ADTObject):
 
         text_uri = self.objtype.get_uri_for_type('text/plain')
 
-        return self._connection.execute(
+        resp = self._connection.execute(
             'PUT', self.uri + text_uri,
+            params={'lockHandle': self._lock},
             headers={
                 'Content-Type': 'text/plain; charset=utf-8'},
             body=content)
+
+        mod_log().debug("Change text response status: %i", resp.status_code)
+
+
 
     def create(self):
         """Creates ABAP Program aka Report"""

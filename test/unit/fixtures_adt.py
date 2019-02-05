@@ -1,4 +1,11 @@
 import sap.adt
+from mock import Response
+
+
+LOCK_RESPONSE_OK = Response(text='<sap><LOCK_HANDLE>win</LOCK_HANDLE></sap>',
+                            status_code=200,
+                            headers={'Content-Type': 'dataname=com.sap.adt.lock.Result'})
+
 
 class DummyADTObject(sap.adt.ADTObject):
 

@@ -54,4 +54,9 @@ def write(connection, args):
             text = filesrc.readlines()
 
     program = sap.adt.Program(connection, args.name.upper())
-    program.change_text(''.join(text))
+    # TODO: context manager
+    program.lock()
+    try:
+        program.change_text(''.join(text))
+    finally:
+        program.unlock()
