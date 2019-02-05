@@ -52,7 +52,10 @@ def parse_command_line(argv):
 
     args = arg_parser.parse_args(argv[1:])
 
-    log.setLevel(max(3 - args.verbose_count, 0) * 10)
+    loglevel = max(3 - args.verbose_count, 0) * 10
+    log.setLevel(loglevel)
+    logging.debug('Logging level: %i', loglevel)
+
     return args
 
 
