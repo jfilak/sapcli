@@ -420,6 +420,7 @@ class ADTObject(metaclass=OrderedClassMembers):
     def uri(self):
         """ADT object URL fragment"""
 
+        # pylint: disable=no-member
         return self.objtype.basepath + '/' + self.name.lower()
 
     @property
