@@ -29,6 +29,14 @@ Change code of an executable program without activation.
 sapcli program write "ZHELLOWORLD" zhelloworld.abap
 ```
 
+#### activate
+
+Activate an executable program.
+
+```bash
+sapcli program activate "ZHELLOWORLD"
+```
+
 #### read
 
 Download source codes
