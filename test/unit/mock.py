@@ -32,3 +32,7 @@ class Connection:
         self.execs.append(Request(method, adt_uri, headers, body, params))
 
         return next(self._resp_iter)
+
+    @property
+    def uri(self):
+        return 'sap/bc/adt'
