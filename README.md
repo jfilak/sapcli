@@ -80,3 +80,11 @@ Creates non-transportable packages
 ```bash
 sapcli package create \$tests "with description"
 ```
+
+#### unit tests
+
+Execute unit tests
+
+```bash
+sapcli aunit run package \$tests
+```

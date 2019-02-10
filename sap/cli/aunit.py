@@ -2,6 +2,7 @@
 
 import sap.adt
 import sap.cli.core
+from sap.errors import SAPCliError
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -15,17 +16,22 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 @CommandGroup.command()
 @CommandGroup.argument('name')
-@CommandGroup.argument('type', choices=['program', 'class'])
+@CommandGroup.argument('type', choices=['program', 'class', 'package'])
 def run(connection, args):
     """Prints it out based on command line configuration.
+
+       Exceptions:
+         - SAPCliError:
+           - when the given type does not belong to the type white list
     """
 
-    obj = None
-    if args.type == 'program':
-        obj = sap.adt.Program(connection, args.name)
-    elif args.type == 'class':
-        obj = sap.adt.Class(connection, args.name)
+    types = {'program': sap.adt.Program, 'class': sap.adt.Class, 'package': sap.adt.Package}
+    try:
+        typ = types[args.type]
+    except KeyError:
+        raise SAPCliError(f'Unknown type: {args.type}')
 
     aunit = sap.adt.AUnit(connection)
+    obj = typ(connection, args.name)
     results = aunit.execute(obj)
     print(results.text)
