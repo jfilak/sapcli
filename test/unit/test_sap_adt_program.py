@@ -42,7 +42,7 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(len(conn.execs), 1)
 
         self.assertEqual(conn.execs[0][0], 'PUT')
-        self.assertEqual(conn.execs[0][1], 'programs/programs/ZHELLO_WORLD/source/main')
+        self.assertEqual(conn.execs[0][1], 'programs/programs/zhello_world/source/main')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'text/plain; charset=utf-8'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_REPORT_CODE)
