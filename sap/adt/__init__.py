@@ -516,8 +516,6 @@ class Program(ADTObject):
 
         mod_log().debug("Change text response status: %i", resp.status_code)
 
-
-
     def create(self):
         """Creates ABAP Program aka Report"""
 
