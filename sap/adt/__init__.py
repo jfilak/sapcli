@@ -2,7 +2,6 @@
 
 import re
 import collections
-import urllib.parse
 import requests
 from requests.auth import HTTPBasicAuth
 
