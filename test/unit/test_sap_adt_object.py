@@ -5,7 +5,7 @@ import unittest
 from sap.errors import SAPCliError
 import sap.adt
 
-from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK
+from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 from mock import Response, Connection
 
 class TestADTObject(unittest.TestCase):
@@ -64,6 +64,30 @@ class TestADTObject(unittest.TestCase):
             victory.unlock()
         except SAPCliError as ex:
             self.assertEquals(str(ex), f'Object {victory.uri}: not locked')
+
+    def test_activate(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+        victory = DummyADTObject(connection=connection, name='activator')
+
+        victory.activate()
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, 'activation')
+
+        self.assertEqual(connection.execs[0].headers['Accept'], 'application/xml' )
+        self.assertEqual(connection.execs[0].headers['Content-Type'], 'application/xml')
+        self.assertEqual(sorted(connection.execs[0].headers.keys()), ['Accept', 'Content-Type'])
+
+        self.assertEqual(connection.execs[0].params['method'], 'activate' )
+        self.assertEqual(connection.execs[0].params['preauditRequested'], 'true')
+        self.assertEqual(sorted(connection.execs[0].params.keys()), ['method', 'preauditRequested'])
+
+        self.maxDiff = None
+        self.assertEqual(connection.execs[0].body, '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:objectReference adtcore:uri="/sap/bc/adt/awesome/success/activator" adtcore:name="ACTIVATOR"/>
+</adtcore:objectReferences>''' )
 
 
 if __name__ == '__main__':

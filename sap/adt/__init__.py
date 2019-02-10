@@ -141,6 +141,12 @@ def unlock_params(lock_handle):
     return {'_action': 'UNLOCK', 'lockHandle': lock_handle}
 
 
+def activation_params():
+    """Returns parameters for Activation of object"""
+
+    return {'method': 'activate', 'preauditRequested': 'true'}
+
+
 class ADTObjectType(object):
     """Common ADT object type attributes.
     """
@@ -482,6 +488,26 @@ class ADTObject(metaclass=OrderedClassMembers):
         )
 
         self._lock = None
+
+    def activate(self):
+        """Activate the object"""
+
+        # pylint: disable=no-member
+        request = f'''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:objectReference adtcore:uri="/{self.connection.uri}/{self.uri}" adtcore:name="{self.name.upper()}"/>
+</adtcore:objectReferences>'''
+
+        self._connection.execute(
+            'POST',
+            'activation',
+            params=activation_params(),
+            headers={
+                'Accept': 'application/xml',
+                'Content-Type': 'application/xml'
+            },
+            body=request
+        )
 
 
 class Program(ADTObject):
