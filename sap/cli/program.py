@@ -60,3 +60,13 @@ def write(connection, args):
         program.change_text(''.join(text))
     finally:
         program.unlock()
+
+
+@CommandGroup.command()
+@CommandGroup.argument('name')
+def activate(connection, args):
+    """Actives the passed program.
+    """
+
+    program = sap.adt.Program(connection, args.name)
+    program.activate()

@@ -48,5 +48,16 @@ class TestProgramWrite(unittest.TestCase):
         self.assertEqual(conn.execs[1][3], FIXTURE_FILE_REPORT_SRC)
 
 
+class TestProgramActivate(unittest.TestCase):
+
+    def test_activate(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        sap.cli.program.activate(conn, SimpleNamespace(name='test_activation'))
+
+        self.assertEqual(len(conn.execs), 1)
+        self.assertIn('test_activation', conn.execs[0].body)
+
+
 if __name__ == '__main__':
     unittest.main()
