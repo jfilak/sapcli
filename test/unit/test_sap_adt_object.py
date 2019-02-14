@@ -73,7 +73,7 @@ class TestADTObject(unittest.TestCase):
 
         self.assertEqual(len(connection.execs), 1)
         self.assertEqual(connection.execs[0].method, 'POST')
-        self.assertEqual(connection.execs[0].adt_uri, 'activation')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/activation')
 
         self.assertEqual(connection.execs[0].headers['Accept'], 'application/xml' )
         self.assertEqual(connection.execs[0].headers['Content-Type'], 'application/xml')

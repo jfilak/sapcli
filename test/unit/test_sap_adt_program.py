@@ -28,7 +28,7 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(len(conn.execs), 1)
 
         self.assertEqual(conn.execs[0][0], 'POST')
-        self.assertEqual(conn.execs[0][1], 'programs/programs')
+        self.assertEqual(conn.execs[0][1], '/sap/bc/adt/programs/programs')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.programs.programs.v2+xml'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_XML)
@@ -42,7 +42,7 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(len(conn.execs), 1)
 
         self.assertEqual(conn.execs[0][0], 'PUT')
-        self.assertEqual(conn.execs[0][1], 'programs/programs/zhello_world/source/main')
+        self.assertEqual(conn.execs[0][1], '/sap/bc/adt/programs/programs/zhello_world/source/main')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'text/plain; charset=utf-8'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_REPORT_CODE)

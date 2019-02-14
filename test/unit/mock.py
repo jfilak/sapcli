@@ -29,7 +29,8 @@ class Connection:
         self._resp_iter = ok_responses() if responses is None else iter(responses)
 
     def execute(self, method, adt_uri, params=None, headers=None, body=None):
-        self.execs.append(Request(method, adt_uri, headers, body, params))
+        final_uri = '/' + self.uri + '/' + adt_uri
+        self.execs.append(Request(method, final_uri, headers, body, params))
 
         return next(self._resp_iter)
 
