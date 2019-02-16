@@ -6,15 +6,7 @@ from functools import partial
 import sap.adt.cts
 
 from mock import Connection, Response, Request
-
-FIXTURE_TASK_NUMBER='1A2B3C4D5E'
-
-FIXTURE_RELEASE_OK_RESPONSE = f'''<?xml version="1.0" encoding="UTF-8"?>
-<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newreleasejobs" tm:releasetimestamp="20190212191502 " tm:number="{FIXTURE_TASK_NUMBER}">
-  <tm:releasereports>
-    <chkrun:checkReport xmlns:chkrun="http://www.sap.com/adt/checkrun" chkrun:reporter="transportrelease" chkrun:triggeringUri="/sap/bc/adt/cts/transportrequests/{FIXTURE_TASK_NUMBER}" chkrun:status="released" chkrun:statusText="Transport request/task {FIXTURE_TASK_NUMBER} was successfully released"/>
-  </tm:releasereports>
-</tm:root>'''
+from fixtures_adt import TASK_NUMBER, TASK_RELEASE_OK_RESPONSE
 
 
 class TestADTCTS(unittest.TestCase):
@@ -53,20 +45,20 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
            the expected data.
         """
 
-        connection = Connection([Response(FIXTURE_RELEASE_OK_RESPONSE, 200, {})])
+        connection = Connection([Response(TASK_RELEASE_OK_RESPONSE, 200, {})])
 
-        wbr = factory(connection, FIXTURE_TASK_NUMBER)
+        wbr = factory(connection, TASK_NUMBER)
         resp = wbr.release()
 
         self.assertEqual(
             connection.execs,
             [Request('POST',
-                     f'/sap/bc/adt/cts/transportrequests/{FIXTURE_TASK_NUMBER}/newreleasejobs',
+                     f'/sap/bc/adt/cts/transportrequests/{TASK_NUMBER}/newreleasejobs',
                      {'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml'},
                      None,
                      None)])
 
-        self.assertEqual(resp, FIXTURE_RELEASE_OK_RESPONSE)
+        self.assertEqual(resp, TASK_RELEASE_OK_RESPONSE)
 
     def test_workbench_request_release(self):
         "AbstractWorkbenchRequest can be released"""
