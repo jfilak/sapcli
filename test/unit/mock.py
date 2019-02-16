@@ -24,8 +24,9 @@ def ok_responses():
 
 class Connection:
 
-    def __init__(self, responses=None):
+    def __init__(self, responses=None, user='ANZEIGER'):
         self.execs = list()
+        self.user = user
         self._resp_iter = ok_responses() if responses is None else iter(responses)
 
     def execute(self, method, adt_uri, params=None, headers=None, body=None):

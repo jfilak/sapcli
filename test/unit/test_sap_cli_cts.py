@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import unittest
+from unittest.mock import patch
+from io import StringIO
 from types import SimpleNamespace
 
 from sap.errors import SAPCliError
@@ -11,7 +13,8 @@ from fixtures_adt import (
     TASK_NUMBER,
     TRANSPORT_NUMBER,
     TASK_RELEASE_OK_RESPONSE,
-    TRASNPORT_RELEASE_OK_RESPONSE
+    TRASNPORT_RELEASE_OK_RESPONSE,
+    SHORTENED_WORKBENCH_XML
 )
 
 
@@ -46,6 +49,62 @@ class TestCTSRelease(unittest.TestCase):
         self.do_check_command_release('task', TASK_NUMBER, TASK_RELEASE_OK_RESPONSE)
 
 
+class TestCTSList(unittest.TestCase):
+
+    def do_workbench_list_output(self, request_type, recursive):
+        connection = Connection([Response(SHORTENED_WORKBENCH_XML, 200, {})])
+
+        with patch('sys.stdout', new_callable=StringIO) as fake_output:
+            sap.cli.cts.print_list(connection, SimpleNamespace(type=request_type, recursive=recursive, user='FILAK'))
+
+        self.assertEqual(
+            [(request.adt_uri, request.params['user']) for request in connection.execs],
+            [('/sap/bc/adt/cts/transportrequests', 'FILAK')]
+        )
+
+        return fake_output.getvalue()
+
+    def test_workbench_list_transport_0(self):
+        output = self.do_workbench_list_output('transport', 0)
+        self.assertEqual(output, f'{TRANSPORT_NUMBER}\n')
+
+    def test_workbench_list_transport_1(self):
+        output = self.do_workbench_list_output('transport', 1)
+        self.assertEqual(output, f'{TRANSPORT_NUMBER}\n  {TASK_NUMBER}\n')
+
+    def test_workbench_list_transport_2(self):
+        output = self.do_workbench_list_output('transport', 2)
+        self.assertEqual(output, f'{TRANSPORT_NUMBER}\n  {TASK_NUMBER}\n    TABD FOO\n')
+
+    def test_workbench_list_transport_3(self):
+        output = self.do_workbench_list_output('transport', 3)
+        self.assertEqual(output, f'{TRANSPORT_NUMBER}\n  {TASK_NUMBER}\n    TABD FOO\n')
+
+    def test_workbench_list_task_0(self):
+        output = self.do_workbench_list_output('task', 0)
+        self.assertEqual(output, f'{TASK_NUMBER}\n')
+
+    def test_workbench_list_task_1(self):
+        output = self.do_workbench_list_output('task', 1)
+        self.assertEqual(output, f'{TASK_NUMBER}\n  TABD FOO\n')
+
+    def test_workbench_list_task_2(self):
+        output = self.do_workbench_list_output('task', 2)
+        self.assertEqual(output, f'{TASK_NUMBER}\n  TABD FOO\n')
+
+    def test_workbench_list_transport(self):
+        connection = Connection([Response(SHORTENED_WORKBENCH_XML, 200, {})], user='ANZEIGER')
+
+        with patch('sys.stdout', new_callable=StringIO) as fake_output:
+            sap.cli.cts.print_list(connection, SimpleNamespace(type='transport', recursive=0, user=None))
+
+        self.assertEqual(
+            [(request.adt_uri, request.params['user']) for request in connection.execs],
+            [('/sap/bc/adt/cts/transportrequests', 'ANZEIGER')]
+        )
+
+        self.assertEqual(fake_output.getvalue(), f'{TRANSPORT_NUMBER}\n')
+
+
 if __name__ == '__main__':
     unittest.main()
-

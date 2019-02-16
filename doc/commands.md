@@ -80,6 +80,14 @@ sapcli aunit run package \$tests
 
 ## Change Transport System (CTS)
 
+### list
+
+Get list of CTS requests
+
+```bash
+sapcli cts list {transport,task} [--recusive|--recusive|...] [--user login]
+```
+
 ### release
 
 Release CTS request - either Transport or Transport Task
