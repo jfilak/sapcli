@@ -55,7 +55,7 @@ class TestCTSList(unittest.TestCase):
         connection = Connection([Response(SHORTENED_WORKBENCH_XML, 200, {})])
 
         with patch('sys.stdout', new_callable=StringIO) as fake_output:
-            sap.cli.cts.print_list(connection, SimpleNamespace(type=request_type, recursive=recursive, user='FILAK'))
+            sap.cli.cts.print_list(connection, SimpleNamespace(type=request_type, recursive=recursive, owner='FILAK'))
 
         self.assertEqual(
             [(request.adt_uri, request.params['user']) for request in connection.execs],
@@ -96,7 +96,7 @@ class TestCTSList(unittest.TestCase):
         connection = Connection([Response(SHORTENED_WORKBENCH_XML, 200, {})], user='ANZEIGER')
 
         with patch('sys.stdout', new_callable=StringIO) as fake_output:
-            sap.cli.cts.print_list(connection, SimpleNamespace(type='transport', recursive=0, user=None))
+            sap.cli.cts.print_list(connection, SimpleNamespace(type='transport', recursive=0, owner=None))
 
         self.assertEqual(
             [(request.adt_uri, request.params['user']) for request in connection.execs],

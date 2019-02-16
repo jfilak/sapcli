@@ -58,7 +58,7 @@ def printer(stream, output):
 
 
 @CommandGroup.command(cmd_name='list')
-@CommandGroup.argument('--user')
+@CommandGroup.argument('--owner')
 @CommandGroup.argument('--recursive', action='count')
 @CommandGroup.argument('type', choices=REQUEST_TYPES)
 def print_list(connection, args):
@@ -81,7 +81,7 @@ def print_list(connection, args):
     object_printer = printers[depth]
 
     workbench = Workbench(connection)
-    transports = workbench.get_transport_requests(user=args.user)
+    transports = workbench.get_transport_requests(user=args.owner)
 
     for transport in transports:
         transport_printer(sys.stdout, transport.number)
