@@ -243,7 +243,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
 
         self.assert_task_equal(task)
 
-    def test_process_task(self):
+    def test_process_transport(self):
         builder = sap.adt.cts.WorkbenchBuilder('noconnection')
 
         abap_object_elem = Element(ABAP_OBJECT_ATTRIBUTES, [])
