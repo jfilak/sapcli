@@ -59,7 +59,7 @@ def printer(stream, output):
 
 @CommandGroup.command(cmd_name='list')
 @CommandGroup.argument('--owner')
-@CommandGroup.argument('--recursive', action='count', default=0)
+@CommandGroup.argument('-r', '--recursive', action='count', default=0)
 @CommandGroup.argument('type', choices=REQUEST_TYPES)
 def print_list(connection, args):
     """List the CTS request of the passed type."""
