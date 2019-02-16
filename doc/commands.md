@@ -85,7 +85,7 @@ sapcli aunit run package \$tests
 Get list of CTS requests
 
 ```bash
-sapcli cts list {transport,task} [--recusive|--recusive|...] [--user login]
+sapcli cts list {transport,task} [--recusive|--recusive|...] [--owner login]
 ```
 
 ### release
