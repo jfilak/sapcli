@@ -205,7 +205,7 @@ class WorkbenchBuilder:
             attributes['tm:name'],
             attributes['tm:wbtype'],
             attributes['tm:obj_desc'],
-            attributes['tm:lock_status'] == 'X'
+            attributes.get('tm:lock_status', ' ') == 'X'
         )
 
         return abap_object
