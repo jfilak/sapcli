@@ -33,7 +33,7 @@ class WorkbenchResponseHandler(ContentHandler):
         elif name == 'tm:task':
             self._task = Element(attrs, [])
             self._transport.children.append(self._task)
-        elif name == 'tm:abap_object':
+        elif name == 'tm:abap_object' and self._task is not None:
             self._task.children.append(Element(attrs, []))
 
     def endElement(self, name):
