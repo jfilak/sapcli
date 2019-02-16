@@ -55,11 +55,13 @@ def workbench_params(user: str):
 class AbstractWorkbenchRequest:
     """Workbench request"""
 
-    def __init__(self, connection, number: str, owner: str = None, description: str = None):
+    def __init__(self, connection, number: str, owner: str = None,
+                 description: str = None, status: str = None):
         self._connection = connection
         self._number = number
         self._owner = owner
         self._description = description
+        self._status = '?' if status is None else status
 
     @property
     def number(self):
@@ -79,6 +81,12 @@ class AbstractWorkbenchRequest:
         """Request description"""
 
         return self._description
+
+    @property
+    def status(self):
+        """Status -> [D,R,?]"""
+
+        return self._status
 
     def release(self):
         """Release the request"""
@@ -172,7 +180,8 @@ class WorkbenchBuilder:
             self._connection,
             transport_elem.attributes['tm:number'],
             owner=transport_elem.attributes['tm:owner'],
-            description=transport_elem.attributes['tm:desc']
+            description=transport_elem.attributes['tm:desc'],
+            status=transport_elem.attributes['tm:status']
         )
 
         self.transports.append(transport)
@@ -194,7 +203,8 @@ class WorkbenchBuilder:
             self._connection,
             task_elem.attributes['tm:number'],
             task_elem.attributes['tm:owner'],
-            task_elem.attributes['tm:desc']
+            task_elem.attributes['tm:desc'],
+            task_elem.attributes['tm:status']
         )
 
         return task

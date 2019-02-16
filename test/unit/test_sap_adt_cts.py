@@ -245,6 +245,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
     def assert_task_equal(self, task, connection='noconnection'):
         self.assertEqual(task.number, TASK_NUMBER)
         self.assertEqual(task.description, 'Task Description')
+        self.assertEqual(task.status, 'D')
         self.assertEqual(task.owner, 'FILAK')
         self.assertEqual(task._connection, connection)
         self.assertEqual(task.transport, TRANSPORT_NUMBER)
@@ -255,6 +256,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
 
         self.assertEqual(transport.number, TRANSPORT_NUMBER)
         self.assertEqual(transport.description, 'Transport Description')
+        self.assertEqual(transport.status, 'D')
         self.assertEqual(transport.owner, 'FILAK')
         self.assertEqual(transport._connection, connection)
 
