@@ -28,7 +28,8 @@ def release(connection, args):
     """Releases the CTS request of the passed type and number."""
 
     try:
-        factory = {'transport': WorkbenchTransport, 'task': partial(WorkbenchTask, None)}[args.type]
+        factory = {'transport': partial(WorkbenchTransport, None),
+                   'task': partial(WorkbenchTask, None, None)}[args.type]
     except KeyError:
         raise SAPCliError(f'Internal error: unknown request type: {args.type}')
     else:
