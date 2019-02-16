@@ -77,3 +77,13 @@ Execute unit tests
 ```bash
 sapcli aunit run package \$tests
 ```
+
+## Change Transport System (CTS)
+
+### release
+
+Release CTS request - either Transport or Transport Task
+
+```bash
+sapcli cts release [transport,task] $number
+```
