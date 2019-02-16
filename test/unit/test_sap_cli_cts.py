@@ -66,31 +66,31 @@ class TestCTSList(unittest.TestCase):
 
     def test_workbench_list_transport_0(self):
         output = self.do_workbench_list_output('transport', 0)
-        self.assertEqual(output, f'{TRANSPORT_NUMBER}\n')
+        self.assertEqual(output, f'{TRANSPORT_NUMBER} D FILAK Transport Description\n')
 
     def test_workbench_list_transport_1(self):
         output = self.do_workbench_list_output('transport', 1)
-        self.assertEqual(output, f'{TRANSPORT_NUMBER}\n  {TASK_NUMBER}\n')
+        self.assertEqual(output, f'{TRANSPORT_NUMBER} D FILAK Transport Description\n  {TASK_NUMBER} D FILAK\n')
 
     def test_workbench_list_transport_2(self):
         output = self.do_workbench_list_output('transport', 2)
-        self.assertEqual(output, f'{TRANSPORT_NUMBER}\n  {TASK_NUMBER}\n    TABD FOO\n')
+        self.assertEqual(output, f'{TRANSPORT_NUMBER} D FILAK Transport Description\n  {TASK_NUMBER} D FILAK\n    TABD FOO\n')
 
     def test_workbench_list_transport_3(self):
         output = self.do_workbench_list_output('transport', 3)
-        self.assertEqual(output, f'{TRANSPORT_NUMBER}\n  {TASK_NUMBER}\n    TABD FOO\n')
+        self.assertEqual(output, f'{TRANSPORT_NUMBER} D FILAK Transport Description\n  {TASK_NUMBER} D FILAK\n    TABD FOO\n')
 
     def test_workbench_list_task_0(self):
         output = self.do_workbench_list_output('task', 0)
-        self.assertEqual(output, f'{TASK_NUMBER}\n')
+        self.assertEqual(output, f'{TASK_NUMBER} D FILAK Task Description\n')
 
     def test_workbench_list_task_1(self):
         output = self.do_workbench_list_output('task', 1)
-        self.assertEqual(output, f'{TASK_NUMBER}\n  TABD FOO\n')
+        self.assertEqual(output, f'{TASK_NUMBER} D FILAK Task Description\n  TABD FOO\n')
 
     def test_workbench_list_task_2(self):
         output = self.do_workbench_list_output('task', 2)
-        self.assertEqual(output, f'{TASK_NUMBER}\n  TABD FOO\n')
+        self.assertEqual(output, f'{TASK_NUMBER} D FILAK Task Description\n  TABD FOO\n')
 
     def test_workbench_list_transport(self):
         connection = Connection([Response(SHORTENED_WORKBENCH_XML, 200, {})], user='ANZEIGER')
@@ -103,7 +103,7 @@ class TestCTSList(unittest.TestCase):
             [('/sap/bc/adt/cts/transportrequests', 'ANZEIGER')]
         )
 
-        self.assertEqual(fake_output.getvalue(), f'{TRANSPORT_NUMBER}\n')
+        self.assertEqual(fake_output.getvalue(), f'{TRANSPORT_NUMBER} D FILAK Transport Description\n')
 
 
 if __name__ == '__main__':

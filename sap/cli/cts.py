@@ -64,13 +64,21 @@ def printer(stream, output):
 def print_list(connection, args):
     """List the CTS request of the passed type."""
 
-    printers = [void_printer, printer, partial(prefixed_printer, '  '), partial(prefixed_printer, '    ')]
+    printers = [
+        void_printer,
+        printer,
+        partial(prefixed_printer, '  '),
+        partial(prefixed_printer, '    ')
+    ]
     recursion = args.recursive
 
     depth = 1
     if args.type == 'task':
         recursion += 1
         depth = 0
+        task_format = '{} {} {} {}'
+    else:
+        task_format = '{} {} {}'
 
     transport_printer = printers[depth]
     depth += 1
@@ -84,10 +92,14 @@ def print_list(connection, args):
     transports = workbench.get_transport_requests(user=args.owner)
 
     for transport in transports:
-        transport_printer(sys.stdout, transport.number)
+        transport_printer(
+            sys.stdout,
+            f'{transport.number} {transport.status} {transport.owner} {transport.description}')
         if recursion - 1 >= 0:
             for task in transport.tasks:
-                task_printer(sys.stdout, task.number)
+                task_printer(
+                    sys.stdout,
+                    task_format.format(task.number, task.status, task.owner, task.description))
                 if recursion - 2 >= 0:
                     for abap_object in task.objects:
                         object_printer(sys.stdout, f'{abap_object.type} {abap_object.name}')
