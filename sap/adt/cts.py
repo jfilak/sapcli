@@ -209,7 +209,7 @@ class WorkbenchBuilder:
             attributes['tm:type'],
             attributes['tm:name'],
             attributes['tm:wbtype'],
-            attributes['tm:obj_desc'],
+            attributes.get('tm:obj_desc', attributes['tm:obj_info']),
             attributes.get('tm:lock_status', ' ') == 'X'
         )
 
