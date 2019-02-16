@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+from functools import partial
 
 import sap.adt.cts
 
@@ -47,14 +48,14 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
         self.assertEqual(wbr.owner, 'user_owner')
         self.assertEqual(wbr.description, 'description')
 
-    def test_workbench_request_release(self):
+    def do_check_release(self, factory):
         """Check it correctly builds the URL with parameters and returns
            the expected data.
         """
 
         connection = Connection([Response(FIXTURE_RELEASE_OK_RESPONSE, 200, {})])
 
-        wbr = sap.adt.cts.AbstractWorkbenchRequest(connection, FIXTURE_TASK_NUMBER)
+        wbr = factory(connection, FIXTURE_TASK_NUMBER)
         resp = wbr.release()
 
         self.assertEqual(
@@ -66,6 +67,21 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
                      None)])
 
         self.assertEqual(resp, FIXTURE_RELEASE_OK_RESPONSE)
+
+    def test_workbench_request_release(self):
+        "AbstractWorkbenchRequest can be released"""
+
+        self.do_check_release(sap.adt.cts.AbstractWorkbenchRequest)
+
+    def test_workbench_transport_release(self):
+        "WorkbenchTransport can be released"""
+
+        self.do_check_release(sap.adt.cts.WorkbenchTransport)
+
+    def test_workbench_task_release(self):
+        "WorkbenchTask can be released"""
+
+        self.do_check_release(partial(sap.adt.cts.WorkbenchTask, None))
 
 
 if __name__ == '__main__':
