@@ -224,7 +224,7 @@ class Workbench:
             user = self._connection.user
 
         resp = self._connection.execute(
-            'POST', 'cts/transportrequests',
+            'GET', 'cts/transportrequests',
             params=workbench_params(user),
             headers={'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml'}
         )

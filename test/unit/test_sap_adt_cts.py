@@ -236,7 +236,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
 
         self.assertEqual(
             connection.execs,
-            [Request('POST',
+            [Request('GET',
                      f'/sap/bc/adt/cts/transportrequests',
                      {'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml'},
                      None,
