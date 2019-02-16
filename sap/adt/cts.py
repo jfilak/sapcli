@@ -159,6 +159,11 @@ class WorkbenchBuilder:
         transport_tasks = []
 
         for task_elem in transport_elem.children:
+            if 'tm:parent' not in task_elem.attributes:
+                attrs = dict(task_elem.attributes)
+                attrs['tm:parent'] = transport_elem.attributes['tm:number']
+                task_elem = Element(attrs, task_elem.children)
+
             task = self.process_task_xml(task_elem)
             transport_tasks.append(task)
 

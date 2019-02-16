@@ -72,6 +72,14 @@ TASK_ATTRIBUTES = {
     'tm:uri': f'/sap/bc/adt/vit/wb/object_type/%20%20%20%20rq/object_name/{TASK_NUMBER}'
 }
 
+NW_752_SP2_TASK_ATTRIBUTES = {
+    'tm:number': TASK_NUMBER,
+    'tm:owner': 'FILAK',
+    'tm:desc': 'Task Description',
+    'tm:status': 'D',
+    'tm:uri': f'/sap/bc/adt/vit/wb/object_type/%20%20%20%20rq/object_name/{TASK_NUMBER}'
+}
+
 TRANSPORT_ATTRIBUTES = {
     'tm:number': TRANSPORT_NUMBER,
     'tm:parent': '',
@@ -87,6 +95,13 @@ TRANSPORT_ATTRIBUTES = {
     'tm:uri': f'/sap/bc/adt/vit/wb/object_type/%20%20%20%20rq/object_name/{TRANSPORT_NUMBER}'
 }
 
+NW_752_SP2_TRANSPORT_ATTRIBUTES = {
+    'tm:number': TRANSPORT_NUMBER,
+    'tm:owner': 'FILAK',
+    'tm:desc': 'Transport Description',
+    'tm:status': 'D',
+    'tm:uri': f'/sap/bc/adt/vit/wb/object_type/%20%20%20%20rq/object_name/{TRANSPORT_NUMBER}'
+}
 
 class TestADTCTS(unittest.TestCase):
 
@@ -250,6 +265,22 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
         task_elem = Element(TASK_ATTRIBUTES, [abap_object_elem])
 
         transport = builder.process_transport_xml(Element(TRANSPORT_ATTRIBUTES,[task_elem]))
+        self.assert_trasport_equal(transport)
+        self.assert_task_equal(transport.tasks[0])
+
+    def test_process_task_752_sp2(self):
+        builder = sap.adt.cts.WorkbenchBuilder('noconnection')
+        task = builder.process_task_xml(Element(TASK_ATTRIBUTES, [Element(ABAP_OBJECT_ATTRIBUTES, [])]))
+
+        self.assert_task_equal(task)
+
+    def test_process_transport_752_sp2(self):
+        builder = sap.adt.cts.WorkbenchBuilder('noconnection')
+
+        abap_object_elem = Element(ABAP_OBJECT_ATTRIBUTES, [])
+        task_elem = Element(NW_752_SP2_TASK_ATTRIBUTES, [abap_object_elem])
+
+        transport = builder.process_transport_xml(Element(NW_752_SP2_TRANSPORT_ATTRIBUTES, [task_elem]))
         self.assert_trasport_equal(transport)
         self.assert_task_equal(transport.tasks[0])
 
