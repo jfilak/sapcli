@@ -458,8 +458,10 @@ class ADTObject(metaclass=OrderedClassMembers):
             params=lock_params(LOCK_ACCESS_MODE_MODIFY),
             headers={
                 'X-sap-adt-sessiontype': 'stateful',
-                'Accept': 'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8' +
-                          ', application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9'
+                'Accept': ', '.join([
+                    'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8',
+                    'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9'
+                ])
             }
         )
 
