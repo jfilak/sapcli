@@ -7,11 +7,11 @@ PYTHON_BIN=python3
 PYTEST_MODULE=unittest
 PYTEST_PARAMS=discover -b -v -s test/unit
 
-PYLINT_BIN=pylint-3
+PYLINT_BIN ?= pylint-3
 PYLINT_RC_FILE=.pylintrc
 PYLINT_PARAMS=--output-format=parseable --reports=no
 
-FLAKE8_BIN=flake8-3
+FLAKE8_BIN ?= flake8-3
 FLAKE8_CONFIG_FILE=.flake8
 FLAKE8_PARAMS=
 

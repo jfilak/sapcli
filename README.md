@@ -1,4 +1,4 @@
-# SAP CLI
+# SAP CLI [![Build Status](https://travis-ci.org/jfilak/sapcli.svg?branch=master)](https://travis-ci.org/jfilak/sapcli)
 
 Command line interface to SAP products
 

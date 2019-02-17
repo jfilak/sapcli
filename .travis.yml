@@ -1,0 +1,20 @@
+dist: trusty
+
+language: python
+python:
+  - 3.6
+
+git:
+  depth: false
+
+install:
+  - pip install -r requirements.txt
+  - pip install pylint
+  - pip install flake8
+
+script:
+  - make check PYLINT_BIN=pylint FLAKE8_BIN=flake8
+
+notifications:
+  email:
+    - jakub@thefilaks.net
