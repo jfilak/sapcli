@@ -3,7 +3,7 @@
 from collections import defaultdict
 
 
-class CommandGroup(object):
+class CommandGroup:
     """Base class for CLI Commands which should be implemented as methods
        ancestor classes.
 

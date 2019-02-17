@@ -19,7 +19,7 @@ def mod_log():
     return get_logger()
 
 
-class Connection(object):
+class Connection:
     """ADT Connection for HTTP communication built on top Python requests.
     """
 
@@ -147,7 +147,7 @@ def activation_params():
     return {'method': 'activate', 'preauditRequested': 'true'}
 
 
-class ADTObjectType(object):
+class ADTObjectType:
     """Common ADT object type attributes.
     """
 
@@ -235,7 +235,7 @@ class OrderedClassMembers(type):
         return type.__new__(mcs, name, bases, classdict)
 
 
-class ADTCoreData(object):
+class ADTCoreData:
     """Common SAP object attributes.
     """
 
@@ -569,7 +569,7 @@ class Class(ADTObject):
     )
 
 
-class AUnit(object):
+class AUnit:
     """ABAP Unit tests
     """
 

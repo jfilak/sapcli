@@ -42,6 +42,7 @@ def release(connection, args):
 def void_printer(_, __):
     """Prints nothing"""
 
+    # pylint: disable=unnecessary-pass
     pass
 
 
