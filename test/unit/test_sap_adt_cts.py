@@ -283,7 +283,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
 
         self.assertEqual(wb_object, FOREIGN_WORKBENCH_ABAP_OBJECT)
 
-    def test_process_abap_object_foreign(self):
+    def test_process_abap_object_no_desc(self):
         builder = sap.adt.cts.WorkbenchBuilder('noconnection')
         wb_object = builder.process_abap_object_xml(Element(NO_DESC_ABAP_OBJECT_ATTRIBUTES, []))
 
