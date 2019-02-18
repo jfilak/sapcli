@@ -82,8 +82,10 @@ class Connection:
         req = requests.Request(method.upper(), url, params=params, data=body, headers=headers)
         req = session.prepare_request(req)
 
-        mod_log().debug('Executing %s %s', method, url)
+        mod_log().info('Executing %s %s', method, url)
         res = session.send(req)
+
+        mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
 
         if res.status_code >= 400:
             raise HTTPRequestError(req, res)
