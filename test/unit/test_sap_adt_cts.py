@@ -48,6 +48,14 @@ NO_DESC_ABAP_OBJECT_ATTRIBUTES = {
     'tm:obj_info': 'Object Info',
 }
 
+NO_WBTYPE_ABAP_OBJECT_ATTRIBUTES = {
+    'tm:pgmid': 'LIMU',
+    'tm:type': 'TABD',
+    'tm:name': 'FOO',
+    'tm:dummy_uri': '/sap/bc/adt/cts/transportrequests/reference?obj_name=FOO&amp;pgmid=LIMU',
+    'tm:obj_info': 'Object Info',
+}
+
 WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
     pgmid='LIMU',
     type='TABD',
@@ -71,6 +79,15 @@ NO_DESC_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
     type='TABD',
     name='FOO',
     wbtype='TABL/DS',
+    description='Object Info',
+    locked=False
+)
+
+NO_WTYPE_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
+    pgmid='LIMU',
+    type='TABD',
+    name='FOO',
+    wbtype='',
     description='Object Info',
     locked=False
 )
@@ -271,6 +288,12 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
         wb_object = builder.process_abap_object_xml(Element(NO_DESC_ABAP_OBJECT_ATTRIBUTES, []))
 
         self.assertEqual(wb_object, NO_DESC_WORKBENCH_ABAP_OBJECT)
+
+    def test_process_abap_object_no_wbtype(self):
+        builder = sap.adt.cts.WorkbenchBuilder('noconnection')
+        wb_object = builder.process_abap_object_xml(Element(NO_WBTYPE_ABAP_OBJECT_ATTRIBUTES, []))
+
+        self.assertEqual(wb_object, NO_WTYPE_WORKBENCH_ABAP_OBJECT)
 
     def test_process_abap_object(self):
         builder = sap.adt.cts.WorkbenchBuilder('noconnection')

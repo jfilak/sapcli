@@ -218,7 +218,7 @@ class WorkbenchBuilder:
             attributes['tm:pgmid'],
             attributes['tm:type'],
             attributes['tm:name'],
-            attributes['tm:wbtype'],
+            attributes.get('tm:wbtype', ''),
             attributes.get('tm:obj_desc', attributes['tm:obj_info']),
             attributes.get('tm:lock_status', ' ') == 'X'
         )
