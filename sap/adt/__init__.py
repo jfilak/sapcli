@@ -500,7 +500,7 @@ class ADTObject(metaclass=OrderedClassMembers):
 <adtcore:objectReference adtcore:uri="/{self.connection.uri}/{self.uri}" adtcore:name="{self.name.upper()}"/>
 </adtcore:objectReferences>'''
 
-        self._connection.execute(
+        resp = self._connection.execute(
             'POST',
             'activation',
             params=activation_params(),
@@ -510,6 +510,9 @@ class ADTObject(metaclass=OrderedClassMembers):
             },
             body=request
         )
+
+        if resp.text:
+            raise SAPCliError(f'Could not activate the object {self.name}: {resp.text}')
 
 
 class Program(ADTObject):

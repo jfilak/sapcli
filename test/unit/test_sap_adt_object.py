@@ -8,6 +8,19 @@ import sap.adt
 from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 from mock import Response, Connection
 
+
+ACTIVATE_RESPONSE_FAILED='''<?xml version="1.0" encoding="utf-8"?>
+  <chkl:messages xmlns:chkl="http://www.sap.com/abapxml/checklist">
+    <msg objDescr="Program ZABAPGIT" type="W" line="1" href="/sap/bc/adt/programs/programs/zabapgit/source/main#start=41593,4" forceSupported="true">
+      <shortText>
+        <txt>The exception CX_WDY_MD_EXCEPTION is not caught or declared in the RAISING clause of "RECOVER_DEFINITION". "RECOVER_DEFINITION".</txt>
+      </shortText>
+      <atom:link href="art.syntax:G-Q" rel="http://www.sap.com/adt/categories/quickfixes" xmlns:atom="http://www.w3.org/2005/Atom"/>
+    </msg>
+  </chkl:messages>
+'''
+
+
 class TestADTObject(unittest.TestCase):
 
     def test_uri(self):
@@ -88,6 +101,16 @@ class TestADTObject(unittest.TestCase):
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
 <adtcore:objectReference adtcore:uri="/sap/bc/adt/awesome/success/activator" adtcore:name="ACTIVATOR"/>
 </adtcore:objectReferences>''' )
+
+    def test_activate_fails(self):
+        connection = Connection([Response(ACTIVATE_RESPONSE_FAILED, 200, {})])
+        victory = DummyADTObject(connection=connection, name='activator')
+
+        with self.assertRaises(SAPCliError) as cm:
+            victory.activate()
+
+        self.maxDiff = None
+        self.assertEqual(str(cm.exception), f'Could not activate the object activator: {ACTIVATE_RESPONSE_FAILED}')
 
 
 if __name__ == '__main__':
