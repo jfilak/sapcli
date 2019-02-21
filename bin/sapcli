@@ -58,7 +58,13 @@ def parse_command_line(argv):
     logging.debug('Logging level: %i', loglevel)
 
     if not args.user:
+        args.user = os.getenv('SAP_USER')
+
+    if not args.user:
         args.user = input('Login:')
+
+    if not args.passwd:
+        args.passwd = os.getenv('SAP_PASSWORD')
 
     if not args.passwd:
         args.passwd = getpass.getpass()

@@ -12,5 +12,5 @@ configuration file the lowest priority.
 | --client     |             |                    | 001 | SAP Client number - default 001 |
 | --no-ssl     |             |                    | ON | Turns off SSL for ADT  - default SSL is on |
 | --port       |             |                    | 443 | Sets ADT HTTP port - default 443 |
-| --user       |             |                    | prompt | User login |
-| --passwd     |             |                    | prompt | User password |
+| --user       | SAP_USER     |                    | prompt | User login |
+| --passwd     | SAP_PASSWORD |                    | prompt | User password |

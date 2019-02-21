@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import unittest
 from unittest.mock import patch
@@ -41,6 +42,19 @@ class TestParseCommandLine(unittest.TestCase):
         with patch('getpass.getpass', lambda : 'Down1oad') as fake_getpass, \
              patch('sapcli.input', lambda pfx: 'fantomas') as fake_input:
             args = sapcli.parse_command_line(['sapcli'])
+
+        self.assertEqual(args.user, 'fantomas')
+        self.assertEqual(args.passwd, 'Down1oad')
+
+    def test_args_env_user_and_password(self):
+        os.environ['SAP_USER'] = 'fantomas'
+        os.environ['SAP_PASSWORD'] = 'Down1oad'
+
+        try:
+            args = sapcli.parse_command_line(['sapcli'])
+        finally:
+            del os.environ['SAP_USER']
+            del os.environ['SAP_PASSWORD']
 
         self.assertEqual(args.user, 'fantomas')
         self.assertEqual(args.passwd, 'Down1oad')
