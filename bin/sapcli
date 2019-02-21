@@ -6,6 +6,7 @@ import os.path
 import sys
 import logging
 from argparse import ArgumentParser
+import getpass
 
 import sap
 import sap.cli
@@ -36,10 +37,10 @@ def parse_command_line(argv):
         '--port', dest='port', type=int, default='443',
         help='ADT HTTP port')
     arg_parser.add_argument(
-        '--user', dest='user', type=str, default='DEVELOPER',
+        '--user', dest='user', type=str, default=None,
         help='Logon user')
     arg_parser.add_argument(
-        '--passwd', dest='passwd', type=str, default='Down1oad',
+        '--passwd', dest='passwd', type=str, default=None,
         help='Password')
 
     subparsers = arg_parser.add_subparsers()
@@ -55,6 +56,12 @@ def parse_command_line(argv):
     loglevel = max(3 - args.verbose_count, 0) * 10
     log.setLevel(loglevel)
     logging.debug('Logging level: %i', loglevel)
+
+    if not args.user:
+        args.user = input('Login:')
+
+    if not args.passwd:
+        args.passwd = getpass.getpass()
 
     return args
 

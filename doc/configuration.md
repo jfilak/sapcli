@@ -6,12 +6,11 @@ configuration file the lowest priority.
 
 ## Parameters
 
-| Command line | Environment | Configuration file | Description
-| ------------ | ----------- | ------------------ | ------------------------- |
-| --ashost     |             |                    | Host name or IP address of the application server |
-| --client     |             |                    | SAP Client number |
-| --no-ssl     |             |                    | Turns off SSL for ADT |
-| --port       |             |                    | Sets ADT HTTP port |
-| --user       |             |                    | User login |
-| --passwd     |             |                    | User password |
-
+| Command line | Environment | Configuration file | Default | Description
+| ------------ | ----------- | ------------------ | ------- | ------------------------- |
+| --ashost     |             |                    | localhost | Host name or IP address of the application server |
+| --client     |             |                    | 001 | SAP Client number - default 001 |
+| --no-ssl     |             |                    | ON | Turns off SSL for ADT  - default SSL is on |
+| --port       |             |                    | 443 | Sets ADT HTTP port - default 443 |
+| --user       |             |                    | prompt | User login |
+| --passwd     |             |                    | prompt | User password |
