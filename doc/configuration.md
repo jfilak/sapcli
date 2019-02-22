@@ -10,7 +10,7 @@ configuration file the lowest priority.
 | ------------ | ----------- | ------------------ | ------- | ------------------------- |
 | --ashost     | SAP_ASHOST  |                    | | Host name or IP address of the application server |
 | --client     | SAP_CLIENT  |                    | | SAP Client number - default 001 |
-| --no-ssl     |             |                    | ON | Turns off SSL for ADT  - default SSL is on |
-| --port       |             |                    | 443 | Sets ADT HTTP port - default 443 |
+| --no-ssl     | SAP_SSL     |                    | On | Turns off SSL for ADT  - default SSL is on |
+| --port       | SAP_PORT    |                    | 443 | Sets ADT HTTP port - default 443 |
 | --user       | SAP_USER     |                    | prompt | User login |
 | --password   | SAP_PASSWORD |                    | prompt | User password |

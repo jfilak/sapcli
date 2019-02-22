@@ -64,6 +64,24 @@ class TestParseCommandLine(unittest.TestCase):
         self.assertEqual(str(exit_cm.exception), '3')
         self.assertEqual(fake_output.getvalue().split('\n')[0], 'No SAP Client provided: use the option --client or the environment variable SAP_CLIENT')
 
+    def test_args_no_port(self):
+        test_params = ALL_PARAMETERS.copy()
+        remove_cmd_param_from_list(test_params, '--port')
+        print("PARAMS: ", str(test_params), file=sys.stderr)
+
+        args = sapcli.parse_command_line(test_params)
+
+        self.assertEqual(args.port, 443)
+
+    def test_args_default_no_ssl(self):
+        test_params = ALL_PARAMETERS.copy()
+        test_params.remove('--no-ssl')
+        print("PARAMS: ", str(test_params), file=sys.stderr)
+
+        args = sapcli.parse_command_line(test_params)
+
+        self.assertTrue(args.ssl)
+
     def test_args_ask_user(self):
         test_params = ALL_PARAMETERS.copy()
         remove_cmd_param_from_list(test_params, '--user')
@@ -103,12 +121,16 @@ class TestParseCommandLine(unittest.TestCase):
         remove_cmd_param_from_list(test_params, '--password')
         remove_cmd_param_from_list(test_params, '--user')
         remove_cmd_param_from_list(test_params, '--client')
+        remove_cmd_param_from_list(test_params, '--port')
+        test_params.remove('--no-ssl')
         print("PARAMS: ", str(test_params), file=sys.stderr)
 
         os.environ['SAP_USER'] = 'fantomas'
         os.environ['SAP_PASSWORD'] = 'Down1oad'
         os.environ['SAP_ASHOST'] = 'vhcalnplci.env.variable'
         os.environ['SAP_CLIENT'] = '137'
+        os.environ['SAP_PORT'] = '13579'
+        os.environ['SAP_SSL'] = 'false'
 
         try:
             args = sapcli.parse_command_line(test_params)
@@ -117,13 +139,15 @@ class TestParseCommandLine(unittest.TestCase):
             del os.environ['SAP_PASSWORD']
             del os.environ['SAP_ASHOST']
             del os.environ['SAP_CLIENT']
+            del os.environ['SAP_PORT']
+            del os.environ['SAP_SSL']
 
         self.assertEqual(args.user, 'fantomas')
         self.assertEqual(args.password, 'Down1oad')
         self.assertEqual(args.ashost, 'vhcalnplci.env.variable')
-        self.assertEqual(args.port, 3579)
+        self.assertEqual(args.port, 13579)
         self.assertEqual(args.client, '137')
-        self.assertEqual(args.ssl, False)
+        self.assertFalse(args.ssl)
 
 
 if __name__ == '__main__':

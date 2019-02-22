@@ -7,6 +7,8 @@ import sys
 import logging
 from argparse import ArgumentParser
 import getpass
+from distutils.util import strtobool
+
 
 import sap
 import sap.cli
@@ -39,6 +41,55 @@ def report_args_error_and_exit(args, error):
     sys.exit(ExitCodes.INVALID_CONFIGURATION)
 
 
+# pylint: disable=too-many-branches
+def resolve_default_values(arg_parser, args):
+    """Add default values to command line params"""
+
+    if not args.ashost:
+        args.ashost = os.getenv('SAP_ASHOST')
+
+    if not args.ashost:
+        report_args_error_and_exit(
+            arg_parser,
+            ': '.join(('No SAP Application Server Host name provided',
+                       'use the option --ashost or the environment variable SAP_ASHOST')))
+
+    if not args.client:
+        args.client = os.getenv('SAP_CLIENT')
+
+    if not args.client:
+        report_args_error_and_exit(
+            arg_parser,
+            ': '.join(('No SAP Client provided',
+                       'use the option --client or the environment variable SAP_CLIENT')))
+
+    if not args.port:
+        port = os.getenv('SAP_PORT')
+        if port:
+            args.port = int(port)
+        else:
+            args.port = 443
+
+    if args.ssl is None:
+        ssl = os.getenv('SAP_SSL')
+        if ssl is not None:
+            args.ssl = strtobool(ssl)
+        else:
+            args.ssl = True
+
+    if not args.user:
+        args.user = os.getenv('SAP_USER')
+
+    if not args.user:
+        args.user = input('Login:')
+
+    if not args.password:
+        args.password = os.getenv('SAP_PASSWORD')
+
+    if not args.password:
+        args.password = getpass.getpass()
+
+
 def parse_command_line(argv):
     """Parses command line arguments"""
 
@@ -53,11 +104,11 @@ def parse_command_line(argv):
         '--client', dest='client', type=str, default=None,
         help='Client (MANDT)')
     arg_parser.add_argument(
-        '--no-ssl', dest='ssl', default=True, action='store_false',
-        help='Use SSL')
+        '--no-ssl', dest='ssl', default=None, action='store_false',
+        help='Switch from HTTPS to HTTP')
     arg_parser.add_argument(
-        '--port', dest='port', type=int, default='443',
-        help='ADT HTTP port')
+        '--port', dest='port', type=int, default=None,
+        help='ADT HTTP port; default = 443')
     arg_parser.add_argument(
         '--user', dest='user', type=str, default=None,
         help='Logon user')
@@ -79,35 +130,7 @@ def parse_command_line(argv):
     log.setLevel(loglevel)
     logging.debug('Logging level: %i', loglevel)
 
-    if not args.ashost:
-        args.ashost = os.getenv('SAP_ASHOST')
-
-    if not args.ashost:
-        report_args_error_and_exit(
-            arg_parser,
-            ': '.join(('No SAP Application Server Host name provided',
-                       'use the option --ashost or the environment variable SAP_ASHOST')))
-
-    if not args.client:
-        args.client = os.getenv('SAP_CLIENT')
-
-    if not args.client:
-        report_args_error_and_exit(
-            arg_parser,
-            ': '.join(('No SAP Client provided',
-                       'use the option --client or the environment variable SAP_CLIENT')))
-
-    if not args.user:
-        args.user = os.getenv('SAP_USER')
-
-    if not args.user:
-        args.user = input('Login:')
-
-    if not args.password:
-        args.password = os.getenv('SAP_PASSWORD')
-
-    if not args.password:
-        args.password = getpass.getpass()
+    resolve_default_values(arg_parser, args)
 
     return args
 
