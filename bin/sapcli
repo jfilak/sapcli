@@ -50,7 +50,7 @@ def parse_command_line(argv):
         '--ashost', dest='ashost', type=str, default=None,
         help='Application Server address (DNS or IP)')
     arg_parser.add_argument(
-        '--client', dest='client', type=str, default='001',
+        '--client', dest='client', type=str, default=None,
         help='Client (MANDT)')
     arg_parser.add_argument(
         '--no-ssl', dest='ssl', default=True, action='store_false',
@@ -87,6 +87,15 @@ def parse_command_line(argv):
             arg_parser,
             ': '.join(('No SAP Application Server Host name provided',
                        'use the option --ashost or the environment variable SAP_ASHOST')))
+
+    if not args.client:
+        args.ashost = os.getenv('SAP_CLIENT')
+
+    if not args.client:
+        report_args_error_and_exit(
+            arg_parser,
+            ': '.join(('No SAP Client provided',
+                       'use the option --client or the environment variable SAP_CLIENT')))
 
     if not args.user:
         args.user = os.getenv('SAP_USER')

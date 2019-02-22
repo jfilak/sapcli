@@ -52,6 +52,18 @@ class TestParseCommandLine(unittest.TestCase):
         self.assertEqual(str(exit_cm.exception), '3')
         self.assertTrue(fake_output.getvalue().startswith('No SAP Application Server Host name provided: use the option --ashost or the environment variable SAP_ASHOST'))
 
+    def test_args_no_client(self):
+        test_params = ALL_PARAMETERS.copy()
+        remove_cmd_param_from_list(test_params, '--client')
+        print("PARAMS: ", str(test_params), file=sys.stderr)
+
+        with patch('sys.stderr', new_callable=StringIO) as fake_output, \
+             self.assertRaises(SystemExit) as exit_cm:
+            sapcli.parse_command_line(test_params)
+
+        self.assertEqual(str(exit_cm.exception), '3')
+        self.assertEqual(fake_output.getvalue().split('\n')[0], 'No SAP Client provided: use the option --client or the environment variable SAP_CLIENT')
+
     def test_args_ask_user(self):
         test_params = ALL_PARAMETERS.copy()
         remove_cmd_param_from_list(test_params, '--user')
