@@ -40,7 +40,7 @@ def parse_command_line(argv):
         '--user', dest='user', type=str, default=None,
         help='Logon user')
     arg_parser.add_argument(
-        '--passwd', dest='passwd', type=str, default=None,
+        '--password', dest='password', type=str, default=None,
         help='Password')
 
     subparsers = arg_parser.add_subparsers()
@@ -63,11 +63,11 @@ def parse_command_line(argv):
     if not args.user:
         args.user = input('Login:')
 
-    if not args.passwd:
-        args.passwd = os.getenv('SAP_PASSWORD')
+    if not args.password:
+        args.password = os.getenv('SAP_PASSWORD')
 
-    if not args.passwd:
-        args.passwd = getpass.getpass()
+    if not args.password:
+        args.password = getpass.getpass()
 
     return args
 

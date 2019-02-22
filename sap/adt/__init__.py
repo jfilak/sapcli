@@ -23,12 +23,12 @@ class Connection:
     """ADT Connection for HTTP communication built on top Python requests.
     """
 
-    def __init__(self, host, client, user, passwd, port=None, ssl=True):
+    def __init__(self, host, client, user, password, port=None, ssl=True):
         """Parameters:
             - host: string host name
             - client: string SAP client
             - user: string user name
-            - passwd: string user password
+            - password: string user password
             - port: string TCP/IP port for ADT
                     (default 80 or 443 - it depends on the parameter ssl)
             - ssl: boolean to switch between http and https
@@ -49,7 +49,7 @@ class Connection:
         self._query_args = 'sap-client={client}&saml2=disabled'.format(
             client=client)
         self._user = user
-        self._auth = HTTPBasicAuth(user, passwd)
+        self._auth = HTTPBasicAuth(user, password)
         self._session = None
 
     @property

@@ -19,16 +19,16 @@ sys.modules['sapcli'] = sapcli
 class TestParseCommandLine(unittest.TestCase):
 
     def test_args_sanity(self):
-        args = sapcli.parse_command_line(['sapcli', '--user', 'fantomas', '--passwd', 'Down1oad'])
+        args = sapcli.parse_command_line(['sapcli', '--user', 'fantomas', '--password', 'Down1oad'])
 
         self.assertEqual(
             vars(args),
             {'ashost':'localhost', 'client':'001', 'ssl':True, 'port':443,
-             'user':'fantomas', 'passwd':'Down1oad', 'verbose_count':0})
+             'user':'fantomas', 'password':'Down1oad', 'verbose_count':0})
 
     def test_args_ask_user(self):
         with patch('sapcli.input', lambda pfx: 'fantomas') as fake_input:
-            args = sapcli.parse_command_line(['sapcli', '--passwd', 'Down1oad'])
+            args = sapcli.parse_command_line(['sapcli', '--password', 'Down1oad'])
 
         self.assertEqual(args.user, 'fantomas')
 
@@ -44,7 +44,7 @@ class TestParseCommandLine(unittest.TestCase):
             args = sapcli.parse_command_line(['sapcli'])
 
         self.assertEqual(args.user, 'fantomas')
-        self.assertEqual(args.passwd, 'Down1oad')
+        self.assertEqual(args.password, 'Down1oad')
 
     def test_args_env_user_and_password(self):
         os.environ['SAP_USER'] = 'fantomas'
@@ -57,7 +57,7 @@ class TestParseCommandLine(unittest.TestCase):
             del os.environ['SAP_PASSWORD']
 
         self.assertEqual(args.user, 'fantomas')
-        self.assertEqual(args.passwd, 'Down1oad')
+        self.assertEqual(args.password, 'Down1oad')
 
 
 if __name__ == '__main__':

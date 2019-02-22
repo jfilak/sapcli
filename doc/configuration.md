@@ -13,4 +13,4 @@ configuration file the lowest priority.
 | --no-ssl     |             |                    | ON | Turns off SSL for ADT  - default SSL is on |
 | --port       |             |                    | 443 | Sets ADT HTTP port - default 443 |
 | --user       | SAP_USER     |                    | prompt | User login |
-| --passwd     | SAP_PASSWORD |                    | prompt | User password |
+| --password   | SAP_PASSWORD |                    | prompt | User password |
