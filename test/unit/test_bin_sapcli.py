@@ -102,11 +102,13 @@ class TestParseCommandLine(unittest.TestCase):
         remove_cmd_param_from_list(test_params, '--ashost')
         remove_cmd_param_from_list(test_params, '--password')
         remove_cmd_param_from_list(test_params, '--user')
+        remove_cmd_param_from_list(test_params, '--client')
         print("PARAMS: ", str(test_params), file=sys.stderr)
 
         os.environ['SAP_USER'] = 'fantomas'
         os.environ['SAP_PASSWORD'] = 'Down1oad'
         os.environ['SAP_ASHOST'] = 'vhcalnplci.env.variable'
+        os.environ['SAP_CLIENT'] = '137'
 
         try:
             args = sapcli.parse_command_line(test_params)
@@ -114,12 +116,13 @@ class TestParseCommandLine(unittest.TestCase):
             del os.environ['SAP_USER']
             del os.environ['SAP_PASSWORD']
             del os.environ['SAP_ASHOST']
+            del os.environ['SAP_CLIENT']
 
         self.assertEqual(args.user, 'fantomas')
         self.assertEqual(args.password, 'Down1oad')
         self.assertEqual(args.ashost, 'vhcalnplci.env.variable')
         self.assertEqual(args.port, 3579)
-        self.assertEqual(args.client, '975')
+        self.assertEqual(args.client, '137')
         self.assertEqual(args.ssl, False)
 
 

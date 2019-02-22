@@ -89,7 +89,7 @@ def parse_command_line(argv):
                        'use the option --ashost or the environment variable SAP_ASHOST')))
 
     if not args.client:
-        args.ashost = os.getenv('SAP_CLIENT')
+        args.client = os.getenv('SAP_CLIENT')
 
     if not args.client:
         report_args_error_and_exit(
