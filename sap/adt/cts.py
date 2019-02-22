@@ -5,6 +5,8 @@ from xml.sax.handler import ContentHandler
 
 from typing import NamedTuple, Any, List
 
+from sap.adt import mod_log
+
 
 # pylint: disable=too-few-public-methods
 class Element(NamedTuple):
@@ -214,12 +216,24 @@ class WorkbenchBuilder:
         """Converts Object XML into a python object"""
 
         attributes = object_elem.attributes
+
+        description = attributes.get('tm:obj_desc', attributes.get('tm:obj_info', None))
+        if description is None:
+            description = '(PGMID={},TYPE={},NAME={})'.format(attributes.get('tm:pgmid', '*'),
+                                                              attributes.get('tm:type', '*'),
+                                                              attributes.get('tm:name', '*'))
+
+        mod_log().debug('Processing CTS ABAP Object(PGMID=%s,TYPE=%s,NAME=%s)',
+                        attributes.get('tm:pgmid', '*'),
+                        attributes.get('tm:type', '*'),
+                        attributes.get('tm:name', '*'))
+
         abap_object = WorkbenchABAPObject(
             attributes['tm:pgmid'],
             attributes['tm:type'],
             attributes['tm:name'],
             attributes.get('tm:wbtype', ''),
-            attributes.get('tm:obj_desc', attributes['tm:obj_info']),
+            description,
             attributes.get('tm:lock_status', ' ') == 'X'
         )
 
