@@ -17,6 +17,28 @@ import sap.rfc
 log = sap.get_logger()
 
 
+# pylint: disable=too-few-public-methods
+class ExitCodes:
+    """sys.exit() codes"""
+
+    SUCCESS = 0
+    # Do not use Shell Reserved Exit Codes
+    SHELL_RESERVED_1 = 1
+    SHELL_RESERVED_2 = 2
+    # Use the first available Exit code
+    INVALID_CONFIGURATION = 3
+
+
+def report_args_error_and_exit(args, error):
+    """Prints error to stderr and exits with coder reporting invalid
+       paramters.
+    """
+
+    print(error, file=sys.stderr)
+    args.print_help(sys.stderr)
+    sys.exit(ExitCodes.INVALID_CONFIGURATION)
+
+
 def parse_command_line(argv):
     """Parses command line arguments"""
 
@@ -25,7 +47,7 @@ def parse_command_line(argv):
         '-v', '--verbose', dest='verbose_count', action='count', default=0,
         help='make verbose output')
     arg_parser.add_argument(
-        '--ashost', dest='ashost', type=str, default='localhost',
+        '--ashost', dest='ashost', type=str, default=None,
         help='Application Server address (DNS or IP)')
     arg_parser.add_argument(
         '--client', dest='client', type=str, default='001',
@@ -56,6 +78,15 @@ def parse_command_line(argv):
     loglevel = max(3 - args.verbose_count, 0) * 10
     log.setLevel(loglevel)
     logging.debug('Logging level: %i', loglevel)
+
+    if not args.ashost:
+        args.ashost = os.getenv('SAP_ASHOST')
+
+    if not args.ashost:
+        report_args_error_and_exit(
+            arg_parser,
+            ': '.join(('No SAP Application Server Host name provided',
+                       'use the option --ashost or the environment variable SAP_ASHOST')))
 
     if not args.user:
         args.user = os.getenv('SAP_USER')

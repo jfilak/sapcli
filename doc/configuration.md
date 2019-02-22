@@ -8,7 +8,7 @@ configuration file the lowest priority.
 
 | Command line | Environment | Configuration file | Default | Description
 | ------------ | ----------- | ------------------ | ------- | ------------------------- |
-| --ashost     |             |                    | localhost | Host name or IP address of the application server |
+| --ashost     | SAP_ASHOST  |                    | | Host name or IP address of the application server |
 | --client     |             |                    | 001 | SAP Client number - default 001 |
 | --no-ssl     |             |                    | ON | Turns off SSL for ADT  - default SSL is on |
 | --port       |             |                    | 443 | Sets ADT HTTP port - default 443 |
