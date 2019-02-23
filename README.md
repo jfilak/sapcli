@@ -44,3 +44,37 @@ sapcli --ashost ... --client ... program activate 'zabapgit'
 ```
 
 See the complete list of supported operations in [doc/commands.md](doc/commands.md)
+
+## Usage
+
+You must provide the tool with hostname, client, user and password. It is
+possible to use either command line parameters or environment variables.
+
+You can prepare a configuration file like the following:
+
+```bash
+cat > .npl001.sapcli.openrc << _EFO
+export SAP_USER=DEVELOPER
+export SAP_PASSWORD=Down1oad
+export SAP_ASHOST=vhcalpnlci
+export SAP_CLIENT=001
+export SAP_PORT=8000
+export SAP_SSL=no
+_EOF
+```
+
+and the you can source the configuration file in your shell to avoid the need
+to repeat the configuration on command line parameters:
+
+```bash
+source .npl001.sapcli.openrc
+
+sapcli package create '$abapgit' 'git for ABAP by Lars'
+sapcli program create zabapgit 'github.com/larshp/abapGit' '$abapgit'
+sapcli aunit run class zabapgit
+```
+
+The tool asks only for user and password if missing. All other parameters
+either have own default value or causes fatal error.
+
+Find the complete documentation in [doc/configuration.md](doc/configuration.md)
