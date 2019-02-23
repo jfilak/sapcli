@@ -7,7 +7,6 @@ import sys
 import logging
 from argparse import ArgumentParser
 import getpass
-from distutils.util import strtobool
 
 
 import sap
@@ -73,7 +72,7 @@ def resolve_default_values(arg_parser, args):
     if args.ssl is None:
         ssl = os.getenv('SAP_SSL')
         if ssl is not None:
-            args.ssl = strtobool(ssl)
+            args.ssl = ssl not in ('n', 'no', 'false', 'off')
         else:
             args.ssl = True
 
