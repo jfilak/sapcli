@@ -14,6 +14,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 
 @CommandGroup.command()
+@CommandGroup.argument('--super-package', default=None, help='Parent package name')
 @CommandGroup.argument('description')
 @CommandGroup.argument('name')
 def create(connection, args):
@@ -21,8 +22,11 @@ def create(connection, args):
     """
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+
     package = sap.adt.Package(connection, args.name.upper(), metadata=metadata)
     package.description = args.description
     package.set_package_type('development')
     package.set_software_component('LOCAL')
+    package.super_package.name = args.super_package.upper()
+
     package.create()

@@ -11,7 +11,7 @@ FIXTURE_PACKAGE_XML="""<?xml version="1.0" encoding="UTF-8"?>
 <pak:package xmlns:pak="http://www.sap.com/adt/packages" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:version="active" adtcore:type="DEVC/K" adtcore:description="description" adtcore:language="EN" adtcore:name="$TEST" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:responsible="FILAK">
 <adtcore:packageRef adtcore:name="$TEST"/>
 <pak:attributes pak:packageType="development"/>
-<pak:superPackage/>
+<pak:superPackage adtcore:name="$MASTER"/>
 <pak:applicationComponent/>
 <pak:transport>
 <pak:softwareComponent pak:name="LOCAL"/>
@@ -33,6 +33,7 @@ class TestADTPackage(unittest.TestCase):
         package.description = 'description'
         package.set_package_type('development')
         package.set_software_component('LOCAL')
+        package.super_package.name = '$MASTER'
         package.create()
 
         self.assertEqual(len(conn.execs), 1)

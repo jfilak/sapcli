@@ -661,6 +661,13 @@ class Package(ADTObject):
 
             return self._name
 
+        @name.setter
+        def name(self, value):
+            """super package name
+            """
+
+            self._name = value
+
     class SoftwareComponent(metaclass=OrderedClassMembers):
         """SAP Software component.
         """
