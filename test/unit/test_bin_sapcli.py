@@ -150,5 +150,32 @@ class TestParseCommandLine(unittest.TestCase):
         self.assertFalse(args.ssl)
 
 
+    def test_args_env_no_ssl_variants(self):
+        test_params = ALL_PARAMETERS.copy()
+        test_params.remove('--no-ssl')
+        print("PARAMS: ", str(test_params), file=sys.stderr)
+
+        for variant in ('n', 'N', 'No', 'no', 'NO', 'false', 'FALSE', 'False', 'Off', 'off'):
+            os.environ['SAP_SSL'] = variant
+
+            try:
+                args = sapcli.parse_command_line(test_params)
+            finally:
+                del os.environ['SAP_SSL']
+
+            self.assertFalse(args.ssl, msg=variant)
+
+
+        for variant in ('any', 'thing', 'else', 'is', 'true', 'or', 'on', 'or', 'YES'):
+            os.environ['SAP_SSL'] = variant
+
+            try:
+                args = sapcli.parse_command_line(test_params)
+            finally:
+                del os.environ['SAP_SSL']
+
+            self.assertTrue(args.ssl, msg=variant)
+
+
 if __name__ == '__main__':
     unittest.main()
