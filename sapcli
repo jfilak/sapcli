@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# This script is just a wrapper that configures PYTHONPATH
+# and runs the python script bin/sapcli
+# Its only purpose is to simplify testing of the tool when checked out from a
+# git repository.
+
+export PYTHONPATH=$(pwd):$PYTHONPATH
+./bin/sapcli $@

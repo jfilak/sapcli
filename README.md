@@ -17,10 +17,7 @@ sudo apt-get install git python3 python3-requests python3-openssl
 
 git clone https://github.com/jfilak/sapcli.git
 cd sapcli
-
-export PYTHONPATH=$(pwd):$PYTHONPATH
-
-bin/sapcli --help
+./sapcli --help
 ```
 
 ## Features
