@@ -53,7 +53,7 @@ possible to use either command line parameters or environment variables.
 You can prepare a configuration file like the following:
 
 ```bash
-cat > .npl001.sapcli.openrc << _EFO
+cat > .npl001.sapcli.openrc << _EOF
 export SAP_USER=DEVELOPER
 export SAP_PASSWORD=Down1oad
 export SAP_ASHOST=vhcalpnlci
