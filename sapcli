@@ -1,8 +1,18 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 # This script is just a wrapper that configures PYTHONPATH
 # and runs the python script bin/sapcli
 # Its only purpose is to simplify testing of the tool when checked out from a
 # git repository.
 
-export PYTHONPATH=$(pwd):$PYTHONPATH
-./bin/sapcli "$@"
+import os
+import sys
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
+pythonpath = os.environ.get('PYTHONPATH')
+if pythonpath:
+    os.environ['PYTHONPATH'] = f'{base_dir}:{pythonpath}'
+else:
+    os.environ['PYTHONPATH'] = base_dir
+
+os.execve(os.path.join(base_dir, 'bin', 'sapcli'), sys.argv, os.environ)
