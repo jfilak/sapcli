@@ -39,7 +39,7 @@ sapcli program read ZHELLOWORLD
 Execute unit tets
 
 ```bash
-sapcli aunit run program ZHELLOWORLD
+sapcli aunit run program ZHELLOWORLD [--output {raw,human}]
 ```
 
 ## Classes
@@ -57,7 +57,7 @@ sapcli program class ZCL_HELLOWORLD
 Execute unit tets
 
 ```bash
-sapcli aunit run class ZCL_HELLOWORLD
+sapcli aunit run class ZCL_HELLOWORLD [--output {raw,human}]
 ```
 
 ## Packages
@@ -75,7 +75,7 @@ sapcli package create \$tests "with description"
 Execute unit tests
 
 ```bash
-sapcli aunit run package \$tests
+sapcli aunit run package \$tests [--output {raw,human}]
 ```
 
 ## Change Transport System (CTS)
