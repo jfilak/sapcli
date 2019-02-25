@@ -35,7 +35,7 @@ class TestAUnitWrite(unittest.TestCase):
 
     def test_aunit_invalid(self):
         with self.assertRaises(SAPCliError) as cm:
-            sap.cli.aunit.run('wrongconn', SimpleNamespace(type='foo'))
+            sap.cli.aunit.run('wrongconn', SimpleNamespace(type='foo', output='human'))
 
         self.assertEqual(str(cm.exception), 'Unknown type: foo')
 
@@ -43,7 +43,7 @@ class TestAUnitWrite(unittest.TestCase):
         connection = Connection([Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})])
 
         with patch('sap.cli.aunit.print') as mock_print:
-            sap.cli.aunit.run(connection, SimpleNamespace(type='program', name='yprogram'))
+            sap.cli.aunit.run(connection, SimpleNamespace(type='program', name='yprogram', output='human'))
 
         self.assertEqual(len(connection.execs), 1)
         self.assertIn('programs/programs/yprogram', connection.execs[0].body)
@@ -53,7 +53,7 @@ class TestAUnitWrite(unittest.TestCase):
         connection = Connection([Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})])
 
         with patch('sap.cli.aunit.print') as mock_print:
-            sap.cli.aunit.run(connection, SimpleNamespace(type='class', name='yclass'))
+            sap.cli.aunit.run(connection, SimpleNamespace(type='class', name='yclass', output='human'))
 
         self.assertEqual(len(connection.execs), 1)
         self.assertIn('oo/classes/yclass', connection.execs[0].body)
@@ -63,7 +63,7 @@ class TestAUnitWrite(unittest.TestCase):
         connection = Connection([Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})])
 
         with patch('sap.cli.aunit.print') as mock_print:
-            sap.cli.aunit.run(connection, SimpleNamespace(type='package', name='ypackage'))
+            sap.cli.aunit.run(connection, SimpleNamespace(type='package', name='ypackage', output='human'))
 
         self.assertEqual(len(connection.execs), 1)
         self.assertIn('packages/ypackage', connection.execs[0].body)
@@ -73,7 +73,7 @@ class TestAUnitWrite(unittest.TestCase):
         connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
 
         with patch('sap.cli.aunit.print') as mock_print:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(type='package', name='ypackage'))
+            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(type='package', name='ypackage', output='human'))
 
         self.assertEqual(exit_code, 3)
         self.assertEqual(len(connection.execs), 1)
@@ -101,6 +101,18 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(mock_print.call_args_list[19], call('Successful: 3', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[20], call('Tolerable:  0', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[21], call('Critical:   3', file=sys.stdout))
+
+    def test_aunit_package_with_results_raw(self):
+        connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
+
+        with patch('sap.cli.aunit.print') as mock_print:
+            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(type='package', name='ypackage', output='raw'))
+
+        self.assertEqual(exit_code, 3)
+        self.assertEqual(len(connection.execs), 1)
+        self.assertIn('packages/ypackage', connection.execs[0].body)
+
+        self.assertEqual(mock_print.call_args_list[0], call(AUNIT_RESULTS_XML))
 
 
 if __name__ == '__main__':

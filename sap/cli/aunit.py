@@ -63,7 +63,23 @@ def print_results_to_stream(run_results, stream):
     return len(critical)
 
 
+def print_raw(aunit_xml, run_results):
+    """Prints out raw XML results"""
+
+    print(aunit_xml)
+
+    critical = 0
+    for program in run_results.programs:
+        for test_class in program.test_classes:
+            for test_method in test_class.test_methods:
+                if any((alert.severity == 'critical' for alert in test_method.alerts)):
+                    critical += 1
+
+    return critical
+
+
 @CommandGroup.command()
+@CommandGroup.argument('--output', choices=['raw', 'human'], default='human')
 @CommandGroup.argument('name')
 @CommandGroup.argument('type', choices=['program', 'class', 'package'])
 def run(connection, args):
@@ -84,4 +100,8 @@ def run(connection, args):
     obj = typ(connection, args.name)
     response = aunit.execute(obj)
     run_results = sap.adt.aunit.parse_run_results(response.text)
-    return print_results_to_stream(run_results, sys.stdout)
+
+    if args.output == 'human':
+        return print_results_to_stream(run_results, sys.stdout)
+    elif args.output == 'raw':
+        return print_raw(response.text, run_results)
