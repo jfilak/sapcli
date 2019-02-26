@@ -103,7 +103,8 @@ def run(connection, args):
 
     if args.output == 'human':
         return print_results_to_stream(run_results, sys.stdout)
-    elif args.output == 'raw':
+
+    if args.output == 'raw':
         return print_raw(response.text, run_results)
 
     raise SAPCliError(f'Unsupported output type: {args.output}')
