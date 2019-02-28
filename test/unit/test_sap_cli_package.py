@@ -19,3 +19,10 @@ class TestPackageCreate(unittest.TestCase):
         sap.cli.package.create(connection, SimpleNamespace(name='$TEST', description='description', super_package='$MASTER'))
 
         self.assertIn('<pak:superPackage adtcore:name="$MASTER"/>', connection.execs[0].body)
+
+    def test_create_package_without_super(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        sap.cli.package.create(connection, SimpleNamespace(name='$TEST', description='description', super_package=None))
+
+        self.assertIn('<pak:superPackage/>', connection.execs[0].body)

@@ -27,6 +27,8 @@ def create(connection, args):
     package.description = args.description
     package.set_package_type('development')
     package.set_software_component('LOCAL')
-    package.super_package.name = args.super_package.upper()
+
+    if args.super_package is not None:
+        package.super_package.name = args.super_package.upper()
 
     package.create()
