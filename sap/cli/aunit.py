@@ -1,6 +1,7 @@
 """ADT proxy for ABAP Unit"""
 
 import sys
+from xml.sax.saxutils import escape
 
 import sap.adt
 import sap.adt.aunit
@@ -63,6 +64,69 @@ def print_results_to_stream(run_results, stream):
     return len(critical)
 
 
+def print_junit4(run_results, args, stream):
+    """Print results to stream in the form of JUnit"""
+
+    print('<?xml version="1.0" encoding="UTF-8" ?>', file=stream)
+    print(f'<testsuites name="{args.name}">', file=stream)
+
+    critical = 0
+    for program in run_results.programs:
+        for test_class in program.test_classes:
+            print(f'  <testsuite name="{test_class.name}" package="{program.name}" \
+tests="{len(test_class.test_methods)}"', file=stream, end='')
+
+            if not test_class.test_methods:
+                print('/>', file=stream)
+                continue
+
+            print('>', file=stream)
+
+            for test_method in test_class.test_methods:
+                status = None
+
+                if any((alert.severity == 'critical' for alert in test_method.alerts)):
+                    critical += 1
+                    status = 'ERR'
+                elif any((alert.severity == 'tolerable' for alert in test_method.alerts)):
+                    status = 'SKIP'
+                else:
+                    status = 'OK'
+
+                print(f'    <testcase name="{test_method.name}" classname="{test_class.name}" status="{status}"',
+                      file=stream, end='')
+
+                if not test_method.alerts:
+                    print('/>', file=stream)
+                    continue
+
+                print('>', file=stream)
+
+                for alert in test_method.alerts:
+                    print(f'      <error type="{alert.kind}" message="{alert.title}"', file=stream, end='')
+                    if not alert.details and not alert.stack:
+                        print('/>', file=stream)
+                        continue
+
+                    print('>', file=stream)
+
+                    for detail in alert.details:
+                        print(f'        <system-out>{escape(detail)}</system-out>', file=stream)
+
+                    for frame in alert.stack:
+                        print(f'        <system-err>{escape(frame)}</system-err>', file=stream)
+
+                    print('      </error>', file=stream)
+
+                print('    </testcase>', file=stream)
+
+            print('  </testsuite>', file=stream)
+
+    print('</testsuites>', file=stream)
+
+    return critical
+
+
 def print_raw(aunit_xml, run_results):
     """Prints out raw XML results"""
 
@@ -79,7 +143,7 @@ def print_raw(aunit_xml, run_results):
 
 
 @CommandGroup.command()
-@CommandGroup.argument('--output', choices=['raw', 'human'], default='human')
+@CommandGroup.argument('--output', choices=['raw', 'human', 'junit4'], default='human')
 @CommandGroup.argument('name')
 @CommandGroup.argument('type', choices=['program', 'class', 'package'])
 def run(connection, args):
@@ -106,5 +170,8 @@ def run(connection, args):
 
     if args.output == 'raw':
         return print_raw(response.text, run_results)
+
+    if args.output == 'junit4':
+        return print_junit4(run_results, args, sys.stdout)
 
     raise SAPCliError(f'Unsupported output type: {args.output}')

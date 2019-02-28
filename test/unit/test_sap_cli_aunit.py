@@ -4,6 +4,7 @@ import sys
 
 import unittest
 from unittest.mock import patch, call
+from io import StringIO
 from types import SimpleNamespace
 
 from sap.errors import SAPCliError
@@ -113,6 +114,55 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertIn('packages/ypackage', connection.execs[0].body)
 
         self.assertEqual(mock_print.call_args_list[0], call(AUNIT_RESULTS_XML))
+
+    def test_aunit_package_with_results_junit4(self):
+        connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
+
+        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(type='package', name='ypackage', output='junit4'))
+
+        self.assertEqual(exit_code, 3)
+        self.assertEqual(len(connection.execs), 1)
+        self.assertIn('packages/ypackage', connection.execs[0].body)
+
+        self.maxDiff = None
+        self.assertEqual(mock_stdout.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="ypackage">
+  <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
+    <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
+      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">
+        <system-out>True expected</system-out>
+        <system-out>Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-out>
+        <system-err>Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</system-err>
+      </error>
+    </testcase>
+    <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
+  </testsuite>
+  <testsuite name="LTCL_TEST_HARDER" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
+    <testcase name="DO_THE_FAIL" classname="LTCL_TEST_HARDER" status="ERR">
+      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">
+        <system-out>True expected</system-out>
+        <system-out>Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-out>
+        <system-err>Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</system-err>
+      </error>
+    </testcase>
+    <testcase name="DO_THE_TEST" classname="LTCL_TEST_HARDER" status="OK"/>
+  </testsuite>
+  <testsuite name="LTCL_TEST" package="ZEXAMPLE_TESTS" tests="2">
+    <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
+      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">
+        <system-out>True expected</system-out>
+        <system-out>Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.</system-out>
+        <system-err>Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)</system-err>
+        <system-err>Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</system-err>
+      </error>
+    </testcase>
+    <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
+  </testsuite>
+</testsuites>
+''')
+
 
 
 if __name__ == '__main__':
