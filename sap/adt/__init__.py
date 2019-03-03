@@ -587,13 +587,92 @@ class Class(ADTObject):
     """
 
     OBJTYPE = ADTObjectType(
-        'CLAS/I',
+        'CLAS/OC',
         'oo/classes',
-        ('class', 'http://www.sap.com/adt/oo/claases'),
+        ('class', 'http://www.sap.com/adt/oo/classes'),
         'application/vnd.sap.adt.oo.classes.v2+xml',
         {'text/plain': 'source/main'},
         'abapClass'
     )
+
+    class SuperClass(metaclass=OrderedClassMembers):
+        """Super Class reference
+        """
+
+        def __init__(self, name=None):
+            self._name = name
+
+        @xml_attribute('adtcore:name')
+        def name(self):
+            """Application component name
+            """
+
+            return self._name
+
+    class Include(metaclass=OrderedClassMembers):
+        """Class includes"""
+
+        def __init__(self, adt_name, adt_type, include_type):
+            self._adt_name = adt_name
+            self._adt_type = adt_type
+            self._include_type = include_type
+
+        @staticmethod
+        def test_classes():
+            """Include for Test Class"""
+
+            return Class.Include('CLAS/OC', 'CLAS/OC', 'testclasses')
+
+        @xml_attribute('adtcore:name')
+        def adt_name(self):
+            """ADT Object name"""
+
+            return self._adt_name
+
+        @xml_attribute('adtcore:type')
+        def adt_type(self):
+            """ADT Object Type name"""
+
+            return self._adt_type
+
+        @xml_attribute('class:includeType')
+        def include_type(self):
+            """ADT Class include type"""
+
+            return self._include_type
+
+    def __init__(self, connection, name, package=None, metadata=None):
+        super(Class, self).__init__(connection, name, metadata)
+
+        self._metadata.package_reference.name = package
+        self._superclass = Class.SuperClass()
+
+    # pylint: disable=no-self-use
+    @xml_attribute('class:final')
+    def final(self):
+        """Final flag"""
+
+        return "true"
+
+    # pylint: disable=no-self-use
+    @xml_attribute('class:visibility')
+    def visibility(self):
+        """Visibility flag"""
+
+        return "public"
+
+    # pylint: disable=no-self-use
+    @xml_element('class:include')
+    def include(self):
+        """Class include"""
+
+        return Class.Include.test_classes()
+
+    @xml_element('class:superClassRef')
+    def super_class(self):
+        """Super Class reference"""
+
+        return self._superclass
 
 
 class Package(ADTObject):
