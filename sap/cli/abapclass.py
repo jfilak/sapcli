@@ -21,3 +21,16 @@ def read(connection, args):
 
     cls = sap.adt.Class(connection, args.name)
     print(cls.text)
+
+
+@CommandGroup.command()
+@CommandGroup.argument('package')
+@CommandGroup.argument('description')
+@CommandGroup.argument('name')
+def create(connection, args):
+    """Creates the requested class"""
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
+    clas = sap.adt.Class(connection, args.name.upper(), package=args.package.upper(), metadata=metadata)
+    clas.description = args.description
+    clas.create()

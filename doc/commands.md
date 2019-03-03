@@ -44,6 +44,15 @@ sapcli aunit run program ZHELLOWORLD [--output {raw,human}]
 
 ## Classes
 
+### create
+
+Creates a public final global class of the given name with the given
+description in the given package.
+
+```bash
+sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
+```
+
 ### read
 
 Download source codes
