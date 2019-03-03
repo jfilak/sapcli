@@ -151,6 +151,15 @@ def activation_params():
     return {'method': 'activate', 'preauditRequested': 'true'}
 
 
+def create_params(corrnr):
+    """Returns parameters for Creation of object"""
+
+    if corrnr is None:
+        return None
+
+    return {'corrnr': corrnr}
+
+
 class ADTObjectType:
     """Common ADT object type attributes.
     """
@@ -450,6 +459,20 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._metadata.package_reference
 
+    def create(self, corrnr=None):
+        """Creates ADT object
+        """
+
+        marshal = sap.adt.marshalling.Marshal()
+        xml = marshal.serialize(self)
+
+        return self._connection.execute(
+            'POST',
+            self.objtype.basepath,
+            headers={'Content-Type': self.objtype.mimetype},
+            params=create_params(corrnr),
+            body=xml)
+
     def lock(self):
         """Locks the object"""
 
@@ -550,18 +573,6 @@ class Program(ADTObject):
             body=content)
 
         mod_log().debug("Change text response status: %i", resp.status_code)
-
-    def create(self):
-        """Creates ABAP Program aka Report"""
-
-        marshal = sap.adt.marshalling.Marshal()
-        xml = marshal.serialize(self)
-
-        return self._connection.execute(
-            'POST', 'programs/programs',
-            headers={
-                'Content-Type': 'application/vnd.sap.adt.programs.programs.v2+xml'},
-            body=xml)
 
 
 class Class(ADTObject):
@@ -801,16 +812,3 @@ class Package(ADTObject):
         """
 
         self._appcomp = Package.ApplicationComponent(name)
-
-    def create(self):
-        """Creates ABAP Development class aka Package (obj type DEVC)
-        """
-
-        marshal = sap.adt.marshalling.Marshal()
-        xml = marshal.serialize(self)
-
-        return self._connection.execute(
-            'POST', 'packages',
-            headers={
-                'Content-Type': 'application/vnd.sap.adt.packages.v1+xml'},
-            body=xml)

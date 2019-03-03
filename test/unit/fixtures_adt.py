@@ -60,5 +60,6 @@ class DummyADTObject(sap.adt.ADTObject):
         'dummies'
     )
 
-    def __init__(self, connection='noconnection', name='noobject', metadata='nometadata'):
+    def __init__(self, connection='noconnection', name='noobject',
+                 metadata=sap.adt.ADTCoreData(description='adt fixtures dummy object')):
         super(DummyADTObject, self).__init__(connection, name, metadata)

@@ -5,7 +5,7 @@ import unittest
 from sap.errors import SAPCliError
 import sap.adt
 
-from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
+from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK
 from mock import Response, Connection
 
 
@@ -111,6 +111,36 @@ class TestADTObject(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(str(cm.exception), f'Could not activate the object activator: {ACTIVATE_RESPONSE_FAILED}')
+
+    def test_create_ok_wihout_corrnr(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+        victory = DummyADTObject(connection=connection, name='creator')
+
+        victory.create()
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/awesome/success')
+
+        self.assertEqual(connection.execs[0].headers['Content-Type'], 'application/super.cool.txt+xml')
+        self.assertEqual(sorted(connection.execs[0].headers.keys()), ['Content-Type'])
+
+        self.assertIsNone(connection.execs[0].params)
+
+        self.maxDiff = None
+        self.assertEqual(connection.execs[0].body, '''<?xml version="1.0" encoding="UTF-8"?>
+<win:dummies xmlns:win="http://www.example.com/never/lose" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:version="active" adtcore:type="DUMMY/S" adtcore:description="adt fixtures dummy object" adtcore:name="creator">
+<adtcore:packageRef/>
+</win:dummies>''' )
+
+    def test_create_ok_wih_corrnr(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+        victory = DummyADTObject(connection=connection, name='creator')
+
+        victory.create(corrnr='NPL000008')
+
+        self.assertEqual(connection.execs[0].params['corrnr'], 'NPL000008')
+        self.assertEqual(sorted(connection.execs[0].params.keys()), ['corrnr'])
 
 
 if __name__ == '__main__':
