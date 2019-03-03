@@ -8,7 +8,7 @@ from mock import Connection
 
 
 FIXTURE_PACKAGE_XML="""<?xml version="1.0" encoding="UTF-8"?>
-<pak:package xmlns:pak="http://www.sap.com/adt/packages" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:version="active" adtcore:type="DEVC/K" adtcore:description="description" adtcore:language="EN" adtcore:name="$TEST" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:responsible="FILAK">
+<pak:package xmlns:pak="http://www.sap.com/adt/packages" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="DEVC/K" adtcore:description="description" adtcore:language="EN" adtcore:name="$TEST" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:responsible="FILAK" adtcore:version="active">
 <adtcore:packageRef adtcore:name="$TEST"/>
 <pak:attributes pak:packageType="development"/>
 <pak:superPackage adtcore:name="$MASTER"/>

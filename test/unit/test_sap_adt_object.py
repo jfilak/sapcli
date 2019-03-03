@@ -129,7 +129,7 @@ class TestADTObject(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(connection.execs[0].body, '''<?xml version="1.0" encoding="UTF-8"?>
-<win:dummies xmlns:win="http://www.example.com/never/lose" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:version="active" adtcore:type="DUMMY/S" adtcore:description="adt fixtures dummy object" adtcore:name="creator">
+<win:dummies xmlns:win="http://www.example.com/never/lose" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="DUMMY/S" adtcore:description="adt fixtures dummy object" adtcore:name="creator">
 <adtcore:packageRef/>
 </win:dummies>''' )
 

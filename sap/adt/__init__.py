@@ -560,6 +560,13 @@ class Program(ADTObject):
 
         self._metadata.package_reference.name = package
 
+    # pylint: disable=no-self-use
+    @xml_attribute('adtcore:version')
+    def active(self):
+        """Version in regards of activation"""
+
+        return "active"
+
     def change_text(self, content):
         """Changes the source code"""
 
@@ -728,6 +735,13 @@ class Package(ADTObject):
         self._attributes = Package.Attributes()
         self._metadata.package_reference.name = name
         self._appcomp = None
+
+    # pylint: disable=no-self-use
+    @xml_attribute('adtcore:version')
+    def active(self):
+        """Version in regards of activation"""
+
+        return "active"
 
     @xml_element('pak:attributes')
     def attributes(self):

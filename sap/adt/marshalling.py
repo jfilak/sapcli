@@ -60,7 +60,6 @@ class Marshal:
         root = Element(name)
         root.add_attribute(f'xmlns:{objtype.xmlnamespace[0]}', objtype.xmlnamespace[1])
         root.add_attribute(f'xmlns:adtcore', 'http://www.sap.com/adt/core')
-        root.add_attribute('adtcore:version', 'active')
         root.add_attribute('adtcore:type', objtype.code)
 
         self._build_tree(root, adt_object)
