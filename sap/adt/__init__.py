@@ -625,6 +625,20 @@ class Package(ADTObject):
 
             return self._name
 
+    class ApplicationComponent(metaclass=OrderedClassMembers):
+        """Application component.
+        """
+
+        def __init__(self, name=None):
+            self._name = name
+
+        @xml_attribute('pak:name')
+        def name(self):
+            """Application component name
+            """
+
+            return self._name
+
     class Attributes(metaclass=OrderedClassMembers):
         """SAP Package attributes.
         """
@@ -689,6 +703,12 @@ class Package(ADTObject):
 
             return self._layer
 
+        @transport_layer.setter
+        def transport_layer(self, value):
+            """Set's the transport layer"""
+
+            self._layer = value
+
     def __init__(self, connection, name, metadata=None):
         super(Package, self).__init__(connection, name, metadata)
 
@@ -696,6 +716,7 @@ class Package(ADTObject):
         self._transport = Package.Transport()
         self._attributes = Package.Attributes()
         self._metadata.package_reference.name = name
+        self._appcomp = None
 
     @xml_element('pak:attributes')
     def attributes(self):
@@ -716,7 +737,7 @@ class Package(ADTObject):
         """The package's application component
         """
 
-        return None
+        return self._appcomp
 
     @xml_element('pak:transport')
     def transport(self):
@@ -768,6 +789,18 @@ class Package(ADTObject):
         """
 
         self._transport.software_component = Package.SoftwareComponent(name)
+
+    def set_transport_layer(self, name):
+        """Changes the Package's transport layer
+        """
+
+        self._transport.transport_layer = Package.Transport.Layer(name)
+
+    def set_app_component(self, name):
+        """Changes the Package's software component
+        """
+
+        self._appcomp = Package.ApplicationComponent(name)
 
     def create(self):
         """Creates ABAP Development class aka Package (obj type DEVC)

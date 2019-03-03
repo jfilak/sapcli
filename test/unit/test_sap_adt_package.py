@@ -12,10 +12,10 @@ FIXTURE_PACKAGE_XML="""<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:packageRef adtcore:name="$TEST"/>
 <pak:attributes pak:packageType="development"/>
 <pak:superPackage adtcore:name="$MASTER"/>
-<pak:applicationComponent/>
+<pak:applicationComponent pak:name="PPM"/>
 <pak:transport>
 <pak:softwareComponent pak:name="LOCAL"/>
-<pak:transportLayer/>
+<pak:transportLayer pak:name="HOME"/>
 </pak:transport>
 <pak:translation/>
 <pak:useAccesses/>
@@ -33,6 +33,8 @@ class TestADTPackage(unittest.TestCase):
         package.description = 'description'
         package.set_package_type('development')
         package.set_software_component('LOCAL')
+        package.set_transport_layer('HOME')
+        package.set_app_component('PPM')
         package.super_package.name = '$MASTER'
         package.create()
 
