@@ -66,7 +66,7 @@ sapcli class activate ZCL_HELLOWORLD
 Download source codes
 
 ```bash
-sapcli program class ZCL_HELLOWORLD
+sapcli class read ZCL_HELLOWORLD
 ```
 
 ### unit tests
