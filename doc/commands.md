@@ -63,7 +63,7 @@ sapcli class activate ZCL_HELLOWORLD
 
 ### read
 
-Download source codes
+Download main source codes of the given public class
 
 ```bash
 sapcli class read ZCL_HELLOWORLD
