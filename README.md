@@ -25,19 +25,19 @@ cd sapcli
 The primary goal was to enable ABAP Unit testing
 
 ```bash
-sapcli --ahost ... --client ... aunit run class zcl_foo
-sapcli --ahost ... --client ... aunit run program zfoo_report
-sapcli --ahost ... --client ... aunit run package '$local_package'
+sapcli aunit run class zcl_foo --output junit4
+sapcli aunit run program zfoo_report --output junit4
+sapcli aunit run package '$local_package' --output junit4
 ```
 
 , ATC checks triggering and installation of [abapGit](https://github.com/larshp/abapGit)
 which is delivered as a single source ABAP program (report, SE38 thing).
 
 ```bash
-sapcli --ashost ... --client ... package create '$abapgit' 'git for ABAP by Lars'
-sapcli --ashost ... --client ... program create 'zabapgit' 'github.com/larshp/abapGit' '$abapgit'
-curl https://raw.githubusercontent.com/abapGit/build/master/zabapgit.abap | sapcli --ashost ... --client ... program write 'zabapgit' -
-sapcli --ashost ... --client ... program activate 'zabapgit'
+sapcli package create '$abapgit' 'git for ABAP by Lars'
+sapcli program create 'zabapgit' 'github.com/larshp/abapGit' '$abapgit'
+curl https://raw.githubusercontent.com/abapGit/build/master/zabapgit.abap | sapcli program write 'zabapgit' -
+sapcli program activate 'zabapgit'
 ```
 
 See the complete list of supported operations in [doc/commands.md](doc/commands.md)
@@ -72,6 +72,6 @@ sapcli aunit run class zabapgit
 ```
 
 The tool asks only for user and password if missing. All other parameters
-either have own default value or causes fatal error.
+either have own default value or causes fatal error if not provided.
 
 Find the complete documentation in [doc/configuration.md](doc/configuration.md)
