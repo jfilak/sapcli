@@ -1,5 +1,6 @@
 """ADT proxy for ABAP Class (OO)"""
 
+import sys
 import sap.adt
 import sap.cli.core
 
@@ -34,6 +35,29 @@ def create(connection, args):
     clas = sap.adt.Class(connection, args.name.upper(), package=args.package.upper(), metadata=metadata)
     clas.description = args.description
     clas.create()
+
+
+@CommandGroup.command()
+@CommandGroup.argument('source', help='a path or - for stdin')
+@CommandGroup.argument('name')
+def write(connection, args):
+    """Changes main source code of the given class"""
+
+    text = None
+
+    if args.source == '-':
+        text = sys.stdin.readlines()
+    else:
+        with open(args.source) as filesrc:
+            text = filesrc.readlines()
+
+    clas = sap.adt.Class(connection, args.name.upper())
+    # TODO: context manager
+    clas.lock()
+    try:
+        clas.change_text(''.join(text))
+    finally:
+        clas.unlock()
 
 
 @CommandGroup.command()

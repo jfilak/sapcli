@@ -69,6 +69,14 @@ Download main source codes of the given public class
 sapcli class read ZCL_HELLOWORLD
 ```
 
+### write
+
+Changes main source code of the given class without activation
+
+```bash
+sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap
+```
+
 ### unit tests
 
 Execute unit tets
