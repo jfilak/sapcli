@@ -674,6 +674,21 @@ class Class(ADTObject):
 
         return self._superclass
 
+    def change_text(self, content):
+        """Changes the source code"""
+
+        text_uri = self.objtype.get_uri_for_type('text/plain')
+
+        resp = self._connection.execute(
+            'PUT', self.uri + text_uri,
+            params={'lockHandle': self._lock},
+            headers={
+                'Accept': 'text/plain',
+                'Content-Type': 'text/plain; charset=utf-8'},
+            body=content)
+
+        mod_log().debug("Change text response status: %i", resp.status_code)
+
 
 class Package(ADTObject):
     """ABAP Package - Development class - DEVC"""

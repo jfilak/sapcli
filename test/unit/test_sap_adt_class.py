@@ -6,6 +6,9 @@ import sap.adt
 
 from mock import Connection
 
+from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
+
+
 # TODO: remove adtcore:version
 # TODO: fix adtcore:type - CLAS/I -> CLAS/OC
 
@@ -15,6 +18,17 @@ FIXTURE_ELEMENTARY_CLASS_XML="""<?xml version="1.0" encoding="UTF-8"?>
 <class:include adtcore:name="CLAS/OC" adtcore:type="CLAS/OC" class:includeType="testclasses"/>
 <class:superClassRef/>
 </class:abapClass>"""
+
+FIXTURE_CLASS_MAIN_CODE='''class zcl_hello_world definition public.
+  public section.
+    methods: greet.
+endclass.
+class zcl_hello_world implementation.
+  method greet.
+    write: 'Hola!'.
+  endmethod.
+endclass.
+'''
 
 
 class TestADTClass(unittest.TestCase):
@@ -34,3 +48,30 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.oo.classes.v2+xml'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_ELEMENTARY_CLASS_XML)
+
+    def test_adt_class_write(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        clas.lock()
+
+        clas.change_text(FIXTURE_CLASS_MAIN_CODE)
+
+        self.assertEqual(
+            [(e.method, e.adt_uri) for e in conn.execs[1:] ],
+            [('PUT', '/sap/bc/adt/oo/classes/zcl_hello_world/source/main')])
+
+        put_request = conn.execs[1]
+        self.assertEqual(sorted(put_request.headers), ['Accept', 'Content-Type'])
+        self.assertEqual(put_request.headers['Accept'], 'text/plain')
+        self.assertEqual(put_request.headers['Content-Type'], 'text/plain; charset=utf-8')
+
+        self.assertEqual(sorted(put_request.params), ['lockHandle'])
+        self.assertEqual(put_request.params['lockHandle'], 'win')
+
+        self.maxDiff = None
+        self.assertEqual(put_request.body, FIXTURE_CLASS_MAIN_CODE)
+
+
+if __name__ == '__main__':
+    unittest.main()
