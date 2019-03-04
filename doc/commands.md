@@ -53,6 +53,14 @@ description in the given package.
 sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
 ```
 
+### activate
+
+Activates the given class.
+
+```bash
+sapcli class activate ZCL_HELLOWORLD
+```
+
 ### read
 
 Download source codes

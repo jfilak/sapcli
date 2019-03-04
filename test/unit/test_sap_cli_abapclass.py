@@ -47,5 +47,19 @@ class TestClassCreate(unittest.TestCase):
         self.assertEqual(create_request.headers['Content-Type'], 'application/vnd.sap.adt.oo.classes.v2+xml')
 
 
+class TestClassActivate(unittest.TestCase):
+
+    def test_class_activate_defaults(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+        args = parse_args(['activate', 'ZCL_ACTIVATOR'])
+        args.execute(connection, args)
+
+        self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/activation')])
+
+        create_request = connection.execs[0]
+        self.assertIn('adtcore:uri="/sap/bc/adt/oo/classes/zcl_activator"', create_request.body)
+        self.assertIn('adtcore:name="ZCL_ACTIVATOR"', create_request.body)
+
+
 if __name__ == '__main__':
     unittest.main()

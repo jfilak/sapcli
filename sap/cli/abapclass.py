@@ -34,3 +34,13 @@ def create(connection, args):
     clas = sap.adt.Class(connection, args.name.upper(), package=args.package.upper(), metadata=metadata)
     clas.description = args.description
     clas.create()
+
+
+@CommandGroup.command()
+@CommandGroup.argument('name')
+def activate(connection, args):
+    """Actives the given class.
+    """
+
+    clas = sap.adt.Class(connection, args.name)
+    clas.activate()
