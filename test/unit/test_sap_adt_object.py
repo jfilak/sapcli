@@ -35,6 +35,17 @@ class TestADTObject(unittest.TestCase):
         victory.lock()
         self.assertEquals(victory._lock, 'win')
 
+        self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/awesome/success/noobject')])
+
+        lock_request = connection.execs[0]
+        self.assertEqual(sorted(lock_request.params.keys()), ['_action', 'accessMode'])
+        self.assertEqual(lock_request.params['_action'], 'LOCK')
+        self.assertEqual(lock_request.params['accessMode'], 'MODIFY')
+
+        self.assertEqual(sorted(lock_request.headers.keys()), ['Accept', 'X-sap-adt-sessiontype'])
+        self.assertEqual(lock_request.headers['X-sap-adt-sessiontype'], 'stateful')
+        self.assertEqual(lock_request.headers['Accept'], 'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8, application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9')
+
         try:
             victory.lock()
             self.assertFail('Exception was expected')
