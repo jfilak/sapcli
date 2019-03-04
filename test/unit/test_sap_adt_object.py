@@ -79,7 +79,20 @@ class TestADTObject(unittest.TestCase):
         victory = DummyADTObject(connection=connection)
         victory.lock()
         victory.unlock()
+
         self.assertIsNone(victory._lock)
+
+        self.assertEqual(
+            [(e.method, e.adt_uri) for e in connection.execs],
+            2 * [('POST', '/sap/bc/adt/awesome/success/noobject')])
+
+        unlock_request = connection.execs[1]
+        self.assertEqual(sorted(unlock_request.params.keys()), ['_action', 'lockHandle'])
+        self.assertEqual(unlock_request.params['_action'], 'UNLOCK')
+        self.assertEqual(unlock_request.params['lockHandle'], 'win')
+
+        self.assertEqual(sorted(unlock_request.headers.keys()), ['X-sap-adt-sessiontype'])
+        self.assertEqual(unlock_request.headers['X-sap-adt-sessiontype'], 'stateful')
 
     def test_unlock_not_locked(self):
         victory = DummyADTObject()
