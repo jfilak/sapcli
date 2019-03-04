@@ -5,6 +5,7 @@ import unittest
 import sap.adt
 
 from mock import Connection
+from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 
 
 FIXTURE_XML="""<?xml version="1.0" encoding="UTF-8"?>
@@ -34,18 +35,24 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(conn.execs[0][3], FIXTURE_XML)
 
     def test_program_write(self):
-        conn = Connection()
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
 
         program = sap.adt.Program(conn, 'ZHELLO_WORLD')
+        program.lock()
         program.change_text(FIXTURE_REPORT_CODE)
 
-        self.assertEqual(len(conn.execs), 1)
+        self.assertEqual(len(conn.execs), 2)
 
-        self.assertEqual(conn.execs[0][0], 'PUT')
-        self.assertEqual(conn.execs[0][1], '/sap/bc/adt/programs/programs/zhello_world/source/main')
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'text/plain; charset=utf-8'})
+        put_request = conn.execs[1]
+
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, '/sap/bc/adt/programs/programs/zhello_world/source/main')
+        self.assertEqual(put_request.headers, {'Content-Type': 'text/plain; charset=utf-8'})
+        self.assertEqual(put_request.params, {'lockHandle': 'win'})
+
         self.maxDiff = None
-        self.assertEqual(conn.execs[0][3], FIXTURE_REPORT_CODE)
+        self.assertEqual(put_request.body, FIXTURE_REPORT_CODE)
+
 
 if __name__ == '__main__':
     unittest.main()
