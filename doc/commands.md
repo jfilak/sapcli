@@ -1,5 +1,23 @@
 # sapcli supported commands
 
+1. [Programs](#programs)
+   1. [create](#create)
+   2. [write](#write)
+   3. [activate](#activate)
+   4. [read](#read)
+2. [Classes](#classes)
+   1. [create](#create-1)
+   2. [write](#write-1)
+   3. [activate](#activate-1)
+   4. [read](#read-1)
+3. [Packages](#packages)
+   1. [create](#create-2)
+4. [ABAP Unit](#abap-unit)
+   1. [run](#run)
+5. [Change Transport System](#change-transport-system-cts)
+   1. [list](#list)
+   2. [release](#release)
+
 ## Programs
 
 ### create
@@ -34,14 +52,6 @@ Download source codes
 sapcli program read ZHELLOWORLD
 ```
 
-### unit tests
-
-Execute unit tets
-
-```bash
-sapcli aunit run program ZHELLOWORLD [--output {raw,human}]
-```
-
 ## Classes
 
 ### create
@@ -51,6 +61,14 @@ description in the given package.
 
 ```bash
 sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
+```
+
+### write
+
+Changes main source code of the given class without activation
+
+```bash
+sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap
 ```
 
 ### activate
@@ -69,22 +87,6 @@ Download main source codes of the given public class
 sapcli class read ZCL_HELLOWORLD
 ```
 
-### write
-
-Changes main source code of the given class without activation
-
-```bash
-sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap
-```
-
-### unit tests
-
-Execute unit tets
-
-```bash
-sapcli aunit run class ZCL_HELLOWORLD [--output {raw,human}]
-```
-
 ## Packages
 
 ### create
@@ -95,12 +97,16 @@ Creates non-transportable packages
 sapcli package create \$tests "with description"
 ```
 
-### unit tests
+## ABAP Unit
 
-Execute unit tests
+Find more detailed description at [aunit.md](aunit.md)
+
+### run
+
+Runs ABAP unit tests of the give object
 
 ```bash
-sapcli aunit run package \$tests [--output {raw,human}]
+sapcli aunit run {package,class,program} NAME [--output {raw,human,junit4}]
 ```
 
 ## Change Transport System (CTS)
