@@ -10,8 +10,13 @@
    2. [write](#write-1)
    3. [activate](#activate-1)
    4. [read](#read-1)
-3. [Packages](#packages)
+2. [Interfaces](#interfaces)
    1. [create](#create-2)
+   2. [write](#write-2)
+   3. [activate](#activate-2)
+   4. [read](#read-2)
+3. [Packages](#packages)
+   1. [create](#create-3)
 4. [ABAP Unit](#abap-unit)
    1. [run](#run)
 5. [Change Transport System](#change-transport-system-cts)
@@ -85,6 +90,41 @@ Download main source codes of the given public class
 
 ```bash
 sapcli class read ZCL_HELLOWORLD
+```
+
+## Interfaces
+
+### create
+
+Creates a public interface of the given name with the given
+description in the given package.
+
+```bash
+sapcli interface create ZIF_GREETER "Interface description" '$PACKAGE'
+```
+
+### write
+
+Changes source code of the given interfaces without activation
+
+```bash
+sapcli interface write "ZIF_GREETER" zif_greeter.abap
+```
+
+### activate
+
+Activates the given interface
+
+```bash
+sapcli interface activate ZIF_GREETER
+```
+
+### read
+
+Download main source codes of the given public interface
+
+```bash
+sapcli interface read ZIF_GREETER
 ```
 
 ## Packages

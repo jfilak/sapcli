@@ -582,6 +582,38 @@ class Program(ADTObject):
         mod_log().debug("Change text response status: %i", resp.status_code)
 
 
+class Interface(ADTObject):
+    """ABAP Interface"""
+
+    OBJTYPE = ADTObjectType(
+        'INTF/OI',
+        'oo/interfaces',
+        ('intf', 'http://www.sap.com/adt/oo/interfaces'),
+        'application/vnd.sap.adt.oo.interfaces.v2+xml',
+        {'text/plain': 'source/main'},
+        'abapInterface'
+    )
+
+    def __init__(self, connection, name, package=None, metadata=None):
+        super(Interface, self).__init__(connection, name, metadata)
+
+        self._metadata.package_reference.name = package
+
+    def change_text(self, content):
+        """Changes the source code"""
+
+        text_uri = self.objtype.get_uri_for_type('text/plain')
+
+        resp = self._connection.execute(
+            'PUT', self.uri + text_uri,
+            params={'lockHandle': self._lock},
+            headers={
+                'Content-Type': 'text/plain; charset=utf-8'},
+            body=content)
+
+        mod_log().debug("Change text response status: %i", resp.status_code)
+
+
 class Class(ADTObject):
     """ABAP OO Class
     """
