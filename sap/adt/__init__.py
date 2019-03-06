@@ -459,6 +459,12 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._metadata.package_reference
 
+    @property
+    def lock_handle(self):
+        """Returns Lock handle or None if not locked"""
+
+        return self._lock
+
     def create(self, corrnr=None):
         """Creates ADT object
         """
@@ -644,16 +650,18 @@ class Class(ADTObject):
     class Include(metaclass=OrderedClassMembers):
         """Class includes"""
 
-        def __init__(self, adt_name, adt_type, include_type):
+        def __init__(self, clas, adt_name, adt_type, include_type, source_uri):
+            self._clas = clas
             self._adt_name = adt_name
             self._adt_type = adt_type
             self._include_type = include_type
+            self._source_uri = source_uri
 
         @staticmethod
-        def test_classes():
+        def test_classes(clas):
             """Include for Test Class"""
 
-            return Class.Include('CLAS/OC', 'CLAS/OC', 'testclasses')
+            return Class.Include(clas, 'CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/testclasses')
 
         @xml_attribute('adtcore:name')
         def adt_name(self):
@@ -672,6 +680,25 @@ class Class(ADTObject):
             """ADT Class include type"""
 
             return self._include_type
+
+        @property
+        def text(self):
+            """Returns text"""
+
+            return self._clas.connection.get_text(f'{self._clas.uri}{self._source_uri}')
+
+        def change_text(self, content):
+            """Changes source codes"""
+
+            resp = self._clas.connection.execute(
+                'PUT', self._clas.uri + self._source_uri,
+                params={'lockHandle': self._clas.lock_handle},
+                headers={
+                    'Accept': 'text/plain',
+                    'Content-Type': 'text/plain; charset=utf-8'},
+                body=content)
+
+            mod_log().debug("Change text response status: %i", resp.status_code)
 
     def __init__(self, connection, name, package=None, metadata=None):
         super(Class, self).__init__(connection, name, metadata)
@@ -698,7 +725,7 @@ class Class(ADTObject):
     def include(self):
         """Class include"""
 
-        return Class.Include.test_classes()
+        return self.test_classes
 
     @xml_element('class:superClassRef')
     def super_class(self):
@@ -720,6 +747,12 @@ class Class(ADTObject):
             body=content)
 
         mod_log().debug("Change text response status: %i", resp.status_code)
+
+    @property
+    def test_classes(self):
+        """Test Classes"""
+
+        return Class.Include.test_classes(self)
 
 
 class Package(ADTObject):

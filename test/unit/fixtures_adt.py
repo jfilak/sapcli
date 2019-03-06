@@ -8,6 +8,10 @@ LOCK_RESPONSE_OK = Response(text='<sap><LOCK_HANDLE>win</LOCK_HANDLE></sap>',
                             status_code=200,
                             headers={'Content-Type': 'dataname=com.sap.adt.lock.Result'})
 
+TEST_CLASSES_READ_RESPONSE_OK = Response(text='* test classes',
+                                         status_code=200,
+                                         headers={'Content-Type': 'text/plain; charset=utf-8'})
+
 TASK_NUMBER='1A2B3C4D5E'
 TRANSPORT_NUMBER='E5D4C3B2A1'
 

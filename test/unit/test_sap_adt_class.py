@@ -4,9 +4,9 @@ import unittest
 
 import sap.adt
 
-from mock import Connection
+from mock import Connection, Response
 
-from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
+from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK
 
 
 # TODO: remove adtcore:version
@@ -71,6 +71,47 @@ class TestADTClass(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(put_request.body, FIXTURE_CLASS_MAIN_CODE)
+
+    def test_adt_class_read_tests(self):
+        conn = Connection([TEST_CLASSES_READ_RESPONSE_OK])
+
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        source_code = clas.test_classes.text
+
+        self.assertEqual(source_code, TEST_CLASSES_READ_RESPONSE_OK.text)
+
+        self.assertEqual(
+            [(e.method, e.adt_uri) for e in conn.execs],
+            [('GET', '/sap/bc/adt/oo/classes/zcl_hello_world/includes/testclasses')])
+
+        get_request = conn.execs[0]
+        self.assertEqual(sorted(get_request.headers), ['Accept'])
+        self.assertEqual(get_request.headers['Accept'], 'text/plain')
+
+        self.assertIsNone(get_request.params)
+
+    def test_adt_class_write_tests(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        clas.lock()
+
+        clas.test_classes.change_text('* new test classes')
+
+        self.assertEqual(
+            [(e.method, e.adt_uri) for e in conn.execs[1:] ],
+            [('PUT', '/sap/bc/adt/oo/classes/zcl_hello_world/includes/testclasses')])
+
+        put_request = conn.execs[1]
+        self.assertEqual(sorted(put_request.headers), ['Accept', 'Content-Type'])
+        self.assertEqual(put_request.headers['Accept'], 'text/plain')
+        self.assertEqual(put_request.headers['Content-Type'], 'text/plain; charset=utf-8')
+
+        self.assertEqual(sorted(put_request.params), ['lockHandle'])
+        self.assertEqual(put_request.params['lockHandle'], 'win')
+
+        self.maxDiff = None
+        self.assertEqual(put_request.body, '* new test classes')
 
 
 if __name__ == '__main__':
