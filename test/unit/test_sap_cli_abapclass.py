@@ -2,13 +2,13 @@
 
 from argparse import ArgumentParser
 import unittest
-from unittest.mock import patch, mock_open
+from unittest.mock import patch, mock_open, call
 from io import StringIO
 
 import sap.cli.abapclass
 
 from mock import Connection
-from fixtures_adt import EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK
+from fixtures_adt import EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK
 
 
 FIXTURE_ELEMENTARY_CLASS_XML="""<?xml version="1.0" encoding="UTF-8"?>
@@ -91,6 +91,34 @@ class TestClassWrite(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(conn.execs[1][3], 'class file definition')
+
+
+class TestClassIncludes(unittest.TestCase):
+
+    def test_class_read_tests(self):
+        conn = Connection([TEST_CLASSES_READ_RESPONSE_OK])
+        args = parse_args(['read', 'ZCL_READER', '--testclasses'])
+
+        with patch('sap.cli.abapclass.print') as mock_print:
+            args.execute(conn, args)
+
+        self.assertEqual(len(conn.execs), 1)
+
+        self.maxDiff = None
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/oo/classes/zcl_reader/includes/testclasses')
+        self.assertEqual(mock_print.call_args_list, [call(TEST_CLASSES_READ_RESPONSE_OK.text)])
+
+    def test_class_write_tests(self):
+        args = parse_args(['write', 'ZCL_WRITER', '--testclasses', '-'])
+
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+
+        with patch('sys.stdin', StringIO('* new test classes')):
+            args.execute(conn, args)
+
+        self.assertEqual(len(conn.execs), 3)
+
+        self.assertEqual(conn.execs[1].adt_uri, '/sap/bc/adt/oo/classes/zcl_writer/includes/testclasses')
 
 
 if __name__ == '__main__':

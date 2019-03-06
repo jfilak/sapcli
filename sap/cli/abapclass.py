@@ -15,13 +15,18 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 
 @CommandGroup.command()
+@CommandGroup.argument('--testclasses', default=False, action='store_true')
 @CommandGroup.argument('name')
 def read(connection, args):
     """Prints it out based on command line configuration.
     """
 
     cls = sap.adt.Class(connection, args.name)
-    print(cls.text)
+
+    if args.testclasses:
+        print(cls.test_classes.text)
+    else:
+        print(cls.text)
 
 
 @CommandGroup.command()
@@ -39,6 +44,7 @@ def create(connection, args):
 
 @CommandGroup.command()
 @CommandGroup.argument('source', help='a path or - for stdin')
+@CommandGroup.argument('--testclasses', default=False, action='store_true')
 @CommandGroup.argument('name')
 def write(connection, args):
     """Changes main source code of the given class"""
@@ -55,7 +61,10 @@ def write(connection, args):
     # TODO: context manager
     clas.lock()
     try:
-        clas.change_text(''.join(text))
+        if args.testclasses:
+            clas.test_classes.change_text(''.join(text))
+        else:
+            clas.change_text(''.join(text))
     finally:
         clas.unlock()
 
