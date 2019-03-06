@@ -1,5 +1,7 @@
 from typing import Dict, NamedTuple
 
+import sap.adt
+
 
 class Response(NamedTuple):
 
@@ -22,11 +24,12 @@ def ok_responses():
     yield Response(text='', status_code=200, headers={})
 
 
-class Connection:
+class Connection(sap.adt.Connection):
 
     def __init__(self, responses=None, user='ANZEIGER'):
+        super(Connection, self).__init__('mockhost', 'mockclient', user, 'mockpass')
+
         self.execs = list()
-        self.user = user
         self._resp_iter = ok_responses() if responses is None else iter(responses)
 
     def execute(self, method, adt_uri, params=None, headers=None, body=None):
@@ -34,7 +37,3 @@ class Connection:
         self.execs.append(Request(method, final_uri, headers, body, params))
 
         return next(self._resp_iter)
-
-    @property
-    def uri(self):
-        return 'sap/bc/adt'
