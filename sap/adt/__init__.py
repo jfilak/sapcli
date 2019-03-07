@@ -663,11 +663,25 @@ class Class(ADTObject):
     class Include(metaclass=OrderedClassMembers):
         """Class includes"""
 
+        DefinitionsMetadata = ClassIncludeMetadata('CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/definitions')
+        ImplementationsMetadata = ClassIncludeMetadata('CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/implementations')
         TestClassesMetadata = ClassIncludeMetadata('CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/testclasses')
 
         def __init__(self, clas, metadata):
             self._clas = clas
             self._metadata = metadata
+
+        @staticmethod
+        def definitions(clas):
+            """Include for Local Definitions"""
+
+            return Class.Include(clas, Class.Include.DefinitionsMetadata)
+
+        @staticmethod
+        def implementations(clas):
+            """Include for Local Implementations"""
+
+            return Class.Include(clas, Class.Include.ImplementationsMetadata)
 
         @staticmethod
         def test_classes(clas):
@@ -717,6 +731,8 @@ class Class(ADTObject):
 
         self._metadata.package_reference.name = package
         self._superclass = Class.SuperClass()
+        self._definitions = None
+        self._implementations = None
         self._test_classes = None
 
     # pylint: disable=no-self-use
@@ -760,6 +776,24 @@ class Class(ADTObject):
             body=content)
 
         mod_log().debug("Change text response status: %i", resp.status_code)
+
+    @property
+    def definitions(self):
+        """Local Definitions"""
+
+        if self._definitions is None:
+            self._definitions = Class.Include.definitions(self)
+
+        return self._definitions
+
+    @property
+    def implementations(self):
+        """Local Implementations"""
+
+        if self._implementations is None:
+            self._implementations = Class.Include.implementations(self)
+
+        return self._implementations
 
     @property
     def test_classes(self):

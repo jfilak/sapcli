@@ -8,7 +8,8 @@ from io import StringIO
 import sap.cli.abapclass
 
 from mock import Connection
-from fixtures_adt import EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK
+from fixtures_adt import (EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
+                          DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 
 
 FIXTURE_ELEMENTARY_CLASS_XML="""<?xml version="1.0" encoding="UTF-8"?>
@@ -95,9 +96,9 @@ class TestClassWrite(unittest.TestCase):
 
 class TestClassIncludes(unittest.TestCase):
 
-    def test_class_read_tests(self):
-        conn = Connection([TEST_CLASSES_READ_RESPONSE_OK])
-        args = parse_args(['read', 'ZCL_READER', '--testclasses'])
+    def read_test(self, response, typ):
+        conn = Connection([response])
+        args = parse_args(['read', 'ZCL_READER', '--type', typ])
 
         with patch('sap.cli.abapclass.print') as mock_print:
             args.execute(conn, args)
@@ -105,20 +106,38 @@ class TestClassIncludes(unittest.TestCase):
         self.assertEqual(len(conn.execs), 1)
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/oo/classes/zcl_reader/includes/testclasses')
-        self.assertEqual(mock_print.call_args_list, [call(TEST_CLASSES_READ_RESPONSE_OK.text)])
+        self.assertEqual(conn.execs[0].adt_uri, f'/sap/bc/adt/oo/classes/zcl_reader/includes/{typ}')
+        self.assertEqual(mock_print.call_args_list, [call(response.text)])
 
-    def test_class_write_tests(self):
-        args = parse_args(['write', 'ZCL_WRITER', '--testclasses', '-'])
+    def test_class_read_definitions(self):
+        self.read_test(DEFINITIONS_READ_RESPONSE_OK, 'definitions')
+
+    def test_class_read_implementations(self):
+        self.read_test(IMPLEMENTATIONS_READ_RESPONSE_OK, 'implementations')
+
+    def test_class_read_tests(self):
+        self.read_test(TEST_CLASSES_READ_RESPONSE_OK, 'testclasses')
+
+    def write_test(self, typ):
+        args = parse_args(['write', 'ZCL_WRITER', '--type', typ, '-'])
 
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
 
-        with patch('sys.stdin', StringIO('* new test classes')):
+        with patch('sys.stdin', StringIO('* new content')):
             args.execute(conn, args)
 
         self.assertEqual(len(conn.execs), 3)
 
-        self.assertEqual(conn.execs[1].adt_uri, '/sap/bc/adt/oo/classes/zcl_writer/includes/testclasses')
+        self.assertEqual(conn.execs[1].adt_uri, f'/sap/bc/adt/oo/classes/zcl_writer/includes/{typ}')
+
+    def test_class_write_definitions(self):
+        self.write_test('definitions')
+
+    def test_class_write_implementations(self):
+        self.write_test('implementations')
+
+    def test_class_write_tests(self):
+        self.write_test('testclasses')
 
 
 if __name__ == '__main__':

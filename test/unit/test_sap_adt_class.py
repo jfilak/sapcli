@@ -6,7 +6,8 @@ import sap.adt
 
 from mock import Connection, Response
 
-from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK
+from fixtures_adt import (LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
+                          DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 
 
 # TODO: remove adtcore:version
@@ -90,6 +91,12 @@ class TestADTClass(unittest.TestCase):
 
         self.assertIsNone(get_request.params)
 
+    def test_adt_class_read_definitions(self):
+        self.include_read_test(DEFINITIONS_READ_RESPONSE_OK, lambda clas: clas.definitions, 'includes/definitions')
+
+    def test_adt_class_read_implementations(self):
+        self.include_read_test(IMPLEMENTATIONS_READ_RESPONSE_OK, lambda clas: clas.implementations, 'includes/implementations')
+
     def test_adt_class_read_tests(self):
         self.include_read_test(TEST_CLASSES_READ_RESPONSE_OK, lambda clas: clas.test_classes, 'includes/testclasses')
 
@@ -115,6 +122,12 @@ class TestADTClass(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(put_request.body, '* new content')
+
+    def test_adt_class_write_definitions(self):
+        self.include_write_test(lambda clas: clas.definitions, 'includes/definitions')
+
+    def test_adt_class_write_implementations(self):
+        self.include_write_test(lambda clas: clas.implementations, 'includes/implementations')
 
     def test_adt_class_write_tests(self):
         self.include_write_test(lambda clas: clas.test_classes, 'includes/testclasses')

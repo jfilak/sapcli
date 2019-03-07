@@ -5,6 +5,24 @@ import sap.adt
 import sap.cli.core
 
 
+SOURCE_TYPES = ['main', 'definitions', 'implementations', 'testclasses']
+
+
+def get_source_code_objec(clas, source_code_type):
+    """Returns object based on type"""
+
+    if source_code_type == 'definitions':
+        return clas.definitions
+
+    if source_code_type == 'implementations':
+        return clas.implementations
+
+    if source_code_type == 'testclasses':
+        return clas.test_classes
+
+    return clas
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Adapter converting command line parameters to sap.adt.Class methods
        calls.
@@ -13,20 +31,22 @@ class CommandGroup(sap.cli.core.CommandGroup):
     def __init__(self):
         super(CommandGroup, self).__init__('class')
 
+    @classmethod
+    def argument_source_type(cls):
+        """Adds the --type argument"""
+
+        return CommandGroup.argument('--type', default=SOURCE_TYPES[0], choices=SOURCE_TYPES)
+
 
 @CommandGroup.command()
-@CommandGroup.argument('--testclasses', default=False, action='store_true')
+@CommandGroup.argument_source_type()
 @CommandGroup.argument('name')
 def read(connection, args):
     """Prints it out based on command line configuration.
     """
 
     cls = sap.adt.Class(connection, args.name)
-
-    if args.testclasses:
-        print(cls.test_classes.text)
-    else:
-        print(cls.text)
+    print(get_source_code_objec(cls, args.type).text)
 
 
 @CommandGroup.command()
@@ -44,7 +64,7 @@ def create(connection, args):
 
 @CommandGroup.command()
 @CommandGroup.argument('source', help='a path or - for stdin')
-@CommandGroup.argument('--testclasses', default=False, action='store_true')
+@CommandGroup.argument_source_type()
 @CommandGroup.argument('name')
 def write(connection, args):
     """Changes main source code of the given class"""
@@ -61,10 +81,7 @@ def write(connection, args):
     # TODO: context manager
     clas.lock()
     try:
-        if args.testclasses:
-            clas.test_classes.change_text(''.join(text))
-        else:
-            clas.change_text(''.join(text))
+        get_source_code_objec(clas, args.type).change_text(''.join(text))
     finally:
         clas.unlock()
 

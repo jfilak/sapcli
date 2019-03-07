@@ -8,6 +8,14 @@ LOCK_RESPONSE_OK = Response(text='<sap><LOCK_HANDLE>win</LOCK_HANDLE></sap>',
                             status_code=200,
                             headers={'Content-Type': 'dataname=com.sap.adt.lock.Result'})
 
+DEFINITIONS_READ_RESPONSE_OK = Response(text='* definitions',
+                                         status_code=200,
+                                         headers={'Content-Type': 'text/plain; charset=utf-8'})
+
+IMPLEMENTATIONS_READ_RESPONSE_OK = Response(text='* implementations',
+                                         status_code=200,
+                                         headers={'Content-Type': 'text/plain; charset=utf-8'})
+
 TEST_CLASSES_READ_RESPONSE_OK = Response(text='* test classes',
                                          status_code=200,
                                          headers={'Content-Type': 'text/plain; charset=utf-8'})
