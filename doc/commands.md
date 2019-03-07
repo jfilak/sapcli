@@ -76,6 +76,12 @@ Changes main source code of the given class without activation
 sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap
 ```
 
+Changes test classes source code of the given class without activation
+
+```bash
+sapcli class write "ZCL_HELLOWORLD" --testclassess zcl_helloworld.testclasses.abap
+```
+
 ### activate
 
 Activates the given class.
@@ -90,6 +96,12 @@ Download main source codes of the given public class
 
 ```bash
 sapcli class read ZCL_HELLOWORLD
+```
+
+Downloads test classes source codes of the given public class
+
+```bash
+sapcli class read ZCL_HELLOWORLD --testclasses
 ```
 
 ## Interfaces

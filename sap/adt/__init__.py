@@ -2,6 +2,8 @@
 
 import re
 import collections
+from typing import NamedTuple
+
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -620,6 +622,16 @@ class Interface(ADTObject):
         mod_log().debug("Change text response status: %i", resp.status_code)
 
 
+# pylint: disable=too-few-public-methods
+class ClassIncludeMetadata(NamedTuple):
+    """Class Include Type definition"""
+
+    adt_name: str
+    adt_type: str
+    include_type: str
+    source_uri: str
+
+
 class Class(ADTObject):
     """ABAP OO Class
     """
@@ -650,48 +662,47 @@ class Class(ADTObject):
     class Include(metaclass=OrderedClassMembers):
         """Class includes"""
 
-        def __init__(self, clas, adt_name, adt_type, include_type, source_uri):
+        TestClassesMetadata = ClassIncludeMetadata('CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/testclasses')
+
+        def __init__(self, clas, metadata):
             self._clas = clas
-            self._adt_name = adt_name
-            self._adt_type = adt_type
-            self._include_type = include_type
-            self._source_uri = source_uri
+            self._metadata = metadata
 
         @staticmethod
         def test_classes(clas):
             """Include for Test Class"""
 
-            return Class.Include(clas, 'CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/testclasses')
+            return Class.Include(clas, Class.Include.TestClassesMetadata)
 
         @xml_attribute('adtcore:name')
         def adt_name(self):
             """ADT Object name"""
 
-            return self._adt_name
+            return self._metadata.adt_name
 
         @xml_attribute('adtcore:type')
         def adt_type(self):
             """ADT Object Type name"""
 
-            return self._adt_type
+            return self._metadata.adt_type
 
         @xml_attribute('class:includeType')
         def include_type(self):
             """ADT Class include type"""
 
-            return self._include_type
+            return self._metadata.include_type
 
         @property
         def text(self):
             """Returns text"""
 
-            return self._clas.connection.get_text(f'{self._clas.uri}{self._source_uri}')
+            return self._clas.connection.get_text(f'{self._clas.uri}{self._metadata.source_uri}')
 
         def change_text(self, content):
             """Changes source codes"""
 
             resp = self._clas.connection.execute(
-                'PUT', self._clas.uri + self._source_uri,
+                'PUT', self._clas.uri + self._metadata.source_uri,
                 params={'lockHandle': self._clas.lock_handle},
                 headers={
                     'Accept': 'text/plain',
