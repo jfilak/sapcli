@@ -5,7 +5,7 @@ from xml.sax.handler import ContentHandler
 
 from typing import NamedTuple, Any, List
 
-from sap.adt import mod_log
+from sap.adt.core import mod_log
 
 
 # pylint: disable=too-few-public-methods
