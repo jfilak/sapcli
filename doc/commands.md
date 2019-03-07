@@ -23,6 +23,8 @@
 5. [Change Transport System](#change-transport-system-cts)
    1. [list](#list-1)
    2. [release](#release)
+5. [Source Code Library](#source-code-library)
+   1. [checkout](#checkout)
 
 ## Programs
 
@@ -213,4 +215,37 @@ Release CTS request - either Transport or Transport Task
 
 ```bash
 sapcli cts release [transport,task] $number
+```
+
+## Source Code Library
+
+This set of commands is intended for reading and writing whole packages.
+
+File format and names should be compatible with [abapGit](https://github.com/larshp/abapGit).
+
+### checkout
+
+Fetches all source codes of the given class and stores them in local files.
+
+```bash
+sapcli checkout class zcl_hello_world
+```
+
+Fetches source codes of the given program and stores it a local file.
+
+```bash
+sapcli checkout program z_hello_world
+```
+
+Fetches source codes of the given interface and stores it a local file.
+
+```bash
+sapcli checkout interface zif_hello_world
+```
+
+Fetches source codes of classes, programs and interfaces of the given package
+and stores them in corresponding files.
+
+```bash
+sapcli checkout package '$hello_world'
 ```

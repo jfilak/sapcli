@@ -29,6 +29,7 @@ def get_commands():
     import sap.cli.aunit
     import sap.cli.package
     import sap.cli.cts
+    import sap.cli.checkout
 
     return [
         (adt_connection_from_args, sap.cli.program.CommandGroup()),
@@ -36,7 +37,8 @@ def get_commands():
         (adt_connection_from_args, sap.cli.abapclass.CommandGroup()),
         (adt_connection_from_args, sap.cli.aunit.CommandGroup()),
         (adt_connection_from_args, sap.cli.package.CommandGroup()),
-        (adt_connection_from_args, sap.cli.cts.CommandGroup())
+        (adt_connection_from_args, sap.cli.cts.CommandGroup()),
+        (adt_connection_from_args, sap.cli.checkout.CommandGroup())
     ]
 
 
