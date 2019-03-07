@@ -1,4 +1,5 @@
 """Base classes for ADT functionality modules"""
+# pylint: disable=too-many-lines
 
 import re
 import collections
@@ -716,6 +717,7 @@ class Class(ADTObject):
 
         self._metadata.package_reference.name = package
         self._superclass = Class.SuperClass()
+        self._test_classes = None
 
     # pylint: disable=no-self-use
     @xml_attribute('class:final')
@@ -763,7 +765,10 @@ class Class(ADTObject):
     def test_classes(self):
         """Test Classes"""
 
-        return Class.Include.test_classes(self)
+        if self._test_classes is None:
+            self._test_classes = Class.Include.test_classes(self)
+
+        return self._test_classes
 
 
 class Package(ADTObject):
