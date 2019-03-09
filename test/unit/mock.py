@@ -37,3 +37,6 @@ class Connection(sap.adt.Connection):
         self.execs.append(Request(method, final_uri, headers, body, params))
 
         return next(self._resp_iter)
+
+    def mock_methods(self):
+        return  [(e.method, e.adt_uri) for e in self.execs]
