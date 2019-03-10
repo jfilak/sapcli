@@ -1,10 +1,19 @@
 #!/bin/python
 
 import unittest
+from types import SimpleNamespace
 
 import sap.adt
 
 from mock import Connection
+
+from fixtures_adt_repository import (PACKAGE_ROOT_NODESTRUCTURE_OK_RESPONSE,
+                                     PACKAGE_ROOT_REQUEST_XML,
+                                     PACKAGE_SOURCE_LIBRARY_NODESTRUCUTRE_OK_RESPONSE,
+                                     PACKAGE_SOURCE_LIBRARY_REQUEST_XML,
+                                     PACKAGE_EMPTY_NODESTRUCTURE_OK_RESPONSE,
+                                     PACKAGE_ENVELOPE_NODESTRUCTURE_OK_RESPONSE,
+                                     PACKAGE_WITHOUT_SUBPKG_NODESTRUCTURE_OK_RESPONSE)
 
 
 FIXTURE_PACKAGE_XML="""<?xml version="1.0" encoding="UTF-8"?>
@@ -45,6 +54,83 @@ class TestADTPackage(unittest.TestCase):
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v1+xml'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_PACKAGE_XML)
+
+
+class TestADTPackageWalk(unittest.TestCase):
+
+    def test_with_empty_subpackage(self):
+        connection = Connection([PACKAGE_ROOT_NODESTRUCTURE_OK_RESPONSE,
+                                 PACKAGE_SOURCE_LIBRARY_NODESTRUCUTRE_OK_RESPONSE,
+                                 PACKAGE_EMPTY_NODESTRUCTURE_OK_RESPONSE])
+
+        walk_iter = sap.adt.package.walk(sap.adt.Package(connection, '$VICTORY'))
+
+        root_path, subpackages, objects = next(walk_iter)
+
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/repository/nodestructure')
+        self.assertEqual(connection.execs[0].params['parent_name'], '$VICTORY')
+        self.assertEqual(connection.execs[0].body, PACKAGE_ROOT_REQUEST_XML)
+
+        self.assertEqual(connection.execs[1].adt_uri, '/sap/bc/adt/repository/nodestructure')
+        self.assertEqual(connection.execs[1].params['parent_name'], '$VICTORY')
+        self.assertEqual(connection.execs[1].body, PACKAGE_SOURCE_LIBRARY_REQUEST_XML)
+
+        self.assertEqual(root_path, [])
+        self.assertEqual(subpackages, ['$VICTORY_TESTS'])
+        self.assertEqual(objects,
+                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD'),
+                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD'),
+                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD')])
+
+        root_path, subpackages, objects = next(walk_iter)
+
+        self.assertEqual(connection.execs[2].adt_uri, '/sap/bc/adt/repository/nodestructure')
+        self.assertEqual(connection.execs[2].params['parent_name'], '$VICTORY_TESTS')
+        self.assertEqual(connection.execs[2].body, PACKAGE_ROOT_REQUEST_XML)
+
+        self.assertEqual(len(connection.execs), 3)
+
+        self.assertEqual(root_path, ['$VICTORY_TESTS'])
+        self.assertEqual(subpackages, [])
+        self.assertEqual(objects, [])
+
+    def test_with_envelope_root(self):
+        connection = Connection([PACKAGE_ENVELOPE_NODESTRUCTURE_OK_RESPONSE,
+                                 PACKAGE_WITHOUT_SUBPKG_NODESTRUCTURE_OK_RESPONSE,
+                                 PACKAGE_SOURCE_LIBRARY_NODESTRUCUTRE_OK_RESPONSE])
+
+        walk_iter = sap.adt.package.walk(sap.adt.Package(connection, '$VICTORY'))
+
+        root_path, subpackages, objects = next(walk_iter)
+
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/repository/nodestructure')
+        self.assertEqual(connection.execs[0].params['parent_name'], '$VICTORY')
+        self.assertEqual(connection.execs[0].body, PACKAGE_ROOT_REQUEST_XML)
+
+        self.assertEqual(root_path, [])
+        self.assertEqual(subpackages, ['$VICTORY_TESTS'])
+        self.assertEqual(objects, [])
+
+        self.assertEqual(len(connection.execs), 1)
+
+        root_path, subpackages, objects = next(walk_iter)
+
+        self.assertEqual(connection.execs[1].adt_uri, '/sap/bc/adt/repository/nodestructure')
+        self.assertEqual(connection.execs[1].params['parent_name'], '$VICTORY_TESTS')
+        self.assertEqual(connection.execs[1].body, PACKAGE_ROOT_REQUEST_XML)
+
+        self.assertEqual(connection.execs[2].adt_uri, '/sap/bc/adt/repository/nodestructure')
+        self.assertEqual(connection.execs[2].params['parent_name'], '$VICTORY_TESTS')
+        self.assertEqual(connection.execs[2].body, PACKAGE_SOURCE_LIBRARY_REQUEST_XML)
+
+        self.assertEqual(len(connection.execs), 3)
+
+        self.assertEqual(root_path, ['$VICTORY_TESTS'])
+        self.assertEqual(subpackages, [])
+        self.assertEqual(objects,
+                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD'),
+                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD'),
+                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD')])
 
 
 if __name__ == '__main__':
