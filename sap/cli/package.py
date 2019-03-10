@@ -42,3 +42,31 @@ def create(connection, args):
         package.set_transport_layer(args.transport_layer.upper())
 
     package.create()
+
+
+@CommandGroup.command('list')
+@CommandGroup.argument('-r', '--recursive', default=False, action='store_true', help='List sub-packages')
+@CommandGroup.argument('name')
+def list_package(connection, args):
+    """List information about package contents"""
+
+    package = sap.adt.Package(connection, args.name)
+
+    for pkg, subpackages, objects in sap.adt.package.walk(package):
+        basedir = '/'.join(pkg)
+        if basedir:
+            basedir += '/'
+
+        if not args.recursive:
+            for subpkg in subpackages:
+                print(f'{basedir}{subpkg}')
+
+        for obj in objects:
+            print(f'{basedir}{obj.name}')
+
+        if not args.recursive:
+            break
+        elif not subpackages and not objects:
+            print(f'{basedir}')
+
+    return 0

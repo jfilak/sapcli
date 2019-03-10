@@ -17,10 +17,11 @@
    4. [read](#read-2)
 3. [Packages](#packages)
    1. [create](#create-3)
+   2. [list](#list)
 4. [ABAP Unit](#abap-unit)
    1. [run](#run)
 5. [Change Transport System](#change-transport-system-cts)
-   1. [list](#list)
+   1. [list](#list-1)
    2. [release](#release)
 
 ## Programs
@@ -172,6 +173,17 @@ Creates non-transportable packages
 ```bash
 sapcli package create \$tests "with description"
 ```
+
+### list
+
+List sub-packages and object of the given package
+
+```bash
+sapcli package list \$tests [--recursive]
+```
+
+If the parameter `--recursive` is present, the command prints out contents of
+sub-packages too.
 
 ## ABAP Unit
 

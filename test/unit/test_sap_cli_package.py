@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, call
 from types import SimpleNamespace
+from argparse import ArgumentParser
 
 from sap.errors import SAPCliError
 import sap.cli.package
 
 from mock import Connection, Response
 from fixtures_adt import EMPTY_RESPONSE_OK
+
+
+def parse_args(*argv):
+    parser = ArgumentParser()
+    sap.cli.package.CommandGroup().install_parser(parser)
+    return parser.parse_args(argv)
 
 
 class TestPackageCreate(unittest.TestCase):
@@ -57,3 +64,57 @@ class TestPackageCreate(unittest.TestCase):
                                                            app_component=None, transport_layer='SAP'))
 
         self.assertIn('<pak:transportLayer pak:name="SAP"/>', connection.execs[0].body)
+
+
+
+class TestPackageList(unittest.TestCase):
+
+    def configure_mock_walk(self, conn, fake_walk):
+        fake_walk.return_value = iter(
+            (([],
+              ['$VICTORY_TESTS', '$VICTORY_DOC'],
+              [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD'),
+               SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD'),
+               SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD')]),
+             (['$VICTORY_TESTS'],
+              [],
+              [SimpleNamespace(typ='CLAS/OC', name='ZCL_TESTS')]),
+             (['$VICTORY_DOC'],
+              [],
+              []))
+        )
+
+    @patch('sap.adt.package.walk')
+    def test_without_recursion(self, fake_walk):
+        conn = Connection()
+
+        self.configure_mock_walk(conn, fake_walk)
+        args = parse_args('list', '$VICTORY')
+
+        with patch('sap.cli.package.print') as fake_print:
+            args.execute(conn, args)
+
+        self.assertEqual(fake_print.mock_calls, [call('$VICTORY_TESTS'),
+                                                 call('$VICTORY_DOC'),
+                                                 call('ZIF_HELLO_WORLD'),
+                                                 call('ZCL_HELLO_WORLD'),
+                                                 call('Z_HELLO_WORLD')])
+    @patch('sap.adt.package.walk')
+    def test_with_recursion(self, fake_walk):
+        conn = Connection()
+
+        self.configure_mock_walk(conn, fake_walk)
+        args = parse_args('list', '$VICTORY', '-r')
+
+        with patch('sap.cli.package.print') as fake_print:
+            args.execute(conn, args)
+
+        self.assertEqual(fake_print.mock_calls, [call('ZIF_HELLO_WORLD'),
+                                                 call('ZCL_HELLO_WORLD'),
+                                                 call('Z_HELLO_WORLD'),
+                                                 call('$VICTORY_TESTS/ZCL_TESTS'),
+                                                 call('$VICTORY_DOC/')])
+
+
+if __name__ == '__main__':
+    unittest.main()
