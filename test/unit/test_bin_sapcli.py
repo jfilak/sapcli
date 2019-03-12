@@ -19,7 +19,7 @@ sys.modules['sapcli'] = sapcli
 
 ALL_PARAMETERS = [
     'sapcli', '--ashost', 'fixtures', '--client', '975', '--port', '3579',
-    '--no-ssl', '--user', 'fantomas', '--password', 'Down1oad'
+    '--no-ssl', '--skip-ssl-validation', '--user', 'fantomas', '--password', 'Down1oad'
 ]
 
 
@@ -38,7 +38,7 @@ class TestParseCommandLine(unittest.TestCase):
         self.assertEqual(
             vars(args),
             {'ashost':'fixtures', 'client':'975', 'ssl':False, 'port':3579,
-             'user':'fantomas', 'password':'Down1oad', 'verbose_count':0})
+             'user':'fantomas', 'password':'Down1oad', 'verify':False, 'verbose_count':0})
 
     def test_args_no_ashost(self):
         test_params = ALL_PARAMETERS.copy()
@@ -123,6 +123,7 @@ class TestParseCommandLine(unittest.TestCase):
         remove_cmd_param_from_list(test_params, '--client')
         remove_cmd_param_from_list(test_params, '--port')
         test_params.remove('--no-ssl')
+        test_params.remove('--skip-ssl-validation')
         print("PARAMS: ", str(test_params), file=sys.stderr)
 
         os.environ['SAP_USER'] = 'fantomas'
@@ -148,6 +149,7 @@ class TestParseCommandLine(unittest.TestCase):
         self.assertEqual(args.port, 13579)
         self.assertEqual(args.client, '137')
         self.assertFalse(args.ssl)
+        self.assertTrue(args.verify)
 
 
     def test_args_env_no_ssl_variants(self):
@@ -176,6 +178,31 @@ class TestParseCommandLine(unittest.TestCase):
 
             self.assertTrue(args.ssl, msg=variant)
 
+    def test_args_env_skip_ssl_validation_variants(self):
+        test_params = ALL_PARAMETERS.copy()
+        test_params.remove('--skip-ssl-validation')
+        print("PARAMS: ", str(test_params), file=sys.stderr)
+
+        for variant in ('n', 'N', 'No', 'no', 'NO', 'false', 'FALSE', 'False', 'Off', 'off'):
+            os.environ['SAP_SSL_VERIFY'] = variant
+
+            try:
+                args = sapcli.parse_command_line(test_params)
+            finally:
+                del os.environ['SAP_SSL_VERIFY']
+
+            self.assertFalse(args.verify, msg=variant)
+
+
+        for variant in ('any', 'thing', 'else', 'is', 'true', 'or', 'on', 'or', 'YES'):
+            os.environ['SAP_SSL_VERIFY'] = variant
+
+            try:
+                args = sapcli.parse_command_line(test_params)
+            finally:
+                del os.environ['SAP_SSL_VERIFY']
+
+            self.assertTrue(args.verify, msg=variant)
 
 if __name__ == '__main__':
     unittest.main()

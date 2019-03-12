@@ -31,6 +31,26 @@ This parameter is mandatory and must be provided either on the command line or
 as the environment variable `SAP_SSL` (beware the environment variable values
 is positive, while the command line parameter is negative).
 
+### --skip-ssl-validation
+
+Danger! Skipping certificate validation may expose your secure communication to
+eavesdropping and other man-in-the-middle attacks. Use with care!
+
+By default, sapcli tries to validate SSL certificates against the list of known
+root CAs. For servers with self-signed SSL certificates or certificates issued
+by a self-signed CA you should normally add them to your system's CA
+certificates. On Linux this works like that:
+
+```
+$ sudo cp your-server.crt /usr/local/share/ca-certificates
+$ sudo update-ca-certificates
+```
+
+In development environments or in case of problems with your certificates, you
+can use the switch `--skip-ssl-validation` to suppress all certificate checks
+when connecting to your server. Same behavior can be achieved by setting the
+environment variable `SAP_SSL_VERIFY` to `no`.
+
 ### --port
 
 TCP PORT where your SAP Application Server accepts connection for ICF services.

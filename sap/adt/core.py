@@ -18,7 +18,8 @@ class Connection:
     """ADT Connection for HTTP communication built on top Python requests.
     """
 
-    def __init__(self, host, client, user, password, port=None, ssl=True):
+    # pylint: disable=too-many-arguments
+    def __init__(self, host, client, user, password, port=None, ssl=True, verify=True):
         """Parameters:
             - host: string host name
             - client: string SAP client
@@ -27,6 +28,7 @@ class Connection:
             - port: string TCP/IP port for ADT
                     (default 80 or 443 - it depends on the parameter ssl)
             - ssl: boolean to switch between http and https
+            - verify: boolean to switch SSL validation on/off
         """
 
         if ssl:
@@ -37,6 +39,7 @@ class Connection:
             protocol = 'http'
             if port is None:
                 port = '80'
+        self._ssl_verify = verify
 
         self._adt_uri = 'sap/bc/adt'
         self._base_url = '{protocol}://{host}:{port}/{adt_uri}'.format(
@@ -96,12 +99,12 @@ class Connection:
         if self._session is None:
             self._session = requests.Session()
             self._session.auth = self._auth
-
+            # requests.session.verify is either boolean or path to CA to use!
             self._session.verify = os.environ.get('SAP_SSL_SERVER_CERT', self._session.verify)
 
             if self._session.verify is not True:
-                mod_log().info('Using custom SSL Server cert path: SAP_SSL_VERIFY = %s', self._session.verify)
-            elif os.environ.get('SAP_SSL_VERIFY', 'yes').lower() == 'no':
+                mod_log().info('Using custom SSL Server cert path: SAP_SSL_SERVER_CERT = %s', self._session.verify)
+            elif self._ssl_verify is False:
                 import urllib3
                 urllib3.disable_warnings()
                 mod_log().info('SSL Server cert will not be verified: SAP_SSL_VERIFY = no')
