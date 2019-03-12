@@ -566,6 +566,7 @@ class ClassIncludeMetadata(NamedTuple):
     source_uri: str
 
 
+# pylint: disable=too-many-instance-attributes
 class Class(ADTObject):
     """ABAP OO Class
     """
@@ -667,23 +668,60 @@ class Class(ADTObject):
         self._definitions = None
         self._implementations = None
         self._test_classes = None
+        self._modeled = None
+        self._fixpntar = None
+        self._final = 'true'
+        self._visibility = 'public'
 
-    # pylint: disable=no-self-use
     @xml_attribute('class:final')
     def final(self):
         """Final flag"""
 
-        return "true"
+        return self._final
 
-    # pylint: disable=no-self-use
+    @final.setter
+    def final(self, value):
+        """Final flag"""
+
+        self._final = value == 'true'
+
     @xml_attribute('class:visibility')
     def visibility(self):
         """Visibility flag"""
 
-        return "public"
+        return self._visibility
 
-    # pylint: disable=no-self-use
-    @xml_element('class:include')
+    @visibility.setter
+    def visibility(self, value):
+        """Visibility flag"""
+
+        self._visibility = value
+
+    @xml_attribute('abapoo:modeled')
+    def modeled(self):
+        """ABAP OO flag modeled"""
+
+        return self._modeled
+
+    @modeled.setter
+    def modeled(self, value):
+        """ABAP OO flag modeled"""
+
+        self._modeled = value == 'true'
+
+    @xml_attribute('abapsource:fixPointArithmetic')
+    def fix_point_arithmetic(self):
+        """Fixed point arithmetic flag"""
+
+        return self._fixpntar
+
+    @fix_point_arithmetic.setter
+    def fix_point_arithmetic(self, value):
+        """Fixed point arithmetic flag"""
+
+        self._fixpntar = value == 'true'
+
+    @xml_element('class:include', deserialize=False)
     def include(self):
         """Class include"""
 

@@ -2,6 +2,7 @@
 
 import unittest
 
+from sap import get_logger
 import sap.adt
 
 from mock import Connection, Response
@@ -9,16 +10,8 @@ from mock import Connection, Response
 from fixtures_adt import (LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 
+from fixtures_adt_clas import CREATE_CLASS_ADT_XML, GET_CLASS_ADT_XML
 
-# TODO: remove adtcore:version
-# TODO: fix adtcore:type - CLAS/I -> CLAS/OC
-
-FIXTURE_ELEMENTARY_CLASS_XML="""<?xml version="1.0" encoding="UTF-8"?>
-<class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="CLAS/OC" adtcore:description="Say hello!" adtcore:language="EN" adtcore:name="ZCL_HELLO_WORLD" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:responsible="FILAK" class:final="true" class:visibility="public">
-<adtcore:packageRef adtcore:name="$TEST"/>
-<class:include adtcore:name="CLAS/OC" adtcore:type="CLAS/OC" class:includeType="testclasses"/>
-<class:superClassRef/>
-</class:abapClass>"""
 
 FIXTURE_CLASS_MAIN_CODE='''class zcl_hello_world definition public.
   public section.
@@ -48,7 +41,7 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/oo/classes')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.oo.classes.v2+xml'})
         self.maxDiff = None
-        self.assertEqual(conn.execs[0][3], FIXTURE_ELEMENTARY_CLASS_XML)
+        self.assertEqual(conn.execs[0][3], CREATE_CLASS_ADT_XML)
 
     def test_adt_class_write(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
@@ -131,6 +124,19 @@ class TestADTClass(unittest.TestCase):
 
     def test_adt_class_write_tests(self):
         self.include_write_test(lambda clas: clas.test_classes, 'includes/testclasses')
+
+    def test_adt_class_fetch(self):
+        conn = Connection([Response(text=GET_CLASS_ADT_XML, status_code=200, headers={})])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        # get_logger().setLevel(0)
+        clas.fetch()
+
+        self.assertEqual(clas.name, 'ZCL_HELLO_WORLD')
+        self.assertEqual(clas.active, 'active')
+        self.assertEqual(clas.master_language, 'EN')
+        self.assertEqual(clas.description, 'You cannot stop me!')
+        self.assertEqual(clas.modeled, False)
+        self.assertEqual(clas.fix_point_arithmetic, True)
 
 
 if __name__ == '__main__':
