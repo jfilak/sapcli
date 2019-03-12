@@ -14,7 +14,7 @@ def adt_connection_from_args(args):
 
     return sap.adt.Connection(
         args.ashost, args.client, args.user, args.password,
-        port=args.port, ssl=args.ssl)
+        port=args.port, ssl=args.ssl, verify=args.verify)
 
 
 def get_commands():

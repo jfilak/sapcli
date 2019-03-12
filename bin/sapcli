@@ -76,6 +76,13 @@ def resolve_default_values(arg_parser, args):
         else:
             args.ssl = True
 
+    if args.verify is None:
+        verify = os.getenv('SAP_SSL_VERIFY')
+        if verify is not None:
+            args.verify = verify.lower() not in ('n', 'no', 'false', 'off')
+        else:
+            args.verify = True
+
     if not args.user:
         args.user = os.getenv('SAP_USER')
 
@@ -105,6 +112,9 @@ def parse_command_line(argv):
     arg_parser.add_argument(
         '--no-ssl', dest='ssl', default=None, action='store_false',
         help='Switch from HTTPS to HTTP')
+    arg_parser.add_argument(
+        '--skip-ssl-validation', dest='verify', default=None, action='store_false',
+        help='Skip validation of SSL server certificates')
     arg_parser.add_argument(
         '--port', dest='port', type=int, default=None,
         help='ADT HTTP port; default = 443')
