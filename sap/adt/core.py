@@ -1,5 +1,6 @@
 """Base ADT functionality module"""
 
+import os
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -95,6 +96,16 @@ class Connection:
         if self._session is None:
             self._session = requests.Session()
             self._session.auth = self._auth
+
+            self._session.verify = os.environ.get('SAP_SSL_SERVER_CERT', self._session.verify)
+
+            if self._session.verify is not True:
+                mod_log().info('Using custom SSL Server cert path: SAP_SSL_VERIFY = %s', self._session.verify)
+            elif os.environ.get('SAP_SSL_VERIFY', 'yes').lower() == 'no':
+                import urllib3
+                urllib3.disable_warnings()
+                mod_log().info('SSL Server cert will not be verified: SAP_SSL_VERIFY = no')
+                self._session.verify = False
 
             url = self._build_adt_url('core/discovery')
 

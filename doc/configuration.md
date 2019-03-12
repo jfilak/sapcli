@@ -64,3 +64,5 @@ or as the environment variable `SAP_PASSWORD`, sapcli will prompt you for it.
 - `SAP_PORT` : default value for the command line parameter --port
 - `SAP_USER` : default value for the command line parameter --user
 - `SAP_PASSWORD` : default value for the command line parameter --password
+- `SAP_SSL_SERVER_CERT` : path to the public unencrypted server SSL certificate
+- `SAP_SSL_VERIFY` : if "no", SSL server certificate is no validated - this works only when SAP_SSL_SERVER_CERT is not configured
