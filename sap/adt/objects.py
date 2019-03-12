@@ -188,11 +188,23 @@ class ADTCoreData:
 
         return self._language
 
+    @language.setter
+    def language(self, value):
+        """Language"""
+
+        self._language = value
+
     @property
     def master_language(self):
         """Original (master) language"""
 
         return self._master_language
+
+    @master_language.setter
+    def master_language(self, value):
+        """Original (master) language"""
+
+        self._master_language = value
 
     @property
     def master_system(self):
@@ -293,11 +305,24 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._metadata.language
 
+    @language.setter
+    def language(self, value):
+        """Set SAP object language"""
+
+        self._metadata.language = value
+
     @xml_attribute('adtcore:name')
     def name(self):
         """SAP Object name"""
 
         return self._name
+
+    @name.setter
+    def name(self, value):
+        """Only for deserialization - cannot be used to rename object"""
+
+        if value != self._name:
+            raise SAPCliError(f'Deserializing wrong object: {self._name} != {value}')
 
     @xml_attribute('adtcore:masterLanguage')
     def master_language(self):
@@ -305,17 +330,35 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._metadata.master_language
 
+    @master_language.setter
+    def master_language(self, value):
+        """Set SAP object original (master) language"""
+
+        self._metadata.master_language = value
+
     @xml_attribute('adtcore:masterSystem')
     def master_system(self):
         """SAP object original (master) system"""
 
         return self._metadata.master_system
 
+    @master_system.setter
+    def master_system(self, value):
+        """SAP object original (master) system"""
+
+        self._metadata.master_system = value
+
     @xml_attribute('adtcore:responsible')
     def responsible(self):
         """SAP object responsible"""
 
         return self._metadata.responsible
+
+    @responsible.setter
+    def responsible(self, value):
+        """Set SAP object responsible"""
+
+        self._metadata.responsible = value
 
     @property
     def uri(self):

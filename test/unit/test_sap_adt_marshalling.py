@@ -2,9 +2,10 @@
 
 import unittest
 
+from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
 from sap.adt.annotations import xml_element, xml_attribute
-from sap.adt.marshalling import Marshal, Element
+from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
 
 
 class Dummy(ADTObject):
@@ -66,6 +67,96 @@ class Dummy(ADTObject):
         return self._nested
 
 
+class DummyWithSetters(ADTObject):
+
+    OBJTYPE = ADTObjectType(
+        'CODE',
+        'prefix/dummy',
+        ('dummyxmlns', 'http://www.sap.com/adt/xmlns/dummy'),
+        'application/vnd.sap.adt.test.elements.v2+xml',
+        {'text/plain': 'source/main'},
+        'dummyelem'
+    )
+
+    class Nested(metaclass=OrderedClassMembers):
+
+        class SuperNested(metaclass=OrderedClassMembers):
+
+            def __init__(self):
+                self._yetanother = None
+
+            @xml_attribute('sup_nst_fst')
+            def yetanother(self):
+                return self._yetanother
+
+            @yetanother.setter
+            def yetanother(self, value):
+                self._yetanother = value
+
+        def __init__(self):
+            self._child = DummyWithSetters.Nested.SuperNested()
+            self._first = None
+            self._second = None
+
+        @xml_attribute('nst_fst')
+        def first(self):
+            return self._first
+
+        @first.setter
+        def first(self, value):
+            self._first = value
+
+        @xml_attribute('nst_scn')
+        def second(self):
+            return self._second
+
+        @second.setter
+        def second(self, value):
+            self._second = value
+
+        @xml_element('child_nst')
+        def supernested(self):
+            return self._child
+
+
+    def __init__(self):
+        super(DummyWithSetters, self).__init__(
+            None, 'dmtname',
+            metadata=ADTCoreData(
+                package='testpkg',
+                description='Description',
+                language='CZ',
+                master_language='EN',
+                master_system='NPL',
+                responsible='FILAK'
+            )
+        )
+
+        self._nested = DummyWithSetters.Nested()
+        self._first = None
+        self._second = None
+
+    @xml_attribute('attr_first')
+    def first(self):
+        return self._first
+
+    @first.setter
+    def first(self, value):
+        self._first = value
+
+    @xml_attribute('attr_second')
+    def second(self):
+        return self._second
+
+    @second.setter
+    def second(self, value):
+        self._second = value
+
+    @xml_element('first_elem')
+    def value(self):
+        return self._nested
+
+
 class TestADTAnnotation(unittest.TestCase):
 
     def test_tree_generation(self):
@@ -94,6 +185,57 @@ class TestADTAnnotation(unittest.TestCase):
         child = elem.add_child('child')
         xml = marshal._tree_to_xml(elem)
         self.assertEqual(xml, '<?xml version="1.0" encoding="UTF-8"?>\n<root one="1" two="2">\n<child/>\n</root>')
+
+    def test_element_handler(self):
+        adt_object = DummyWithSetters()
+        name = '/' + adt_object_to_element_name(adt_object)
+        self.assertEqual('/dummyxmlns:dummyelem', name)
+
+        elements = dict()
+        handler = ElementHandler(name, elements, lambda: adt_object)
+        elements[name] = handler
+        handler.new()
+
+        self.assertIn(f'{name}/first_elem', elements)
+
+        handler.set('attr_first', '1st')
+        self.assertEqual(adt_object.first, '1st')
+
+        handler.set('attr_second', '2nd')
+        self.assertEqual(adt_object.second, '2nd')
+
+        child_handler = elements[f'{name}/first_elem']
+        child_handler.new()
+
+        self.assertIn(f'{name}/first_elem/child_nst', elements)
+
+        child_handler.set('nst_fst', '1.')
+        self.assertEqual(adt_object.value.first, '1.')
+
+        child_handler.set('nst_scn', '2.')
+        self.assertEqual(adt_object.value.second, '2.')
+
+        grand_child_handler = elements[f'{name}/first_elem/child_nst']
+        grand_child_handler.new()
+
+        grand_child_handler.set('sup_nst_fst', 'X')
+        self.assertEqual(adt_object.value.supernested.yetanother, 'X')
+
+
+    def test_deserialization(self):
+        obj = Dummy()
+        marshal = Marshal()
+        xml_data = marshal.serialize(obj)
+
+        clone = DummyWithSetters()
+        #get_logger().setLevel(0)
+        Marshal.deserialize(xml_data, clone)
+
+        self.assertEqual(obj.first, clone.first)
+        self.assertEqual(obj.second, clone.second)
+        self.assertEqual(obj.value.first, clone.value.first)
+        self.assertEqual(obj.value.second, clone.value.second)
+        self.assertEqual(obj.value.supernested.yetanother, clone.value.supernested.yetanother)
 
 
 if __name__ == '__main__':

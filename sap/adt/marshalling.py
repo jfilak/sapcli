@@ -1,5 +1,11 @@
 """Convert Python Objects to ADT XML entities"""
 
+from functools import partial
+
+import xml.sax
+from xml.sax.handler import ContentHandler
+
+from sap import get_logger
 from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty
 
 
@@ -42,6 +48,96 @@ class Element:
         self._attributes[name] = value
 
 
+def adt_object_to_element_name(adt_object):
+    """Returns XML element name for the given adt_object"""
+
+    objtype = adt_object.objtype
+    return f'{objtype.xmlnamespace[0]}:{objtype.xmlname}'
+
+
+class ElementHandler:
+    """XML element desirialization"""
+
+    def __init__(self, my_xpath, elements, factory=None):
+        self.my_xpath = my_xpath
+        self.elements = elements
+        self.factory = factory
+        self.attributes = None
+        self.obj = None
+
+    def new(self):
+        """Returns a new object"""
+
+        self.obj = self.factory()
+        self.attributes = ElementHandler.load_definitions(self, self.obj)
+
+    def set(self, attr_name, value):
+        """Sets object's property value"""
+
+        get_logger().debug('Going to set XML attribute property: %s', attr_name)
+        try:
+            self.attributes[attr_name].__set__(self.obj, value)
+            get_logger().debug('Set XML attribute property: %s', attr_name)
+        except KeyError:
+            get_logger().debug('Not an XML attribute property: %s', attr_name)
+
+    def load_definitions(self, obj):
+        """Examines annotations of the current object"""
+
+        attributes = dict()
+        for attr_name in obj.__class__.__ordered__:
+            if attr_name.startswith('_'):
+                continue
+
+            attr = getattr(obj.__class__, attr_name)
+
+            if isinstance(attr, XmlElementProperty):
+                xml_path = f'{self.my_xpath}/{attr.name}'
+                get_logger().debug('Found XML element property: %s -> %s', attr_name, xml_path)
+                self.elements[xml_path] = ElementHandler(xml_path, self.elements, partial(attr.__get__, obj))
+            elif isinstance(attr, XmlAttributeProperty):
+                get_logger().debug('Found XML attribute property: %s -> %s', attr_name, attr.name)
+                attributes[attr.name] = attr
+
+        return attributes
+
+
+class ADTObjectSAXHandler(ContentHandler):
+    """ADT Object XML parser"""
+
+    def __init__(self, elements):
+        super(ADTObjectSAXHandler, self).__init__()
+
+        self.stack = list()
+        self.current = ''
+        self.elements = elements
+
+    def startElement(self, name, attrs):
+        self.stack.append(self.current)
+        self.current = f'{self.current}/{name}'
+        get_logger().debug('Encountered XML element: %s', self.current)
+
+        try:
+            handler = self.elements[self.current]
+        except KeyError:
+            return
+
+        get_logger().debug('Deserializing element: %s', self.current)
+
+        # this loads handlers for children elements!! /o\
+        handler.new()
+
+        for attr_name, value in attrs.items():
+            get_logger().debug('Encountered XML attribute: %s', attr_name)
+            try:
+                handler.set(attr_name, value)
+            except KeyError:
+                pass
+
+    def endElement(self, name):
+        self.current = self.stack.pop()
+
+
 class Marshal:
     """ADT object marshaling"""
 
@@ -51,11 +147,24 @@ class Marshal:
         tree = self._object_to_tree(adt_object)
         return self._tree_to_xml(tree)
 
+    @staticmethod
+    def deserialize(xml_text, adt_object):
+        """Loads XML and stores values in the given adt_object"""
+
+        name = '/' + adt_object_to_element_name(adt_object)
+
+        elements = dict()
+        handler = ElementHandler(name, elements, lambda: adt_object)
+        elements[name] = handler
+
+        parser = ADTObjectSAXHandler(elements)
+        xml.sax.parseString(xml_text, parser)
+
     def _object_to_tree(self, adt_object):
         """Create a DOM like representation of the given ADT object"""
 
         objtype = adt_object.objtype
-        name = f'{objtype.xmlnamespace[0]}:{objtype.xmlname}'
+        name = adt_object_to_element_name(adt_object)
 
         root = Element(name)
         root.add_attribute(f'xmlns:{objtype.xmlnamespace[0]}', objtype.xmlnamespace[1])
@@ -95,16 +204,16 @@ class Marshal:
     def _element_to_xml(self, tree):
         """ """
 
-        xml = f'<{tree.name}'
+        xml_str = f'<{tree.name}'
 
         attributes = ' '.join(f'{key}="{value}"' for key, value in tree.attributes.items())
         if attributes:
-            xml += f' {attributes}'
+            xml_str += f' {attributes}'
 
         children = '\n'.join((self._element_to_xml(child) for child in tree.children))
         if children:
-            xml += f'>\n{children}\n</{tree.name}>'
+            xml_str += f'>\n{children}\n</{tree.name}>'
         else:
-            xml += '/>'
+            xml_str += '/>'
 
-        return xml
+        return xml_str
