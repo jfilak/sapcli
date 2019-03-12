@@ -235,7 +235,7 @@ class ADTObject(metaclass=OrderedClassMembers):
     """Abstract base class for ADT objects
     """
 
-    def __init__(self, connection, name, metadata=None):
+    def __init__(self, connection, name, metadata=None, active_status=None):
         """Parameters:
             - connection: ADT.Connection
             - name: string name
@@ -244,6 +244,7 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         self._connection = connection
         self._name = name
+        self._active_status = active_status
 
         self._metadata = metadata if metadata is not None else ADTCoreData()
 
@@ -333,6 +334,12 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._connection.get_text('{objuri}{text_uri}'.format(
             objuri=self.uri, text_uri=text_uri))
+
+    @xml_attribute('adtcore:version')
+    def active(self):
+        """Version in regards of activation"""
+
+        return self._active_status
 
     @xml_element('adtcore:packageRef')
     def reference(self):
@@ -443,16 +450,9 @@ class Program(ADTObject):
     )
 
     def __init__(self, connection, name, package=None, metadata=None):
-        super(Program, self).__init__(connection, name, metadata)
+        super(Program, self).__init__(connection, name, metadata, active_status='active')
 
         self._metadata.package_reference.name = package
-
-    # pylint: disable=no-self-use
-    @xml_attribute('adtcore:version')
-    def active(self):
-        """Version in regards of activation"""
-
-        return "active"
 
     def change_text(self, content):
         """Changes the source code"""
