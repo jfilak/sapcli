@@ -18,6 +18,7 @@ class Connection:
     """ADT Connection for HTTP communication built on top Python requests.
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(self, host, client, user, password, port=None, ssl=True, verify=True):
         """Parameters:
             - host: string host name

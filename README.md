@@ -75,3 +75,11 @@ The tool asks only for user and password if missing. All other parameters
 either have own default value or causes fatal error if not provided.
 
 Find the complete documentation in [doc/configuration.md](doc/configuration.md)
+
+## For developers
+
+Your contribution is more than welcome! Nothing is worse than the code that does not exist.
+
+Have a look into [CONTRIBUTING guide](CONTRIBUTING.md), if you are not sure how to start.
+
+And even seasoned GiHub contributors might consider checking out [HACKING guide](HACKING.md).

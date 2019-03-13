@@ -5,7 +5,7 @@ import unittest
 import sap.adt
 
 
-class TestADTObject(unittest.TestCase):
+class TestADTConnection(unittest.TestCase):
     """Connection(host, client, user, password, port=None, ssl=True)"""
 
     def test_adt_connection_init_default(self):
