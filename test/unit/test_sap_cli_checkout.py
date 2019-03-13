@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 from argparse import ArgumentParser
 import unittest
@@ -101,15 +102,53 @@ class TestCheckoutPackage(unittest.TestCase):
         )
 
         args = parse_args(['package', '$VICTORY'])
-        with patch('sap.cli.checkout.print') as fake_print:
+        with patch('sap.cli.checkout.print') as fake_print, \
+             patch('os.path.isdir') as fake_isdir, \
+             patch('os.makedirs') as fake_makedirs:
+            fake_isdir.return_value = True
+            fake_makedirs.side_effect = Exception('Should not be evaluated')
             args.execute(conn, args)
 
-        fake_prog.assert_called_once_with(conn, 'Z_HELLO_WORLD')
-        fake_intf.assert_called_once_with(conn, 'ZIF_HELLO_WORLD')
-        fake_clas.assert_called_once_with(conn, 'ZCL_HELLO_WORLD')
+        exp_destdir = os.path.abspath('src')
+        fake_prog.assert_called_once_with(conn, 'Z_HELLO_WORLD', exp_destdir)
+        fake_intf.assert_called_once_with(conn, 'ZIF_HELLO_WORLD', exp_destdir)
+        fake_clas.assert_called_once_with(conn, 'ZCL_HELLO_WORLD', exp_destdir)
 
         self.assertEqual(fake_print.mock_calls, [call('Ignoring sub-package: $VICTORY_TESTS', file=sys.stderr),
                                                  call('Unsupported object: 7777/3 Magic Unicorn', file=sys.stderr)])
+
+    @patch('sap.cli.checkout.checkout_objects')
+    @patch('sap.adt.package.walk')
+    def test_checkout_package_starting_folder(self, fake_walk, fake_checkout):
+        conn = Connection([])
+
+        exp_objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
+        fake_walk.return_value = iter((([], [], exp_objects), ))
+
+        starting_folder = os.path.join('backend', 'abap', 'src')
+        args = parse_args(['package', '$VICTORY', '--starting-folder', starting_folder])
+        args.execute(conn, args)
+
+        exp_destdir = os.path.abspath(starting_folder)
+        fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_destdir)
+
+    @patch('sap.adt.package.walk')
+    def test_checkout_objects_makedirs(self, fake_walk):
+        conn = Connection([])
+
+        exp_objects = []
+        fake_walk.return_value = iter((([], [], exp_objects), ))
+
+        starting_folder = os.path.join('backend', 'abap', 'src')
+        args = parse_args(['package', '$VICTORY', '--starting-folder', starting_folder])
+        with patch('os.path.isdir') as fake_isdir, \
+             patch('os.makedirs') as fake_makedirs:
+            fake_isdir.return_value = False
+            args.execute(conn, args)
+
+        exp_destdir = os.path.abspath(starting_folder)
+        fake_isdir.assert_called_once_with(exp_destdir)
+        fake_makedirs.assert_called_once_with(exp_destdir)
 
 
 if __name__ == '__main__':
