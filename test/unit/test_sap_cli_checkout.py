@@ -86,7 +86,7 @@ class TestCheckoutPackage(unittest.TestCase):
     @patch('sap.cli.checkout.checkout_interface')
     @patch('sap.cli.checkout.checkout_program')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_simple(self, fake_walk, fake_prog, fake_intf, fake_clas):
+    def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas):
         conn = Connection([])
 
         fake_walk.return_value = iter(
@@ -101,7 +101,7 @@ class TestCheckoutPackage(unittest.TestCase):
               [SimpleNamespace(typ='CLAS/OC', name='ZCL_TESTS')]))
         )
 
-        args = parse_args(['package', '$VICTORY'])
+        args = parse_args(['package', '$VICTORY', '--recursive'])
         with patch('sap.cli.checkout.print') as fake_print, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
@@ -110,12 +110,28 @@ class TestCheckoutPackage(unittest.TestCase):
             args.execute(conn, args)
 
         exp_destdir = os.path.abspath('src')
+        exp_sub_destdir = os.path.abspath(os.path.join('src', '$victory_tests'))
         fake_prog.assert_called_once_with(conn, 'Z_HELLO_WORLD', exp_destdir)
         fake_intf.assert_called_once_with(conn, 'ZIF_HELLO_WORLD', exp_destdir)
-        fake_clas.assert_called_once_with(conn, 'ZCL_HELLO_WORLD', exp_destdir)
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_HELLO_WORLD', exp_destdir),
+                                                call(conn, 'ZCL_TESTS', exp_sub_destdir)])
 
-        self.assertEqual(fake_print.mock_calls, [call('Ignoring sub-package: $VICTORY_TESTS', file=sys.stderr),
-                                                 call('Unsupported object: 7777/3 Magic Unicorn', file=sys.stderr)])
+        self.assertEqual(fake_print.mock_calls, [call('Unsupported object: 7777/3 Magic Unicorn', file=sys.stderr)])
+
+    @patch('sap.cli.checkout.checkout_objects')
+    @patch('sap.adt.package.walk')
+    def test_checkout_package_non_recursive(self, fake_walk, fake_checkout):
+        conn = Connection([])
+
+        exp_objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
+        fake_walk.return_value = iter((([], ['$TESTS'], exp_objects), (['$TESTS'], [], [])))
+
+        starting_folder = 'src'
+        args = parse_args(['package', '$ROOT'])
+        args.execute(conn, args)
+
+        exp_destdir = os.path.abspath(starting_folder)
+        fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_destdir)
 
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')

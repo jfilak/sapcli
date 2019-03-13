@@ -95,7 +95,7 @@ def checkout_objects(connection, objects, destdir=None):
 
 @CommandGroup.command()
 # @CommandGroup.argument('--folder-logic', choices=['full', 'prefix'], default='prefix')
-# @CommandGroup.argument('--recursive', action='store_true', default=False)
+@CommandGroup.argument('--recursive', action='store_true', default=False)
 @CommandGroup.argument('--starting-folder', default='src')
 @CommandGroup.argument('name')
 def package(connection, args):
@@ -103,10 +103,16 @@ def package(connection, args):
 
     explored = sap.adt.Package(connection, args.name)
 
-    _, subpackages, objects = next(sap.adt.package.walk(explored))
+    for package_name_hier, _, objects in sap.adt.package.walk(explored):
+        destdir = os.path.abspath(args.starting_folder)
 
-    for subpkg in subpackages:
-        print(f'Ignoring sub-package: {subpkg}', file=sys.stderr)
+        if len(package_name_hier) == 1:
+            destdir = os.path.join(destdir, package_name_hier[0].lower())
+        elif len(package_name_hier) > 1:
+            hier_path = os.path.join(*package_name_hier)
+            destdir = os.path.join(destdir, hier_path.lower())
 
-    destdir = os.path.abspath(args.starting_folder)
-    checkout_objects(connection, objects, destdir=destdir)
+        checkout_objects(connection, objects, destdir=destdir)
+
+        if not args.recursive:
+            break
