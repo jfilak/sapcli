@@ -247,5 +247,10 @@ Fetches source codes of classes, programs and interfaces of the given package
 and stores them in corresponding files.
 
 ```bash
-sapcli checkout package '$hello_world'
+sapcli checkout package '$hello_world' [--recursive] [--starting-folder DIR]
 ```
+
+* _--starting-folder_ forces sapcli to create the corresponding object files in
+  the given directory; by default, sapcli uses the directory `src`
+
+* _--recursive_ forces sapcli to download also the sub-packages into sub-directories
