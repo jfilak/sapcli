@@ -93,6 +93,11 @@ class ElementHandler:
 
             if isinstance(attr, XmlElementProperty):
                 xml_path = f'{self.my_xpath}/{attr.name}'
+
+                if not attr.deserialize:
+                    get_logger().debug('Found readonly XML element property: %s -> %s', attr_name, xml_path)
+                    continue
+
                 get_logger().debug('Found XML element property: %s -> %s', attr_name, xml_path)
                 self.elements[xml_path] = ElementHandler(xml_path, self.elements, partial(attr.__get__, obj))
             elif isinstance(attr, XmlAttributeProperty):

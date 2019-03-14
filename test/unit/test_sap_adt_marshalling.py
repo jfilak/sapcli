@@ -66,6 +66,10 @@ class Dummy(ADTObject):
     def value(self):
         return self._nested
 
+    @xml_element('readonly_elem', deserialize=False)
+    def readonly(self):
+        return Dummy.Nested()
+
 
 class DummyWithSetters(ADTObject):
 
@@ -156,6 +160,11 @@ class DummyWithSetters(ADTObject):
     def value(self):
         return self._nested
 
+    @xml_element('readonly_elem', deserialize=False)
+    def readonly(self):
+        # If there is a bug in deserialization, the return None will reveal
+        # that Marshal tried to modify read-only property
+        return None
 
 class TestADTAnnotation(unittest.TestCase):
 

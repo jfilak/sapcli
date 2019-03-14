@@ -33,6 +33,10 @@ class ElementClass:
     def dummy(self, value):
         self._dummy = value
 
+    @xml_element('serializer', deserialize=False)
+    def readonly(self):
+        return self._dummy
+
 
 class TestADTAnnotation(unittest.TestCase):
 
@@ -77,12 +81,19 @@ class TestADTAnnotation(unittest.TestCase):
         setter.__set__(obj, 'grc')
         self.assertEqual(getter.__get__(obj), 'grc')
 
-    def test_xml_attribute_decorator(self):
+    def test_xml_element_decorator(self):
         victory = ElementClass(DummyClass('initial'))
         self.assertEquals(victory.dummy.value, 'initial')
 
         victory.dummy = DummyClass('updated')
         self.assertEquals(victory.dummy.value, 'updated')
+
+    def test_xml_element_deserialize(self):
+        deserialized = xml_element('deserialized')
+        self.assertTrue(deserialized(None).deserialize)
+
+        readonly = xml_element('readonly', deserialize=False)
+        self.assertFalse(readonly(None).deserialize)
 
 
 if __name__ == '__main__':

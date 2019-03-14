@@ -18,13 +18,14 @@ class XmlAttributeProperty(property):
 class XmlElementProperty(property):
     """XML Annotation"""
 
-    def __init__(self, name, fget, fset=None):
+    def __init__(self, name, fget, fset=None, deserialize=True):
         super(XmlElementProperty, self).__init__(fget, fset)
 
         self.name = name
+        self.deserialize = deserialize
 
     def setter(self, fset):
-        return type(self)(self.name, self.fget, fset)
+        return type(self)(self.name, self.fget, fset, deserialize=self.deserialize)
 
 
 def xml_attribute(name):
@@ -38,12 +39,12 @@ def xml_attribute(name):
     return decorator
 
 
-def xml_element(name):
+def xml_element(name, deserialize=True):
     """Mark the given property as a XML element of the given name"""
 
     def decorator(meth):
         """Creates a property object"""
 
-        return XmlElementProperty(name, meth)
+        return XmlElementProperty(name, meth, deserialize=deserialize)
 
     return decorator
