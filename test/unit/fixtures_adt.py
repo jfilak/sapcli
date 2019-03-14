@@ -60,6 +60,13 @@ SHORTENED_WORKBENCH_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
 </tm:root>
 '''
 
+GET_DUMMY_OBJECT_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<win:dummies xmlns:class="http://www.sap.com/adt/awesome/success" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:name="SOFTWARE_ENGINEER" adtcore:type="DUMMY/S" adtcore:changedAt="2019-03-07T20:22:01Z" adtcore:version="active" adtcore:createdAt="2019-02-02T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="You cannot stop me!" adtcore:descriptionTextLimit="60" adtcore:language="CZ">
+  <adtcore:packageRef adtcore:name='UNIVERSE'/>
+</win:dummies>
+'''
+
+
 
 class DummyADTObject(sap.adt.ADTObject):
 

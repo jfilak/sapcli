@@ -384,6 +384,12 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._active_status
 
+    @active.setter
+    def active(self, value):
+        """Version in regards of activation"""
+
+        self._active_status = value
+
     @xml_element('adtcore:packageRef')
     def reference(self):
         """The object's package reference"""
@@ -477,6 +483,12 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         if resp.text:
             raise SAPCliError(f'Could not activate the object {self.name}: {resp.text}')
+
+    def fetch(self):
+        """Retrieve data from ADT"""
+
+        resp = self._connection.execute('GET', self.uri)
+        sap.adt.marshalling.Marshal.deserialize(resp.text, self)
 
 
 class Program(ADTObject):

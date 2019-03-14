@@ -5,7 +5,7 @@ import unittest
 from sap.errors import SAPCliError
 import sap.adt
 
-from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK
+from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, GET_DUMMY_OBJECT_ADT_XML
 from mock import Response, Connection
 
 
@@ -165,6 +165,30 @@ class TestADTObject(unittest.TestCase):
 
         self.assertEqual(connection.execs[0].params['corrnr'], 'NPL000008')
         self.assertEqual(sorted(connection.execs[0].params.keys()), ['corrnr'])
+
+    def test_properties(self):
+        victory = DummyADTObject()
+
+        with self.assertRaises(SAPCliError) as cm:
+            victory.name = 'somethingelse'
+
+        self.assertEqual(str(cm.exception), 'Deserializing wrong object: noobject != somethingelse')
+
+    def test_fetch(self):
+        connection = Connection([Response(text=GET_DUMMY_OBJECT_ADT_XML, status_code=200, headers={})])
+        victory = DummyADTObject(connection=connection, name='SOFTWARE_ENGINEER')
+        victory.fetch()
+
+        self.assertEqual(connection.mock_methods(), [('GET', '/sap/bc/adt/awesome/success/software_engineer')])
+
+        self.assertEqual(victory.description, 'You cannot stop me!')
+        self.assertEqual(victory.language, 'CZ')
+        self.assertEqual(victory.name, 'SOFTWARE_ENGINEER')
+        self.assertEqual(victory.master_language, 'EN')
+        self.assertEqual(victory.master_system, 'NPL')
+        self.assertEqual(victory.responsible, 'DEVELOPER')
+        self.assertEqual(victory.active, 'active')
+        self.assertEqual(victory.reference.name, 'UNIVERSE')
 
 
 if __name__ == '__main__':
