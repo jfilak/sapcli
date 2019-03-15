@@ -93,18 +93,58 @@ def checkout_objects(connection, objects, destdir=None):
             print(f'Unsupported object: {obj.typ} {obj.name}', file=sys.stderr)
 
 
+def make_repo_dir_for_package(args):
+    """Creates and populates the directory to checkout the package into."""
+
+    repo_dir = args.directory
+    if not repo_dir:
+        repo_dir = args.name
+
+    repo_dir = os.path.abspath(repo_dir)
+
+    if not os.path.isdir(repo_dir):
+        os.makedirs(repo_dir)
+
+    repo_file = os.path.join(repo_dir, '.abapgit.xml')
+    with open(repo_file, 'w') as dest:
+        dest.write(f'''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DATA>
+   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
+   <STARTING_FOLDER>/{args.starting_folder}/</STARTING_FOLDER>
+   <FOLDER_LOGIC>FULL</FOLDER_LOGIC>
+   <IGNORE>
+    <item>/.gitignore</item>
+    <item>/LICENSE</item>
+    <item>/README.md</item>
+    <item>/package.json</item>
+    <item>/.travis.yml</item>
+   </IGNORE>
+  </DATA>
+ </asx:values>
+</asx:abap>''')
+
+    return repo_dir
+
+
 @CommandGroup.command()
 # @CommandGroup.argument('--folder-logic', choices=['full', 'prefix'], default='prefix')
 @CommandGroup.argument('--recursive', action='store_true', default=False)
 @CommandGroup.argument('--starting-folder', default='src')
+@CommandGroup.argument('directory', nargs='?', default=None,
+                       help='To checkout the package into it; default=<PACKAGE NAME>')
 @CommandGroup.argument('name')
 def package(connection, args):
     """Download sources of objects from the given ABAP package"""
 
+    repo_dir = make_repo_dir_for_package(args)
+    source_code_dir = os.path.join(repo_dir, args.starting_folder)
+
     explored = sap.adt.Package(connection, args.name)
 
     for package_name_hier, _, objects in sap.adt.package.walk(explored):
-        destdir = os.path.abspath(args.starting_folder)
+        destdir = os.path.abspath(source_code_dir)
 
         if len(package_name_hier) == 1:
             destdir = os.path.join(destdir, package_name_hier[0].lower())

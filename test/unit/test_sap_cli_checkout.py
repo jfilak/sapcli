@@ -89,28 +89,31 @@ class TestCheckoutPackage(unittest.TestCase):
     def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas):
         conn = Connection([])
 
+        package_name = '$VICTORY'
+        sub_package_name = '$VICTORY_TESTS'
         fake_walk.return_value = iter(
             (([],
-              ['$VICTORY_TESTS'],
+              [sub_package_name],
               [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD'),
                SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD'),
                SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD'),
                SimpleNamespace(typ='7777/3', name='Magic Unicorn')]),
-             (['$VICTORY_TESTS'],
+             ([sub_package_name],
               [],
               [SimpleNamespace(typ='CLAS/OC', name='ZCL_TESTS')]))
         )
 
-        args = parse_args(['package', '$VICTORY', '--recursive'])
-        with patch('sap.cli.checkout.print') as fake_print, \
+        args = parse_args(['package', package_name, '--recursive'])
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+             patch('sap.cli.checkout.print') as fake_print, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = True
             fake_makedirs.side_effect = Exception('Should not be evaluated')
             args.execute(conn, args)
 
-        exp_destdir = os.path.abspath('src')
-        exp_sub_destdir = os.path.abspath(os.path.join('src', '$victory_tests'))
+        exp_destdir = os.path.abspath(os.path.join(package_name, 'src'))
+        exp_sub_destdir = os.path.abspath(os.path.join(package_name, 'src', sub_package_name.lower()))
         fake_prog.assert_called_once_with(conn, 'Z_HELLO_WORLD', exp_destdir)
         fake_intf.assert_called_once_with(conn, 'ZIF_HELLO_WORLD', exp_destdir)
         self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_HELLO_WORLD', exp_destdir),
@@ -124,13 +127,20 @@ class TestCheckoutPackage(unittest.TestCase):
         conn = Connection([])
 
         exp_objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
-        fake_walk.return_value = iter((([], ['$TESTS'], exp_objects), (['$TESTS'], [], [])))
+        fake_walk.return_value = iter((([], ['$TESTS'], exp_objects),
+                                       (['$TESTS'], [], [])))
 
+        package_name = '$ROOT'
         starting_folder = 'src'
-        args = parse_args(['package', '$ROOT'])
-        args.execute(conn, args)
+        args = parse_args(['package', package_name])
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+             patch('os.path.isdir') as fake_isdir, \
+             patch('os.makedirs') as fake_makedirs:
+            fake_isdir.return_value = True
+            fake_makedirs.side_effect = Exception('Should not be evaluated')
+            args.execute(conn, args)
 
-        exp_destdir = os.path.abspath(starting_folder)
+        exp_destdir = os.path.abspath(os.path.join(package_name, starting_folder))
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_destdir)
 
     @patch('sap.cli.checkout.checkout_objects')
@@ -141,30 +151,96 @@ class TestCheckoutPackage(unittest.TestCase):
         exp_objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
         fake_walk.return_value = iter((([], [], exp_objects), ))
 
+        package_name = '$VICTORY'
         starting_folder = os.path.join('backend', 'abap', 'src')
-        args = parse_args(['package', '$VICTORY', '--starting-folder', starting_folder])
-        args.execute(conn, args)
+        args = parse_args(['package', package_name, '--starting-folder', starting_folder])
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+             patch('os.path.isdir') as fake_isdir, \
+             patch('os.makedirs') as fake_makedirs:
+            fake_isdir.return_value = True
+            fake_makedirs.side_effect = Exception('Should not be executed')
+            args.execute(conn, args)
 
-        exp_destdir = os.path.abspath(starting_folder)
-        fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_destdir)
+        exp_repodir = os.path.abspath(package_name)
+        fake_isdir.assert_called_once_with(exp_repodir)
 
+        exp_sourcedir = os.path.abspath(os.path.join(exp_repodir, starting_folder))
+        fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
+
+    @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
-    def test_checkout_objects_makedirs(self, fake_walk):
+    def test_checkout_package_create_repo(self, fake_walk, fake_checkout):
         conn = Connection([])
+        fake_walk.return_value = iter((([], [], []), ))
 
-        exp_objects = []
-        fake_walk.return_value = iter((([], [], exp_objects), ))
-
+        package_name = '$VICTORY'
         starting_folder = os.path.join('backend', 'abap', 'src')
-        args = parse_args(['package', '$VICTORY', '--starting-folder', starting_folder])
-        with patch('os.path.isdir') as fake_isdir, \
+        args = parse_args(['package', package_name, '--starting-folder', starting_folder])
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+             patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = False
             args.execute(conn, args)
 
-        exp_destdir = os.path.abspath(starting_folder)
-        fake_isdir.assert_called_once_with(exp_destdir)
-        fake_makedirs.assert_called_once_with(exp_destdir)
+        exp_repodir = os.path.abspath(package_name)
+        fake_isdir.assert_called_once_with(exp_repodir)
+        fake_makedirs.assert_called_once_with(exp_repodir)
+
+        abapgit_file = os.path.join(exp_repodir, '.abapgit.xml')
+        assert_wrote_file(self, fake_open, abapgit_file, '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DATA>
+   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
+   <STARTING_FOLDER>/backend/abap/src/</STARTING_FOLDER>
+   <FOLDER_LOGIC>FULL</FOLDER_LOGIC>
+   <IGNORE>
+    <item>/.gitignore</item>
+    <item>/LICENSE</item>
+    <item>/README.md</item>
+    <item>/package.json</item>
+    <item>/.travis.yml</item>
+   </IGNORE>
+  </DATA>
+ </asx:values>
+</asx:abap>''')
+
+    @patch('sap.cli.checkout.checkout_objects')
+    @patch('sap.adt.package.walk')
+    def test_checkout_package_custom_repo_dir(self, fake_walk, fake_checkout):
+        conn = Connection([])
+
+        exp_objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
+        fake_walk.return_value = iter((([], [], exp_objects), ))
+
+        package_name = '$VICTORY'
+        starting_folder = os.path.join('backend', 'abap', 'src')
+        repo_dir_name = 'valhalla'
+        args = parse_args(['package', package_name, repo_dir_name, '--starting-folder', starting_folder])
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+             patch('os.path.isdir') as fake_isdir, \
+             patch('os.makedirs') as fake_makedirs:
+            fake_isdir.return_value = True
+            fake_makedirs.side_effect = Exception('Should not be evaluated')
+            args.execute(conn, args)
+
+        exp_repodir = os.path.abspath(repo_dir_name)
+        fake_isdir.assert_called_once_with(exp_repodir)
+
+        exp_sourcedir = os.path.join(exp_repodir, starting_folder)
+        fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
+
+    def test_checkout_objects_makedirs(self):
+        conn = Connection([])
+
+        starting_folder = os.path.join('backend', 'abap', 'src')
+        with patch('os.path.isdir') as fake_isdir, \
+             patch('os.makedirs') as fake_makedirs:
+            fake_isdir.return_value = False
+            sap.cli.checkout.checkout_objects(conn, [], destdir=starting_folder)
+
+        fake_isdir.assert_called_once_with(starting_folder)
+        fake_makedirs.assert_called_once_with(starting_folder)
 
 
 if __name__ == '__main__':

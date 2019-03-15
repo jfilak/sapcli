@@ -244,11 +244,17 @@ sapcli checkout interface zif_hello_world
 ```
 
 Fetches source codes of classes, programs and interfaces of the given package
-and stores them in corresponding files.
+and stores them in corresponding files in a local file system directory.
+
+The new directory is populated with the file _.abapgit.xml_ which has the format
+recognized by [abapGit](https://github.com/larshp/abapGit).
 
 ```bash
-sapcli checkout package '$hello_world' [--recursive] [--starting-folder DIR]
+sapcli checkout package '$hello_world' [directory] [--recursive] [--starting-folder DIR]
 ```
+
+* _directory_ the name of a new directory to checkout the given package into;
+  if not provided, the package name is used instead
 
 * _--starting-folder_ forces sapcli to create the corresponding object files in
   the given directory; by default, sapcli uses the directory `src`
