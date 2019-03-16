@@ -10,6 +10,7 @@
    2. [write](#write-1)
    3. [activate](#activate-1)
    4. [read](#read-1)
+   4. [attributes](#attributes)
 2. [Interfaces](#interfaces)
    1. [create](#create-2)
    2. [write](#write-2)
@@ -130,6 +131,20 @@ Downloads test classes source codes of the given public class
 ```bash
 sapcli class read ZCL_HELLOWORLD --type testclasses
 ```
+
+### attributes
+
+Prints out some attributes of the given class
+
+```bash
+sapcli class attributes ZCL_HELLOWORLD
+```
+
+Supported attributes:
+* Name
+* Description
+* Responsible
+* Package
 
 ## Interfaces
 

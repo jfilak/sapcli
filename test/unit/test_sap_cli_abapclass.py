@@ -7,9 +7,10 @@ from io import StringIO
 
 import sap.cli.abapclass
 
-from mock import Connection
+from mock import Connection, Response
 from fixtures_adt import (EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
+from fixtures_adt_clas import GET_CLASS_ADT_XML
 
 
 FIXTURE_ELEMENTARY_CLASS_XML="""<?xml version="1.0" encoding="UTF-8"?>
@@ -138,6 +139,22 @@ class TestClassIncludes(unittest.TestCase):
 
     def test_class_write_tests(self):
         self.write_test('testclasses')
+
+
+class TestClassAttributes(unittest.TestCase):
+
+    def test_class_attrs_output(self):
+        conn = Connection([Response(status_code=200, headers={}, text=GET_CLASS_ADT_XML)])
+
+        args = parse_args(['attributes', 'ZCL_HELLO_WORLD'])
+        with patch('sap.cli.abapclass.print', newcallable=StringIO) as fake_print:
+            args.execute(conn, args)
+
+        self.assertEqual(len(conn.execs), 1)
+        self.assertEqual(fake_print.mock_calls, [call('Name       : ZCL_HELLO_WORLD'),
+                                                 call('Description: You cannot stop me!'),
+                                                 call('Responsible: DEVELOPER'),
+                                                 call('Package    : $IAMTHEKING')])
 
 
 if __name__ == '__main__':

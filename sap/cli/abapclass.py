@@ -94,3 +94,19 @@ def activate(connection, args):
 
     clas = sap.adt.Class(connection, args.name)
     clas.activate()
+
+
+@CommandGroup.command()
+@CommandGroup.argument('name')
+def attributes(connection, args):
+    """Prints out some attributes of the given class.
+    """
+
+    clas = sap.adt.Class(connection, args.name)
+    clas.fetch()
+
+    print(f'Name       : {clas.name}')
+    print(f'Description: {clas.description}')
+    print(f'Responsible: {clas.responsible}')
+    # pylint: disable=no-member
+    print(f'Package    : {clas.reference.name}')
