@@ -6,8 +6,10 @@ from argparse import ArgumentParser
 import unittest
 from unittest.mock import Mock, PropertyMock, patch, mock_open, call
 from types import SimpleNamespace
+from io import StringIO
 
 import sap.cli.checkout
+import sap.platform.abap
 
 from mock import Connection
 
@@ -167,9 +169,10 @@ class TestCheckoutPackage(unittest.TestCase):
         exp_sourcedir = os.path.abspath(os.path.join(exp_repodir, starting_folder))
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
 
+    @patch('sap.platform.abap.to_xml')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_create_repo(self, fake_walk, fake_checkout):
+    def test_checkout_package_create_repo(self, fake_walk, fake_checkout, fake_to_xml):
         conn = Connection([])
         fake_walk.return_value = iter((([], [], []), ))
 
@@ -187,23 +190,14 @@ class TestCheckoutPackage(unittest.TestCase):
         fake_makedirs.assert_called_once_with(exp_repodir)
 
         abapgit_file = os.path.join(exp_repodir, '.abapgit.xml')
-        assert_wrote_file(self, fake_open, abapgit_file, '''<?xml version="1.0" encoding="utf-8"?>
-<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
- <asx:values>
-  <DATA>
-   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
-   <STARTING_FOLDER>/backend/abap/src/</STARTING_FOLDER>
-   <FOLDER_LOGIC>FULL</FOLDER_LOGIC>
-   <IGNORE>
-    <item>/.gitignore</item>
-    <item>/LICENSE</item>
-    <item>/README.md</item>
-    <item>/package.json</item>
-    <item>/.travis.yml</item>
-   </IGNORE>
-  </DATA>
- </asx:values>
-</asx:abap>''')
+        args, kwargs = fake_to_xml.call_args
+        dot_abap = args[0]
+
+        self.assertEqual(dot_abap.MASTER_LANGUAGE, 'E')
+        self.assertEqual(dot_abap.FOLDER_LOGIC, sap.cli.checkout.FOLDER_LOGIC_FULL)
+        self.assertEqual(dot_abap.STARTING_FOLDER, f'/{starting_folder}/')
+        self.assertEqual(dot_abap.IGNORE, ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
+        self.assertEqual(kwargs['top_element'], 'DATA')
 
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
@@ -241,6 +235,33 @@ class TestCheckoutPackage(unittest.TestCase):
 
         fake_isdir.assert_called_once_with(starting_folder)
         fake_makedirs.assert_called_once_with(starting_folder)
+
+
+class TestDOT_ABAP_GIT(unittest.TestCase):
+
+    def test_for_empty_repo(self):
+        dot_abap = sap.cli.checkout.DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='foo')
+        dest = StringIO()
+        sap.platform.abap.to_xml(dot_abap, dest=dest)
+        self.maxDiff = None
+        self.assertEqual(dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DOT_ABAP_GIT>
+   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
+   <STARTING_FOLDER>foo</STARTING_FOLDER>
+   <FOLDER_LOGIC>FULL</FOLDER_LOGIC>
+   <IGNORE>
+    <item>/.gitignore</item>
+    <item>/LICENSE</item>
+    <item>/README.md</item>
+    <item>/package.json</item>
+    <item>/.travis.yml</item>
+   </IGNORE>
+  </DOT_ABAP_GIT>
+ </asx:values>
+</asx:abap>
+''')
 
 
 if __name__ == '__main__':

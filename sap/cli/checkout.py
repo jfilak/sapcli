@@ -6,6 +6,35 @@ import sys
 import sap.adt
 import sap.cli.core
 
+from sap.platform.abap import Structure, StringTable
+
+
+FOLDER_LOGIC_FULL = 'FULL'
+FOLDER_LOGIC_PREFIX = 'PREFIX'
+
+
+# pylint: disable=invalid-name
+class DOT_ABAP_GIT(Structure):
+    """ABAP GIT ABAP structure"""
+
+    # pylint: disable=invalid-name
+    MASTER_LANGUAGE: str
+    # pylint: disable=invalid-name
+    STARTING_FOLDER: str
+    # pylint: disable=invalid-name
+    FOLDER_LOGIC: str
+    # pylint: disable=invalid-name
+    IGNORE: StringTable
+
+    @staticmethod
+    def for_new_repo(MASTER_LANGUAGE: str = 'E', STARTING_FOLDER: str = 'src', FOLDER_LOGIC: str = FOLDER_LOGIC_FULL):
+        """Creates new instance of DOT_ABAP_GIT for new repository"""
+
+        IGNORE = ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml']
+
+        return DOT_ABAP_GIT(MASTER_LANGUAGE=MASTER_LANGUAGE, STARTING_FOLDER=STARTING_FOLDER,
+                            FOLDER_LOGIC=FOLDER_LOGIC, IGNORE=IGNORE)
+
 
 class CommandGroup(sap.cli.core.CommandGroup):
     """Commands for exporting ADT objects"""
@@ -105,25 +134,11 @@ def make_repo_dir_for_package(args):
     if not os.path.isdir(repo_dir):
         os.makedirs(repo_dir)
 
+    dot_abapgit = DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='/' + args.starting_folder + '/')
+
     repo_file = os.path.join(repo_dir, '.abapgit.xml')
     with open(repo_file, 'w') as dest:
-        dest.write(f'''<?xml version="1.0" encoding="utf-8"?>
-<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
- <asx:values>
-  <DATA>
-   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
-   <STARTING_FOLDER>/{args.starting_folder}/</STARTING_FOLDER>
-   <FOLDER_LOGIC>FULL</FOLDER_LOGIC>
-   <IGNORE>
-    <item>/.gitignore</item>
-    <item>/LICENSE</item>
-    <item>/README.md</item>
-    <item>/package.json</item>
-    <item>/.travis.yml</item>
-   </IGNORE>
-  </DATA>
- </asx:values>
-</asx:abap>''')
+        sap.platform.abap.to_xml(dot_abapgit, dest=dest, top_element='DATA')
 
     return repo_dir
 
