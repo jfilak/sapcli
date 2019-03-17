@@ -5,6 +5,7 @@ from sap.platform.abap import Structure
 
 # pylint: disable=invalid-name
 # pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
 class VSEOCLASS(Structure):
     """Class metadata"""
 
