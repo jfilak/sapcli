@@ -6,34 +6,10 @@ import sys
 import sap.adt
 import sap.cli.core
 
-from sap.platform.abap import Structure, StringTable
+from sap.platform.abap.ddic import VSEOCLASS
+from sap.platform.language import iso_code_to_sap_code
 
-
-FOLDER_LOGIC_FULL = 'FULL'
-FOLDER_LOGIC_PREFIX = 'PREFIX'
-
-
-# pylint: disable=invalid-name
-class DOT_ABAP_GIT(Structure):
-    """ABAP GIT ABAP structure"""
-
-    # pylint: disable=invalid-name
-    MASTER_LANGUAGE: str
-    # pylint: disable=invalid-name
-    STARTING_FOLDER: str
-    # pylint: disable=invalid-name
-    FOLDER_LOGIC: str
-    # pylint: disable=invalid-name
-    IGNORE: StringTable
-
-    @staticmethod
-    def for_new_repo(MASTER_LANGUAGE: str = 'E', STARTING_FOLDER: str = 'src', FOLDER_LOGIC: str = FOLDER_LOGIC_FULL):
-        """Creates new instance of DOT_ABAP_GIT for new repository"""
-
-        IGNORE = ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml']
-
-        return DOT_ABAP_GIT(MASTER_LANGUAGE=MASTER_LANGUAGE, STARTING_FOLDER=STARTING_FOLDER,
-                            FOLDER_LOGIC=FOLDER_LOGIC, IGNORE=IGNORE)
+from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -43,27 +19,67 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super(CommandGroup, self).__init__('checkout')
 
 
-def download_abap_source(object_name, source_object, typsfx, destdir=None):
-    """Reads the text and saves it in the corresponding file"""
+def build_filename(object_name, typsfx, fileext, destdir=None):
+    """Creates file name"""
 
-    filename = f'{object_name}{typsfx}.abap'.lower()
+    filename = f'{object_name}{typsfx}.{fileext}'.lower()
 
     if destdir is not None:
         filename = os.path.join(destdir, filename)
 
+    return filename
+
+
+def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer, destdir=None):
+    """Writes ABAP attributes to a file"""
+
+    filename = build_filename(object_name, typsfx, 'xml', destdir=destdir)
+    with open(filename, 'w') as dest:
+        writer = XMLWriter(ag_serializer, dest)
+        writer.add(abap_attributes)
+        writer.close()
+
+
+def download_abap_source(object_name, source_object, typsfx, destdir=None):
+    """Reads the text and saves it in the corresponding file"""
+
+    filename = build_filename(object_name, typsfx, 'abap', destdir=destdir)
     with open(filename, 'w') as dest:
         dest.write(source_object.text)
+
+
+def build_class_abap_attributes(clas):
+    """Returns populated ABAP structure with attributes"""
+
+    vseoclass = VSEOCLASS()
+    vseoclass.CLSNAME = clas.name
+    vseoclass.VERSION = '1' if clas.active == 'active' else '0'
+    vseoclass.LANGU = iso_code_to_sap_code(clas.master_language)
+    vseoclass.DESCRIPT = clas.description
+    vseoclass.STATE = '0' if clas.modeled else '1'
+    # TODO: real value!
+    vseoclass.CLSCCINCL = 'X'
+    vseoclass.FIXPT = 'X' if clas.fix_point_arithmetic else ' '
+    # TODO: class:abapClass/abapSource:syntaxConfiguration/abapSource:language/abapSource:version
+    #   X = Standard ABAP (Unicode), 2 3 4 -> ABAP PaaS?
+    vseoclass.UNICODE = 'X'
+
+    return vseoclass
 
 
 def checkout_class(connection, name, destdir=None):
     """Download entire class"""
 
     clas = sap.adt.Class(connection, name)
+    clas.fetch()
 
     download_abap_source(name, clas, '.clas', destdir=destdir)
     download_abap_source(name, clas.definitions, '.clas.locals_def', destdir=destdir)
     download_abap_source(name, clas.implementations, '.clas.locals_imp', destdir=destdir)
     download_abap_source(name, clas.test_classes, '.clas.testclasses', destdir=destdir)
+
+    vseoclass = build_class_abap_attributes(clas)
+    dump_attributes_to_file(name, vseoclass, '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
 
 
 @CommandGroup.command('class')

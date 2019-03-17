@@ -16,7 +16,7 @@ InternalTable = List
 StringTable = InternalTable[str]
 
 
-class _Auxiliary:
+class XMLSerializers:
     """Helper"""
 
     @staticmethod
@@ -26,7 +26,7 @@ class _Auxiliary:
         for item in abap_table:
             if isinstance(item, Structure):
                 dest.write(f'{prefix}<{item.__class__.__name__}>\n')
-                _Auxiliary.struct_members_to_xml(item, dest, prefix + ' ')
+                XMLSerializers.struct_members_to_xml(item, dest, prefix + ' ')
                 dest.write(f'{prefix}</{item.__class__.__name__}>\n')
             else:
                 dest.write(f'{prefix}<item>{item}</item>\n')
@@ -43,35 +43,43 @@ class _Auxiliary:
 
             if isinstance(value, Structure):
                 dest.write('\n')
-                _Auxiliary.struct_members_to_xml(value, dest, prefix + ' ')
+                XMLSerializers.struct_members_to_xml(value, dest, prefix + ' ')
                 dest.write(prefix)
             elif isinstance(value, InternalTable):
                 item_prefix = prefix + ' '
                 dest.write('\n')
-                _Auxiliary.internal_table_to_xml(value, dest, item_prefix)
+                XMLSerializers.internal_table_to_xml(value, dest, item_prefix)
                 dest.write(prefix)
             else:
                 dest.write(f'{value}')
 
             dest.write(f'</{attr}>\n')
 
+    @staticmethod
+    def abap_to_xml(abap, dest, prefix, top_element=None):
+        """Turns an abap instance to an XML"""
+
+        if top_element is None:
+            top_element = abap.__class__.__name__
+
+        dest.write(f'''{prefix}<{top_element}>\n''')
+
+        if isinstance(abap, Structure):
+            XMLSerializers.struct_members_to_xml(abap, dest, prefix + ' ')
+        elif isinstance(abap, InternalTable):
+            XMLSerializers.internal_table_to_xml(abap, dest, prefix + ' ')
+
+        dest.write(f'''{prefix}</{top_element}>\n''')
+
 
 def to_xml(abap_struct_or_table, dest, top_element=None):
     """Converts the give parameter into XML"""
 
-    if top_element is None:
-        top_element = abap_struct_or_table.__class__.__name__
-
     dest.write(f'''<?xml version="1.0" encoding="utf-8"?>
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
- <asx:values>
-  <{top_element}>\n''')
+ <asx:values>\n''')
 
-    if isinstance(abap_struct_or_table, Structure):
-        _Auxiliary.struct_members_to_xml(abap_struct_or_table, dest, '   ')
-    elif isinstance(abap_struct_or_table, InternalTable):
-        _Auxiliary.internal_table_to_xml(abap_struct_or_table, dest, '   ')
+    XMLSerializers.abap_to_xml(abap_struct_or_table, dest, '  ', top_element=top_element)
 
-    dest.write(f'''  </{top_element}>
- </asx:values>
+    dest.write(''' </asx:values>
 </asx:abap>\n''')

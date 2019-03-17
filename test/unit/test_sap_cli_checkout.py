@@ -10,6 +10,7 @@ from io import StringIO
 
 import sap.cli.checkout
 import sap.platform.abap
+import sap.platform.abap.abapgit
 
 from mock import Connection
 
@@ -36,21 +37,33 @@ class TestCheckoutCommandGroup(unittest.TestCase):
 
 class TestCheckout(unittest.TestCase):
 
-    @patch('sap.adt.Class.test_classes', new_callable=PropertyMock)
-    @patch('sap.adt.Class.implementations', new_callable=PropertyMock)
-    @patch('sap.adt.Class.definitions', new_callable=PropertyMock)
-    @patch('sap.adt.Class.text', new_callable=PropertyMock)
-    def test_checkout_class(self, fake_text, fake_defs, fake_impls, fake_tests):
-        fake_text.return_value = 'class zcl_hello_world'
+    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.adt.Class')
+    def test_checkout_class(self, fake_clas, fake_writer):
+        fake_inst = Mock()
+        fake_inst.name = 'ZCL_HELLO_WORLD'
+        fake_inst.description = 'Cowabunga'
+        fake_inst.master_language = 'EN'
+        fake_inst.active = 'active'
+        fake_inst.modeled = False
+        fake_inst.fix_point_arithmetic = True
+        fake_inst.text = 'class zcl_hello_world'
 
-        fake_defs.return_value = Mock()
-        fake_defs.return_value.text = '* definitions'
+        fake_inst.definitions = Mock()
+        fake_inst.definitions.text = '* definitions'
 
-        fake_impls.return_value = Mock()
-        fake_impls.return_value.text = '* implementations'
+        fake_inst.implementations = Mock()
+        fake_inst.implementations.text = '* implementations'
 
-        fake_tests.return_value = Mock()
-        fake_tests.return_value.text = '* tests'
+        fake_inst.test_classes = Mock()
+        fake_inst.test_classes.text = '* tests'
+
+        fake_clas.return_value = fake_inst
+
+        fake_inst = Mock()
+        fake_inst.add = Mock()
+        fake_inst.close = Mock()
+        fake_writer.return_value = fake_inst
 
         args = parse_args(['class', 'ZCL_HELLO_WORLD'])
         with patch('sap.cli.checkout.open', mock_open()) as fake_open:
@@ -60,6 +73,23 @@ class TestCheckout(unittest.TestCase):
         assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_def.abap', '* definitions', fileno=2)
         assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_imp.abap', '* implementations', fileno=3)
         assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.testclasses.abap', '* tests', fileno=4)
+        self.assertEqual(fake_open.mock_calls[16], call('zcl_hello_world.clas.xml', 'w'))
+
+        args, kwargs = fake_writer.call_args
+        ag_serializer = args[0]
+        self.assertEqual(ag_serializer, 'LCL_OBJECT_CLAS')
+
+        args, kwargs = fake_writer.return_value.add.call_args
+        vseoclass = args[0]
+        self.assertEqual(vseoclass.CLSNAME, 'ZCL_HELLO_WORLD')
+        self.assertEqual(vseoclass.VERSION, '1')
+        self.assertEqual(vseoclass.LANGU, 'E')
+        self.assertEqual(vseoclass.DESCRIPT, 'Cowabunga')
+        self.assertEqual(vseoclass.STATE, '1')
+        self.assertEqual(vseoclass.CLSCCINCL, 'X')
+        self.assertEqual(vseoclass.FIXPT, 'X')
+        self.assertEqual(vseoclass.UNICODE, 'X')
+
 
     @patch('sap.adt.Interface.text', new_callable=PropertyMock)
     def test_checkout_interface(self, fake_text):
@@ -80,6 +110,30 @@ class TestCheckout(unittest.TestCase):
             args.execute(Connection(), args)
 
         assert_wrote_file(self, fake_open, 'z_hello_world.prog.abap', 'REPORT z_hello_world')
+
+
+class TestCheckoutClass(unittest.TestCase):
+
+    @patch('sap.adt.Class')
+    def test_build_class_attributes(self, fake_class):
+        fake_inst = Mock()
+        fake_inst.name = 'ZCL_HELLO_WORLD'
+        fake_inst.description = 'Cowabunga'
+        fake_inst.master_language = 'EN'
+        fake_inst.active = 'inactive'
+        fake_inst.modeled = True
+        fake_inst.fix_point_arithmetic = False
+
+        vseoclass = sap.cli.checkout.build_class_abap_attributes(fake_inst)
+
+        self.assertEqual(vseoclass.CLSNAME, 'ZCL_HELLO_WORLD')
+        self.assertEqual(vseoclass.VERSION, '0')
+        self.assertEqual(vseoclass.LANGU, 'E')
+        self.assertEqual(vseoclass.DESCRIPT, 'Cowabunga')
+        self.assertEqual(vseoclass.STATE, '0')
+        self.assertEqual(vseoclass.CLSCCINCL, 'X')
+        self.assertEqual(vseoclass.FIXPT, ' ')
+        self.assertEqual(vseoclass.UNICODE, 'X')
 
 
 class TestCheckoutPackage(unittest.TestCase):
@@ -194,7 +248,7 @@ class TestCheckoutPackage(unittest.TestCase):
         dot_abap = args[0]
 
         self.assertEqual(dot_abap.MASTER_LANGUAGE, 'E')
-        self.assertEqual(dot_abap.FOLDER_LOGIC, sap.cli.checkout.FOLDER_LOGIC_FULL)
+        self.assertEqual(dot_abap.FOLDER_LOGIC, sap.platform.abap.abapgit.FOLDER_LOGIC_FULL)
         self.assertEqual(dot_abap.STARTING_FOLDER, f'/{starting_folder}/')
         self.assertEqual(dot_abap.IGNORE, ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
         self.assertEqual(kwargs['top_element'], 'DATA')
