@@ -1,0 +1,1 @@
+"""SAP as a Platform"""
