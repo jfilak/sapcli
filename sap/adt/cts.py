@@ -255,7 +255,8 @@ class Workbench:
         resp = self._connection.execute(
             'GET', 'cts/transportrequests',
             params=workbench_params(user),
-            headers={'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml'}
+            headers={'Accept': ', '.join(['application/vnd.sap.adt.transportorganizertree.v1+xml',
+                                          'application/vnd.sap.adt.transportorganizer.v1+xml'])}
         )
 
         builder = WorkbenchBuilder(self._connection)

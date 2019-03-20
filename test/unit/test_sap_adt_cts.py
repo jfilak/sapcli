@@ -365,7 +365,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
             connection.execs,
             [Request('GET',
                      f'/sap/bc/adt/cts/transportrequests',
-                     {'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml'},
+                     {'Accept': 'application/vnd.sap.adt.transportorganizertree.v1+xml, application/vnd.sap.adt.transportorganizer.v1+xml'},
                      None,
                      sap.adt.cts.workbench_params('FILAK'))])
 
