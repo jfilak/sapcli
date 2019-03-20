@@ -16,6 +16,9 @@
    2. [write](#write-2)
    3. [activate](#activate-2)
    4. [read](#read-2)
+3. [DataDefinition (CDS)](#datadefinition-cds)
+   1. [read](#read-3)
+   2. [activate](#activate-3)
 3. [Packages](#packages)
    1. [create](#create-3)
    2. [list](#list)
@@ -179,6 +182,24 @@ Download main source codes of the given public interface
 
 ```bash
 sapcli interface read ZIF_GREETER
+```
+
+## DataDefinition (CDS)
+
+### activate
+
+Activates the given CDS views in the given order
+
+```bash
+sapcli ddl activate ZCDS1 ZCDS2 ZCDS3 ...
+```
+
+### read
+
+Download main source codes of the given public CDS view
+
+```bash
+sapcli ddl read ZCDS1
 ```
 
 ## Packages

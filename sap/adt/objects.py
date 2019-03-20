@@ -774,3 +774,22 @@ class Class(ADTObject):
             self._test_classes = Class.Include.test_classes(self)
 
         return self._test_classes
+
+
+class DataDefinition(ADTObject):
+    """CDS View definition"""
+
+    OBJTYPE = ADTObjectType(
+        'DDLS/DF',
+        'ddic/ddl/sources',
+        ('ddl', 'http://www.sap.com/adt/ddic/ddlsources'),
+        # application/vnd.sap.adt.ddlSource.v2+xml, application/vnd.sap.adt.ddlSource+xml
+        'application/vnd.sap.adt.ddlSource+xml',
+        {'text/plain': 'source/main'},
+        'ddlSource'
+    )
+
+    def __init__(self, connection, name, package=None, metadata=None):
+        super(DataDefinition, self).__init__(connection, name, metadata)
+
+        self._metadata.package_reference.name = package
