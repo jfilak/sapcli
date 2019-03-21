@@ -3,7 +3,7 @@
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from io import StringIO
 from types import SimpleNamespace
 
@@ -203,6 +203,63 @@ class TestParseCommandLine(unittest.TestCase):
                 del os.environ['SAP_SSL_VERIFY']
 
             self.assertTrue(args.verify, msg=variant)
+
+
+class TestParseCommandLineWithCorrnr(unittest.TestCase):
+
+    def configure_mock(self, fake_commands):
+        fake_cmd = Mock()
+        fake_cmd.name = 'pytest'
+        fake_cmd.install_parser = Mock()
+
+        def side_install_parser(subparser):
+            command_args = subparser.add_subparsers()
+
+            get_args = command_args.add_parser('command')
+            get_args.add_argument('--corrnr')
+
+        fake_cmd.install_parser.side_effect = side_install_parser
+
+        fake_commands.return_value = [(Mock(), fake_cmd)]
+
+    @patch('sap.cli.get_commands')
+    def test_args_env_corrnr(self, fake_commands):
+        self.configure_mock(fake_commands)
+
+        test_params = ALL_PARAMETERS.copy()
+        test_params.append('pytest')
+        test_params.append('command')
+
+        exp_corrnr = 'NPLK000001'
+        os.environ['SAP_CORRNR'] = exp_corrnr
+
+        try:
+            args = sapcli.parse_command_line(test_params)
+        finally:
+            del os.environ['SAP_CORRNR']
+
+        self.assertEqual(args.corrnr, exp_corrnr)
+
+    @patch('sap.cli.get_commands')
+    def test_args_env_and_param_corrnr(self, fake_commands):
+        self.configure_mock(fake_commands)
+
+        test_params = ALL_PARAMETERS.copy()
+        test_params.append('pytest')
+        test_params.append('command')
+        test_params.append('--corrnr')
+        test_params.append('420WEEDTIME')
+
+        exp_corrnr = 'NPLK000001'
+        os.environ['SAP_CORRNR'] = exp_corrnr
+
+        try:
+            args = sapcli.parse_command_line(test_params)
+        finally:
+            del os.environ['SAP_CORRNR']
+
+        self.assertEqual(args.corrnr, '420WEEDTIME')
+
 
 if __name__ == '__main__':
     unittest.main()

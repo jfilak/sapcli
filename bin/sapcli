@@ -95,6 +95,9 @@ def resolve_default_values(arg_parser, args):
     if not args.password:
         args.password = getpass.getpass()
 
+    if hasattr(args, 'corrnr') and args.corrnr is None:
+        args.corrnr = os.getenv('SAP_CORRNR')
+
 
 def parse_command_line(argv):
     """Parses command line arguments"""
