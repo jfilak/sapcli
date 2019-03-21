@@ -163,8 +163,8 @@ class TestADTObject(unittest.TestCase):
 
         victory.create(corrnr='NPL000008')
 
-        self.assertEqual(connection.execs[0].params['corrnr'], 'NPL000008')
-        self.assertEqual(sorted(connection.execs[0].params.keys()), ['corrnr'])
+        self.assertEqual(connection.execs[0].params['corrNr'], 'NPL000008')
+        self.assertEqual(sorted(connection.execs[0].params.keys()), ['corrNr'])
 
     def test_properties(self):
         victory = DummyADTObject()

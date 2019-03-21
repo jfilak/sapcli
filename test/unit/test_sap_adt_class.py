@@ -75,7 +75,7 @@ class TestADTClass(unittest.TestCase):
         clas.change_text(FIXTURE_CLASS_MAIN_CODE, corrnr='420')
 
         put_request = conn.execs[1]
-        self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrnr': '420'})
+        self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})
 
     def include_read_test(self, response, getter, includes_uri):
         conn = Connection([response])

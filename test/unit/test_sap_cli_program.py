@@ -62,7 +62,7 @@ class TestProgramWrite(unittest.TestCase):
         with patch('sap.cli.program.open', mock_open(read_data=FIXTURE_FILE_REPORT_SRC)) as m:
             sap.cli.program.write(conn, args)
 
-        self.assertEqual(conn.execs[1].params['corrnr'], '420')
+        self.assertEqual(conn.execs[1].params['corrNr'], '420')
 
 
 class TestProgramActivate(unittest.TestCase):

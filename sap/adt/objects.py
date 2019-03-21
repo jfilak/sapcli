@@ -38,7 +38,7 @@ def create_params(corrnr):
     if corrnr is None:
         return None
 
-    return {'corrnr': corrnr}
+    return {'corrNr': corrnr}
 
 
 def modify_object_params(lock_handle, corrnr):
@@ -46,7 +46,7 @@ def modify_object_params(lock_handle, corrnr):
 
     params = {'lockHandle': lock_handle}
     if corrnr is not None:
-        params['corrnr'] = corrnr
+        params['corrNr'] = corrnr
 
     return params
 

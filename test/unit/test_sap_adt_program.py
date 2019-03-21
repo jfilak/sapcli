@@ -61,7 +61,7 @@ class TestADTProgram(unittest.TestCase):
         program.change_text(FIXTURE_REPORT_CODE, corrnr='420')
 
         put_request = conn.execs[1]
-        self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrnr': '420'})
+        self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})
 
 
 if __name__ == '__main__':

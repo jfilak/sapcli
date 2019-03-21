@@ -101,7 +101,7 @@ class TestClassWrite(unittest.TestCase):
         with patch('sap.cli.abapclass.open', mock_open(read_data='class file definition')) as m:
             args.execute(conn, args)
 
-        self.assertEqual(conn.execs[1].params['corrnr'], '420')
+        self.assertEqual(conn.execs[1].params['corrNr'], '420')
 
 
 class TestClassIncludes(unittest.TestCase):
