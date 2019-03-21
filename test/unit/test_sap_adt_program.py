@@ -53,6 +53,16 @@ class TestADTProgram(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(put_request.body, FIXTURE_REPORT_CODE)
 
+    def test_program_write_with_corrnr(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+
+        program = sap.adt.Program(conn, 'ZHELLO_WORLD')
+        program.lock()
+        program.change_text(FIXTURE_REPORT_CODE, corrnr='420')
+
+        put_request = conn.execs[1]
+        self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrnr': '420'})
+
 
 if __name__ == '__main__':
     unittest.main()

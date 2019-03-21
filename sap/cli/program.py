@@ -40,6 +40,7 @@ def create(connection, args):
 
 
 @CommandGroup.command()
+@CommandGroup.argument_corrnr()
 @CommandGroup.argument('source', help='a path or - for stdin')
 @CommandGroup.argument('name')
 def write(connection, args):
@@ -57,7 +58,7 @@ def write(connection, args):
     # TODO: context manager
     program.lock()
     try:
-        program.change_text(''.join(text))
+        program.change_text(''.join(text), corrnr=args.corrnr)
     finally:
         program.unlock()
 

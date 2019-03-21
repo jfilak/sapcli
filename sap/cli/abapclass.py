@@ -63,6 +63,7 @@ def create(connection, args):
 
 
 @CommandGroup.command()
+@CommandGroup.argument_corrnr()
 @CommandGroup.argument('source', help='a path or - for stdin')
 @CommandGroup.argument_source_type()
 @CommandGroup.argument('name')
@@ -81,7 +82,7 @@ def write(connection, args):
     # TODO: context manager
     clas.lock()
     try:
-        get_source_code_objec(clas, args.type).change_text(''.join(text))
+        get_source_code_objec(clas, args.type).change_text(''.join(text), corrnr=args.corrnr)
     finally:
         clas.unlock()
 

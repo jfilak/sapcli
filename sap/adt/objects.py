@@ -41,6 +41,16 @@ def create_params(corrnr):
     return {'corrnr': corrnr}
 
 
+def modify_object_params(lock_handle, corrnr):
+    """Returns parameters for object modification"""
+
+    params = {'lockHandle': lock_handle}
+    if corrnr is not None:
+        params['corrnr'] = corrnr
+
+    return params
+
+
 class ADTObjectType:
     """Common ADT object type attributes.
     """
@@ -509,14 +519,14 @@ class Program(ADTObject):
 
         self._metadata.package_reference.name = package
 
-    def change_text(self, content):
+    def change_text(self, content, corrnr=None):
         """Changes the source code"""
 
         text_uri = self.objtype.get_uri_for_type('text/plain')
 
         resp = self._connection.execute(
             'PUT', self.uri + text_uri,
-            params={'lockHandle': self._lock},
+            params=modify_object_params(self._lock, corrnr),
             headers={
                 'Content-Type': 'text/plain; charset=utf-8'},
             body=content)
@@ -647,12 +657,12 @@ class Class(ADTObject):
 
             return self._clas.connection.get_text(f'{self._clas.uri}{self._metadata.source_uri}')
 
-        def change_text(self, content):
+        def change_text(self, content, corrnr=None):
             """Changes source codes"""
 
             resp = self._clas.connection.execute(
                 'PUT', self._clas.uri + self._metadata.source_uri,
-                params={'lockHandle': self._clas.lock_handle},
+                params=modify_object_params(self._clas.lock_handle, corrnr),
                 headers={
                     'Accept': 'text/plain',
                     'Content-Type': 'text/plain; charset=utf-8'},
@@ -733,14 +743,14 @@ class Class(ADTObject):
 
         return self._superclass
 
-    def change_text(self, content):
+    def change_text(self, content, corrnr=None):
         """Changes the source code"""
 
         text_uri = self.objtype.get_uri_for_type('text/plain')
 
         resp = self._connection.execute(
             'PUT', self.uri + text_uri,
-            params={'lockHandle': self._lock},
+            params=modify_object_params(self._lock, corrnr),
             headers={
                 'Accept': 'text/plain',
                 'Content-Type': 'text/plain; charset=utf-8'},

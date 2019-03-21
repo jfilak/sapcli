@@ -45,8 +45,10 @@ sapcli program create "ZHELLOWORLD" "Just a description" "$TMP"
 Change code of an executable program without activation.
 
 ```bash
-sapcli program write "ZHELLOWORLD" zhelloworld.abap
+sapcli program write "ZHELLOWORLD" zhelloworld.abap [--corrnr TRANSPORT]
 ```
+
+* _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 
 ### activate
 
@@ -80,8 +82,11 @@ sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
 Changes main source code of the given class without activation
 
 ```bash
-sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap
+sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap [--corrnr TRANSPORT]
+
 ```
+
+* _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 
 Changes definitions source code of the given class without activation
 

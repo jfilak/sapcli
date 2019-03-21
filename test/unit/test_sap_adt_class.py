@@ -66,6 +66,17 @@ class TestADTClass(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(put_request.body, FIXTURE_CLASS_MAIN_CODE)
 
+    def test_adt_class_write_with_corrnr(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        clas.lock()
+
+        clas.change_text(FIXTURE_CLASS_MAIN_CODE, corrnr='420')
+
+        put_request = conn.execs[1]
+        self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrnr': '420'})
+
     def include_read_test(self, response, getter, includes_uri):
         conn = Connection([response])
 
