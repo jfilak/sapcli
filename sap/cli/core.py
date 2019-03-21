@@ -85,3 +85,9 @@ class CommandGroup:
             return func
 
         return p_argument
+
+    @classmethod
+    def argument_corrnr(cls):
+        """Decorator adding the corrnr argument to a cli command"""
+
+        return cls.argument('--corrnr', nargs='?', default=None)
