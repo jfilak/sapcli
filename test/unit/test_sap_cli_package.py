@@ -23,48 +23,50 @@ class TestPackageCreate(unittest.TestCase):
     def test_create_package_with_super(self):
         connection = Connection([EMPTY_RESPONSE_OK])
 
-        sap.cli.package.create(connection, SimpleNamespace(name='$TEST', description='description',
-                                                           super_package='$MASTER', software_component='LOCAL',
-                                                           app_component=None, transport_layer=None))
+        args = parse_args('create', '$TEST', 'description', '--super-package', '$MASTER')
+        sap.cli.package.create(connection, args)
 
         self.assertIn('<pak:superPackage adtcore:name="$MASTER"/>', connection.execs[0].body)
 
     def test_create_package_without_super(self):
         connection = Connection([EMPTY_RESPONSE_OK])
 
-        sap.cli.package.create(connection, SimpleNamespace(name='$TEST', description='description',
-                                                           super_package=None, software_component='LOCAL',
-                                                           app_component=None, transport_layer=None))
+        args = parse_args('create', '$TEST', 'description')
+        sap.cli.package.create(connection, args)
 
         self.assertIn('<pak:superPackage/>', connection.execs[0].body)
 
     def test_create_package_with_app_component(self):
         connection = Connection([EMPTY_RESPONSE_OK])
 
-        sap.cli.package.create(connection, SimpleNamespace(name='$TEST', description='description',
-                                                           super_package=None, software_component='LOCAL',
-                                                           app_component='LOD', transport_layer=None))
+        args = parse_args('create', '$TEST', 'description', '--app-component', 'LOD')
+        sap.cli.package.create(connection, args)
 
         self.assertIn('<pak:applicationComponent pak:name="LOD"/>', connection.execs[0].body)
 
     def test_create_package_with_sw_component(self):
         connection = Connection([EMPTY_RESPONSE_OK])
 
-        sap.cli.package.create(connection, SimpleNamespace(name='$TEST', description='description',
-                                                           super_package=None, software_component='SAP',
-                                                           app_component=None, transport_layer=None))
+        args = parse_args('create', '$TEST', 'description', '--software-component', 'SAP')
+        sap.cli.package.create(connection, args)
 
         self.assertIn('<pak:softwareComponent pak:name="SAP"/>', connection.execs[0].body)
 
     def test_create_package_with_transport_layer(self):
         connection = Connection([EMPTY_RESPONSE_OK])
 
-        sap.cli.package.create(connection, SimpleNamespace(name='$TEST', description='description',
-                                                           super_package=None, software_component='LOCAL',
-                                                           app_component=None, transport_layer='SAP'))
+        args = parse_args('create', '$TEST', 'description', '--transport-layer', 'SAP')
+        sap.cli.package.create(connection, args)
 
         self.assertIn('<pak:transportLayer pak:name="SAP"/>', connection.execs[0].body)
 
+    def test_create_package_with_corrnr(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('create', '$TEST', 'description', '--corrnr', '420')
+        sap.cli.package.create(connection, args)
+
+        self.assertEqual(connection.execs[0].params['corrNr'], '420')
 
 
 class TestPackageList(unittest.TestCase):

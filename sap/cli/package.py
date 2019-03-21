@@ -14,6 +14,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 
 @CommandGroup.command()
+@CommandGroup.argument_corrnr()
 @CommandGroup.argument('--transport-layer', default=None, help='Transport layer')
 @CommandGroup.argument('--software-component', default='LOCAL', help='Software component')
 @CommandGroup.argument('--app-component', default=None, help='Application component')
@@ -41,7 +42,7 @@ def create(connection, args):
     if args.transport_layer is not None:
         package.set_transport_layer(args.transport_layer.upper())
 
-    package.create()
+    package.create(corrnr=args.corrnr)
 
 
 @CommandGroup.command('list')

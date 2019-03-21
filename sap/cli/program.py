@@ -27,6 +27,7 @@ def read(connection, args):
 
 
 @CommandGroup.command()
+@CommandGroup.argument_corrnr()
 @CommandGroup.argument('package')
 @CommandGroup.argument('description')
 @CommandGroup.argument('name')
@@ -36,7 +37,7 @@ def create(connection, args):
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
     program = sap.adt.Program(connection, args.name.upper(), package=args.package.upper(), metadata=metadata)
     program.description = args.description
-    program.create()
+    program.create(corrnr=args.corrnr)
 
 
 @CommandGroup.command()

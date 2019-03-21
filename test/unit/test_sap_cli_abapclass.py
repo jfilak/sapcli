@@ -51,6 +51,14 @@ class TestClassCreate(unittest.TestCase):
         self.assertEqual(create_request.headers['Content-Type'], 'application/vnd.sap.adt.oo.classes.v2+xml')
 
 
+    def test_create_program_with_corrnr(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args(['create', 'ZCL_HELLO_WORLD', 'Class description', 'Package', '--corrnr', '420'])
+        args.execute(connection, args)
+
+        self.assertEqual(connection.execs[0].params['corrNr'], '420')
+
 class TestClassActivate(unittest.TestCase):
 
     def test_class_activate_defaults(self):

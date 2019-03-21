@@ -27,6 +27,17 @@ class TestProgramCommandGroup(unittest.TestCase):
         sap.cli.program.CommandGroup()
 
 
+class TestProgramCreate(unittest.TestCase):
+
+    def test_create_program_with_corrnr(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args(['create', 'report', 'description', 'package', '--corrnr', '420'])
+        args.execute(connection, args)
+
+        self.assertEqual(connection.execs[0].params['corrNr'], '420')
+
+
 class TestProgramWrite(unittest.TestCase):
 
     def test_read_from_stdin(self):
