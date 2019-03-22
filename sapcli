@@ -7,12 +7,17 @@
 import os
 import sys
 
+import importlib.util
+from importlib.machinery import SourceFileLoader
+
 base_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(base_dir)
 
-pythonpath = os.environ.get('PYTHONPATH')
-if pythonpath:
-    os.environ['PYTHONPATH'] = f'{base_dir}:{pythonpath}'
-else:
-    os.environ['PYTHONPATH'] = base_dir
+sapcli_bin = os.path.join(base_dir, 'bin', 'sapcli')
+loader = SourceFileLoader(fullname='sapcli', path=sapcli_bin)
+spec = importlib.util.spec_from_file_location('sapcli', sapcli_bin, loader=loader)
+sapcli = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(sapcli)
+sys.modules['sapcli'] = sapcli
 
-os.execve(os.path.join(base_dir, 'bin', 'sapcli'), sys.argv, os.environ)
+sys.exit(sapcli.main(sys.argv))
