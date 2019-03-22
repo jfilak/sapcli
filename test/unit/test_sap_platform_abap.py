@@ -19,6 +19,38 @@ class STRUCT_WITH_STRING_TABLE(sap.platform.abap.Structure):
     DISTROS: sap.platform.abap.StringTable
 
 
+class TestSAPPlatformABAP(unittest.TestCase):
+
+    def test_structure_init_without_values(self):
+        plain = PLAIN_STRUCT()
+
+        self.assertIsNone(plain.PYTHON)
+        self.assertIsNone(plain.LINUX)
+
+    def test_structure_init_with_all_values(self):
+        plain = PLAIN_STRUCT(PYTHON='3.7', LINUX='Fedora')
+
+        self.assertEqual(plain.PYTHON, '3.7')
+        self.assertEqual(plain.LINUX, 'Fedora')
+
+    def test_structure_init_with_some_values(self):
+        plain = PLAIN_STRUCT(PYTHON='3.7')
+
+        self.assertEqual(plain.PYTHON, '3.7')
+        self.assertEqual(plain.LINUX, None)
+
+        plain = PLAIN_STRUCT(LINUX='Fedora')
+
+        self.assertEqual(plain.PYTHON, None)
+        self.assertEqual(plain.LINUX, 'Fedora')
+
+    def test_structure_init_with_extra_values(self):
+        with self.assertRaises(TypeError) as caught:
+            plain = PLAIN_STRUCT(JAVASCRIPT='@')
+
+        self.assertEqual(str(caught.exception), 'PLAIN_STRUCT does not define member JAVASCRIPT')
+
+
 class TestSAPPlatformABAPToXML(unittest.TestCase):
 
     def test_to_xml_plain_stucture(self):

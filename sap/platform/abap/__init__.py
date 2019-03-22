@@ -8,7 +8,18 @@ class Structure:
     """NamedTuple like class"""
 
     def __init__(self, **kwargs):
-        setattr(self, '__dict__', kwargs)
+
+        for attr, value in kwargs.items():
+            # pylint: disable=no-member
+            if attr not in self.__class__.__annotations__:
+                raise TypeError(f'{self.__class__.__name__} does not define member {attr}')
+
+            self.__dict__[attr] = value
+
+        # pylint: disable=no-member
+        for attr in self.__class__.__annotations__:
+            if attr not in kwargs:
+                self.__dict__[attr] = None
 
 
 InternalTable = List
