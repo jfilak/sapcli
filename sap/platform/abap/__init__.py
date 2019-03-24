@@ -1,11 +1,18 @@
 """ABAP language utilities"""
 
-from typing import List
-
 
 # pylint: disable=too-few-public-methods
 class Structure:
-    """NamedTuple like class"""
+    """Abstract base class for defining ABAP like structures. Use this class as
+       a parent for your structures like the following:
+
+           class MY_STRUCT(Structure):
+               KEY: str
+               VALUE: str
+
+       Instance can be created without parameters or with random subset of
+       defined members where the not given ones will hold None.
+    """
 
     def __init__(self, **kwargs):
 
@@ -22,9 +29,120 @@ class Structure:
                 self.__dict__[attr] = None
 
 
-InternalTable = List
+class InternalTableMeta(type):
+    """Metaclass for InternalTable which is needed to __getitem__ on class level"""
+
+    def define(cls, name, rowtype):
+        """Defines a new internal table type of the given name and the give row
+           type.
+
+           Allows you to define new internal table types of the given name
+           without the need to create a dummy thing envelope class:
+
+           MY_STRUCT_TT = InternalTable.define('MY_STRUCT_TT', MY_STRUCT)
+        """
+
+        return type(name, (cls,), dict(_rowtype=rowtype))
+
+    def __getitem__(cls, rowtype):
+        """Defines a new internal table type of the given row type with
+           a generated name.
+
+           Particularly useful when you want to save some typing to define
+           a new internal table type:
+
+           class MY_STRUCT_TT(InternalTable[MY_STRUCT): pass
+        """
+
+        # pylint: disable=no-value-for-parameter
+        return cls.define(f'InternalTable_{rowtype.__class__.__name__}', rowtype)
+
+
+class InternalTable(object, metaclass=InternalTableMeta):
+    """Represents an ABAP internal table with empty key. You can define an inernal
+       as a dummy thin envelope class:
+
+           class MY_STRUCT_TT(InternalTable[MY_STRUCT): pass
+
+       or create a type variable:
+
+           MY_STRUCT_TT = InternalTable.define('MY_STRUCT_TT', MY_STRUCT)
+    """
+
+    def __init__(self, *args):
+        """The instance of InternalTable can created:
+             - without parameters
+             - with a single parameter of a list of the row type
+             - with a single parameter of this internal table
+             - with 1-n parameters of the row type
+        """
+
+        # pylint: disable=no-member
+        self._type = self._rowtype
+        self._rows = list()
+
+        if len(args) == 1:
+            arg = args[0]
+
+            if isinstance(arg, list):
+                for row in arg:
+                    self._append_row(row)
+            elif isinstance(arg, InternalTable):
+                # pylint: disable=protected-access
+                if arg._type != self._type:
+                    # pylint: disable=protected-access
+                    raise TypeError(f'cannot copy InternalTable of type {arg._type.__name__}')
+
+                self._rows = arg._rows.copy()
+            else:
+                self._append_row(arg)
+
+        elif len(args) > 1:
+            for row in args:
+                self._append_row(row)
+
+    def __iter__(self):
+        return self._rows.__iter__()
+
+    def __getitem__(self, index):
+        return self._rows.__getitem__(index)
+
+    def __len__(self):
+        return self._rows.__len__()
+
+    def _append_row(self, row):
+        if not isinstance(row, self._type):
+            srctyp = row.__class__.__name__
+            tgttyp = self._type.__name__
+            raise TypeError(f'type of appended value {srctyp} does not match table type {tgttyp}')
+
+        self._rows.append(row)
+
+    def append(self, *args, **kwargs):
+        """Adds new row to the internal table. The method can be called with
+
+           - 1 parameter of the row type
+           - Keyword parameters which will be used to create an new instance of the row type
+        """
+
+        if args and kwargs:
+            raise TypeError('cannot mix positional and keyword parameters')
+
+        if not args and not kwargs:
+            raise TypeError('no parameters given')
+
+        if args:
+            if len(args) != 1:
+                raise TypeError(f'append accepts only one positional argument but {len(args)} were given')
+
+            self._append_row(args[0])
+        else:
+            factory = self._type
+            self._rows.append(factory(**kwargs))
+
+
 # pylint: disable=invalid-name
-StringTable = InternalTable[str]
+StringTable = InternalTable.define('StringTable', str)
 
 
 class XMLSerializers:

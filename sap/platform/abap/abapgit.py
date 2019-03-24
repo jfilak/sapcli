@@ -24,7 +24,7 @@ class DOT_ABAP_GIT(Structure):
     def for_new_repo(MASTER_LANGUAGE: str = 'E', STARTING_FOLDER: str = 'src', FOLDER_LOGIC: str = FOLDER_LOGIC_FULL):
         """Creates new instance of DOT_ABAP_GIT for new repository"""
 
-        IGNORE = ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml']
+        IGNORE = StringTable('/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml')
 
         return DOT_ABAP_GIT(MASTER_LANGUAGE=MASTER_LANGUAGE, STARTING_FOLDER=STARTING_FOLDER,
                             FOLDER_LOGIC=FOLDER_LOGIC, IGNORE=IGNORE)

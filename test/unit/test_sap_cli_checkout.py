@@ -250,7 +250,7 @@ class TestCheckoutPackage(unittest.TestCase):
         self.assertEqual(dot_abap.MASTER_LANGUAGE, 'E')
         self.assertEqual(dot_abap.FOLDER_LOGIC, sap.platform.abap.abapgit.FOLDER_LOGIC_FULL)
         self.assertEqual(dot_abap.STARTING_FOLDER, f'/{starting_folder}/')
-        self.assertEqual(dot_abap.IGNORE, ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
+        self.assertEqual([ignore for ignore in dot_abap.IGNORE], ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
         self.assertEqual(kwargs['top_element'], 'DATA')
 
     @patch('sap.cli.checkout.checkout_objects')
