@@ -3,7 +3,7 @@
 import unittest
 from io import StringIO
 
-from sap.platform.abap import Structure
+from sap.platform.abap import Structure, InternalTable
 
 import sap.platform.abap.abapgit
 
@@ -14,6 +14,9 @@ class SIMPLE_ABAP_STRUCT(Structure):
     BAR: str
 
 
+class SIMPLE_ABAP_STRUCT_TT(InternalTable[SIMPLE_ABAP_STRUCT]): pass
+
+
 class TestXMLSerializer(unittest.TestCase):
 
     def test_full_file(self):
@@ -22,6 +25,7 @@ class TestXMLSerializer(unittest.TestCase):
         writer = sap.platform.abap.abapgit.XMLWriter('LCL_PYTHON_SERIALIZER', dest)
         writer.add(SIMPLE_ABAP_STRUCT(FOO='BAR', BAR='FOO'))
         writer.add(SIMPLE_ABAP_STRUCT(FOO='GRC', BAR='BLAH'))
+        writer.add(SIMPLE_ABAP_STRUCT_TT(SIMPLE_ABAP_STRUCT(FOO='ARG', BAR='DOH')))
         writer.close()
 
         self.assertEqual(dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
@@ -36,6 +40,12 @@ class TestXMLSerializer(unittest.TestCase):
     <FOO>GRC</FOO>
     <BAR>BLAH</BAR>
    </SIMPLE_ABAP_STRUCT>
+   <SIMPLE_ABAP_STRUCT_TT>
+    <item>
+     <FOO>ARG</FOO>
+     <BAR>DOH</BAR>
+    </item>
+   </SIMPLE_ABAP_STRUCT_TT>
   </asx:values>
  </asx:abap>
 </abapGit>

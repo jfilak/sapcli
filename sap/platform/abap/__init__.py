@@ -145,18 +145,28 @@ class InternalTable(object, metaclass=InternalTableMeta):
 StringTable = InternalTable.define('StringTable', str)
 
 
+def row_type_name_getter(row):
+    """Returns type name of the row"""
+
+    return row.__class__.__name__
+
+
 class XMLSerializers:
     """Helper"""
 
     @staticmethod
-    def internal_table_to_xml(abap_table, dest, prefix):
+    def internal_table_to_xml(abap_table, dest, prefix, row_name_getter=None):
         """Serializes internal table"""
+
+        if row_name_getter is None:
+            row_name_getter = row_type_name_getter
 
         for item in abap_table:
             if isinstance(item, Structure):
-                dest.write(f'{prefix}<{item.__class__.__name__}>\n')
+                element = row_name_getter(item)
+                dest.write(f'{prefix}<{element}>\n')
                 XMLSerializers.struct_members_to_xml(item, dest, prefix + ' ')
-                dest.write(f'{prefix}</{item.__class__.__name__}>\n')
+                dest.write(f'{prefix}</{element}>\n')
             else:
                 dest.write(f'{prefix}<item>{item}</item>\n')
 
@@ -185,7 +195,7 @@ class XMLSerializers:
             dest.write(f'</{attr}>\n')
 
     @staticmethod
-    def abap_to_xml(abap, dest, prefix, top_element=None):
+    def abap_to_xml(abap, dest, prefix, top_element=None, row_name_getter=None):
         """Turns an abap instance to an XML"""
 
         if top_element is None:
@@ -196,7 +206,7 @@ class XMLSerializers:
         if isinstance(abap, Structure):
             XMLSerializers.struct_members_to_xml(abap, dest, prefix + ' ')
         elif isinstance(abap, InternalTable):
-            XMLSerializers.internal_table_to_xml(abap, dest, prefix + ' ')
+            XMLSerializers.internal_table_to_xml(abap, dest, prefix + ' ', row_name_getter=row_name_getter)
 
         dest.write(f'''{prefix}</{top_element}>\n''')
 

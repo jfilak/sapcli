@@ -222,7 +222,6 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
  </asx:values>
 </asx:abap>\n''')
 
-
     def test_to_xml_internal_table_of_structure(self):
         lines = PLAIN_STRUCT_TT()
 
@@ -248,6 +247,28 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
   </PLAIN_STRUCT_TT>
  </asx:values>
 </asx:abap>\n''')
+
+    def test_to_xml_internal_table_of_structure_with_own_element(self):
+        lines = PLAIN_STRUCT_TT()
+
+        lines.append(PYTHON='Nice', LINUX='Awesome')
+        lines.append(PYTHON='Cool', LINUX='Fabulous')
+
+        dest = StringIO()
+        sap.platform.abap.XMLSerializers.abap_to_xml(lines, dest, '', row_name_getter=lambda x: 'item')
+
+        self.maxDiff = None
+        self.assertEqual(dest.getvalue(), '''<PLAIN_STRUCT_TT>
+ <item>
+  <PYTHON>Nice</PYTHON>
+  <LINUX>Awesome</LINUX>
+ </item>
+ <item>
+  <PYTHON>Cool</PYTHON>
+  <LINUX>Fabulous</LINUX>
+ </item>
+</PLAIN_STRUCT_TT>
+''')
 
 
 if __name__ == '__main__':
