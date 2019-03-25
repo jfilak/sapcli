@@ -6,7 +6,7 @@ import sys
 import sap.adt
 import sap.cli.core
 
-from sap.platform.abap.ddic import VSEOCLASS
+from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter
@@ -36,7 +36,10 @@ def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer,
     filename = build_filename(object_name, typsfx, 'xml', destdir=destdir)
     with open(filename, 'w') as dest:
         writer = XMLWriter(ag_serializer, dest)
-        writer.add(abap_attributes)
+
+        for attributes in abap_attributes:
+            writer.add(attributes)
+
         writer.close()
 
 
@@ -79,7 +82,7 @@ def checkout_class(connection, name, destdir=None):
     download_abap_source(name, clas.test_classes, '.clas.testclasses', destdir=destdir)
 
     vseoclass = build_class_abap_attributes(clas)
-    dump_attributes_to_file(name, vseoclass, '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
+    dump_attributes_to_file(name, (vseoclass,), '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
 
 
 @CommandGroup.command('class')
@@ -90,10 +93,35 @@ def abapclass(connection, args):
     checkout_class(connection, args.name)
 
 
+def build_program_abap_attributes(adt_program):
+    """Returns populated ABAP structure with attributes"""
+
+    progdir = PROGDIR()
+    progdir.NAME = adt_program.name
+    progdir.STATE = 'A' if adt_program.active == 'active' else 'S'
+    progdir.FIXPT = 'X' if adt_program.fix_point_arithmetic else ' '
+    progdir.DBAPL = adt_program.application_database
+    progdir.VARCL = 'X' if adt_program.case_sensitive else ' '
+    progdir.SUBC = adt_program.program_type
+    progdir.LDBNAME = adt_program.logical_database.reference.name
+    progdir.UCCHECK = 'X'
+
+    tpool = TPOOL()
+    tpool.append(ID='R', ENTRY=adt_program.description, LENGTH=len(adt_program.description))
+
+    return (progdir, tpool)
+
+
 def checkout_program(connection, name, destdir=None):
     """Download program sources"""
 
-    download_abap_source(name, sap.adt.Program(connection, name), '.prog', destdir=destdir)
+    adt_program = sap.adt.Program(connection, name)
+    adt_program.fetch()
+
+    download_abap_source(name, adt_program, '.prog', destdir=destdir)
+
+    progdir, tpool = build_program_abap_attributes(adt_program)
+    dump_attributes_to_file(name, (progdir, tpool), '.prog', 'LCL_OBJECT_PROG', destdir=destdir)
 
 
 @CommandGroup.command()

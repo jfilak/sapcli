@@ -101,15 +101,67 @@ class TestCheckout(unittest.TestCase):
 
         assert_wrote_file(self, fake_open, 'zif_hello_world.intf.abap', 'interface zif_hello_world')
 
-    @patch('sap.adt.Program.text', new_callable=PropertyMock)
-    def test_checkout_program(self, fake_text):
-        fake_text.return_value = 'REPORT z_hello_world'
+    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.adt.Program')
+    def test_checkout_program(self, fake_program, fake_writer):
+        fake_inst = Mock()
+        fake_inst.name = 'Z_HELLO_WORLD'
+        fake_inst.description = 'Cowabunga'
+        fake_inst.text = 'REPORT z_hello_world'
+        fake_inst.active = 'active'
+        fake_inst.application_database = 'S'
+        fake_inst.program_type = '1'
+        fake_inst.fix_point_arithmetic = True
+        fake_inst.logical_database = Mock()
+        fake_inst.logical_database.reference = Mock()
+        fake_inst.logical_database.reference.name = 'D$S'
 
+        fake_inst.fetch = Mock()
+
+        fake_program.return_value = fake_inst
+
+        added = list()
+        def collect_abap(abap):
+            added.append(abap)
+
+        fake_inst = Mock()
+        fake_inst.add = Mock()
+        fake_inst.add.side_effect = collect_abap
+        fake_inst.close = Mock()
+
+        fake_writer.return_value = fake_inst
+
+        conn = Connection()
         args = parse_args(['program', 'Z_HELLO_WORLD'])
         with patch('sap.cli.checkout.open', mock_open()) as fake_open:
-            args.execute(Connection(), args)
+            args.execute(conn, args)
 
         assert_wrote_file(self, fake_open, 'z_hello_world.prog.abap', 'REPORT z_hello_world')
+
+        fake_program.assert_called_once_with(conn, 'Z_HELLO_WORLD')
+        fake_program.return_value.fetch.assert_called_once_with()
+
+        args, kwargs = fake_writer.call_args
+        ag_serializer = args[0]
+        self.assertEqual(ag_serializer, 'LCL_OBJECT_PROG')
+
+        progdir = added[0]
+        tpool = added[1]
+
+        self.assertEqual(progdir.NAME, 'Z_HELLO_WORLD')
+        self.assertEqual(progdir.STATE, 'A')
+        self.assertEqual(progdir.VARCL, 'X')
+        self.assertEqual(progdir.DBAPL, 'S')
+        self.assertEqual(progdir.SUBC, '1')
+        self.assertEqual(progdir.FIXPT, 'X')
+        self.assertEqual(progdir.LDBNAME, 'D$S')
+        self.assertEqual(progdir.UCCHECK, 'X')
+
+        self.assertEqual(len(tpool), 1)
+        item = tpool[0]
+        self.assertEqual(item.ID, 'R')
+        self.assertEqual(item.ENTRY, 'Cowabunga')
+        self.assertEqual(item.LENGTH, len('Cowabunga'))
 
 
 class TestCheckoutClass(unittest.TestCase):
@@ -134,6 +186,36 @@ class TestCheckoutClass(unittest.TestCase):
         self.assertEqual(vseoclass.CLSCCINCL, 'X')
         self.assertEqual(vseoclass.FIXPT, ' ')
         self.assertEqual(vseoclass.UNICODE, 'X')
+
+
+class TestCheckoutProgram(unittest.TestCase):
+
+    def test_build_program_attributes(self):
+        fake_conn = Mock()
+        prog = sap.adt.Program(fake_conn, 'ZHELLO_WORLD')
+        prog.description = 'Say hello!'
+        prog.active = 'inactive'
+        prog.fix_point_arithmetic = False
+        prog.logical_database.reference.name = 'HANA'
+        prog.program_type = 'executableProgram'
+
+        progdir, tpool = sap.cli.checkout.build_program_abap_attributes(prog)
+
+        self.assertEqual(progdir.NAME, 'ZHELLO_WORLD')
+        self.assertEqual(progdir.STATE, 'S')
+        self.assertEqual(progdir.DBAPL, 'S')
+        self.assertEqual(progdir.VARCL, 'X')
+        self.assertEqual(progdir.SUBC, '1')
+        self.assertEqual(progdir.LDBNAME, 'HANA')
+        self.assertEqual(progdir.UCCHECK, 'X')
+
+        self.assertEqual([], [attr for attr, value in progdir.__dict__.items() if not attr.startswith('_') and value is None])
+
+        self.assertEqual(len(tpool), 1)
+        descr = tpool[0]
+        self.assertEqual(descr.ID, 'R')
+        self.assertEqual(descr.ENTRY, 'Say hello!')
+        self.assertEqual(descr.LENGTH, len('Say hello!'))
 
 
 class TestCheckoutPackage(unittest.TestCase):

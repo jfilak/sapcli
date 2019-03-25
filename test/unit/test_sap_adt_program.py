@@ -4,14 +4,10 @@ import unittest
 
 import sap.adt
 
-from mock import Connection
+from mock import Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 
-
-FIXTURE_XML="""<?xml version="1.0" encoding="UTF-8"?>
-<program:abapProgram xmlns:program="http://www.sap.com/adt/programs/programs" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="PROG/P" adtcore:description="Say hello!" adtcore:language="EN" adtcore:name="ZHELLO_WORLD" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:responsible="FILAK" adtcore:version="active">
-<adtcore:packageRef adtcore:name="$TEST"/>
-</program:abapProgram>"""
+from fixtures_adt_program import CREATE_EXECUTABLE_PROGRAM_ADT_XML, GET_EXECUTABLE_PROGRAM_ADT_XML
 
 FIXTURE_REPORT_CODE='report zhello_world.\n\n  write: \'Hello, World!\'.\n'
 
@@ -32,7 +28,7 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/programs/programs')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.programs.programs.v2+xml'})
         self.maxDiff = None
-        self.assertEqual(conn.execs[0][3], FIXTURE_XML)
+        self.assertEqual(conn.execs[0][3], CREATE_EXECUTABLE_PROGRAM_ADT_XML)
 
     def test_program_write(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
@@ -62,6 +58,22 @@ class TestADTProgram(unittest.TestCase):
 
         put_request = conn.execs[1]
         self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})
+
+    def test_adt_program_fetch(self):
+        conn = Connection([Response(text=GET_EXECUTABLE_PROGRAM_ADT_XML, status_code=200, headers={})])
+        program = sap.adt.Program(conn, 'ZHELLO_WORLD')
+        # get_logger().setLevel(0)
+        program.fetch()
+
+        self.assertEqual(program.name, 'ZHELLO_WORLD')
+        self.assertEqual(program.active, 'active')
+        self.assertEqual(program.program_type, '1')
+        self.assertEqual(program.master_language, 'EN')
+        self.assertEqual(program.description, 'Say hello!')
+        self.assertEqual(program.logical_database.reference.name, 'D$S')
+        self.assertEqual(program.fix_point_arithmetic, True)
+        self.assertEqual(program.case_sensitive, True)
+        self.assertEqual(program.application_database, 'S')
 
 
 if __name__ == '__main__':
