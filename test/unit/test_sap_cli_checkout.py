@@ -37,6 +37,42 @@ class TestCheckoutCommandGroup(unittest.TestCase):
 
 class TestCheckout(unittest.TestCase):
 
+    @patch('sap.cli.checkout.checkout_class')
+    def test_checkout_uppercase_name_clas(self, fake_clas):
+        conn = Connection()
+
+        args = parse_args(['class', 'zcl_lowercase'])
+        args.execute(conn, args)
+
+        args = parse_args(['class', 'ZCL_UPPERCASE'])
+        args.execute(conn, args)
+
+        self.assertEquals(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE'), call(conn, 'ZCL_UPPERCASE')])
+
+    @patch('sap.cli.checkout.checkout_interface')
+    def test_checkout_uppercase_name_intf(self, fake_intf):
+        conn = Connection()
+
+        args = parse_args(['interface', 'zif_lowercase'])
+        args.execute(conn, args)
+
+        args = parse_args(['interface', 'ZIF_UPPERCASE'])
+        args.execute(conn, args)
+
+        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE'), call(conn, 'ZIF_UPPERCASE')])
+
+    @patch('sap.cli.checkout.checkout_program')
+    def test_checkout_uppercase_name_prog(self, fake_prog):
+        conn = Connection()
+
+        args = parse_args(['program', 'zlowercase'])
+        args.execute(conn, args)
+
+        args = parse_args(['program', 'ZUPPERCASE'])
+        args.execute(conn, args)
+
+        self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE'), call(conn, 'ZUPPERCASE')])
+
     @patch('sap.cli.checkout.XMLWriter')
     @patch('sap.adt.Class')
     def test_checkout_class(self, fake_clas, fake_writer):

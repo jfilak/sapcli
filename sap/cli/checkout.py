@@ -90,7 +90,7 @@ def checkout_class(connection, name, destdir=None):
 def abapclass(connection, args):
     """Download all class sources command wrapper"""
 
-    checkout_class(connection, args.name)
+    checkout_class(connection, args.name.upper())
 
 
 def build_program_abap_attributes(adt_program):
@@ -129,7 +129,7 @@ def checkout_program(connection, name, destdir=None):
 def program(connection, args):
     """Download program sources command wrapper"""
 
-    checkout_program(connection, args.name)
+    checkout_program(connection, args.name.upper())
 
 
 def checkout_interface(connection, name, destdir=None):
@@ -143,7 +143,7 @@ def checkout_interface(connection, name, destdir=None):
 def interface(connection, args):
     """Download interface sources command wrapper"""
 
-    checkout_interface(connection, args.name)
+    checkout_interface(connection, args.name.upper())
 
 
 def checkout_objects(connection, objects, destdir=None):
