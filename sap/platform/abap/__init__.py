@@ -58,7 +58,7 @@ class InternalTableMeta(type):
         return cls.define(f'InternalTable_{rowtype.__class__.__name__}', rowtype)
 
 
-class InternalTable(object, metaclass=InternalTableMeta):
+class InternalTable(metaclass=InternalTableMeta):
     """Represents an ABAP internal table with empty key. You can define an inernal
        as a dummy thin envelope class:
 
