@@ -144,21 +144,20 @@ class ADTCoreData:
     """
 
     class Reference(metaclass=OrderedClassMembers):
-        """Package Reference
-        """
+        """ADT Reference by Name"""
 
         def __init__(self, name=None):
             self._name = name
 
         @xml_attribute('adtcore:name')
         def name(self):
-            """package reference name """
+            """Returns reference name """
 
             return self._name
 
         @name.setter
         def name(self, value):
-            """sets package reference name"""
+            """Sets reference name"""
 
             self._name = value
 
@@ -590,20 +589,6 @@ class Class(ADTObject):
         'abapClass'
     )
 
-    class SuperClass(metaclass=OrderedClassMembers):
-        """Super Class reference
-        """
-
-        def __init__(self, name=None):
-            self._name = name
-
-        @xml_attribute('adtcore:name')
-        def name(self):
-            """Application component name
-            """
-
-            return self._name
-
     class Include(metaclass=OrderedClassMembers):
         """Class includes"""
 
@@ -674,7 +659,7 @@ class Class(ADTObject):
         super(Class, self).__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
-        self._superclass = Class.SuperClass()
+        self._superclass = ADTCoreData.Reference()
         self._definitions = None
         self._implementations = None
         self._test_classes = None
