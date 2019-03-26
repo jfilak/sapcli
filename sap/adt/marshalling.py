@@ -101,6 +101,10 @@ class ElementHandler:
                 get_logger().debug('Found XML element property: %s -> %s', attr_name, xml_path)
                 self.elements[xml_path] = ElementHandler(xml_path, self.elements, partial(attr.__get__, obj))
             elif isinstance(attr, XmlAttributeProperty):
+                if not attr.deserialize:
+                    get_logger().debug('Found readonly XML attribute property: %s -> %s', attr_name, attr.name)
+                    continue
+
                 get_logger().debug('Found XML attribute property: %s -> %s', attr_name, attr.name)
                 attributes[attr.name] = attr
 

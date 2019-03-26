@@ -62,6 +62,10 @@ class Dummy(ADTObject):
     def second(self):
         return '22222'
 
+    @xml_attribute('attr_third', deserialize=False)
+    def third(self):
+        return '3333'
+
     @xml_element('first_elem')
     def value(self):
         return self._nested
@@ -156,6 +160,10 @@ class DummyWithSetters(ADTObject):
     def second(self, value):
         self._second = value
 
+    @xml_attribute('attr_third', deserialize=False)
+    def third(self):
+        return 'EEE'
+
     @xml_element('first_elem')
     def value(self):
         return self._nested
@@ -176,6 +184,7 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(xmltree.name, 'dummyxmlns:dummyelem')
         self.assertEqual(xmltree.attributes['attr_first'], '11111')
         self.assertEqual(xmltree.attributes['attr_second'], '22222')
+        self.assertEqual(xmltree.attributes['attr_third'], '3333')
 
         self.assertEqual(xmltree.children[0].name, 'adtcore:packageRef')
 
@@ -242,6 +251,7 @@ class TestADTAnnotation(unittest.TestCase):
 
         self.assertEqual(obj.first, clone.first)
         self.assertEqual(obj.second, clone.second)
+        self.assertEqual('EEE', clone.third)
         self.assertEqual(obj.value.first, clone.value.first)
         self.assertEqual(obj.value.second, clone.value.second)
         self.assertEqual(obj.value.supernested.yetanother, clone.value.supernested.yetanother)
