@@ -5,7 +5,7 @@ from collections import deque
 
 # pylint: disable=unused-import
 from sap.adt.objects import OrderedClassMembers
-from sap.adt.objects import ADTObjectType, ADTObject
+from sap.adt.objects import ADTObjectType, ADTObject, ADTCoreData
 from sap.adt.annotations import xml_attribute, xml_element
 from sap.adt.repository import Repository
 
@@ -21,27 +21,6 @@ class Package(ADTObject):
         {},
         'package'
     )
-
-    class SuperPackage(metaclass=OrderedClassMembers):
-        """Super Package
-        """
-
-        def __init__(self, name=None):
-            self._name = name
-
-        @xml_attribute('adtcore:name')
-        def name(self):
-            """super package name
-            """
-
-            return self._name
-
-        @name.setter
-        def name(self, value):
-            """super package name
-            """
-
-            self._name = value
 
     class SoftwareComponent(metaclass=OrderedClassMembers):
         """SAP Software component.
@@ -144,7 +123,7 @@ class Package(ADTObject):
     def __init__(self, connection, name, metadata=None):
         super(Package, self).__init__(connection, name, metadata)
 
-        self._superpkg = Package.SuperPackage()
+        self._superpkg = ADTCoreData.Reference()
         self._transport = Package.Transport()
         self._attributes = Package.Attributes()
         self._metadata.package_reference.name = name
