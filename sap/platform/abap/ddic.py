@@ -31,7 +31,7 @@ class VSEOCLASS(Structure):
 # pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
 class PROGDIR(Structure):
-    """Class metadata"""
+    """Program metadata"""
 
     # pylint: disable=invalid-name
     NAME: str
@@ -72,7 +72,7 @@ class PROGDIR(Structure):
 # pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
 class TPOOL_LINE(Structure):
-    """Class metadata"""
+    """Program texts"""
 
     # pylint: disable=invalid-name
     ID: str
