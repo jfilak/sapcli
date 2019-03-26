@@ -126,16 +126,44 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(vseoclass.FIXPT, 'X')
         self.assertEqual(vseoclass.UNICODE, 'X')
 
-
+    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.adt.Interface.fetch')
     @patch('sap.adt.Interface.text', new_callable=PropertyMock)
-    def test_checkout_interface(self, fake_text):
+    def test_checkout_interface(self, fake_text, fake_fetch, fake_writer):
+        fake_writer.return_value = fake_writer
+        fake_writer.add = Mock()
+
+        fake_conn = Connection()
+
+        fake_inst = sap.adt.Interface(fake_conn, 'ZIF_HELLO_WORLD')
+        fake_inst.description = 'This is an interface'
+        fake_inst.master_language = 'EN'
+        fake_inst.active = 'active'
+        fake_inst.modeled = 'false'
+
         fake_text.return_value = 'interface zif_hello_world'
 
         args = parse_args(['interface', 'ZIF_HELLO_WORLD'])
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
-            args.execute(Connection(), args)
+        with patch('sap.adt.Interface') as fake_intf, \
+             patch('sap.cli.checkout.open', mock_open()) as fake_open:
+            fake_intf.return_value = fake_inst
+            args.execute(fake_conn, args)
 
         assert_wrote_file(self, fake_open, 'zif_hello_world.intf.abap', 'interface zif_hello_world')
+
+        args, kwargs = fake_writer.call_args
+        ag_serializer = args[0]
+        self.assertEqual(ag_serializer, 'LCL_OBJECT_INTF')
+
+        args, kwargs = fake_writer.add.call_args
+        vseointerf = args[0]
+        self.assertEqual(vseointerf.CLSNAME, 'ZIF_HELLO_WORLD')
+        self.assertEqual(vseointerf.VERSION, '1')
+        self.assertEqual(vseointerf.LANGU, 'E')
+        self.assertEqual(vseointerf.DESCRIPT, 'This is an interface')
+        self.assertEqual(vseointerf.EXPOSURE, '2')
+        self.assertEqual(vseointerf.STATE, '1')
+        self.assertEqual(vseointerf.UNICODE, 'X')
 
     @patch('sap.cli.checkout.XMLWriter')
     @patch('sap.adt.Program')
@@ -222,6 +250,29 @@ class TestCheckoutClass(unittest.TestCase):
         self.assertEqual(vseoclass.CLSCCINCL, 'X')
         self.assertEqual(vseoclass.FIXPT, ' ')
         self.assertEqual(vseoclass.UNICODE, 'X')
+
+
+class TestCheckoutInterface(unittest.TestCase):
+
+    def test_build_interface_attributes(self):
+        fake_conn = Mock()
+        intf = sap.adt.Interface(fake_conn, 'ZIF_HELLO_WORLD')
+
+        fake_inst = sap.adt.Interface(fake_conn, 'ZIF_HELLO_WORLD')
+        fake_inst.description = 'This is an interface'
+        fake_inst.master_language = 'EN'
+        fake_inst.active = 'inactive'
+        fake_inst.modeled = 'true'
+
+        vseointerf = sap.cli.checkout.build_interface_abap_attributes(fake_inst)
+
+        self.assertEqual(vseointerf.CLSNAME, 'ZIF_HELLO_WORLD')
+        self.assertEqual(vseointerf.DESCRIPT, 'This is an interface')
+        self.assertEqual(vseointerf.LANGU, 'E')
+        self.assertEqual(vseointerf.EXPOSURE, '2')
+        self.assertEqual(vseointerf.VERSION, '0')
+        self.assertEqual(vseointerf.STATE, '0')
+        self.assertEqual(vseointerf.UNICODE, 'X')
 
 
 class TestCheckoutProgram(unittest.TestCase):

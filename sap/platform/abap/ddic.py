@@ -30,6 +30,28 @@ class VSEOCLASS(Structure):
 # pylint: disable=invalid-name
 # pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
+class VSEOINTERF(Structure):
+    """Interface metadata"""
+
+    # pylint: disable=invalid-name
+    CLSNAME: str
+    # pylint: disable=invalid-name
+    VERSION: str
+    # pylint: disable=invalid-name
+    LANGU: str
+    # pylint: disable=invalid-name
+    DESCRIPT: str
+    # pylint: disable=invalid-name
+    EXPOSURE: str
+    # pylint: disable=invalid-name
+    STATE: str
+    # pylint: disable=invalid-name
+    UNICODE: str
+
+
+# pylint: disable=invalid-name
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
 class PROGDIR(Structure):
     """Program metadata"""
 

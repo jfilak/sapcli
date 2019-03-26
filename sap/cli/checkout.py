@@ -6,7 +6,7 @@ import sys
 import sap.adt
 import sap.cli.core
 
-from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL
+from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter
@@ -132,10 +132,32 @@ def program(connection, args):
     checkout_program(connection, args.name.upper())
 
 
+def build_interface_abap_attributes(adt_intf):
+    """Returns populated ABAP structure with attributes"""
+
+    vseointerf = VSEOINTERF(CLSNAME=adt_intf.name, DESCRIPT=adt_intf.description)
+    vseointerf.VERSION = '1' if adt_intf.active == 'active' else '0'
+    vseointerf.LANGU = iso_code_to_sap_code(adt_intf.master_language)
+    vseointerf.STATE = '0' if adt_intf.modeled else '1'
+    # TODO: do we really need this information?
+    vseointerf.EXPOSURE = '2'
+    # TODO: adt_intfs:abapClass/abapSource:syntaxConfiguration/abapSource:language/abapSource:version
+    #   X = Standard ABAP (Unicode), 2 3 4 -> ABAP PaaS?
+    vseointerf.UNICODE = 'X'
+
+    return vseointerf
+
+
 def checkout_interface(connection, name, destdir=None):
     """Download interface sources"""
 
-    download_abap_source(name, sap.adt.Interface(connection, name), '.intf', destdir=destdir)
+    intf = sap.adt.Interface(connection, name)
+    intf.fetch()
+
+    download_abap_source(name, intf, '.intf', destdir=destdir)
+
+    vseointerf = build_interface_abap_attributes(intf)
+    dump_attributes_to_file(name, (vseointerf,), '.prog', 'LCL_OBJECT_INTF', destdir=destdir)
 
 
 @CommandGroup.command()
