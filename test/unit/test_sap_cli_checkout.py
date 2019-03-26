@@ -307,11 +307,13 @@ class TestCheckoutProgram(unittest.TestCase):
 
 class TestCheckoutPackage(unittest.TestCase):
 
+    @patch('sap.adt.Package.fetch')
+    @patch('sap.cli.checkout.dump_attributes_to_file')
     @patch('sap.cli.checkout.checkout_class')
     @patch('sap.cli.checkout.checkout_interface')
     @patch('sap.cli.checkout.checkout_program')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas):
+    def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_dump, fake_fetch):
         conn = Connection([])
 
         package_name = '$VICTORY'
@@ -328,11 +330,21 @@ class TestCheckoutPackage(unittest.TestCase):
               [SimpleNamespace(typ='CLAS/OC', name='ZCL_TESTS')]))
         )
 
+        package_factory = sap.adt.Package
+        def new_package(connection, name):
+            package = package_factory(connection, name)
+            package.description = f'Description {name}'
+            return package
+
         args = parse_args(['package', package_name, '--recursive'])
         with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
              patch('sap.cli.checkout.print') as fake_print, \
              patch('os.path.isdir') as fake_isdir, \
-             patch('os.makedirs') as fake_makedirs:
+             patch('os.makedirs') as fake_makedirs, \
+             patch('sap.adt.Package') as fake_package:
+
+            fake_package.side_effect = new_package
+
             fake_isdir.return_value = True
             fake_makedirs.side_effect = Exception('Should not be evaluated')
             args.execute(conn, args)
@@ -346,9 +358,23 @@ class TestCheckoutPackage(unittest.TestCase):
 
         self.assertEqual(fake_print.mock_calls, [call('Unsupported object: 7777/3 Magic Unicorn', file=sys.stderr)])
 
+        self.assertEqual(fake_fetch.mock_calls, [call(), call()])
+        self.assertEqual(fake_dump.mock_calls, [call('package',
+                                                     (sap.platform.abap.ddic.DEVC(CTEXT='Description $VICTORY'),),
+                                                     '.devc',
+                                                     'LCL_OBJECT_DEVC',
+                                                     destdir=exp_destdir),
+                                                call('package',
+                                                     (sap.platform.abap.ddic.DEVC(CTEXT='Description $VICTORY_TESTS'),),
+                                                     '.devc',
+                                                     'LCL_OBJECT_DEVC',
+                                                     destdir=exp_sub_destdir)
+                                                ])
+
+    @patch('sap.cli.checkout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_non_recursive(self, fake_walk, fake_checkout):
+    def test_checkout_package_non_recursive(self, fake_walk, fake_checkout, fake_package):
         conn = Connection([])
 
         exp_objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
@@ -368,9 +394,10 @@ class TestCheckoutPackage(unittest.TestCase):
         exp_destdir = os.path.abspath(os.path.join(package_name, starting_folder))
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_destdir)
 
+    @patch('sap.cli.checkout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_starting_folder(self, fake_walk, fake_checkout):
+    def test_checkout_package_starting_folder(self, fake_walk, fake_checkout, fake_package):
         conn = Connection([])
 
         exp_objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
@@ -393,9 +420,10 @@ class TestCheckoutPackage(unittest.TestCase):
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
 
     @patch('sap.platform.abap.to_xml')
+    @patch('sap.cli.checkout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_create_repo(self, fake_walk, fake_checkout, fake_to_xml):
+    def test_checkout_package_create_repo(self, fake_walk, fake_checkout, fake_package, fake_to_xml):
         conn = Connection([])
         fake_walk.return_value = iter((([], [], []), ))
 
@@ -422,9 +450,10 @@ class TestCheckoutPackage(unittest.TestCase):
         self.assertEqual([ignore for ignore in dot_abap.IGNORE], ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
         self.assertEqual(kwargs['top_element'], 'DATA')
 
+    @patch('sap.cli.checkout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_custom_repo_dir(self, fake_walk, fake_checkout):
+    def test_checkout_package_custom_repo_dir(self, fake_walk, fake_checkout, fake_package):
         conn = Connection([])
 
         exp_objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]

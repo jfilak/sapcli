@@ -3,10 +3,12 @@
 import unittest
 from types import SimpleNamespace
 
+from sap import get_logger
 import sap.adt
 
-from mock import Connection
+from mock import Connection, Response
 
+from fixtures_adt_package import GET_PACKAGE_ADT_XML
 from fixtures_adt_repository import (PACKAGE_ROOT_NODESTRUCTURE_OK_RESPONSE,
                                      PACKAGE_ROOT_REQUEST_XML,
                                      PACKAGE_SOURCE_LIBRARY_NODESTRUCUTRE_OK_RESPONSE,
@@ -54,6 +56,22 @@ class TestADTPackage(unittest.TestCase):
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v1+xml'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_PACKAGE_XML)
+
+    def test_adt_package_fetch(self):
+        conn = Connection([Response(text=GET_PACKAGE_ADT_XML,
+                                    status_code=200,
+                                    headers={'Content-Type': 'application/vnd.sap.adt.packages.v1+xml; charset=utf-8'})])
+
+        package = sap.adt.Package(conn, '$IAMTHEKING')
+        #get_logger().setLevel(0)
+        package.fetch()
+
+        self.assertEqual(len(conn.execs), 1)
+
+        self.assertEqual(conn.mock_methods(), [('GET', '/sap/bc/adt/packages/$iamtheking')])
+
+        self.maxDiff = None
+        self.assertEqual(package.description, 'This is a package')
 
 
 class TestADTPackageWalk(unittest.TestCase):

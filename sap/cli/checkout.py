@@ -6,7 +6,7 @@ import sys
 import sap.adt
 import sap.cli.core
 
-from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF
+from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter
@@ -209,6 +209,22 @@ def make_repo_dir_for_package(args):
     return repo_dir
 
 
+def build_package_abap_attributes(adt_package):
+    """Returns populated ABAP structure with attributes"""
+
+    return DEVC(CTEXT=adt_package.description)
+
+
+def checkout_package(connection, name, destdir=None):
+    """Creates ABAP Package files"""
+
+    adt_package = sap.adt.Package(connection, name)
+    adt_package.fetch()
+
+    devc = build_package_abap_attributes(adt_package)
+    dump_attributes_to_file('package', (devc,), '.devc', 'LCL_OBJECT_DEVC', destdir=destdir)
+
+
 @CommandGroup.command()
 # @CommandGroup.argument('--folder-logic', choices=['full', 'prefix'], default='prefix')
 @CommandGroup.argument('--recursive', action='store_true', default=False)
@@ -233,7 +249,13 @@ def package(connection, args):
             hier_path = os.path.join(*package_name_hier)
             destdir = os.path.join(destdir, hier_path.lower())
 
+        if not package_name_hier:
+            package_name = args.name
+        else:
+            package_name = package_name_hier[-1]
+
         checkout_objects(connection, objects, destdir=destdir)
+        checkout_package(connection, package_name.upper(), destdir=destdir)
 
         if not args.recursive:
             break

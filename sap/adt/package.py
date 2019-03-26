@@ -10,6 +10,26 @@ from sap.adt.annotations import xml_attribute, xml_element
 from sap.adt.repository import Repository
 
 
+class Reference(metaclass=OrderedClassMembers):
+    """Component reference"""
+
+    def __init__(self, name=None):
+        self._name = name
+
+    @xml_attribute('pak:name')
+    def name(self):
+        """Software component name
+        """
+
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        """Sets the application component"""
+
+        self._name = value
+
+
 class Package(ADTObject):
     """ABAP Package - Development class - DEVC"""
 
@@ -21,34 +41,6 @@ class Package(ADTObject):
         {},
         'package'
     )
-
-    class SoftwareComponent(metaclass=OrderedClassMembers):
-        """SAP Software component.
-        """
-
-        def __init__(self, name=None):
-            self._name = name
-
-        @xml_attribute('pak:name')
-        def name(self):
-            """Software component name
-            """
-
-            return self._name
-
-    class ApplicationComponent(metaclass=OrderedClassMembers):
-        """Application component.
-        """
-
-        def __init__(self, name=None):
-            self._name = name
-
-        @xml_attribute('pak:name')
-        def name(self):
-            """Application component name
-            """
-
-            return self._name
 
     class Attributes(metaclass=OrderedClassMembers):
         """SAP Package attributes.
@@ -75,23 +67,9 @@ class Package(ADTObject):
         """SAP Package transport details.
         """
 
-        class Layer(metaclass=OrderedClassMembers):
-            """SAP Software component.
-            """
-
-            def __init__(self, name=None):
-                self._name = name
-
-            @xml_attribute('pak:name')
-            def name(self):
-                """Software component name
-                """
-
-                return self._name
-
         def __init__(self):
-            self._software_component = Package.SoftwareComponent()
-            self._layer = Package.Transport.Layer()
+            self._software_component = Reference()
+            self._layer = Reference()
 
         @xml_element('pak:softwareComponent')
         def software_component(self):
@@ -127,10 +105,10 @@ class Package(ADTObject):
         self._transport = Package.Transport()
         self._attributes = Package.Attributes()
         self._metadata.package_reference.name = name
-        self._appcomp = None
+        self._appcomp = Reference()
 
     # pylint: disable=no-self-use
-    @xml_attribute('adtcore:version')
+    @xml_attribute('adtcore:version', deserialize=False)
     def active(self):
         """Version in regards of activation"""
 
@@ -164,7 +142,7 @@ class Package(ADTObject):
 
         return self._transport
 
-    @xml_element('pak:translation')
+    @xml_element('pak:translation', deserialize=False)
     # pylint: disable=no-self-use
     def translation(self):
         """The package's translation flag
@@ -172,7 +150,7 @@ class Package(ADTObject):
 
         return None
 
-    @xml_element('pak:useAccesses')
+    @xml_element('pak:useAccesses', deserialize=False)
     # pylint: disable=no-self-use
     def use_accesses(self):
         """The package's Use Accesses
@@ -180,7 +158,7 @@ class Package(ADTObject):
 
         return None
 
-    @xml_element('pak:packageInterfaces')
+    @xml_element('pak:packageInterfaces', deserialize=False)
     # pylint: disable=no-self-use
     def package_interfaces(self):
         """The package's Interfaces
@@ -188,7 +166,7 @@ class Package(ADTObject):
 
         return None
 
-    @xml_element('pak:subPackages')
+    @xml_element('pak:subPackages', deserialize=False)
     # pylint: disable=no-self-use
     def sub_packages(self):
         """The package's sub-packages
@@ -206,19 +184,19 @@ class Package(ADTObject):
         """Changes the Package's software component
         """
 
-        self._transport.software_component = Package.SoftwareComponent(name)
+        self._transport.software_component.name = name
 
     def set_transport_layer(self, name):
         """Changes the Package's transport layer
         """
 
-        self._transport.transport_layer = Package.Transport.Layer(name)
+        self._transport.transport_layer.name = name
 
     def set_app_component(self, name):
         """Changes the Package's software component
         """
 
-        self._appcomp = Package.ApplicationComponent(name)
+        self._appcomp.name = name
 
 
 def walk(package):

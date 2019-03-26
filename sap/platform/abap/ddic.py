@@ -5,6 +5,15 @@ from sap.platform.abap import Structure, InternalTable
 
 # pylint: disable=invalid-name
 # pylint: disable=too-few-public-methods
+class DEVC(Structure):
+    """Class metadata"""
+
+    # pylint: disable=invalid-name
+    CTEXT: str
+
+
+# pylint: disable=invalid-name
+# pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
 class VSEOCLASS(Structure):
     """Class metadata"""
