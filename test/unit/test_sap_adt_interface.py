@@ -4,9 +4,10 @@ import unittest
 
 import sap.adt
 
-from mock import Connection
+from mock import Connection, Response
 
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
+from fixtures_adt_interface import GET_INTERFACE_ADT_XML
 
 
 FIXTURE_ELEMENTARY_IFACE_XML='''<?xml version="1.0" encoding="UTF-8"?>
@@ -59,6 +60,21 @@ class TestADTIFace(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(put_request.body, FIXTURE_IFACE_MAIN_CODE)
+
+    def test_adt_class_fetch(self):
+        conn = Connection([Response(text=GET_INTERFACE_ADT_XML,
+                           status_code=200,
+                           headers={'Content-Type': 'application/vnd.sap.adt.oo.interfaces.v2+xml; charset=utf-8'})])
+
+        intf = sap.adt.Interface(conn, 'ZIF_HELLO_WORLD')
+        # get_logger().setLevel(0)
+        intf.fetch()
+
+        self.assertEqual(intf.name, 'ZIF_HELLO_WORLD')
+        self.assertEqual(intf.active, 'active')
+        self.assertEqual(intf.master_language, 'EN')
+        self.assertEqual(intf.description, 'You cannot stop me!')
+        self.assertEqual(intf.modeled, False)
 
 
 if __name__ == '__main__':

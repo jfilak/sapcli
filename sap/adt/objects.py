@@ -596,7 +596,28 @@ class Program(ADTObject):
         return self._logical_dabase
 
 
-class Interface(ADTObject):
+class OOADTObjectBase(ADTObject):
+    """Base class for Object Oriented ABAP Sources"""
+
+    def __init__(self, connection, name, metadata):
+        super(OOADTObjectBase, self).__init__(connection, name, metadata)
+
+        self._modeled = None
+
+    @xml_attribute('abapoo:modeled')
+    def modeled(self):
+        """ABAP OO flag modeled"""
+
+        return self._modeled
+
+    @modeled.setter
+    def modeled(self, value):
+        """ABAP OO flag modeled"""
+
+        self._modeled = value == 'true'
+
+
+class Interface(OOADTObjectBase):
     """ABAP Interface"""
 
     OBJTYPE = ADTObjectType(
@@ -639,7 +660,7 @@ class ClassIncludeMetadata(NamedTuple):
 
 
 # pylint: disable=too-many-instance-attributes
-class Class(ADTObject):
+class Class(OOADTObjectBase):
     """ABAP OO Class
     """
 
@@ -726,7 +747,6 @@ class Class(ADTObject):
         self._definitions = None
         self._implementations = None
         self._test_classes = None
-        self._modeled = None
         self._fixpntar = None
         self._final = 'true'
         self._visibility = 'public'
@@ -754,18 +774,6 @@ class Class(ADTObject):
         """Visibility flag"""
 
         self._visibility = value
-
-    @xml_attribute('abapoo:modeled')
-    def modeled(self):
-        """ABAP OO flag modeled"""
-
-        return self._modeled
-
-    @modeled.setter
-    def modeled(self, value):
-        """ABAP OO flag modeled"""
-
-        self._modeled = value == 'true'
 
     @xml_attribute('abapsource:fixPointArithmetic')
     def fix_point_arithmetic(self):
