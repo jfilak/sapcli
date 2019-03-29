@@ -1,3 +1,4 @@
+# pylint: skip-file
 """ABAP language utilities"""
 
 
@@ -27,6 +28,24 @@ class Structure:
         for attr in self.__class__.__annotations__:
             if attr not in kwargs:
                 self.__dict__[attr] = None
+
+    def __repr__(self):
+        return ';'.join(f'{attr}={"" if self.__dict__[attr] is None else self.__dict__[attr]}'
+                        # pylint: disable=no-member
+                        for attr in self.__class__.__annotations__)
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        if other.__class__ != self.__class__:
+            return False
+
+        if id(other) == id(self):
+            return True
+
+        # pylint: disable=no-member
+        return all((self.__dict__[attr] == other.__dict__[attr] for attr in self.__class__.__annotations__))
 
 
 class InternalTableMeta(type):

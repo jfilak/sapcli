@@ -56,6 +56,28 @@ class TestSAPPlatformABAP(unittest.TestCase):
 
         self.assertEqual(str(caught.exception), 'PLAIN_STRUCT does not define member JAVASCRIPT')
 
+    def test_structure_eq_with_none(self):
+        self.assertFalse(PLAIN_STRUCT() == None)
+
+    def test_structure_eq_with_self(self):
+        struct = PLAIN_STRUCT()
+        self.assertEqual(struct, struct)
+
+    def test_structure_eq_with_same(self):
+        struct = PLAIN_STRUCT()
+        self.assertEqual(PLAIN_STRUCT(), PLAIN_STRUCT())
+
+    def test_structure_repr_with_none(self):
+        struct = PLAIN_STRUCT()
+        self.assertEqual(repr(struct), "PYTHON=;LINUX=")
+
+    def test_structure_repr_without_none(self):
+        struct = PLAIN_STRUCT(PYTHON='3.7', LINUX='4.20')
+        self.assertEqual(repr(struct), "PYTHON=3.7;LINUX=4.20")
+
+    def test_structure_eq_with_different(self):
+        self.assertFalse(PLAIN_STRUCT(PYTHON='3.7') == PLAIN_STRUCT(LINUX='4.20'))
+
     def test_internal_table_without_params(self):
         table = PLAIN_STRUCT_TT()
 
