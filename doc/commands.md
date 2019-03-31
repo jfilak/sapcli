@@ -5,6 +5,11 @@
    2. [write](#write)
    3. [activate](#activate)
    4. [read](#read)
+1. [Includes](#includes)
+   1. [create](#include-create)
+   2. [write](#include-write)
+   3. [activate](#include-activate)
+   4. [read](#include-read)
 2. [Classes](#classes)
    1. [create](#create-1)
    2. [write](#write-1)
@@ -64,6 +69,42 @@ Download source codes
 
 ```bash
 sapcli program read ZHELLOWORLD
+```
+
+## Includes
+
+### include create
+
+Create executable program
+
+```bash
+sapcli include create "ZHELLOWORLD_INC" "Just a description" "$TMP"
+```
+
+### include write
+
+Change code of an executable program without activation.
+
+```bash
+sapcli program write "ZHELLOWORLD_INC" zhelloworld.abap [--corrnr TRANSPORT]
+```
+
+* _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+
+### include activate
+
+Activate an executable program.
+
+```bash
+sapcli include activate "ZHELLOWORLD_INC"
+```
+
+### include read
+
+Download source codes
+
+```bash
+sapcli include read ZHELLOWORLD_INC
 ```
 
 ## Classes

@@ -24,6 +24,7 @@ def get_commands():
     """
 
     import sap.cli.program
+    import sap.cli.include
     import sap.cli.interface
     import sap.cli.abapclass
     import sap.cli.datadefinition
@@ -34,6 +35,7 @@ def get_commands():
 
     return [
         (adt_connection_from_args, sap.cli.program.CommandGroup()),
+        (adt_connection_from_args, sap.cli.include.CommandGroup()),
         (adt_connection_from_args, sap.cli.interface.CommandGroup()),
         (adt_connection_from_args, sap.cli.abapclass.CommandGroup()),
         (adt_connection_from_args, sap.cli.datadefinition.CommandGroup()),

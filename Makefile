@@ -26,5 +26,9 @@ lint:
 test:
 	$(PYTHON_BIN) -m $(PYTEST_MODULE) $(PYTEST_PARAMS)
 
+.PHONY: system-test
+system-test:
+	export PATH=$$(pwd):$$PATH; cd test/system && ./run.sh
+
 .PHONY: check
 check: lint test
