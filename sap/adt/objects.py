@@ -252,6 +252,7 @@ class ADTCoreData:
         self._package_reference = value
 
 
+# pylint: disable=too-many-public-methods
 class ADTObject(metaclass=OrderedClassMembers):
     """Abstract base class for ADT objects
     """
@@ -377,6 +378,12 @@ class ADTObject(metaclass=OrderedClassMembers):
         return self.objtype.basepath + '/' + self.name.lower()
 
     @property
+    def full_adt_uri(self):
+        """Full local path of ADT URL"""
+
+        return '/' + self._connection.uri + '/' + self.uri
+
+    @property
     def text(self):
         """Downloads text representation of the SAP Object
            if the MIME Type 'text/plain'.
@@ -476,7 +483,7 @@ class ADTObject(metaclass=OrderedClassMembers):
         # pylint: disable=no-member
         request = f'''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
-<adtcore:objectReference adtcore:uri="/{self.connection.uri}/{self.uri}" adtcore:name="{self.name.upper()}"/>
+<adtcore:objectReference adtcore:uri="{self.full_adt_uri}" adtcore:name="{self.name.upper()}"/>
 </adtcore:objectReferences>'''
 
         resp = self._connection.execute(
