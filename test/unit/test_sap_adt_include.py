@@ -14,6 +14,26 @@ FIXTURE_INCLUDE_CODE='types: my_boolean type abap_bool.'
 
 class TestADTInclude(unittest.TestCase):
 
+    def test_adt_include_and_master(self):
+        conn = Connection()
+
+        include_with = sap.adt.Include(conn, 'ZHELLO_WITH', master='ZHELLO_WORLD')
+        include_without = sap.adt.Include(conn, 'ZHELLO_WITHOUT')
+
+        self.assertEqual(include_with.master, 'ZHELLO_WORLD')
+        self.assertIsNone(include_without.master)
+
+        exp_master_uri = '%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzhello_world'
+        self.assertEqual(include_with.uri, f'programs/includes/zhello_with?context={exp_master_uri}')
+        self.assertEqual(include_without.uri, 'programs/includes/zhello_without')
+
+        include_with.master = 'NEW_MASTER'
+        include_without.master = 'NEW_MASTER'
+
+        exp_new_master_uri = '%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fnew_master'
+        self.assertEqual(include_with.uri, f'programs/includes/zhello_with?context={exp_new_master_uri}')
+        self.assertEqual(include_without.uri, f'programs/includes/zhello_without?context={exp_new_master_uri}')
+
     def test_adt_include_serialize(self):
         conn = Connection()
 

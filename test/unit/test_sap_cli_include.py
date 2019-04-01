@@ -85,7 +85,16 @@ class TestIncludeActivate(unittest.TestCase):
         sap.cli.include.activate(conn, args)
 
         self.assertEqual(len(conn.execs), 1)
-        self.assertIn('test_activation', conn.execs[0].body)
+        self.assertIn('test_activation"', conn.execs[0].body)
+
+    def test_activate_with_master(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('activate', 'test_activation', '-m', 'MASTER_REPORT')
+        sap.cli.include.activate(conn, args)
+
+        self.assertEqual(len(conn.execs), 1)
+        self.assertRegex(conn.execs[0].body, '.*adtcore:uri=[^?]*test_activation\?context=[^"]*master_report".*')
 
 
 if __name__ == '__main__':

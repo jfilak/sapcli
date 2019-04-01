@@ -1,5 +1,7 @@
 """SAP Programs in ADT functionality module"""
 
+import urllib
+
 # pylint: disable=unused-import
 from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import ADTObjectType, ADTObject, ADTCoreData
@@ -123,3 +125,33 @@ class Include(BaseProgram):
         {'text/plain': 'source/main'},
         'abapInclude'
     )
+
+    def __init__(self, connection, name, package=None, metadata=None, master=None):
+        super(Include, self).__init__(connection, name, package=package, metadata=metadata)
+
+        self._master = master
+
+    @property
+    def uri(self):
+        """Own version of URI which adds context with the master program"""
+
+        uri = super(Include, self).uri
+
+        if self.master is not None:
+            master_uri = Program(self.connection, self.master).full_adt_uri
+            master_uri = urllib.parse.quote(master_uri, safe='')
+            uri = f'{uri}?context={master_uri}'
+
+        return uri
+
+    @property
+    def master(self):
+        """Returns name of the master program of this include"""
+
+        return self._master
+
+    @master.setter
+    def master(self, value):
+        """Sets name of the master program of this include"""
+
+        self._master = value

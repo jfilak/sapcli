@@ -64,10 +64,11 @@ def write(connection, args):
 
 
 @CommandGroup.command()
+@CommandGroup.argument('-m', '--master', nargs='?', default=None, help='Master program')
 @CommandGroup.argument('name')
 def activate(connection, args):
     """Actives the give program include.
     """
 
-    include = sap.adt.Include(connection, args.name)
+    include = sap.adt.Include(connection, args.name, master=args.master)
     include.activate()
