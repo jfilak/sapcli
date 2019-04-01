@@ -26,12 +26,6 @@ def unlock_params(lock_handle):
     return {'_action': 'UNLOCK', 'lockHandle': lock_handle}
 
 
-def activation_params():
-    """Returns parameters for Activation of object"""
-
-    return {'method': 'activate', 'preauditRequested': 'true'}
-
-
 def create_params(corrnr):
     """Returns parameters for Creation of object"""
 
@@ -476,29 +470,6 @@ class ADTObject(metaclass=OrderedClassMembers):
         )
 
         self._lock = None
-
-    def activate(self):
-        """Activate the object"""
-
-        # pylint: disable=no-member
-        request = f'''<?xml version="1.0" encoding="UTF-8"?>
-<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
-<adtcore:objectReference adtcore:uri="{self.full_adt_uri}" adtcore:name="{self.name.upper()}"/>
-</adtcore:objectReferences>'''
-
-        resp = self._connection.execute(
-            'POST',
-            'activation',
-            params=activation_params(),
-            headers={
-                'Accept': 'application/xml',
-                'Content-Type': 'application/xml'
-            },
-            body=request
-        )
-
-        if resp.text:
-            raise SAPCliError(f'Could not activate the object {self.name}: {resp.text}')
 
     def fetch(self):
         """Retrieve data from ADT"""

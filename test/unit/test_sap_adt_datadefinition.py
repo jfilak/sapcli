@@ -3,6 +3,7 @@
 import unittest
 
 import sap.adt
+import sap.adt.wb
 
 from mock import Connection, Response
 
@@ -55,7 +56,7 @@ class TestADTDataDefinition(unittest.TestCase):
         conn = Connection([EMPTY_RESPONSE_OK])
 
         ddl = sap.adt.DataDefinition(conn, name='MyUsers')
-        ddl.activate()
+        sap.adt.wb.activate(ddl)
 
         self.assertEqual(conn.mock_methods(), [('POST', '/sap/bc/adt/activation')])
 

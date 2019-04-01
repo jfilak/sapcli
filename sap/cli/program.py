@@ -2,6 +2,7 @@
 
 import sys
 import sap.adt
+import sap.adt.wb
 import sap.cli.core
 
 
@@ -71,4 +72,4 @@ def activate(connection, args):
     """
 
     program = sap.adt.Program(connection, args.name)
-    program.activate()
+    sap.adt.wb.activate(program)

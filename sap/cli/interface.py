@@ -2,6 +2,7 @@
 
 import sys
 import sap.adt
+import sap.adt.wb
 import sap.cli.core
 
 
@@ -67,4 +68,4 @@ def activate(connection, args):
     """
 
     iface = sap.adt.Interface(connection, args.name)
-    iface.activate()
+    sap.adt.wb.activate(iface)

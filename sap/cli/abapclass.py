@@ -2,6 +2,7 @@
 
 import sys
 import sap.adt
+import sap.adt.wb
 import sap.cli.core
 
 
@@ -95,7 +96,7 @@ def activate(connection, args):
     """
 
     clas = sap.adt.Class(connection, args.name)
-    clas.activate()
+    sap.adt.wb.activate(clas)
 
 
 @CommandGroup.command()

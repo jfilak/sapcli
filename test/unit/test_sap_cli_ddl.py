@@ -22,14 +22,14 @@ class TestCommandGroup(unittest.TestCase):
 
 class TestDDLActivate(unittest.TestCase):
 
+    @patch('sap.adt.wb.activate')
     @patch('sap.adt.DataDefinition')
-    def test_cli_ddl_activate_defaults(self, fake_ddl):
+    def test_cli_ddl_activate_defaults(self, fake_ddl, fake_activate):
         instances = []
 
         def add_instance(conn, name):
             ddl = Mock()
             ddl.name = name
-            ddl.activate = Mock()
 
             instances.append(ddl)
             return ddl
@@ -44,11 +44,10 @@ class TestDDLActivate(unittest.TestCase):
 
         self.assertEqual(fake_ddl.mock_calls, [call(fake_conn, 'myusers'), call(fake_conn, 'mygroups')])
 
-        instances[0].activate.assert_called_once_with()
         self.assertEqual(instances[0].name, 'myusers')
-
-        instances[1].activate.assert_called_once_with()
         self.assertEqual(instances[1].name, 'mygroups')
+
+        self.assertEqual(fake_activate.mock_calls, [call(instances[0]), call(instances[1])])
 
         self.assertEqual(fake_print.mock_calls, [call('myusers', end=' ... '),
                                                  call('DONE'),

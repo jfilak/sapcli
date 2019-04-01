@@ -4,6 +4,7 @@ import unittest
 
 from sap.errors import SAPCliError
 import sap.adt
+import sap.adt.wb
 
 from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, GET_DUMMY_OBJECT_ADT_XML
 from mock import Response, Connection
@@ -106,7 +107,7 @@ class TestADTObject(unittest.TestCase):
         connection = Connection([EMPTY_RESPONSE_OK])
         victory = DummyADTObject(connection=connection, name='activator')
 
-        victory.activate()
+        sap.adt.wb.activate(victory)
 
         self.assertEqual(len(connection.execs), 1)
         self.assertEqual(connection.execs[0].method, 'POST')
@@ -131,7 +132,7 @@ class TestADTObject(unittest.TestCase):
         victory = DummyADTObject(connection=connection, name='activator')
 
         with self.assertRaises(SAPCliError) as cm:
-            victory.activate()
+            sap.adt.wb.activate(victory)
 
         self.maxDiff = None
         self.assertEqual(str(cm.exception), f'Could not activate the object activator: {ACTIVATE_RESPONSE_FAILED}')

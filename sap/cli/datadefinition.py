@@ -1,6 +1,7 @@
 """ADT proxy for Data Definition (CDS)"""
 
 import sap.adt
+import sap.adt.wb
 import sap.cli.core
 
 
@@ -32,5 +33,5 @@ def activate(connection, args):
     for name in args.name:
         print(name, end=' ... ')
         ddl = sap.adt.DataDefinition(connection, name)
-        ddl.activate()
+        sap.adt.wb.activate(ddl)
         print('DONE')
