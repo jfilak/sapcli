@@ -55,6 +55,14 @@ def adt_object_to_element_name(adt_object):
     return f'{objtype.xmlnamespace[0]}:{objtype.xmlname}'
 
 
+def factory_with_setter(factory, setter, obj):
+    """Creates a new product, calls the setter and returns the product"""
+
+    product = factory()
+    setter(obj, product)
+    return product
+
+
 class ElementHandler:
     """XML element desirialization"""
 
@@ -99,7 +107,16 @@ class ElementHandler:
                     continue
 
                 get_logger().debug('Found XML element property: %s -> %s', attr_name, xml_path)
-                self.elements[xml_path] = ElementHandler(xml_path, self.elements, partial(attr.__get__, obj))
+
+                factory = attr.factory
+
+                if factory is None:
+                    factory = partial(attr.__get__, obj)
+
+                if attr.fset is not None:
+                    factory = partial(factory_with_setter, factory, attr.__set__, obj)
+
+                self.elements[xml_path] = ElementHandler(xml_path, self.elements, factory)
             elif isinstance(attr, XmlAttributeProperty):
                 if not attr.deserialize:
                     get_logger().debug('Found readonly XML attribute property: %s -> %s', attr_name, attr.name)

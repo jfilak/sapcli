@@ -174,6 +174,59 @@ class DummyWithSetters(ADTObject):
         # that Marshal tried to modify read-only property
         return None
 
+
+
+class DummyChild(metaclass=OrderedClassMembers):
+
+    instances = None
+
+    def __init__(self):
+        if DummyChild.instances is None:
+            DummyChild.instances = list()
+        DummyChild.instances.append(self)
+
+        get_logger().debug('New instance')
+        self._attribute = None
+
+    @xml_attribute('attribute')
+    def attribute(self):
+        return self._attribute
+
+    @attribute.setter
+    def attribute(self, value):
+        self._attribute = value
+
+
+class DummyWithChildFactory(ADTObject):
+
+    OBJTYPE = ADTObjectType(
+        'CODE',
+        'prefix/dummy',
+        ('dummyxmlns', 'http://www.sap.com/adt/xmlns/dummy'),
+        'application/vnd.sap.adt.test.elements.v2+xml',
+        {'text/plain': 'source/main'},
+        'dummyelem'
+    )
+
+    def __init__(self):
+        self._child = None
+        self._child_setter = None
+
+    @xml_element('child', factory=DummyChild)
+    def child(self):
+        return self._child
+
+    @xml_element('child_setter', factory=DummyChild)
+    def child_setter(self):
+        get_logger().debug('Get instance')
+        return self._child_setter
+
+    @child_setter.setter
+    def child_setter(self, value):
+        get_logger().debug('Set instance')
+        self._child_setter = value
+
+
 class TestADTAnnotation(unittest.TestCase):
 
     def test_tree_generation(self):
@@ -255,6 +308,20 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(obj.value.first, clone.value.first)
         self.assertEqual(obj.value.second, clone.value.second)
         self.assertEqual(obj.value.supernested.yetanother, clone.value.supernested.yetanother)
+
+    def test_deserialize_with_factory(self):
+        dummy = DummyWithChildFactory()
+
+        #get_logger().setLevel(0)
+        Marshal.deserialize("""<?xml version="1.0" encoding="UTF-8"?>
+<dummyxmlns:dummyelem>
+  <child attribute="implicit"/>
+  <child_setter attribute="setter"/>
+</dummyxmlns:dummyelem>
+""", dummy)
+
+        self.assertEqual(DummyChild.instances[0].attribute, 'implicit')
+        self.assertEqual(dummy.child_setter.attribute, 'setter')
 
 
 if __name__ == '__main__':

@@ -95,6 +95,15 @@ class TestADTAnnotation(unittest.TestCase):
         readonly = xml_element('readonly', deserialize=False)
         self.assertFalse(readonly(None).deserialize)
 
+    def test_xml_element_factory(self):
+        wo_factory = xml_element('wo_factory')
+        self.assertIsNone(wo_factory(None).factory)
+
+        factory = xml_element('factory', factory=int)
+        self.assertEqual(factory(None).factory, int)
+
+        factory = xml_element('factory', factory=int)
+        self.assertEqual(factory(None).setter(None).factory, int)
 
 if __name__ == '__main__':
     unittest.main()
