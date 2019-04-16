@@ -4,6 +4,7 @@ import unittest
 
 from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
+from sap.adt.objects import XMLNamespace
 from sap.adt.annotations import xml_element, xml_attribute
 from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
 
@@ -13,7 +14,7 @@ class Dummy(ADTObject):
     OBJTYPE = ADTObjectType(
         'CODE',
         'prefix/dummy',
-        ('dummyxmlns', 'http://www.sap.com/adt/xmlns/dummy'),
+        XMLNamespace('dummyxmlns', 'http://www.sap.com/adt/xmlns/dummy'),
         'application/vnd.sap.adt.test.elements.v2+xml',
         {'text/plain': 'source/main'},
         'dummyelem'
@@ -80,7 +81,7 @@ class DummyWithSetters(ADTObject):
     OBJTYPE = ADTObjectType(
         'CODE',
         'prefix/dummy',
-        ('dummyxmlns', 'http://www.sap.com/adt/xmlns/dummy'),
+        XMLNamespace('dummyxmlns', 'http://www.sap.com/adt/xmlns/dummy'),
         'application/vnd.sap.adt.test.elements.v2+xml',
         {'text/plain': 'source/main'},
         'dummyelem'
@@ -202,7 +203,7 @@ class DummyWithChildFactory(ADTObject):
     OBJTYPE = ADTObjectType(
         'CODE',
         'prefix/dummy',
-        ('dummyxmlns', 'http://www.sap.com/adt/xmlns/dummy'),
+        XMLNamespace('dummyxmlns', 'http://www.sap.com/adt/xmlns/dummy'),
         'application/vnd.sap.adt.test.elements.v2+xml',
         {'text/plain': 'source/main'},
         'dummyelem'
@@ -227,7 +228,52 @@ class DummyWithChildFactory(ADTObject):
         self._child_setter = value
 
 
+class DummyADTCore(ADTObject):
+
+    OBJTYPE = ADTObjectType(
+        None,
+        None,
+        XMLNamespace('adtcore', 'http://www.sap.com/adt/core'),
+        None,
+        None,
+        'root'
+    )
+
+    def __init__(self):
+        super(DummyADTCore, self).__init__(None, None)
+
+
+class DummyContainerItem(metaclass=OrderedClassMembers):
+
+    def __init__(self, no):
+        self._no = no
+
+    @xml_attribute('number')
+    def attribute(self):
+        return self._no
+
+
+class DummyContainer(ADTObject):
+
+    OBJTYPE = ADTObjectType(
+        None,
+        None,
+        XMLNamespace('adtcore', 'http://www.sap.com/adt/core'),
+        None,
+        None,
+        'container'
+    )
+
+    def __init__(self):
+        super(DummyContainer, self).__init__(None, None)
+
+    @xml_element('item')
+    def items(self):
+        return [DummyContainerItem('1'), DummyContainerItem('2'), DummyContainerItem('3')]
+
+
 class TestADTAnnotation(unittest.TestCase):
+
 
     def test_tree_generation(self):
         obj = Dummy()
@@ -300,7 +346,8 @@ class TestADTAnnotation(unittest.TestCase):
 
         clone = DummyWithSetters()
         #get_logger().setLevel(0)
-        Marshal.deserialize(xml_data, clone)
+        ret = Marshal.deserialize(xml_data, clone)
+        self.assertEqual(clone, ret)
 
         self.assertEqual(obj.first, clone.first)
         self.assertEqual(obj.second, clone.second)
@@ -322,6 +369,29 @@ class TestADTAnnotation(unittest.TestCase):
 
         self.assertEqual(DummyChild.instances[0].attribute, 'implicit')
         self.assertEqual(dummy.child_setter.attribute, 'setter')
+
+    def test_serialize_adtcore_and_no_code(self):
+        obj = DummyADTCore()
+        act = Marshal().serialize(obj)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:root xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:packageRef/>
+</adtcore:root>''')
+
+    def test_serialize_list(self):
+        container = DummyContainer()
+
+        get_logger().setLevel(0)
+        act = Marshal().serialize(container)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:container xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:packageRef/>
+<item number="1"/>
+<item number="2"/>
+<item number="3"/>
+</adtcore:container>''')
 
 
 if __name__ == '__main__':

@@ -45,6 +45,14 @@ def modify_object_params(lock_handle, corrnr):
     return params
 
 
+# pylint: disable=too-few-public-methods
+class XMLNamespace(NamedTuple):
+    """XML Namespace definition"""
+
+    name: str
+    uri: str
+
+
 class ADTObjectType:
     """Common ADT object type attributes.
     """
@@ -505,7 +513,7 @@ class Interface(OOADTObjectBase):
     OBJTYPE = ADTObjectType(
         'INTF/OI',
         'oo/interfaces',
-        ('intf', 'http://www.sap.com/adt/oo/interfaces'),
+        XMLNamespace('intf', 'http://www.sap.com/adt/oo/interfaces'),
         # application/vnd.sap.adt.oo.interfaces+xml, application/vnd.sap.adt.oo.interfaces.v2+xml
         'application/vnd.sap.adt.oo.interfaces.v2+xml',
         {'text/plain': 'source/main'},
@@ -550,7 +558,7 @@ class Class(OOADTObjectBase):
     OBJTYPE = ADTObjectType(
         'CLAS/OC',
         'oo/classes',
-        ('class', 'http://www.sap.com/adt/oo/classes'),
+        XMLNamespace('class', 'http://www.sap.com/adt/oo/classes'),
         'application/vnd.sap.adt.oo.classes.v2+xml',
         {'text/plain': 'source/main'},
         'abapClass'
@@ -731,7 +739,7 @@ class DataDefinition(ADTObject):
     OBJTYPE = ADTObjectType(
         'DDLS/DF',
         'ddic/ddl/sources',
-        ('ddl', 'http://www.sap.com/adt/ddic/ddlsources'),
+        XMLNamespace('ddl', 'http://www.sap.com/adt/ddic/ddlsources'),
         # application/vnd.sap.adt.ddlSource.v2+xml, application/vnd.sap.adt.ddlSource+xml
         'application/vnd.sap.adt.ddlSource+xml',
         {'text/plain': 'source/main'},

@@ -52,7 +52,7 @@ def adt_object_to_element_name(adt_object):
     """Returns XML element name for the given adt_object"""
 
     objtype = adt_object.objtype
-    return f'{objtype.xmlnamespace[0]}:{objtype.xmlname}'
+    return f'{objtype.xmlnamespace.name}:{objtype.xmlname}'
 
 
 def factory_with_setter(factory, setter, obj):
@@ -94,7 +94,7 @@ class ElementHandler:
 
         attributes = dict()
         for attr_name in obj.__class__.__ordered__:
-            if attr_name.startswith('_'):
+            if attr_name.startswith('__'):
                 continue
 
             attr = getattr(obj.__class__, attr_name)
@@ -175,7 +175,9 @@ class Marshal:
 
     @staticmethod
     def deserialize(xml_text, adt_object):
-        """Loads XML and stores values in the given adt_object"""
+        """Loads XML and stores values in the given adt_object and
+           for the convenience of use returns the given adt_object.
+        """
 
         name = '/' + adt_object_to_element_name(adt_object)
 
@@ -186,6 +188,8 @@ class Marshal:
         parser = ADTObjectSAXHandler(elements)
         xml.sax.parseString(xml_text, parser)
 
+        return adt_object
+
     def _object_to_tree(self, adt_object):
         """Create a DOM like representation of the given ADT object"""
 
@@ -193,9 +197,15 @@ class Marshal:
         name = adt_object_to_element_name(adt_object)
 
         root = Element(name)
-        root.add_attribute(f'xmlns:{objtype.xmlnamespace[0]}', objtype.xmlnamespace[1])
-        root.add_attribute(f'xmlns:adtcore', 'http://www.sap.com/adt/core')
-        root.add_attribute('adtcore:type', objtype.code)
+        xmlns = objtype.xmlnamespace
+
+        root.add_attribute(f'xmlns:{xmlns.name}', xmlns.uri)
+
+        if xmlns.name != 'adtcore':
+            root.add_attribute('xmlns:adtcore', 'http://www.sap.com/adt/core')
+
+        if objtype.code is not None:
+            root.add_attribute('adtcore:type', objtype.code)
 
         self._build_tree(root, adt_object)
         return root
@@ -213,8 +223,14 @@ class Marshal:
             attr = getattr(obj.__class__, attr_name)
 
             if isinstance(attr, XmlElementProperty):
-                element = root.add_child(attr.name)
-                self._build_tree(element, getattr(obj, attr_name))
+                child = getattr(obj, attr_name)
+                new_element = partial(root.add_child, attr.name)
+
+                if isinstance(child, list):
+                    for item in child:
+                        self._build_tree(new_element(), item)
+                else:
+                    self._build_tree(new_element(), child)
             elif isinstance(attr, XmlAttributeProperty):
                 value = getattr(obj, attr_name)
                 if value is not None:

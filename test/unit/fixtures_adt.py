@@ -1,4 +1,6 @@
 import sap.adt
+from sap.adt.objects import XMLNamespace
+
 from mock import Response
 
 
@@ -73,7 +75,7 @@ class DummyADTObject(sap.adt.ADTObject):
     OBJTYPE = sap.adt.ADTObjectType(
         'DUMMY/S',
         'awesome/success',
-        ('win', 'http://www.example.com/never/lose'),
+        XMLNamespace('win', 'http://www.example.com/never/lose'),
         'application/super.cool.txt+xml',
         {'text/plain': 'no/bigdeal'},
         'dummies'
