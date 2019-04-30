@@ -87,6 +87,12 @@ class ADTObjectType:
 
         return self._basepath
 
+    @basepath.setter
+    def basepath(self, value):
+        """Sets Object fragment of ADT URL"""
+
+        self._basepath = value
+
     @property
     def mimetype(self):
         """ADT object MIME type"""

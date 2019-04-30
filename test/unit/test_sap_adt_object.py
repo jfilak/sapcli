@@ -192,5 +192,23 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(victory.reference.name, 'UNIVERSE')
 
 
+class TestADTObjectType(unittest.TestCase):
+
+    def setUp(self):
+        self.adt_object = sap.adt.objects.ADTObjectType(
+            'code',
+            'basepath',
+            sap.adt.objects.XMLNamespace(name='name', uri='uri'),
+            'mimetype',
+            {'text/plain': '/text'},
+            'xmlname')
+
+    def test_adt_object_type_basepath(self):
+        self.assertEqual(self.adt_object.basepath, 'basepath')
+
+        self.adt_object.basepath = 'newpath'
+        self.assertEqual(self.adt_object.basepath, 'newpath')
+
+
 if __name__ == '__main__':
     unittest.main()
