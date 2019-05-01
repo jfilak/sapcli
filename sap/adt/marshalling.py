@@ -86,6 +86,8 @@ class ElementHandler:
         try:
             self.attributes[attr_name].__set__(self.obj, value)
             get_logger().debug('Set XML attribute property: %s', attr_name)
+        except AttributeError as ex:
+            get_logger().error('XML property %s: %s', attr_name, str(ex))
         except KeyError:
             get_logger().debug('Not an XML attribute property: %s', attr_name)
 
