@@ -81,12 +81,9 @@ def write(connection, args):
             text = filesrc.readlines()
 
     clas = sap.adt.Class(connection, args.name.upper())
-    # TODO: context manager
-    clas.lock()
-    try:
-        get_source_code_objec(clas, args.type).change_text(''.join(text), corrnr=args.corrnr)
-    finally:
-        clas.unlock()
+
+    with get_source_code_objec(clas, args.type).open_editor(corrnr=args.corrnr) as editor:
+        editor.write(''.join(text))
 
 
 @CommandGroup.command()

@@ -40,18 +40,18 @@ class TestADTIFace(unittest.TestCase):
         self.assertEqual(conn.execs[0][3], FIXTURE_ELEMENTARY_IFACE_XML)
 
     def test_adt_iface_write(self):
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 
         iface = sap.adt.Interface(conn, 'ZIF_HELLO_WORLD')
-        iface.lock()
 
-        iface.change_text(FIXTURE_IFACE_MAIN_CODE)
-
-        self.assertEqual(
-            [(e.method, e.adt_uri) for e in conn.execs[1:] ],
-            [('PUT', '/sap/bc/adt/oo/interfaces/zif_hello_world/source/main')])
+        with iface.open_editor() as editor:
+            editor.write(FIXTURE_IFACE_MAIN_CODE)
 
         put_request = conn.execs[1]
+
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, '/sap/bc/adt/oo/interfaces/zif_hello_world/source/main')
+
         self.assertEqual(sorted(put_request.headers), ['Content-Type'])
         self.assertEqual(put_request.headers['Content-Type'], 'text/plain; charset=utf-8')
 

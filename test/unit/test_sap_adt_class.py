@@ -44,18 +44,15 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual(conn.execs[0][3], CREATE_CLASS_ADT_XML)
 
     def test_adt_class_write(self):
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 
         clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
-        clas.lock()
-
-        clas.change_text(FIXTURE_CLASS_MAIN_CODE)
-
-        self.assertEqual(
-            [(e.method, e.adt_uri) for e in conn.execs[1:] ],
-            [('PUT', '/sap/bc/adt/oo/classes/zcl_hello_world/source/main')])
+        with clas.open_editor() as editor:
+            editor.write(FIXTURE_CLASS_MAIN_CODE)
 
         put_request = conn.execs[1]
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, '/sap/bc/adt/oo/classes/zcl_hello_world/source/main')
         self.assertEqual(sorted(put_request.headers), ['Accept', 'Content-Type'])
         self.assertEqual(put_request.headers['Accept'], 'text/plain')
         self.assertEqual(put_request.headers['Content-Type'], 'text/plain; charset=utf-8')
@@ -67,12 +64,11 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual(put_request.body, FIXTURE_CLASS_MAIN_CODE)
 
     def test_adt_class_write_with_corrnr(self):
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 
         clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
-        clas.lock()
-
-        clas.change_text(FIXTURE_CLASS_MAIN_CODE, corrnr='420')
+        with clas.open_editor(corrnr='420') as editor:
+            editor.write(FIXTURE_CLASS_MAIN_CODE)
 
         put_request = conn.execs[1]
         self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})
@@ -105,18 +101,15 @@ class TestADTClass(unittest.TestCase):
         self.include_read_test(TEST_CLASSES_READ_RESPONSE_OK, lambda clas: clas.test_classes, 'includes/testclasses')
 
     def include_write_test(self, getter, includes_uri):
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 
         clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
-        clas.lock()
-
-        getter(clas).change_text('* new content')
-
-        self.assertEqual(
-            [(e.method, e.adt_uri) for e in conn.execs[1:] ],
-            [('PUT', f'/sap/bc/adt/oo/classes/zcl_hello_world/{includes_uri}')])
+        with getter(clas).open_editor() as editor:
+            editor.write('* new content')
 
         put_request = conn.execs[1]
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, f'/sap/bc/adt/oo/classes/zcl_hello_world/{includes_uri}')
         self.assertEqual(sorted(put_request.headers), ['Accept', 'Content-Type'])
         self.assertEqual(put_request.headers['Accept'], 'text/plain')
         self.assertEqual(put_request.headers['Content-Type'], 'text/plain; charset=utf-8')

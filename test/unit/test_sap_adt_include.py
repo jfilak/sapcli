@@ -50,13 +50,13 @@ class TestADTInclude(unittest.TestCase):
         self.assertEqual(conn.execs[0].body, CREATE_INCLUDE_PROGRAM_ADT_XML)
 
     def test_adt_include_write(self):
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 
         include = sap.adt.Include(conn, 'ZHELLO_INCLUDE')
-        include.lock()
-        include.change_text(FIXTURE_INCLUDE_CODE)
+        with include.open_editor() as editor:
+            editor.write(FIXTURE_INCLUDE_CODE)
 
-        self.assertEqual(len(conn.execs), 2)
+        self.assertEqual(len(conn.execs), 3)
 
         put_request = conn.execs[1]
 
@@ -69,11 +69,11 @@ class TestADTInclude(unittest.TestCase):
         self.assertEqual(put_request.body, FIXTURE_INCLUDE_CODE)
 
     def test_adt_include_write_with_corrnr(self):
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 
         include = sap.adt.Include(conn, 'ZHELLO_INCLUDE')
-        include.lock()
-        include.change_text(FIXTURE_INCLUDE_CODE, corrnr='420')
+        with include.open_editor(corrnr='420') as editor:
+            editor.write(FIXTURE_INCLUDE_CODE)
 
         put_request = conn.execs[1]
         self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})

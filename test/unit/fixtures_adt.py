@@ -3,6 +3,7 @@ from sap.adt.objects import XMLNamespace
 
 from mock import Response
 
+OBJECT_METADATA = sap.adt.ADTCoreData(language='EN', master_language='EN', master_system='NPL', responsible='FILAK')
 
 EMPTY_RESPONSE_OK = Response(text='', status_code=200, headers={})
 
@@ -78,9 +79,10 @@ class DummyADTObject(sap.adt.ADTObject):
         XMLNamespace('win', 'http://www.example.com/never/lose'),
         'application/super.cool.txt+xml',
         {'text/plain': 'no/bigdeal'},
-        'dummies'
+        'dummies',
+        editor_factory=sap.adt.objects.ADTObjectSourceEditor
     )
 
-    def __init__(self, connection='noconnection', name='noobject',
-                 metadata=sap.adt.ADTCoreData(description='adt fixtures dummy object')):
-        super(DummyADTObject, self).__init__(connection, name, metadata)
+    def __init__(self, connection='noconnection', name='noobject', metadata=None):
+        super(DummyADTObject, self).__init__(connection, name,
+                                             metadata if metadata is not None else sap.adt.ADTCoreData(description='adt fixtures dummy object'))

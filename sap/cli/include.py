@@ -56,12 +56,9 @@ def write(connection, args):
             text = filesrc.readlines()
 
     include = sap.adt.Include(connection, args.name.upper())
-    # TODO: context manager
-    include.lock()
-    try:
-        include.change_text(''.join(text), corrnr=args.corrnr)
-    finally:
-        include.unlock()
+
+    with include.open_editor(corrnr=args.corrnr) as editor:
+        editor.write(''.join(text))
 
 
 @CommandGroup.command()

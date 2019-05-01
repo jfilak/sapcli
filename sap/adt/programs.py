@@ -4,8 +4,7 @@ import urllib
 
 # pylint: disable=unused-import
 from sap.adt.objects import OrderedClassMembers
-from sap.adt.objects import ADTObjectType, ADTObject, ADTCoreData
-from sap.adt.objects import modify_object_params, mod_log, XMLNamespace
+from sap.adt.objects import ADTObjectType, ADTObject, ADTCoreData, ADTObjectSourceEditor, XMLNamespace
 from sap.adt.annotations import xml_attribute, xml_element
 
 
@@ -30,20 +29,6 @@ class BaseProgram(ADTObject):
 
         self._fixpntar = value == 'true'
 
-    def change_text(self, content, corrnr=None):
-        """Changes the source code"""
-
-        text_uri = self.objtype.get_uri_for_type('text/plain')
-
-        resp = self._connection.execute(
-            'PUT', self.uri + text_uri,
-            params=modify_object_params(self._lock, corrnr),
-            headers={
-                'Content-Type': 'text/plain; charset=utf-8'},
-            body=content)
-
-        mod_log().debug("Change text response status: %i", resp.status_code)
-
 
 class Program(BaseProgram):
     """ABAP Report/Program
@@ -55,7 +40,8 @@ class Program(BaseProgram):
         XMLNamespace('program', 'http://www.sap.com/adt/programs/programs'),
         'application/vnd.sap.adt.programs.programs.v2+xml',
         {'text/plain': 'source/main'},
-        'abapProgram'
+        'abapProgram',
+        editor_factory=ADTObjectSourceEditor
     )
 
     class LogicalDatabase(metaclass=OrderedClassMembers):
@@ -123,7 +109,8 @@ class Include(BaseProgram):
         # application/vnd.sap.adt.programs.includes+xml, application/vnd.sap.adt.programs.includes.v2+xml
         'application/vnd.sap.adt.programs.includes.v2+xml',
         {'text/plain': 'source/main'},
-        'abapInclude'
+        'abapInclude',
+        editor_factory=ADTObjectSourceEditor
     )
 
     def __init__(self, connection, name, package=None, metadata=None, master=None):

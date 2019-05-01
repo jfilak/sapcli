@@ -53,12 +53,9 @@ def write(connection, args):
             text = filesrc.readlines()
 
     iface = sap.adt.Interface(connection, args.name.upper())
-    # TODO: context manager
-    iface.lock()
-    try:
-        iface.change_text(''.join(text))
-    finally:
-        iface.unlock()
+
+    with iface.open_editor() as editor:
+        editor.write(''.join(text))
 
 
 @CommandGroup.command()

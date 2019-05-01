@@ -30,11 +30,11 @@ class TestADTObject(unittest.TestCase):
         self.assertEquals(victory.uri, 'awesome/success/noobject')
 
     def test_lock_modify_ok(self):
-        connection = Connection([LOCK_RESPONSE_OK])
+        connection = Connection([LOCK_RESPONSE_OK, LOCK_RESPONSE_OK])
 
         victory = DummyADTObject(connection=connection)
-        victory.lock()
-        self.assertEquals(victory._lock, 'win')
+        handle = victory.lock()
+        self.assertEquals(handle, 'win')
 
         self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/awesome/success/noobject')])
 
@@ -47,11 +47,8 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(lock_request.headers['X-sap-adt-sessiontype'], 'stateful')
         self.assertEqual(lock_request.headers['Accept'], 'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8, application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9')
 
-        try:
-            victory.lock()
-            self.assertFail('Exception was expected')
-        except SAPCliError as ex:
-            self.assertEquals(str(ex), f'Object {victory.uri}: already locked')
+        handle = victory.lock()
+        self.assertEquals(handle, 'win')
 
     def test_lock_modify_invalid(self):
         response = Response(text='invalid',
@@ -78,10 +75,8 @@ class TestADTObject(unittest.TestCase):
         connection = Connection([LOCK_RESPONSE_OK, None])
 
         victory = DummyADTObject(connection=connection)
-        victory.lock()
-        victory.unlock()
-
-        self.assertIsNone(victory._lock)
+        handle = victory.lock()
+        victory.unlock(handle)
 
         self.assertEqual(
             [(e.method, e.adt_uri) for e in connection.execs],
@@ -96,12 +91,23 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(unlock_request.headers['X-sap-adt-sessiontype'], 'stateful')
 
     def test_unlock_not_locked(self):
-        victory = DummyADTObject()
+        connection = Connection([LOCK_RESPONSE_OK, None])
+
+        victory = DummyADTObject(connection=connection)
 
         try:
-            victory.unlock()
+            victory.unlock('NOTLOCKED')
         except SAPCliError as ex:
             self.assertEquals(str(ex), f'Object {victory.uri}: not locked')
+
+        self.assertEqual(
+            [(e.method, e.adt_uri) for e in connection.execs],
+            [('POST', '/sap/bc/adt/awesome/success/noobject')])
+
+        unlock_request = connection.execs[0]
+        self.assertEqual(sorted(unlock_request.params.keys()), ['_action', 'lockHandle'])
+        self.assertEqual(unlock_request.params['_action'], 'UNLOCK')
+        self.assertEqual(unlock_request.params['lockHandle'], 'NOTLOCKED')
 
     def test_activate(self):
         connection = Connection([EMPTY_RESPONSE_OK])
@@ -190,6 +196,50 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(victory.responsible, 'DEVELOPER')
         self.assertEqual(victory.active, 'active')
         self.assertEqual(victory.reference.name, 'UNIVERSE')
+
+    def test_open_editor_default(self):
+        connection = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        victory = DummyADTObject(connection=connection, name='editor_test')
+
+        with victory.open_editor() as editor:
+            self.assertEqual(editor.uri, 'awesome/success/editor_test')
+            self.assertEqual(editor.mimetype, 'application/super.cool.txt+xml')
+            self.assertEqual(editor.connection, connection)
+            self.assertEqual(editor.lock_handle, 'win')
+            self.assertIsNone(editor.corrnr)
+
+    def test_open_editor_with_lock_and_corrnr(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+        victory = DummyADTObject(connection=connection, name='editor_no_lock')
+
+        with victory.open_editor(corrnr='123456', lock_handle='clock') as editor:
+            self.assertEqual(editor.lock_handle, 'clock')
+            self.assertEqual(editor.corrnr, '123456')
+
+    def test_push(self):
+        connection = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        victory = DummyADTObject(connection=connection, name='SOFTWARE_ENGINEER')
+
+        with victory.open_editor() as editor:
+            editor.push()
+
+        self.assertEqual(connection.mock_methods(), [('POST', '/sap/bc/adt/awesome/success/software_engineer'),
+                                                     ('PUT', '/sap/bc/adt/awesome/success/software_engineer'),
+                                                     ('POST', '/sap/bc/adt/awesome/success/software_engineer')])
+
+        request = connection.execs[1]
+
+        self.assertEqual(sorted(request.headers.keys()), ['Content-Type'])
+        self.assertEqual(request.headers['Content-Type'], 'application/super.cool.txt+xml')
+
+        self.assertEqual(sorted(request.params.keys()), ['lockHandle'])
+        self.assertEqual(request.params['lockHandle'], 'win')
+
+        self.maxDiff = None
+        self.assertEqual(request.body, '''<?xml version="1.0" encoding="UTF-8"?>
+<win:dummies xmlns:win="http://www.example.com/never/lose" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="DUMMY/S" adtcore:description="adt fixtures dummy object" adtcore:name="SOFTWARE_ENGINEER">
+<adtcore:packageRef/>
+</win:dummies>''')
 
 
 class TestADTObjectType(unittest.TestCase):

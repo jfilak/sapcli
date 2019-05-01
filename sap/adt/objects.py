@@ -53,11 +53,13 @@ class XMLNamespace(NamedTuple):
     uri: str
 
 
+# pylint: disable=too-many-instance-attributes
 class ADTObjectType:
     """Common ADT object type attributes.
     """
 
-    def __init__(self, code, basepath, xmlnamespace, mimetype, typeuris, xmlname):
+    # pylint: disable=too-many-arguments
+    def __init__(self, code, basepath, xmlnamespace, mimetype, typeuris, xmlname, editor_factory=None):
         """Parameters:
             - code: ADT object code
             - basepath:
@@ -74,6 +76,17 @@ class ADTObjectType:
         self._mimetype = mimetype
         self._typeuris = typeuris
         self._xmlname = xmlname
+        self._editor_factory = editor_factory
+
+    def open_editor(self, instance, lock_handle, corrnr=None):
+        """Returns a new instance of Editor for this object type
+           and raises SAPCliError if the object type does not allow modifications.
+        """
+
+        if self._editor_factory is None:
+            raise SAPCliError(f'Object {self._code}: modifications are not supported')
+
+        return self._editor_factory(instance, lock_handle, corrnr=corrnr)
 
     @property
     def code(self):
@@ -278,7 +291,7 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         self._metadata = metadata if metadata is not None else ADTCoreData()
 
-        self._lock = None
+        self._actions = None
 
     @property
     def coredata(self):
@@ -420,12 +433,6 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._metadata.package_reference
 
-    @property
-    def lock_handle(self):
-        """Returns Lock handle or None if not locked"""
-
-        return self._lock
-
     def create(self, corrnr=None):
         """Creates ADT object
         """
@@ -440,13 +447,16 @@ class ADTObject(metaclass=OrderedClassMembers):
             params=create_params(corrnr),
             body=xml)
 
+    def fetch(self):
+        """Retrieve data from ADT"""
+
+        resp = self._connection.execute('GET', self.uri)
+        sap.adt.marshalling.Marshal.deserialize(resp.text, self)
+
     def lock(self):
         """Locks the object"""
 
-        if self._lock is not None:
-            raise SAPCliError(f'Object {self.uri}: already locked')
-
-        resp = self._connection.execute(
+        resp = self.connection.execute(
             'POST',
             self.uri,
             params=lock_params(LOCK_ACCESS_MODE_MODIFY),
@@ -465,31 +475,147 @@ class ADTObject(metaclass=OrderedClassMembers):
         mod_log().debug(resp.text)
 
         # TODO: check encoding
-        self._lock = re.match('.*<LOCK_HANDLE>(.*)</LOCK_HANDLE>.*', resp.text)[1]
-        mod_log().debug('LockHandle=%s', self._lock)
+        lock_handle = re.match('.*<LOCK_HANDLE>(.*)</LOCK_HANDLE>.*', resp.text)[1]
+        mod_log().debug('LockHandle=%s', lock_handle)
 
-    def unlock(self):
-        """Locks the object"""
+        return lock_handle
 
-        if self._lock is None:
-            raise SAPCliError(f'Object {self.uri}: not locked')
+    def unlock(self, lock_handle):
+        """Unlocks the object"""
 
-        self._connection.execute(
+        self.connection.execute(
             'POST',
             self.uri,
-            params=unlock_params(self._lock),
+            params=unlock_params(lock_handle),
             headers={
                 'X-sap-adt-sessiontype': 'stateful',
             }
         )
 
-        self._lock = None
+    def open_editor(self, lock_handle=None, corrnr=None):
+        """Creates editor and returns its instance
 
-    def fetch(self):
-        """Retrieve data from ADT"""
+           The given lock_handle is passed to the new editor's instance.
 
-        resp = self._connection.execute('GET', self.uri)
-        sap.adt.marshalling.Marshal.deserialize(resp.text, self)
+           If the give lock_handle is None, the object is locked implicitly
+           and must be unlocked explicitly via the method unlock() if not
+           unlocked by the editor itself.
+
+           The given corrnr is passed to the new editor's instance.
+        """
+
+        if lock_handle is None:
+            lock_handle = self.lock()
+
+        return self.objtype.open_editor(self, lock_handle, corrnr=corrnr)
+
+
+class ADTObjectEditor:
+    """Base Editor for ADT Object which implements common functionality"""
+
+    def __init__(self, obj, lock_handle, corrnr=None):
+        self._obj = obj
+        self._lock_handle = lock_handle
+        self._corrnr = corrnr
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._obj.unlock(self.lock_handle)
+
+    @property
+    def uri(self):
+        """Returns the edit object's URI"""
+
+        return self._obj.uri
+
+    @property
+    def mimetype(self):
+        """Returns the edit object's MIME-TYPE"""
+
+        return self._obj.objtype.mimetype
+
+    @property
+    def connection(self):
+        """Returns the edit object's Connection"""
+
+        return self._obj.connection
+
+    def get_uri_for_type(self, mimetype):
+        """Returns the edit object's URI for the given mimetype"""
+
+        return self._obj.objtype.get_uri_for_type(mimetype)
+
+    def serialize(self):
+        """Serializes the object"""
+
+        marshal = sap.adt.marshalling.Marshal()
+        return marshal.serialize(self._obj)
+
+    @property
+    def lock_handle(self):
+        """Lock Handle"""
+
+        return self._lock_handle
+
+    @property
+    def corrnr(self):
+        """Correction Number"""
+
+        return self._corrnr
+
+    def write(self, content):
+        """Changes text of the object"""
+
+        raise NotImplementedError('write')
+
+    def push(self):
+        """Pushes object's Attributes to ADT"""
+
+        payload = self.serialize()
+
+        return self.connection.execute(
+            'PUT',
+            self.uri,
+            headers={'Content-Type': self.mimetype},
+            params=modify_object_params(self.lock_handle, self.corrnr),
+            body=payload)
+
+
+class ADTObjectSourceEditor(ADTObjectEditor):
+    """Source Code actions"""
+
+    # pylint: disable=no-self-use
+    def get_headers(self):
+        """Returns Request HTTP headers"""
+
+        return {'Content-Type': 'text/plain; charset=utf-8'}
+
+    def write(self, content):
+        """Changes Source Code of the source object"""
+
+        text_uri = self.uri + self.get_uri_for_type('text/plain')
+
+        resp = self.connection.execute(
+            'PUT',
+            text_uri,
+            params=modify_object_params(self.lock_handle, self.corrnr),
+            headers=self.get_headers(),
+            body=content)
+
+        mod_log().debug("Write text response status: %i", resp.status_code)
+
+
+class ADTObjectSourceEditorWithResponse(ADTObjectSourceEditor):
+    """Source Code Editor evaluating response"""
+
+    def get_headers(self):
+        """Enrich Super's Headers with Accept"""
+
+        headers = super(ADTObjectSourceEditorWithResponse, self).get_headers()
+        headers['Accept'] = 'text/plain'
+        return headers
 
 
 class OOADTObjectBase(ADTObject):
@@ -523,7 +649,8 @@ class Interface(OOADTObjectBase):
         # application/vnd.sap.adt.oo.interfaces+xml, application/vnd.sap.adt.oo.interfaces.v2+xml
         'application/vnd.sap.adt.oo.interfaces.v2+xml',
         {'text/plain': 'source/main'},
-        'abapInterface'
+        'abapInterface',
+        editor_factory=ADTObjectSourceEditor
     )
 
     def __init__(self, connection, name, package=None, metadata=None):
@@ -531,29 +658,23 @@ class Interface(OOADTObjectBase):
 
         self._metadata.package_reference.name = package
 
-    def change_text(self, content):
-        """Changes the source code"""
-
-        text_uri = self.objtype.get_uri_for_type('text/plain')
-
-        resp = self._connection.execute(
-            'PUT', self.uri + text_uri,
-            params={'lockHandle': self._lock},
-            headers={
-                'Content-Type': 'text/plain; charset=utf-8'},
-            body=content)
-
-        mod_log().debug("Change text response status: %i", resp.status_code)
-
 
 # pylint: disable=too-few-public-methods
 class ClassIncludeMetadata(NamedTuple):
-    """Class Include Type definition"""
+    """Class Include Type definition - partially implements ADTObjectType interface"""
 
     adt_name: str
     adt_type: str
     include_type: str
     source_uri: str
+
+    def get_uri_for_type(self, mimetype):
+        """Mimic ADTObjectType's implementation"""
+
+        if mimetype != 'text/plain':
+            raise SAPCliError(f'Class Source code can be only of "text/plain": {mimetype}')
+
+        return self.source_uri
 
 
 # pylint: disable=too-many-instance-attributes
@@ -567,7 +688,8 @@ class Class(OOADTObjectBase):
         XMLNamespace('class', 'http://www.sap.com/adt/oo/classes'),
         'application/vnd.sap.adt.oo.classes.v2+xml',
         {'text/plain': 'source/main'},
-        'abapClass'
+        'abapClass',
+        editor_factory=ADTObjectSourceEditorWithResponse
     )
 
     class Include(metaclass=OrderedClassMembers):
@@ -580,6 +702,24 @@ class Class(OOADTObjectBase):
         def __init__(self, clas, metadata):
             self._clas = clas
             self._metadata = metadata
+
+        @property
+        def uri(self):
+            """Returns parent's URI for Class's open_editor()"""
+
+            return self._clas.uri
+
+        @property
+        def connection(self):
+            """Returns parent's connection for Class's open_editor()"""
+
+            return self._clas.connection
+
+        @property
+        def objtype(self):
+            """Returns a stub ADTObjectType for Class's open_editor()"""
+
+            return self._metadata
 
         @staticmethod
         def definitions(clas):
@@ -621,20 +761,25 @@ class Class(OOADTObjectBase):
         def text(self):
             """Returns text"""
 
-            return self._clas.connection.get_text(f'{self._clas.uri}{self._metadata.source_uri}')
+            return self._clas.connection.get_text(f'{self.uri}{self._metadata.source_uri}')
 
-        def change_text(self, content, corrnr=None):
+        def lock(self):
+            """Calls parent's lock() for Class's open_editor()"""
+
+            return self._clas.lock()
+
+        def unlock(self, lock_handle):
+            """Calls parent's unlock() for Class's open_editor()"""
+
+            return self._clas.unlock(lock_handle)
+
+        def open_editor(self, lock_handle=None, corrnr=None):
             """Changes source codes"""
 
-            resp = self._clas.connection.execute(
-                'PUT', self._clas.uri + self._metadata.source_uri,
-                params=modify_object_params(self._clas.lock_handle, corrnr),
-                headers={
-                    'Accept': 'text/plain',
-                    'Content-Type': 'text/plain; charset=utf-8'},
-                body=content)
+            if lock_handle is None:
+                lock_handle = self.lock()
 
-            mod_log().debug("Change text response status: %i", resp.status_code)
+            return self._clas.objtype.open_editor(self, lock_handle=lock_handle, corrnr=corrnr)
 
     def __init__(self, connection, name, package=None, metadata=None):
         super(Class, self).__init__(connection, name, metadata)
@@ -696,21 +841,6 @@ class Class(OOADTObjectBase):
 
         return self._superclass
 
-    def change_text(self, content, corrnr=None):
-        """Changes the source code"""
-
-        text_uri = self.objtype.get_uri_for_type('text/plain')
-
-        resp = self._connection.execute(
-            'PUT', self.uri + text_uri,
-            params=modify_object_params(self._lock, corrnr),
-            headers={
-                'Accept': 'text/plain',
-                'Content-Type': 'text/plain; charset=utf-8'},
-            body=content)
-
-        mod_log().debug("Change text response status: %i", resp.status_code)
-
     @property
     def definitions(self):
         """Local Definitions"""
@@ -749,7 +879,8 @@ class DataDefinition(ADTObject):
         # application/vnd.sap.adt.ddlSource.v2+xml, application/vnd.sap.adt.ddlSource+xml
         'application/vnd.sap.adt.ddlSource+xml',
         {'text/plain': 'source/main'},
-        'ddlSource'
+        'ddlSource',
+        editor_factory=ADTObjectSourceEditor
     )
 
     def __init__(self, connection, name, package=None, metadata=None):

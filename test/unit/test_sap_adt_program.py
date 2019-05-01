@@ -31,13 +31,13 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(conn.execs[0][3], CREATE_EXECUTABLE_PROGRAM_ADT_XML)
 
     def test_program_write(self):
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 
         program = sap.adt.Program(conn, 'ZHELLO_WORLD')
-        program.lock()
-        program.change_text(FIXTURE_REPORT_CODE)
+        with program.open_editor() as editor:
+            editor.write(FIXTURE_REPORT_CODE)
 
-        self.assertEqual(len(conn.execs), 2)
+        self.assertEqual(len(conn.execs), 3)
 
         put_request = conn.execs[1]
 
@@ -50,11 +50,11 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(put_request.body, FIXTURE_REPORT_CODE)
 
     def test_program_write_with_corrnr(self):
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 
         program = sap.adt.Program(conn, 'ZHELLO_WORLD')
-        program.lock()
-        program.change_text(FIXTURE_REPORT_CODE, corrnr='420')
+        with program.open_editor(corrnr='420') as editor:
+            editor.write(FIXTURE_REPORT_CODE)
 
         put_request = conn.execs[1]
         self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})
