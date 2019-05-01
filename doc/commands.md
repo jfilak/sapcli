@@ -5,34 +5,44 @@
    2. [write](#write)
    3. [activate](#activate)
    4. [read](#read)
-1. [Includes](#includes)
+2. [Includes](#includes)
    1. [create](#include-create)
    2. [write](#include-write)
    3. [activate](#include-activate)
    4. [read](#include-read)
-2. [Classes](#classes)
+3. [Functions](#functions)
+   1. [create group](#function-group-create)
+   2. [create module](#function-module-create)
+   3. [change module attributes](#function-module-chattr)
+   4. [write group](#function-group-write)
+   5. [write module](#function-module-write)
+   6. [activate group](#function-group-activate)
+   7. [activate module](#function-module-activate)
+   8. [read group](#function-group-read)
+   9. [read module](#function-module-read)
+4. [Classes](#classes)
    1. [create](#create-1)
    2. [write](#write-1)
    3. [activate](#activate-1)
    4. [read](#read-1)
    4. [attributes](#attributes)
-2. [Interfaces](#interfaces)
+5. [Interfaces](#interfaces)
    1. [create](#create-2)
    2. [write](#write-2)
    3. [activate](#activate-2)
    4. [read](#read-2)
-3. [DataDefinition (CDS)](#datadefinition-cds)
+6. [DataDefinition (CDS)](#datadefinition-cds)
    1. [read](#read-3)
    2. [activate](#activate-3)
-3. [Packages](#packages)
+7. [Packages](#packages)
    1. [create](#create-3)
    2. [list](#list)
-4. [ABAP Unit](#abap-unit)
+8. [ABAP Unit](#abap-unit)
    1. [run](#run)
-5. [Change Transport System](#change-transport-system-cts)
+9. [Change Transport System](#change-transport-system-cts)
    1. [list](#list-1)
    2. [release](#release)
-5. [Source Code Library](#source-code-library)
+10. [Source Code Library](#source-code-library)
    1. [checkout](#checkout)
 
 ## Programs
@@ -86,7 +96,7 @@ sapcli include create "ZHELLOWORLD_INC" "Just a description" "$TMP"
 Change code of an executable program without activation.
 
 ```bash
-sapcli program write "ZHELLOWORLD_INC" zhelloworld.abap [--corrnr TRANSPORT]
+sapcli include write "ZHELLOWORLD_INC" zhelloworld.abap [--corrnr TRANSPORT]
 ```
 
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
@@ -96,8 +106,10 @@ sapcli program write "ZHELLOWORLD_INC" zhelloworld.abap [--corrnr TRANSPORT]
 Activate an executable program.
 
 ```bash
-sapcli include activate "ZHELLOWORLD_INC"
+sapcli include activate "ZHELLOWORLD_INC" [--master ZHELLOWORLD]
 ```
+
+* _--master PROGRAM_ sets the master program for include activation
 
 ### include read
 
@@ -106,6 +118,90 @@ Download source codes
 ```bash
 sapcli include read ZHELLOWORLD_INC
 ```
+
+## Functions
+
+### create group
+
+Creates a function group of the given name with the given description in the
+given package.
+
+```bash
+sapcli functiongroup create ZFG_PARENT "Class description" '$PACKAGE'
+```
+
+### create module
+
+Creates a function module in the given function group of the given name with
+the given description.
+
+```bash
+sapcli functionmodule create ZFG_PARENT Z_FUNCTION_MODULE "Class description"
+```
+
+### write group
+
+Changes main source code of the given function group.
+
+```bash
+sapcli functiongroup write "ZFG_PARENT" zfg_parent.abap [--corrnr TRANSPORT]
+```
+
+* _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+
+### write module
+
+Changes main source code of the given function module.
+
+```bash
+sapcli functiongroup write "ZFG_PARENT" "Z_FUNCTION_MODULE zfg_parent.z_function_module.abap [--corrnr TRANSPORT]
+```
+
+* _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+
+### change attributes module
+
+Changes attributes of the given function module.
+
+```bash
+sapcli functionmodule chattr "ZFG_PARENT" "Z_FUNCTION_MODULE [--type basic|rfc] [--corrnr TRANSPORT]
+```
+
+* _--type [basic|rfc]_ could be used to make RFC enabled
+* _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+
+### activate group
+
+Activates the given function group.
+
+```bash
+sapcli functiongroup activate ZFG_PARENT
+```
+
+### activate module
+
+Activates the given function module.
+
+```bash
+sapcli functionmodule activate ZFG_PARENT Z_FUNCTION_MODULE
+```
+
+### read group
+
+Download main source codes of the given function group
+
+```bash
+sapcli functiongroup read ZFG_PARENT
+```
+
+### read module
+
+Download main source codes of the given function module
+
+```bash
+sapcli functionmodule read ZFG_PARENT Z_FUNCTION_MODULE
+```
+
 
 ## Classes
 
