@@ -1,6 +1,72 @@
 """CLI basic functionality"""
 
-from collections import defaultdict
+from sap.errors import SAPCliError
+
+
+class CommandDeclaration:
+    """Command forward declaration"""
+
+    def __init__(self, handler, name):
+        self.handler = handler
+        self.name = name
+        self.arguments = list()
+
+    def append_argument(self, *args, **kwargs):
+        """Declares a new ArgParser argument at the end of the list"""
+
+        self.insert_argument(len(self.arguments), *args, **kwargs)
+
+    def insert_argument(self, position, *args, **kwargs):
+        """Declares a new ArgParser argument at the specified position"""
+
+        self.arguments.insert(position, (args, kwargs))
+
+    def declare_corrnr(self, position=None):
+        """Declares a new ArgParser argument"""
+
+        if position is None:
+            position = len(self.arguments)
+
+        self.insert_argument(position, '--corrnr', nargs='?', default=None)
+
+    def install_arguments(self, parser):
+        """Installs declared arguments to a ArgParser"""
+
+        for args, kwargs in self.arguments:
+            parser.add_argument(*args, **kwargs)
+
+
+class CommandsList:
+    """List of Command Declarations"""
+
+    def __init__(self):
+        self.declarations = {}
+
+    def add_command(self, handler, name=None):
+        """Adds a new command"""
+
+        fname = handler.__name__
+
+        if fname in self.declarations:
+            raise SAPCliError(f'Handler already registered: {fname}')
+
+        cmd = CommandDeclaration(handler, name if name is not None else fname)
+        self.declarations[fname] = cmd
+
+        return cmd
+
+    def get_declaration(self, handler):
+        """Returns the command declaration for the handler"""
+
+        try:
+            return self.declarations[handler.__name__]
+        except KeyError:
+            raise SAPCliError(f'No such Command Declaration: {handler.__name__}')
+
+    def values(self):
+        """Returns the list of declared values"""
+
+        return self.declarations.values()
 
 
 class CommandGroup:
@@ -21,30 +87,28 @@ class CommandGroup:
         command_args = arg_parser.add_subparsers()
 
         for command in self.__class__.commands.values():
-            get_args = command_args.add_parser(command['name'])
-            get_args.set_defaults(execute=command['execute'])
-
-            for argument in command['arguments']:
-                get_args.add_argument(*argument[0], **argument[1])
+            get_args = command_args.add_parser(command.name)
+            get_args.set_defaults(execute=command.handler)
+            command.install_arguments(get_args)
 
     @classmethod
     def get_commands(cls):
-        """Get a dictionary of command definitions where the key is
-           an arbitrary key (in our case it is the name of the decorated function
+        """Get a dictionary of command definitions where the key is an
+           arbitrary key (in our case it is the name of the decorated function
            implementing the command functionality) and the value is
-           a dictionary containing command definition.
-
-           The recognized command definition keys are the following:
-             - name: displayed named
-             - arguments: a tuple (*args, **kwargs) passed to
-                          the method add_argument() of ArgPasers
-             - execute: callable implementing the command
+           CommandDeclaration
         """
 
         if not hasattr(cls, 'commands'):
-            cls.commands = defaultdict(lambda: {'arguments': []})
+            cls.commands = CommandsList()
 
         return cls.commands
+
+    @classmethod
+    def get_command_declaration(cls, func):
+        """Returns command declaration"""
+
+        return cls.get_commands().get_declaration(func)
 
     @classmethod
     def command(cls, cmd_name=None):
@@ -55,14 +119,7 @@ class CommandGroup:
             """A closure that actually processes the decorated function
             """
 
-            fname = func.__name__
-
-            commands = cls.get_commands()
-            commands[fname]['name'] = cmd_name
-            commands[fname]['execute'] = func
-
-            if commands[fname]['name'] is None:
-                commands[fname]['name'] = fname
+            cls.get_commands().add_command(func, cmd_name)
 
             return func
 
@@ -79,8 +136,7 @@ class CommandGroup:
             """A closure that actually processes the decorated function
             """
 
-            commands = cls.get_commands()
-            commands[func.__name__]['arguments'].append((args, kwargs))
+            cls.get_command_declaration(func).append_argument(*args, **kwargs)
 
             return func
 
@@ -90,4 +146,12 @@ class CommandGroup:
     def argument_corrnr(cls):
         """Decorator adding the corrnr argument to a cli command"""
 
-        return cls.argument('--corrnr', nargs='?', default=None)
+        def p_argument(func):
+            """A closure that actually processes the decorated function
+            """
+
+            cls.get_command_declaration(func).declare_corrnr()
+
+            return func
+
+        return p_argument

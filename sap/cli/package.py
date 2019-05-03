@@ -13,7 +13,6 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super(CommandGroup, self).__init__('package')
 
 
-@CommandGroup.command()
 @CommandGroup.argument_corrnr()
 @CommandGroup.argument('--transport-layer', default=None, help='Transport layer')
 @CommandGroup.argument('--software-component', default='LOCAL', help='Software component')
@@ -21,6 +20,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 @CommandGroup.argument('--super-package', default=None, help='Parent package name')
 @CommandGroup.argument('description')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def create(connection, args):
     """Creates the requested ABAP package.
     """
@@ -45,9 +45,9 @@ def create(connection, args):
     package.create(corrnr=args.corrnr)
 
 
-@CommandGroup.command('list')
 @CommandGroup.argument('-r', '--recursive', default=False, action='store_true', help='List sub-packages')
 @CommandGroup.argument('name')
+@CommandGroup.command('list')
 def list_package(connection, args):
     """List information about package contents"""
 

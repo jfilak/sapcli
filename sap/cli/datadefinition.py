@@ -14,8 +14,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super(CommandGroup, self).__init__('ddl')
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def read(connection, args):
     """Prints it out based on command line configuration.
     """
@@ -24,8 +24,8 @@ def read(connection, args):
     print(ddl.text)
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name', nargs='+')
+@CommandGroup.command()
 def activate(connection, args):
     """Actives the given class.
     """

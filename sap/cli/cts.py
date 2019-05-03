@@ -22,9 +22,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super(CommandGroup, self).__init__('cts')
 
 
-@CommandGroup.command()
 @CommandGroup.argument('number')
 @CommandGroup.argument('type', choices=REQUEST_TYPES)
+@CommandGroup.command()
 def release(connection, args):
     """Releases the CTS request of the passed type and number."""
 
@@ -58,10 +58,10 @@ def printer(stream, output):
     stream.write(output + '\n')
 
 
-@CommandGroup.command(cmd_name='list')
 @CommandGroup.argument('--owner')
 @CommandGroup.argument('-r', '--recursive', action='count', default=0)
 @CommandGroup.argument('type', choices=REQUEST_TYPES)
+@CommandGroup.command(cmd_name='list')
 def print_list(connection, args):
     """List the CTS request of the passed type."""
 

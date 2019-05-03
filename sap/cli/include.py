@@ -15,8 +15,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super(CommandGroup, self).__init__('include')
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def read(connection, args):
     """Retrieves the request command prints it out based on command line
        configuration.
@@ -26,11 +26,11 @@ def read(connection, args):
     print(include.text)
 
 
-@CommandGroup.command()
 @CommandGroup.argument_corrnr()
 @CommandGroup.argument('package')
 @CommandGroup.argument('description')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def create(connection, args):
     """Creates the given program include"""
 
@@ -40,10 +40,10 @@ def create(connection, args):
     include.create(corrnr=args.corrnr)
 
 
-@CommandGroup.command()
 @CommandGroup.argument_corrnr()
 @CommandGroup.argument('source', help='a path or - for stdin')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def write(connection, args):
     """Changes source code of the given program include"""
 
@@ -61,9 +61,9 @@ def write(connection, args):
         editor.write(''.join(text))
 
 
-@CommandGroup.command()
 @CommandGroup.argument('-m', '--master', nargs='?', default=None, help='Master program')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def activate(connection, args):
     """Actives the give program include.
     """

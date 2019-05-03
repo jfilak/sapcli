@@ -15,8 +15,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super(CommandGroup, self).__init__('interface')
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def read(connection, args):
     """Prints it out based on command line configuration.
     """
@@ -25,10 +25,10 @@ def read(connection, args):
     print(cls.text)
 
 
-@CommandGroup.command()
 @CommandGroup.argument('package')
 @CommandGroup.argument('description')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def create(connection, args):
     """Creates the requested interface"""
 
@@ -38,9 +38,9 @@ def create(connection, args):
     iface.create()
 
 
-@CommandGroup.command()
 @CommandGroup.argument('source', help='a path or - for stdin')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def write(connection, args):
     """Changes main source code of the given interface"""
 
@@ -58,8 +58,8 @@ def write(connection, args):
         editor.write(''.join(text))
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def activate(connection, args):
     """Activates the given interface.
     """

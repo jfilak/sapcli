@@ -142,10 +142,10 @@ def print_raw(aunit_xml, run_results):
     return critical
 
 
-@CommandGroup.command()
 @CommandGroup.argument('--output', choices=['raw', 'human', 'junit4'], default='human')
 @CommandGroup.argument('name')
 @CommandGroup.argument('type', choices=['program', 'class', 'package'])
+@CommandGroup.command()
 def run(connection, args):
     """Prints it out based on command line configuration.
 

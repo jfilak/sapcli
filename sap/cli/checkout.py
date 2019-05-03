@@ -85,8 +85,8 @@ def checkout_class(connection, name, destdir=None):
     dump_attributes_to_file(name, (vseoclass,), '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
 
 
-@CommandGroup.command('class')
 @CommandGroup.argument('name')
+@CommandGroup.command('class')
 def abapclass(connection, args):
     """Download all class sources command wrapper"""
 
@@ -124,8 +124,8 @@ def checkout_program(connection, name, destdir=None):
     dump_attributes_to_file(name, (progdir, tpool), '.prog', 'LCL_OBJECT_PROG', destdir=destdir)
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def program(connection, args):
     """Download program sources command wrapper"""
 
@@ -160,8 +160,8 @@ def checkout_interface(connection, name, destdir=None):
     dump_attributes_to_file(name, (vseointerf,), '.prog', 'LCL_OBJECT_INTF', destdir=destdir)
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def interface(connection, args):
     """Download interface sources command wrapper"""
 
@@ -225,13 +225,13 @@ def checkout_package(connection, name, destdir=None):
     dump_attributes_to_file('package', (devc,), '.devc', 'LCL_OBJECT_DEVC', destdir=destdir)
 
 
-@CommandGroup.command()
 # @CommandGroup.argument('--folder-logic', choices=['full', 'prefix'], default='prefix')
 @CommandGroup.argument('--recursive', action='store_true', default=False)
 @CommandGroup.argument('--starting-folder', default='src')
 @CommandGroup.argument('directory', nargs='?', default=None,
                        help='To checkout the package into it; default=<PACKAGE NAME>')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def package(connection, args):
     """Download sources of objects from the given ABAP package"""
 

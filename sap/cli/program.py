@@ -15,9 +15,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super(CommandGroup, self).__init__('program')
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name')
 @CommandGroup.argument('--test', action='count', default=0)
+@CommandGroup.command()
 def read(connection, args):
     """Retrieves the request command prints it out based on command line
        configuration.
@@ -27,11 +27,11 @@ def read(connection, args):
     print(program.text)
 
 
-@CommandGroup.command()
 @CommandGroup.argument_corrnr()
 @CommandGroup.argument('package')
 @CommandGroup.argument('description')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def create(connection, args):
     """Creates the requested program"""
 
@@ -41,10 +41,10 @@ def create(connection, args):
     program.create(corrnr=args.corrnr)
 
 
-@CommandGroup.command()
 @CommandGroup.argument_corrnr()
 @CommandGroup.argument('source', help='a path or - for stdin')
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def write(connection, args):
     """Creates the requested program"""
 
@@ -62,8 +62,8 @@ def write(connection, args):
         editor.write(''.join(text))
 
 
-@CommandGroup.command()
 @CommandGroup.argument('name')
+@CommandGroup.command()
 def activate(connection, args):
     """Actives the passed program.
     """
