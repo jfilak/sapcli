@@ -6,6 +6,41 @@ Dependency modules are lazy loaded to enable partial modular installation.
 """
 
 
+class CommandsCache:
+    """Cached of available commands"""
+
+    adt = None
+
+    @staticmethod
+    def commands():
+        """Returns list of available commands"""
+
+        import sap.cli.program
+        import sap.cli.include
+        import sap.cli.interface
+        import sap.cli.abapclass
+        import sap.cli.datadefinition
+        import sap.cli.aunit
+        import sap.cli.package
+        import sap.cli.cts
+        import sap.cli.checkout
+
+        if CommandsCache.adt is None:
+            CommandsCache.adt = [
+                (adt_connection_from_args, sap.cli.program.CommandGroup()),
+                (adt_connection_from_args, sap.cli.include.CommandGroup()),
+                (adt_connection_from_args, sap.cli.interface.CommandGroup()),
+                (adt_connection_from_args, sap.cli.abapclass.CommandGroup()),
+                (adt_connection_from_args, sap.cli.datadefinition.CommandGroup()),
+                (adt_connection_from_args, sap.cli.aunit.CommandGroup()),
+                (adt_connection_from_args, sap.cli.package.CommandGroup()),
+                (adt_connection_from_args, sap.cli.cts.CommandGroup()),
+                (adt_connection_from_args, sap.cli.checkout.CommandGroup())
+            ]
+
+        return CommandsCache.adt
+
+
 def adt_connection_from_args(args):
     """Returns ADT connection constructed from the passed args (Namespace)
     """
@@ -23,27 +58,7 @@ def get_commands():
        for the implemented command (ADT or RFC).
     """
 
-    import sap.cli.program
-    import sap.cli.include
-    import sap.cli.interface
-    import sap.cli.abapclass
-    import sap.cli.datadefinition
-    import sap.cli.aunit
-    import sap.cli.package
-    import sap.cli.cts
-    import sap.cli.checkout
-
-    return [
-        (adt_connection_from_args, sap.cli.program.CommandGroup()),
-        (adt_connection_from_args, sap.cli.include.CommandGroup()),
-        (adt_connection_from_args, sap.cli.interface.CommandGroup()),
-        (adt_connection_from_args, sap.cli.abapclass.CommandGroup()),
-        (adt_connection_from_args, sap.cli.datadefinition.CommandGroup()),
-        (adt_connection_from_args, sap.cli.aunit.CommandGroup()),
-        (adt_connection_from_args, sap.cli.package.CommandGroup()),
-        (adt_connection_from_args, sap.cli.cts.CommandGroup()),
-        (adt_connection_from_args, sap.cli.checkout.CommandGroup())
-    ]
+    return CommandsCache.commands()
 
 
 __all__ = [
