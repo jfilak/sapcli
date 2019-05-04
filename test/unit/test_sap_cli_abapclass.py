@@ -20,18 +20,11 @@ FIXTURE_ELEMENTARY_CLASS_XML="""<?xml version="1.0" encoding="UTF-8"?>
 <class:superClassRef/>
 </class:abapClass>"""
 
+parser = ArgumentParser()
+sap.cli.abapclass.CommandGroup().install_parser(parser)
 
 def parse_args(argv):
-    parser = ArgumentParser()
-    sap.cli.abapclass.CommandGroup().install_parser(parser)
     return parser.parse_args(argv)
-
-
-class TestCommandGroup(unittest.TestCase):
-
-    def test_constructor(self):
-        sap.cli.abapclass.CommandGroup()
-
 
 class TestClassCreate(unittest.TestCase):
 
@@ -43,6 +36,7 @@ class TestClassCreate(unittest.TestCase):
         self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/oo/classes')])
 
         create_request = connection.execs[0]
+        self.maxDiff = None
         self.assertEqual(create_request.body, FIXTURE_ELEMENTARY_CLASS_XML)
 
         self.assertIsNone(create_request.params)
@@ -92,10 +86,10 @@ class TestClassWrite(unittest.TestCase):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
         args = parse_args(['write', 'ZCL_WRITER', 'zcl_class.abap'])
 
-        with patch('sap.cli.abapclass.open', mock_open(read_data='class file definition')) as m:
+        with patch('sap.cli.object.open', mock_open(read_data='class file definition')) as m:
             args.execute(conn, args)
 
-        m.assert_called_once_with('zcl_class.abap')
+        m.assert_called_once_with('zcl_class.abap', 'r')
 
         self.assertEqual(len(conn.execs), 3)
 
@@ -106,7 +100,7 @@ class TestClassWrite(unittest.TestCase):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
         args = parse_args(['write', 'ZCL_WRITER', 'zcl_class.abap', '--corrnr', '420'])
 
-        with patch('sap.cli.abapclass.open', mock_open(read_data='class file definition')) as m:
+        with patch('sap.cli.object.open', mock_open(read_data='class file definition')) as m:
             args.execute(conn, args)
 
         self.assertEqual(conn.execs[1].params['corrNr'], '420')
@@ -118,7 +112,7 @@ class TestClassIncludes(unittest.TestCase):
         conn = Connection([response])
         args = parse_args(['read', 'ZCL_READER', '--type', typ])
 
-        with patch('sap.cli.abapclass.print') as mock_print:
+        with patch('sap.cli.object.print') as mock_print:
             args.execute(conn, args)
 
         self.assertEqual(len(conn.execs), 1)

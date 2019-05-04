@@ -1,99 +1,54 @@
 """ADT proxy for ABAP Class (OO)"""
 
-import sys
 import sap.adt
 import sap.adt.wb
 import sap.cli.core
+import sap.cli.object
 
 
 SOURCE_TYPES = ['main', 'definitions', 'implementations', 'testclasses']
 
 
-def get_source_code_objec(clas, source_code_type):
-    """Returns object based on type"""
-
-    if source_code_type == 'definitions':
-        return clas.definitions
-
-    if source_code_type == 'implementations':
-        return clas.implementations
-
-    if source_code_type == 'testclasses':
-        return clas.test_classes
-
-    return clas
-
-
-class CommandGroup(sap.cli.core.CommandGroup):
-    """Adapter converting command line parameters to sap.adt.Class methods
-       calls.
-    """
+class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
+    """Commands for Class"""
 
     def __init__(self):
         super(CommandGroup, self).__init__('class')
 
-    @classmethod
-    def argument_source_type(cls):
-        """Adds the --type argument"""
+        self.define()
 
-        return CommandGroup.argument('--type', default=SOURCE_TYPES[0], choices=SOURCE_TYPES)
+    def instance(self, connection, name, args, metadata=None):
+        package = None
+        if hasattr(args, 'package'):
+            package = args.package
 
+        clas = sap.adt.Class(connection, name, package=package, metadata=metadata)
 
-@CommandGroup.argument_source_type()
-@CommandGroup.argument('name')
-@CommandGroup.command()
-def read(connection, args):
-    """Prints it out based on command line configuration.
-    """
+        if not hasattr(args, 'type'):
+            return clas
 
-    cls = sap.adt.Class(connection, args.name)
-    print(get_source_code_objec(cls, args.type).text)
+        if args.type == 'definitions':
+            return clas.definitions
 
+        if args.type == 'implementations':
+            return clas.implementations
 
-@CommandGroup.argument_corrnr()
-@CommandGroup.argument('package')
-@CommandGroup.argument('description')
-@CommandGroup.argument('name')
-@CommandGroup.command()
-def create(connection, args):
-    """Creates the requested class"""
+        if args.type == 'testclasses':
+            return clas.test_classes
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
-    clas = sap.adt.Class(connection, args.name.upper(), package=args.package.upper(), metadata=metadata)
-    clas.description = args.description
-    clas.create(corrnr=args.corrnr)
+        return clas
 
+    def define_read(self, commands):
+        read_cmd = super(CommandGroup, self).define_read(commands)
+        read_cmd.insert_argument(1, '--type', default=SOURCE_TYPES[0], choices=SOURCE_TYPES)
 
-@CommandGroup.argument_corrnr()
-@CommandGroup.argument('source', help='a path or - for stdin')
-@CommandGroup.argument_source_type()
-@CommandGroup.argument('name')
-@CommandGroup.command()
-def write(connection, args):
-    """Changes main source code of the given class"""
+        return read_cmd
 
-    text = None
+    def define_write(self, commands):
+        write_cmd = super(CommandGroup, self).define_write(commands)
+        write_cmd.insert_argument(1, '--type', default=SOURCE_TYPES[0], choices=SOURCE_TYPES)
 
-    if args.source == '-':
-        text = sys.stdin.readlines()
-    else:
-        with open(args.source) as filesrc:
-            text = filesrc.readlines()
-
-    clas = sap.adt.Class(connection, args.name.upper())
-
-    with get_source_code_objec(clas, args.type).open_editor(corrnr=args.corrnr) as editor:
-        editor.write(''.join(text))
-
-
-@CommandGroup.argument('name')
-@CommandGroup.command()
-def activate(connection, args):
-    """Actives the given class.
-    """
-
-    clas = sap.adt.Class(connection, args.name)
-    sap.adt.wb.activate(clas)
+        return write_cmd
 
 
 @CommandGroup.argument('name')
