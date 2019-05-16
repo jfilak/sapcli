@@ -15,16 +15,12 @@ FIXTURE_STDIN_REPORT_SRC='* from stdin'
 FIXTURE_FILE_REPORT_SRC='* from file'
 
 
+parser = ArgumentParser()
+sap.cli.include.CommandGroup().install_parser(parser)
+
+
 def parse_args(*argv):
-    parser = ArgumentParser()
-    sap.cli.include.CommandGroup().install_parser(parser)
     return parser.parse_args(argv)
-
-
-class TestIncludeCommandGroup(unittest.TestCase):
-
-    def test_constructor(self):
-        sap.cli.include.CommandGroup()
 
 
 class TestIncludeCreate(unittest.TestCase):
@@ -45,7 +41,7 @@ class TestIncludeWrite(unittest.TestCase):
 
         args = parse_args('write', 'zinclude', '-')
         with patch('sys.stdin', StringIO(FIXTURE_STDIN_REPORT_SRC)):
-            sap.cli.include.write(conn, args)
+            args.execute(conn, args)
 
         self.assertEqual(len(conn.execs), 3)
 
@@ -56,10 +52,10 @@ class TestIncludeWrite(unittest.TestCase):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
 
         args = parse_args('write', 'zinclude', 'zinclude.abap')
-        with patch('sap.cli.include.open', mock_open(read_data=FIXTURE_FILE_REPORT_SRC)) as m:
-            sap.cli.include.write(conn, args)
+        with patch('sap.cli.object.open', mock_open(read_data=FIXTURE_FILE_REPORT_SRC)) as m:
+            args.execute(conn, args)
 
-        m.assert_called_once_with('zinclude.abap')
+        m.assert_called_once_with('zinclude.abap', 'r')
 
         self.assertEqual(len(conn.execs), 3)
 
@@ -70,8 +66,8 @@ class TestIncludeWrite(unittest.TestCase):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
 
         args = parse_args('write', 'zinclude', 'zinclude.abap', '--corrnr', '420')
-        with patch('sap.cli.include.open', mock_open(read_data=FIXTURE_FILE_REPORT_SRC)) as m:
-            sap.cli.include.write(conn, args)
+        with patch('sap.cli.object.open', mock_open(read_data=FIXTURE_FILE_REPORT_SRC)) as m:
+            args.execute(conn, args)
 
         self.assertEqual(conn.execs[1].params['corrNr'], '420')
 
@@ -82,7 +78,7 @@ class TestIncludeActivate(unittest.TestCase):
         conn = Connection([EMPTY_RESPONSE_OK])
 
         args = parse_args('activate', 'test_activation')
-        sap.cli.include.activate(conn, args)
+        args.execute(conn, args)
 
         self.assertEqual(len(conn.execs), 1)
         self.assertIn('test_activation"', conn.execs[0].body)
@@ -91,7 +87,7 @@ class TestIncludeActivate(unittest.TestCase):
         conn = Connection([EMPTY_RESPONSE_OK])
 
         args = parse_args('activate', 'test_activation', '-m', 'MASTER_REPORT')
-        sap.cli.include.activate(conn, args)
+        args.execute(conn, args)
 
         self.assertEqual(len(conn.execs), 1)
         self.assertRegex(conn.execs[0].body, '.*adtcore:uri=[^?]*test_activation\?context=[^"]*master_report".*')
