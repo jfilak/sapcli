@@ -129,6 +129,7 @@ def parse_command_line(argv):
         help='Password')
 
     subparsers = arg_parser.add_subparsers()
+    # pylint: disable=not-an-iterable
     for connection, cmd in sap.cli.get_commands():
         cmd_args = subparsers.add_parser(cmd.name)
         cmd_args.set_defaults(command=cmd)
