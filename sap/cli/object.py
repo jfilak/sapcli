@@ -56,6 +56,8 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         write_cmd = commands.add_command(self.write_object_text, name='write')
         write_cmd.append_argument('name')
         write_cmd.append_argument('source', help='a path or - for stdin')
+        write_cmd.append_argument('-a', '--activate', action='store_true',
+                                  default=False, help='activate after write')
         write_cmd.declare_corrnr()
 
         return write_cmd
@@ -132,6 +134,9 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         with obj.open_editor(corrnr=args.corrnr) as editor:
             editor.write(''.join(text))
+
+        if args.activate:
+            sap.adt.wb.activate(obj)
 
     def activate_objects(self, connection, args):
         """Actives the given object."""

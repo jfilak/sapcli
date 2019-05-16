@@ -60,10 +60,11 @@ sapcli program create "ZHELLOWORLD" "Just a description" "$TMP"
 Change code of an executable program without activation.
 
 ```bash
-sapcli program write "ZHELLOWORLD" zhelloworld.abap [--corrnr TRANSPORT]
+sapcli program write "ZHELLOWORLD" zhelloworld.abap [--corrnr TRANSPORT] [--activate]
 ```
 
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+* _--activate_ activate after finishing the write operation
 
 ### activate
 
@@ -96,10 +97,11 @@ sapcli include create "ZHELLOWORLD_INC" "Just a description" "$TMP"
 Change code of an executable program without activation.
 
 ```bash
-sapcli include write "ZHELLOWORLD_INC" zhelloworld.abap [--corrnr TRANSPORT]
+sapcli include write "ZHELLOWORLD_INC" zhelloworld.abap [--corrnr TRANSPORT] [--activate]
 ```
 
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+* _--activate_ activate after finishing the write operation
 
 ### include activate
 
@@ -144,20 +146,22 @@ sapcli functionmodule create ZFG_PARENT Z_FUNCTION_MODULE "Class description"
 Changes main source code of the given function group.
 
 ```bash
-sapcli functiongroup write "ZFG_PARENT" zfg_parent.abap [--corrnr TRANSPORT]
+sapcli functiongroup write "ZFG_PARENT" zfg_parent.abap [--corrnr TRANSPORT] [--activate]
 ```
 
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+* _--activate_ activate after finishing the write operation
 
 ### write module
 
 Changes main source code of the given function module.
 
 ```bash
-sapcli functiongroup write "ZFG_PARENT" "Z_FUNCTION_MODULE zfg_parent.z_function_module.abap [--corrnr TRANSPORT]
+sapcli functiongroup write "ZFG_PARENT" "Z_FUNCTION_MODULE zfg_parent.z_function_module.abap [--corrnr TRANSPORT] [--activate]
 ```
 
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+* _--activate_ activate after finishing the write operation
 
 ### change attributes module
 
@@ -219,11 +223,12 @@ sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
 Changes main source code of the given class without activation
 
 ```bash
-sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap [--corrnr TRANSPORT]
+sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap [--corrnr TRANSPORT] [--activate]
 
 ```
 
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+* _--activate_ activate after finishing the write operation
 
 Changes definitions source code of the given class without activation
 
@@ -307,8 +312,11 @@ sapcli interface create ZIF_GREETER "Interface description" '$PACKAGE'
 Changes source code of the given interfaces without activation
 
 ```bash
-sapcli interface write "ZIF_GREETER" zif_greeter.abap
+sapcli interface write "ZIF_GREETER" zif_greeter.abap [--corrnr TRANSPORT] [--activate]
 ```
+
+* _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+* _--activate_ activate after finishing the write operation
 
 ### activate
 

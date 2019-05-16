@@ -73,7 +73,7 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         act_write_cmd = self.commands.get_declaration(self.group.write_object_text)
 
         self.assertEqual(act_write_cmd, exp_write_cmd)
-        self.assertEqual(len(exp_write_cmd.arguments), 3)
+        self.assertEqual(len(exp_write_cmd.arguments), 4)
 
     def test_define_activate(self):
         exp_activate_cmd = self.group.define_activate(self.commands)
@@ -225,6 +225,18 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata=None)
         self.group.new_object_mock.open_editor.assert_called_once_with(corrnr='123456')
         self.group.open_editor_mock.write.assert_called_once_with('source code')
+
+    @patch('sap.adt.wb.activate')
+    def test_write_object_text_stdin_corrnr_activate(self, fake_activate):
+        connection = MagicMock()
+
+        args = self.parse_args('write', 'myname', '-', '--corrnr', '123456', '--activate')
+
+        with patch('sys.stdin.readlines') as fake_readlines:
+            fake_readlines.return_value = 'source code'
+            args.execute(connection, args)
+
+        fake_activate.assert_called_once_with(self.group.new_object_mock)
 
     def test_activate_objects(self):
         connection = MagicMock()

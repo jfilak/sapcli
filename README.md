@@ -36,8 +36,7 @@ which is delivered as a single source ABAP program (report, SE38 thing).
 ```bash
 sapcli package create '$abapgit' 'git for ABAP by Lars'
 sapcli program create 'zabapgit' 'github.com/larshp/abapGit' '$abapgit'
-curl https://raw.githubusercontent.com/abapGit/build/master/zabapgit.abap | sapcli program write 'zabapgit' -
-sapcli program activate 'zabapgit'
+curl https://raw.githubusercontent.com/abapGit/build/master/zabapgit.abap | sapcli program write 'zabapgit' - --activate
 ```
 
 See the complete list of supported operations in [doc/commands.md](doc/commands.md)
