@@ -17,23 +17,19 @@ FIXTURE_ELEMENTARY_IFACE_XML='''<?xml version="1.0" encoding="UTF-8"?>
 </intf:abapInterface>'''
 
 
-def parse_args(argv):
-    parser = ArgumentParser()
-    sap.cli.interface.CommandGroup().install_parser(parser)
+parser = ArgumentParser()
+sap.cli.interface.CommandGroup().install_parser(parser)
+
+
+def parse_args(*argv):
     return parser.parse_args(argv)
-
-
-class TestCommandGroup(unittest.TestCase):
-
-    def test_constructor(self):
-        sap.cli.interface.CommandGroup()
 
 
 class TestInterfaceCreate(unittest.TestCase):
 
     def test_interface_create_defaults(self):
         connection = Connection([EMPTY_RESPONSE_OK])
-        args = parse_args(['create', 'ZIF_HELLO_WORLD', 'Interface Description', '$THE_PACKAGE'])
+        args = parse_args('create', 'ZIF_HELLO_WORLD', 'Interface Description', '$THE_PACKAGE')
         args.execute(connection, args)
 
         self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/oo/interfaces')])
@@ -51,7 +47,7 @@ class TestInterfaceActivate(unittest.TestCase):
 
     def test_interface_activate_defaults(self):
         connection = Connection([EMPTY_RESPONSE_OK])
-        args = parse_args(['activate', 'ZIF_ACTIVATOR'])
+        args = parse_args('activate', 'ZIF_ACTIVATOR')
         args.execute(connection, args)
 
         self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/activation')])
@@ -64,7 +60,7 @@ class TestInterfaceActivate(unittest.TestCase):
 class TestInterfaceWrite(unittest.TestCase):
 
     def test_interface_read_from_stdin(self):
-        args = parse_args(['write', 'ZIF_WRITER', '-'])
+        args = parse_args('write', 'ZIF_WRITER', '-')
 
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
 
@@ -78,12 +74,12 @@ class TestInterfaceWrite(unittest.TestCase):
 
     def test_interface_read_from_file(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
-        args = parse_args(['write', 'ZIF_WRITER', 'zif_iface.abap'])
+        args = parse_args('write', 'ZIF_WRITER', 'zif_iface.abap')
 
-        with patch('sap.cli.interface.open', mock_open(read_data='iface file definition')) as m:
+        with patch('sap.cli.object.open', mock_open(read_data='iface file definition')) as m:
             args.execute(conn, args)
 
-        m.assert_called_once_with('zif_iface.abap')
+        m.assert_called_once_with('zif_iface.abap', 'r')
 
         self.assertEqual(len(conn.execs), 3)
 

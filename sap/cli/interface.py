@@ -1,12 +1,10 @@
 """ADT proxy for ABAP Interface (OO)"""
 
-import sys
 import sap.adt
-import sap.adt.wb
-import sap.cli.core
+import sap.cli.object
 
 
-class CommandGroup(sap.cli.core.CommandGroup):
+class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
     """Adapter converting command line parameters to sap.adt.Interface methods
        calls.
     """
@@ -14,55 +12,11 @@ class CommandGroup(sap.cli.core.CommandGroup):
     def __init__(self):
         super(CommandGroup, self).__init__('interface')
 
+        self.define()
 
-@CommandGroup.argument('name')
-@CommandGroup.command()
-def read(connection, args):
-    """Prints it out based on command line configuration.
-    """
+    def instance(self, connection, name, args, metadata=None):
+        package = None
+        if hasattr(args, 'package'):
+            package = args.package
 
-    cls = sap.adt.Interface(connection, args.name)
-    print(cls.text)
-
-
-@CommandGroup.argument('package')
-@CommandGroup.argument('description')
-@CommandGroup.argument('name')
-@CommandGroup.command()
-def create(connection, args):
-    """Creates the requested interface"""
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
-    iface = sap.adt.Interface(connection, args.name.upper(), package=args.package.upper(), metadata=metadata)
-    iface.description = args.description
-    iface.create()
-
-
-@CommandGroup.argument('source', help='a path or - for stdin')
-@CommandGroup.argument('name')
-@CommandGroup.command()
-def write(connection, args):
-    """Changes main source code of the given interface"""
-
-    text = None
-
-    if args.source == '-':
-        text = sys.stdin.readlines()
-    else:
-        with open(args.source) as filesrc:
-            text = filesrc.readlines()
-
-    iface = sap.adt.Interface(connection, args.name.upper())
-
-    with iface.open_editor() as editor:
-        editor.write(''.join(text))
-
-
-@CommandGroup.argument('name')
-@CommandGroup.command()
-def activate(connection, args):
-    """Activates the given interface.
-    """
-
-    iface = sap.adt.Interface(connection, args.name)
-    sap.adt.wb.activate(iface)
+        return sap.adt.Interface(connection, name, package=package, metadata=metadata)
