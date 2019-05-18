@@ -1,5 +1,7 @@
 """ADT proxy for ABAP Functions"""
 
+import os
+
 import sap.adt
 import sap.cli.object
 
@@ -33,6 +35,18 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
 
     def instance(self, connection, name, args, metadata=None):
         return sap.adt.FunctionModule(connection, name, args.group, metadata=metadata)
+
+    def instance_from_file_path(self, connection, filepath, args, metadata=None):
+        basename = os.path.basename(filepath)
+        parts = basename.split('.', 3)
+
+        if len(parts) < 4 or not parts[0] or parts[1].lower() != 'fugr' or not parts[2] or parts[3].lower() != 'abap':
+            raise sap.cli.core.InvalidCommandLineError(
+                f'"{basename}" does not match the pattern FUNCTIONGROUP.fugr.FUNCTIONMODULE.abap')
+
+        group = parts[0]
+        name = parts[2]
+        return sap.adt.FunctionModule(connection, name, group, metadata=metadata)
 
     def define_create(self, commands):
         create_cmd = super(CommandGroupFunctionModule, self).define_create(commands)

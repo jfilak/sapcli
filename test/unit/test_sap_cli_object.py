@@ -27,6 +27,7 @@ class DummyADTObjectCommandGroup(sap.cli.object.CommandGroupObjectTemplate):
         self.open_editor_mock.__enter__.return_value = self.open_editor_mock
 
         self.new_object_mock = MagicMock()
+        self.new_object_mock.name = 0
         self.new_object_mock.open_editor = Mock()
         self.new_object_mock.open_editor.return_value = self.open_editor_mock
 
@@ -40,6 +41,7 @@ class DummyADTObjectCommandGroup(sap.cli.object.CommandGroupObjectTemplate):
     def instance(self, connection, name, args, metadata=None):
         """Returns new instance of the ADT Object proxy class"""
 
+        self.new_object_mock.name = name
         return self.instace_mock(connection, name, args, metadata=metadata)
 
     def build_new_metadata(self, connection, args):
@@ -186,7 +188,7 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         args = self.parse_args('write', 'myname', '-')
 
         self.assertEqual(args.name, 'myname')
-        self.assertEqual(args.source, '-')
+        self.assertEqual(args.source, ['-'])
         self.assertEqual(args.corrnr, None)
         self.assertEqual(args.execute, self.group.write_object_text)
 
@@ -203,13 +205,26 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
         args = self.parse_args('write', 'myname', 'source.abap')
 
-        self.assertEqual(args.source, 'source.abap')
+        self.assertEqual(args.source, ['source.abap'])
 
         with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
             args.execute(connection, args)
 
         self.assertEqual(fake_open.call_args_list, [call('source.abap', 'r')])
         self.group.open_editor_mock.write.assert_called_once_with('source code')
+
+    def test_write_object_name_from_file(self):
+        connection = MagicMock()
+
+        args = self.parse_args('write', '-', 'objname.abap')
+
+        self.assertEqual(args.source, ['objname.abap'])
+
+        with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
+            args.execute(connection, args)
+
+        self.group.instace_mock.assert_called_once_with(connection, 'objname', args, metadata=None)
+        self.assertEqual(fake_open.call_args_list, [call('objname.abap', 'r')])
 
     def test_write_object_text_stdin_corrnr(self):
         connection = MagicMock()
@@ -237,6 +252,17 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
             args.execute(connection, args)
 
         fake_activate.assert_called_once_with(self.group.new_object_mock)
+
+    @patch('sap.adt.wb.activate')
+    def test_write_object_text_name_from_files_activate(self, fake_activate):
+        connection = MagicMock()
+
+        args = self.parse_args('write', '-', 'z_one.abap', 'z_one.incl.abap', 'z_two.abap', '--corrnr', '123456', '--activate')
+
+        with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
+            args.execute(connection, args)
+
+        self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock), call(self.group.new_object_mock)])
 
     def test_activate_objects(self):
         connection = MagicMock()
@@ -329,6 +355,132 @@ class TestCommandGroupObjectMaster(unittest.TestCase):
         fake_metadata.assert_called_once_with(connection, args)
         self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata='mock')
         self.group.new_object_mock.create.assert_called_once_with(corrnr=None)
+
+
+class TestObjNameFromSourceFile(unittest.TestCase):
+
+    def test_empty_string(self):
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            sap.cli.object.object_name_from_source_file('')
+
+        self.assertEqual('"" does not match the pattern NAME.SUFFIX', str(caught.exception))
+
+    def test_no_dot(self):
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            sap.cli.object.object_name_from_source_file('foo')
+
+        self.assertEqual('"foo" does not match the pattern NAME.SUFFIX', str(caught.exception))
+
+    def test_single_dot(self):
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            sap.cli.object.object_name_from_source_file('.')
+
+        self.assertEqual('"." does not match the pattern NAME.SUFFIX', str(caught.exception))
+
+    def test_empty_suffix(self):
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            sap.cli.object.object_name_from_source_file('foo.')
+
+        self.assertEqual('"foo." does not match the pattern NAME.SUFFIX', str(caught.exception))
+
+    def test_empty_name(self):
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            sap.cli.object.object_name_from_source_file('.foo')
+
+        self.assertEqual('".foo" does not match the pattern NAME.SUFFIX', str(caught.exception))
+
+    def test_valid_filename(self):
+        name, suffix = sap.cli.object.object_name_from_source_file('foo.bar.blah')
+
+        self.assertEqual(name, 'foo')
+        self.assertEqual(suffix, 'bar.blah')
+
+    def test_valid_path_withdirectory(self):
+        name, suffix = sap.cli.object.object_name_from_source_file('./src/foo.bar.blah')
+
+        self.assertEqual(name, 'foo')
+        self.assertEqual(suffix, 'bar.blah')
+
+
+class TestWriteArgsToObjects(unittest.TestCase):
+
+    def test_name_with_several_files(self):
+        command = MagicMock()
+        connection = MagicMock()
+        args = MagicMock()
+        args.name = 'zabap_object'
+        args.source = ['zabap_object.abap', 'accidental_file.abap']
+
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            objects = [obj_text for obj_text in sap.cli.object.write_args_to_objects(command, connection, args, metadata='metadata')]
+
+        self.assertEqual('Source file can be a list only when Object name is -', str(caught.exception))
+
+    def test_name_with_stdin(self):
+        command = MagicMock()
+        command.instance = Mock()
+        command.instance.return_value = 'instance'
+
+        connection = MagicMock()
+        args = MagicMock()
+        args.name = 'zabap_object'
+        args.source = ['-']
+
+        with patch('sys.stdin.readlines') as fake_readlines:
+            fake_readlines.return_value = ['source code']
+            objects = [obj_text for obj_text in sap.cli.object.write_args_to_objects(command, connection, args, metadata='metadata')]
+
+        fake_readlines.assert_called_once()
+        command.instance.assert_called_once_with(connection, 'zabap_object', args, metadata='metadata')
+        self.assertEqual([('instance', ['source code'])], objects)
+
+    def test_name_with_file(self):
+        command = MagicMock()
+        command.instance = Mock()
+        command.instance.return_value = 'instance'
+
+        connection = MagicMock()
+        args = MagicMock()
+        args.name = 'zabap_object'
+        args.source = ['zabap_object.abap']
+
+        with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
+            objects = [obj_text for obj_text in sap.cli.object.write_args_to_objects(command, connection, args, metadata='metadata')]
+
+        fake_open.assert_called_once_with('zabap_object.abap', 'r')
+        command.instance.assert_called_once_with(connection, 'zabap_object', args, metadata='metadata')
+        self.assertEqual([('instance', ['source code'])], objects)
+
+    def test_name_dash_file_dash(self):
+        command = MagicMock()
+        connection = MagicMock()
+        args = MagicMock()
+        args.name = '-'
+        args.source = ['-']
+
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            objects = [obj_text for obj_text in sap.cli.object.write_args_to_objects(command, connection, args, metadata='metadata')]
+
+        self.assertEqual('Source file cannot be - when Object name is - too', str(caught.exception))
+
+    def test_name_with_2_file(self):
+        command = MagicMock()
+        command.instance_from_file_path = Mock()
+        command.instance_from_file_path.return_value = 'instance'
+
+        connection = MagicMock()
+        args = MagicMock()
+        args.name = '-'
+        args.source = ['zabap_object.abap', 'zanother_object.abap']
+
+        with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
+            objects = [obj_text for obj_text in sap.cli.object.write_args_to_objects(command, connection, args, metadata='metadata')]
+
+        self.assertEqual(fake_open.call_args_list, [call('zabap_object.abap', 'r'), call('zanother_object.abap', 'r')])
+        self.assertEqual(command.instance_from_file_path.call_args_list, [call(connection, 'zabap_object.abap', args, metadata='metadata'),
+                                                                          call(connection, 'zanother_object.abap', args, metadata='metadata')])
+        self.assertEqual(objects, [('instance', ['source code']),
+                                   ('instance', ['source code'])])
 
 
 if __name__ == '__main__':

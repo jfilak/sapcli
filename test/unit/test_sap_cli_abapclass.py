@@ -96,6 +96,27 @@ class TestClassWrite(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(conn.execs[1][3], 'class file definition')
 
+    def test_class_read_from_file_with_name(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        args = parse_args(['write', '-', 'zcl_class.clas.abap'])
+
+        with patch('sap.cli.object.open', mock_open(read_data='class file definition')) as m:
+            args.execute(conn, args)
+
+        m.assert_called_once_with('zcl_class.clas.abap', 'r')
+
+        self.assertEqual(len(conn.execs), 3)
+        self.assertEqual(conn.execs[1].adt_uri, '/sap/bc/adt/oo/classes/zcl_class/source/main')
+
+    def test_class_unsupported_file_extension(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        args = parse_args(['write', '-', 'zreport.prog.abap'])
+
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            args.execute(conn, args)
+
+        self.assertEqual(str(caught.exception), 'Unknown class file name suffix: "prog.abap"')
+
     def test_class_write_with_corrnr(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
         args = parse_args(['write', 'ZCL_WRITER', 'zcl_class.abap', '--corrnr', '420'])
@@ -150,6 +171,33 @@ class TestClassIncludes(unittest.TestCase):
 
     def test_class_write_tests(self):
         self.write_test('testclasses')
+
+    def write_test_file_name(self, typ):
+        exts = {
+            'definitions': 'locals_def',
+            'testclasses': 'testclasses',
+            'implementations': 'locals_imp' }
+
+
+        args = parse_args(['write', '-', f'zcl_writer.clas.{exts[typ]}.abap'])
+
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+
+        with patch('sap.cli.object.open', mock_open(read_data='* new content')):
+            args.execute(conn, args)
+
+        self.assertEqual(len(conn.execs), 3)
+
+        self.assertEqual(conn.execs[1].adt_uri, f'/sap/bc/adt/oo/classes/zcl_writer/includes/{typ}')
+
+    def test_class_write_definitions_file_name(self):
+        self.write_test_file_name('definitions')
+
+    def test_class_write_implementations_file_name(self):
+        self.write_test_file_name('implementations')
+
+    def test_class_write_tests_file_name(self):
+        self.write_test_file_name('testclasses')
 
 
 class TestClassAttributes(unittest.TestCase):

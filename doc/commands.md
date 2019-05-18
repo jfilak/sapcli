@@ -59,10 +59,12 @@ sapcli program create "ZHELLOWORLD" "Just a description" "$TMP"
 
 Change code of an executable program without activation.
 
-```bash
-sapcli program write "ZHELLOWORLD" zhelloworld.abap [--corrnr TRANSPORT] [--activate]
+```
+sapcli program write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
 ```
 
+* _OBJECT\_NAME_ either program name or - when it should be deduced from FILE\_PATH
+* _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
 
@@ -96,10 +98,12 @@ sapcli include create "ZHELLOWORLD_INC" "Just a description" "$TMP"
 
 Change code of an executable program without activation.
 
-```bash
-sapcli include write "ZHELLOWORLD_INC" zhelloworld.abap [--corrnr TRANSPORT] [--activate]
+```
+sapcli include write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
 ```
 
+* _OBJECT\_NAME_ either include name or - when it should be deduced from FILE\_PATH
+* _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
 
@@ -145,10 +149,12 @@ sapcli functionmodule create ZFG_PARENT Z_FUNCTION_MODULE "Class description"
 
 Changes main source code of the given function group.
 
-```bash
-sapcli functiongroup write "ZFG_PARENT" zfg_parent.abap [--corrnr TRANSPORT] [--activate]
+```
+sapcli functiongroup write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
 ```
 
+* _OBJECT\_NAME_ either function group name or - when it should be deduced from FILE\_PATH
+* _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
 
@@ -156,10 +162,13 @@ sapcli functiongroup write "ZFG_PARENT" zfg_parent.abap [--corrnr TRANSPORT] [--
 
 Changes main source code of the given function module.
 
-```bash
-sapcli functiongroup write "ZFG_PARENT" "Z_FUNCTION_MODULE zfg_parent.z_function_module.abap [--corrnr TRANSPORT] [--activate]
+```
+sapcli functiongroup write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
 ```
 
+* _GROUP\_NAME_ either function group name or - when it should be deduced from FILE\_PATH
+* _OBJECT\_NAME_ either founction module name or - when it should be deduced from FILE\_PATH
+* _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
 
@@ -222,11 +231,13 @@ sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
 
 Changes main source code of the given class without activation
 
-```bash
-sapcli class write "ZCL_HELLOWORLD" zcl_helloworld.abap [--corrnr TRANSPORT] [--activate]
+```
+sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
 
 ```
 
+* _OBJECT\_NAME_ either class name or - when it should be deduced from FILE\_PATH
+* _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
 
@@ -311,10 +322,12 @@ sapcli interface create ZIF_GREETER "Interface description" '$PACKAGE'
 
 Changes source code of the given interfaces without activation
 
-```bash
-sapcli interface write "ZIF_GREETER" zif_greeter.abap [--corrnr TRANSPORT] [--activate]
+```
+sapcli interface write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
 ```
 
+* _OBJECT\_NAME_ either interface name or - when it should be deduced from FILE\_PATH
+* _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
 

@@ -3,6 +3,13 @@
 from sap.errors import SAPCliError
 
 
+class InvalidCommandLineError(SAPCliError):
+    """Exception type for wrong command line parameters"""
+
+    # pylint: disable=unnecessary-pass
+    pass
+
+
 class CommandDeclaration:
     """Command forward declaration"""
 

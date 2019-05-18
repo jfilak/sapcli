@@ -704,6 +704,12 @@ class Class(OOADTObjectBase):
             self._metadata = metadata
 
         @property
+        def name(self):
+            """Returns parent's Name for Class's writing multiple files"""
+
+            return self._clas.name
+
+        @property
         def uri(self):
             """Returns parent's URI for Class's open_editor()"""
 

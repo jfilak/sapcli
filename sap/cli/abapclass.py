@@ -8,6 +8,36 @@ import sap.cli.object
 
 SOURCE_TYPES = ['main', 'definitions', 'implementations', 'testclasses']
 
+FILE_NAME_SUFFIX_TYPES = {
+    'clas.abap': None,
+    'clas.locals_def.abap': 'definitions',
+    'clas.testclasses.abap': 'testclasses',
+    'clas.locals_imp.abap': 'implementations'
+}
+
+
+def instance_from_args(connection, name, typ, args, metadata):
+    """Converts command line arguments to an instance of an ADT class
+       based on the given typ.
+    """
+
+    package = None
+    if hasattr(args, 'package'):
+        package = args.package
+
+    clas = sap.adt.Class(connection, name, package=package, metadata=metadata)
+
+    if typ == 'definitions':
+        return clas.definitions
+
+    if typ == 'implementations':
+        return clas.implementations
+
+    if typ == 'testclasses':
+        return clas.test_classes
+
+    return clas
+
 
 class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
     """Commands for Class"""
@@ -18,25 +48,21 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         self.define()
 
     def instance(self, connection, name, args, metadata=None):
-        package = None
-        if hasattr(args, 'package'):
-            package = args.package
+        typ = None
+        if hasattr(args, 'type'):
+            typ = args.type
 
-        clas = sap.adt.Class(connection, name, package=package, metadata=metadata)
+        return instance_from_args(connection, name, typ, args, metadata)
 
-        if not hasattr(args, 'type'):
-            return clas
+    def instance_from_file_path(self, connection, filepath, args, metadata=None):
+        name, suffix = sap.cli.object.object_name_from_source_file(filepath)
 
-        if args.type == 'definitions':
-            return clas.definitions
+        try:
+            typ = FILE_NAME_SUFFIX_TYPES[suffix]
+        except KeyError:
+            raise sap.cli.core.InvalidCommandLineError(f'Unknown class file name suffix: "{suffix}"')
 
-        if args.type == 'implementations':
-            return clas.implementations
-
-        if args.type == 'testclasses':
-            return clas.test_classes
-
-        return clas
+        return instance_from_args(connection, name, typ, args, metadata)
 
     def define_read(self, commands):
         read_cmd = super(CommandGroup, self).define_read(commands)

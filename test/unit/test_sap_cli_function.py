@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser
 import unittest
-from unittest.mock import call, patch, Mock, PropertyMock
+from unittest.mock import call, patch, Mock, PropertyMock, MagicMock, mock_open
 from io import StringIO
 
 import sap.cli.function
@@ -73,6 +73,44 @@ class TestFunctionModuleCreate(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(post_req.body, CREATE_FUNCTION_MODULE_ADT_XML)
+
+
+class TestFunctionModuleWrite(unittest.TestCase):
+
+    def assert_raises_for_invalid_file_name(self, invalid_name, basename=None):
+        connection = MagicMock()
+
+        args = fm_parse_args('write', '-', '-', invalid_name)
+
+        with self.assertRaises(sap.cli.core.InvalidCommandLineError) as caught:
+            args.execute(connection, args)
+
+        basename = basename if basename is not None else invalid_name
+
+        self.assertEqual(str(caught.exception),
+                         f'"{basename}" does not match the pattern FUNCTIONGROUP.fugr.FUNCTIONMODULE.abap')
+
+    def test_write_name_from_invalid_file_name(self):
+        self.assert_raises_for_invalid_file_name('')
+        self.assert_raises_for_invalid_file_name('.')
+        self.assert_raises_for_invalid_file_name('.fugr.module.abap')
+        self.assert_raises_for_invalid_file_name('group..module.abap')
+        self.assert_raises_for_invalid_file_name('group.fugr.module.txt')
+        self.assert_raises_for_invalid_file_name('group.fugr..abap')
+
+    def test_write_name_from_valid_file_name(self):
+        connection = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+
+        args = fm_parse_args('write', '-', '-', './src/zfg_hello_world.fugr.z_fn_hello_world.abap')
+        with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
+            args.execute(connection, args)
+
+        fake_open.assert_called_once_with('./src/zfg_hello_world.fugr.z_fn_hello_world.abap', 'r')
+
+        self.assertEqual([(e.method, e.adt_uri) for e in connection.execs],
+                          [('POST', '/sap/bc/adt/functions/groups/zfg_hello_world/fmodules/z_fn_hello_world'),
+                           ('PUT', '/sap/bc/adt/functions/groups/zfg_hello_world/fmodules/z_fn_hello_world/source/main'),
+                           ('POST', '/sap/bc/adt/functions/groups/zfg_hello_world/fmodules/z_fn_hello_world')])
 
 
 class TestFunctionModuleChattr(unittest.TestCase):
