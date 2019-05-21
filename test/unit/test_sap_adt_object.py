@@ -29,6 +29,11 @@ class TestADTObject(unittest.TestCase):
 
         self.assertEquals(victory.uri, 'awesome/success/noobject')
 
+    def test_str(self):
+        victory = DummyADTObject(name='objname')
+
+        self.assertEquals(str(victory), 'DUMMY/S objname')
+
     def test_lock_modify_ok(self):
         connection = Connection([LOCK_RESPONSE_OK, LOCK_RESPONSE_OK])
 

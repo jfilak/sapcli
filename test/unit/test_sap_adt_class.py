@@ -31,9 +31,9 @@ class TestADTClass(unittest.TestCase):
         conn = Connection()
 
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', master_system='NPL', responsible='FILAK')
-        program = sap.adt.Class(conn, 'ZCL_HELLO_WORLD', package='$TEST', metadata=metadata)
-        program.description = 'Say hello!'
-        program.create()
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD', package='$TEST', metadata=metadata)
+        clas.description = 'Say hello!'
+        clas.create()
 
         self.assertEqual(len(conn.execs), 1)
 
@@ -42,6 +42,11 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.oo.classes.v2+xml'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], CREATE_CLASS_ADT_XML)
+
+        self.assertEqual('CLAS/OC ZCL_HELLO_WORLD', str(clas))
+        self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/definitions', str(clas.definitions))
+        self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/implementations', str(clas.implementations))
+        self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/testclasses', str(clas.test_classes))
 
     def test_adt_class_write(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])

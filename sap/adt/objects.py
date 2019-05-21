@@ -293,6 +293,9 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         self._actions = None
 
+    def __str__(self):
+        return f'{self.objtype.code} {self.name}'
+
     @property
     def coredata(self):
         """ADT Core Data"""
@@ -695,13 +698,21 @@ class Class(OOADTObjectBase):
     class Include(metaclass=OrderedClassMembers):
         """Class includes"""
 
-        DefinitionsMetadata = ClassIncludeMetadata('CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/definitions')
-        ImplementationsMetadata = ClassIncludeMetadata('CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/implementations')
-        TestClassesMetadata = ClassIncludeMetadata('CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/testclasses')
+        DefinitionsMetadata = ClassIncludeMetadata(
+            'CLAS/OC', 'CLAS/OC', 'definitions', '/includes/definitions')
+
+        ImplementationsMetadata = ClassIncludeMetadata(
+            'CLAS/OC', 'CLAS/OC', 'implementations', '/includes/implementations')
+
+        TestClassesMetadata = ClassIncludeMetadata(
+            'CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/testclasses')
 
         def __init__(self, clas, metadata):
             self._clas = clas
             self._metadata = metadata
+
+        def __str__(self):
+            return str(self._clas) + f'/{self._metadata.include_type}'
 
         @property
         def name(self):
