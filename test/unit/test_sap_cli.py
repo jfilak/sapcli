@@ -1,7 +1,9 @@
 #!/bin/python
 
 import unittest
+from unittest.mock import patch, MagicMock
 
+import sap.cli
 import sap.cli.core
 
 
@@ -20,6 +22,32 @@ class TestModule(unittest.TestCase):
 
             self.assertIsInstance(cmd[1], sap.cli.core.CommandGroup,
                 msg='The second item should be of a command group - Command: ' + str(idx))
+
+
+class TestPrinting(unittest.TestCase):
+
+    def test_get_console_returns_global(self):
+        self.assertEqual(sap.cli.get_console(), sap.cli._CONSOLE)
+        self.assertIsNotNone(sap.cli.get_console())
+
+    def test_printout_sanity(self):
+        console = MagicMock()
+
+        with patch('sap.cli.get_console') as fake_get_console:
+            fake_get_console.return_value = console
+
+            sap.cli.printout('a', 'b', sep=':', end='$')
+
+        fake_get_console.assert_called_once_with()
+        console.printout.assert_called_once_with('a', 'b', sep=':', end='$')
+
+    def test_printconsole_sanity(self):
+        console = sap.cli.PrintConsole()
+
+        with patch('sap.cli.print') as fake_print:
+            console.printout('a', 'b', sep=':', end='$')
+
+        fake_print.assert_called_once_with('a', 'b', sep=':', end='$')
 
 
 if __name__ == '__main__':

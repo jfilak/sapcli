@@ -11,7 +11,7 @@ import logging
 
 
 def get_logger():
-    """Returns the common logger object"""
+    """Returns the common logger object. Don't use for standard output"""
 
     return logging.getLogger()
 
