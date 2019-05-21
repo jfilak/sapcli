@@ -197,20 +197,32 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         toactivate = collections.OrderedDict()
 
+        sap.cli.printout('Writing:')
+
         for obj, text in write_args_to_objects(self, connection, args):
+            sap.cli.printout('*', str(obj))
+
             with obj.open_editor(corrnr=args.corrnr) as editor:
                 editor.write(''.join(text))
 
             toactivate[obj.name] = obj
 
         if args.activate:
-            for obj in toactivate.values():
+            sap.cli.printout('Activating:')
+
+            for name, obj in toactivate.items():
+                sap.cli.printout('*', name)
+
                 sap.adt.wb.activate(obj)
 
     def activate_objects(self, connection, args):
         """Actives the given object."""
 
+        sap.cli.printout('Activating:')
+
         for name in args.name:
+            sap.cli.printout('*', name)
+
             obj = self.instance(connection, name, args)
             sap.adt.wb.activate(obj)
 

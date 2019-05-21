@@ -30,6 +30,7 @@ class DummyADTObjectCommandGroup(sap.cli.object.CommandGroupObjectTemplate):
         self.new_object_mock.name = 0
         self.new_object_mock.open_editor = Mock()
         self.new_object_mock.open_editor.return_value = self.open_editor_mock
+        self.new_object_mock.__str__ = lambda obj: f'str({obj.name})'
 
         self.instace_mock = MagicMock()
         self.instace_mock.return_value = self.new_object_mock
@@ -259,17 +260,39 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
         args = self.parse_args('write', '-', 'z_one.abap', 'z_one.incl.abap', 'z_two.abap', '--corrnr', '123456', '--activate')
 
-        with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
+        with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open, \
+             patch('sap.cli.printout') as fake_printout:
             args.execute(connection, args)
 
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock), call(self.group.new_object_mock)])
+
+        exp = [call('Writing:'),
+               call('*', 'str(z_one)'),
+               call('*', 'str(z_one)'),
+               call('*', 'str(z_two)'),
+               call('Activating:'),
+               call('*', 'z_one'),
+               call('*', 'z_two')]
+
+        self.assertEqual(fake_printout.call_args_list, exp)
+
+        for i, cl in enumerate(fake_printout.call_args_list):
+            if i >= len(exp):
+                self.fail('Redundant:\n' + str(fake_printout.call_args_list[i:]))
+
+            self.assertEqual(fake_printout.call_args_list[i], exp[i], msg=f'Pos={i}')
+
+        if not i + 1 == len(exp):
+            self.fail(f'Missing: \n' + str(exp[i:]))
+
 
     def test_activate_objects(self):
         connection = MagicMock()
 
         args = self.parse_args('activate', 'myname', 'anothername')
 
-        with patch('sap.adt.wb.activate') as fake_activate:
+        with patch('sap.adt.wb.activate') as fake_activate, \
+             patch('sap.cli.printout') as fake_printout:
             args.execute(connection, args)
 
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock),
@@ -277,6 +300,12 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
         self.assertEqual(self.group.instace_mock.call_args_list, [call(connection, 'myname', args, metadata=None),
                                                                   call(connection, 'anothername', args, metadata=None)])
+
+        exp = [call('Activating:'),
+               call('*', 'myname'),
+               call('*', 'anothername')]
+
+        self.assertEqual(fake_printout.call_args_list, exp)
 
 
 class MasterDummyADTObjectCommandGroup(sap.cli.object.CommandGroupObjectMaster):
