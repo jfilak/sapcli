@@ -716,6 +716,12 @@ class Class(OOADTObjectBase):
             return self._clas.uri
 
         @property
+        def full_adt_uri(self):
+            """Returns parent's URI for Class's sap.adt.wb.activate()"""
+
+            return self._clas.full_adt_uri
+
+        @property
         def connection(self):
             """Returns parent's connection for Class's open_editor()"""
 

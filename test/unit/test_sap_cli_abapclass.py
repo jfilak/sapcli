@@ -199,6 +199,33 @@ class TestClassIncludes(unittest.TestCase):
     def test_class_write_tests_file_name(self):
         self.write_test_file_name('testclasses')
 
+    def write_test_with_activation(self, typ):
+        args = parse_args(['write', 'ZCL_WRITER', '--type', typ, '-', '--activate'])
+
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+
+        with patch('sys.stdin', StringIO('* new content')):
+            args.execute(conn, args)
+
+        self.assertEqual(conn.mock_methods(),
+                         [('POST', f'/sap/bc/adt/oo/classes/zcl_writer'),
+                          ('PUT', f'/sap/bc/adt/oo/classes/zcl_writer/includes/{typ}'),
+                          ('POST', f'/sap/bc/adt/oo/classes/zcl_writer'),
+                          ('POST', f'/sap/bc/adt/activation')])
+
+        activate_request = conn.execs[3]
+        self.assertIn('adtcore:uri="/sap/bc/adt/oo/classes/zcl_writer"', activate_request.body)
+        self.assertIn('adtcore:name="ZCL_WRITER"', activate_request.body)
+
+    def test_class_write_definitions_activate(self):
+        self.write_test_with_activation('definitions')
+
+    def test_class_write_implementations_activate(self):
+        self.write_test_with_activation('implementations')
+
+    def test_class_write_tests_activate(self):
+        self.write_test_with_activation('testclasses')
+
 
 class TestClassAttributes(unittest.TestCase):
 

@@ -129,6 +129,28 @@ class TestADTClass(unittest.TestCase):
     def test_adt_class_write_tests(self):
         self.include_write_test(lambda clas: clas.test_classes, 'includes/testclasses')
 
+    def include_activate_test(self, getter, includes_uri):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        sap.adt.wb.activate(getter(clas))
+
+        post_request = conn.execs[0]
+        self.assertEqual(post_request.method, 'POST')
+        self.assertEqual(post_request.adt_uri, '/sap/bc/adt/activation')
+
+        self.assertIn('<adtcore:objectReference adtcore:uri="/sap/bc/adt/oo/classes/zcl_hello_world" adtcore:name="ZCL_HELLO_WORLD"/>',
+                      post_request.body)
+
+    def test_adt_class_activate_definitions(self):
+        self.include_activate_test(lambda clas: clas.definitions, 'includes/definitions')
+
+    def test_adt_class_activate_implementations(self):
+        self.include_activate_test(lambda clas: clas.implementations, 'includes/implementations')
+
+    def test_adt_class_activate_tests(self):
+        self.include_activate_test(lambda clas: clas.test_classes, 'includes/testclasses')
+
     def test_adt_class_fetch(self):
         conn = Connection([Response(text=GET_CLASS_ADT_XML, status_code=200, headers={})])
         clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
