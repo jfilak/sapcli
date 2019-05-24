@@ -98,10 +98,11 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(mock_print.call_args_list[15], call('*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[16], call('ZEXAMPLE_TESTS=>LTCL_TEST=>DO_THE_FAIL', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[17], call('*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[18], call('', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[19], call('Successful: 3', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[20], call('Tolerable:  0', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[21], call('Critical:   3', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[18], call('*  [critical] [failedAssertion] - Error<LOAD_PROGRAM_CLASS_MISMATCH>', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[19], call('', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[20], call('Successful: 3', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[21], call('Tolerable:  0', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[22], call('Critical:   3', file=sys.stdout))
 
     def test_aunit_package_with_results_raw(self):
         connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
@@ -157,6 +158,7 @@ class TestAUnitWrite(unittest.TestCase):
         <system-err>Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)</system-err>
         <system-err>Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</system-err>
       </error>
+      <error type="failedAssertion" message="Error&lt;LOAD_PROGRAM_CLASS_MISMATCH&gt;"/>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>

@@ -71,6 +71,9 @@ AUNIT_RESULTS_XML = '''<?xml version="1.0" encoding="utf-8"?>
                   <stackEntry adtcore:uri="/sap/bc/adt/programs/programs/zexample_tests/source/main#start=24,0" adtcore:type="PROG/P" adtcore:name="ZEXAMPLE_TESTS" adtcore:description="Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)"/>
                 </stack>
               </alert>
+              <alert kind="failedAssertion" severity="critical">
+                <title>Error&lt;LOAD_PROGRAM_CLASS_MISMATCH&gt;</title>
+              </alert>
             </alerts>
           </testMethod>
           <testMethod adtcore:uri="/sap/bc/adt/programs/programs/zexample_tests/source/main#type=PROG%2FPLM;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_TEST" adtcore:type="PROG/OLI" adtcore:name="DO_THE_TEST" executionTime="0" uriType="semantic" navigationUri="/sap/bc/adt/programs/programs/zexample_tests/source/main#type=PROG%2FPLM;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_TEST" unit="s"/>
