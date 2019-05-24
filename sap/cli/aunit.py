@@ -93,7 +93,8 @@ tests="{len(test_class.test_methods)}"', file=stream, end='')
                 else:
                     status = 'OK'
 
-                print(f'    <testcase name="{escape(test_method.name)}" classname="{escape(test_class.name)}" status="{escape(status)}"',
+                print(f'    <testcase name="{escape(test_method.name)}" classname="{escape(test_class.name)}" \
+status="{escape(status)}"',
                       file=stream, end='')
 
                 if not test_method.alerts:
@@ -103,7 +104,8 @@ tests="{len(test_class.test_methods)}"', file=stream, end='')
                 print('>', file=stream)
 
                 for alert in test_method.alerts:
-                    print(f'      <error type="{escape(alert.kind)}" message="{escape(alert.title)}"', file=stream, end='')
+                    print(f'      <error type="{escape(alert.kind)}" message="{escape(alert.title)}"',
+                          file=stream, end='')
                     if not alert.details and not alert.stack:
                         print('/>', file=stream)
                         continue
