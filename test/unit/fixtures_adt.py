@@ -11,6 +11,17 @@ LOCK_RESPONSE_OK = Response(text='<sap><LOCK_HANDLE>win</LOCK_HANDLE></sap>',
                             status_code=200,
                             headers={'Content-Type': 'dataname=com.sap.adt.lock.Result'})
 
+def post_exec(adt_uri):
+    """Generates POST mock.Connection method"""
+    return ('POST', adt_uri)
+
+def put_exec(adt_uri):
+    """Generates PUT mock.Connection method"""
+    return ('PUT', adt_uri)
+
+lock_exec = post_exec
+unlock_exec = post_exec
+
 DEFINITIONS_READ_RESPONSE_OK = Response(text='* definitions',
                                          status_code=200,
                                          headers={'Content-Type': 'text/plain; charset=utf-8'})

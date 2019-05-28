@@ -168,7 +168,10 @@ class ADTCoreData:
         """ADT Reference by Name"""
 
         def __init__(self, name=None):
-            self._name = name
+            # Define
+            self._name = None
+            # And Set
+            self.name = name
 
         @xml_attribute('adtcore:name')
         def name(self):
@@ -180,7 +183,8 @@ class ADTCoreData:
         def name(self, value):
             """Sets reference name"""
 
-            self._name = value
+            self._name = value.upper() if value is not None else None
+
 
     # pylint: disable=too-many-arguments
     def __init__(self, package=None, description=None, language=None,
@@ -436,6 +440,14 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._metadata.package_reference
 
+    def _do_exec_create(self, body=None, headers=None, params=None):
+        return self._connection.execute(
+            'POST',
+            self.objtype.basepath,
+            headers=headers,
+            params=params,
+            body=body)
+
     def create(self, corrnr=None):
         """Creates ADT object
         """
@@ -443,17 +455,16 @@ class ADTObject(metaclass=OrderedClassMembers):
         marshal = sap.adt.marshalling.Marshal()
         xml = marshal.serialize(self)
 
-        return self._connection.execute(
-            'POST',
-            self.objtype.basepath,
-            headers={'Content-Type': self.objtype.mimetype},
-            params=create_params(corrnr),
-            body=xml)
+        return self._do_exec_create(body=xml, headers={'Content-Type': self.objtype.mimetype}, params=create_params(corrnr))
+
+
+    def _do_exec_fetch(self, headers=None, params=None):
+        return self._connection.execute('GET', self.uri, headers=headers, params=params)
 
     def fetch(self):
         """Retrieve data from ADT"""
 
-        resp = self._connection.execute('GET', self.uri)
+        resp = self._do_exec_fetch()
         sap.adt.marshalling.Marshal.deserialize(resp.text, self)
 
     def lock(self):
@@ -910,3 +921,29 @@ class DataDefinition(ADTObject):
         super(DataDefinition, self).__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
+
+
+class DataControl(ADTObject):
+    """Access Control definition"""
+
+    OBJTYPE = ADTObjectType(
+        'DCLS/DL',
+        'acm/dcl/sources',
+        XMLNamespace('dcl', 'http://www.sap.com/adt/acm/dclsources'),
+        'application/vnd.sap.adt.dclSource+xml',
+        {'text/plain': 'source/main'},
+        'dclSource',
+        editor_factory=ADTObjectSourceEditor
+    )
+
+    def __init__(self, connection, name, package=None, metadata=None):
+        super(DataControl, self).__init__(connection, name, metadata)
+
+        self._metadata.package_reference.name = package
+
+    def _do_exec_create(self, body=None, headers=None, params=None):
+        headers['Accept'] = 'application/vnd.sap.adt.dclSource+xml'
+        return super(DataControl, self)._do_exec_create(body=body, headers=headers, params=params)
+
+    def _do_exec_fetch(self, headers=None, params=None):
+        return super(DataControl, self)._do_exec_fetch(headers={'Accept': 'application/vnd.sap.adt.dclSource+xml'})

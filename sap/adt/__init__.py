@@ -3,7 +3,7 @@
 from sap.adt.core import Connection  # noqa: F401
 from sap.adt.function import FunctionGroup, FunctionModule  # noqa: F401
 from sap.adt.objects import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers  # noqa: F401
-from sap.adt.objects import Class, Interface, DataDefinition  # noqa: F401
+from sap.adt.objects import Class, Interface, DataDefinition, DataControl  # noqa: F401
 from sap.adt.programs import Program, Include  # noqa: F401
 from sap.adt.package import Package  # noqa: F401
 from sap.adt.aunit import AUnit  # noqa: F401
