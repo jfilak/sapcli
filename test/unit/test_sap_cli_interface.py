@@ -70,7 +70,7 @@ class TestInterfaceWrite(unittest.TestCase):
         self.assertEqual(len(conn.execs), 3)
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[1][3], 'iface stdin definition')
+        self.assertEqual(conn.execs[1][3], b'iface stdin definition')
 
     def test_interface_read_from_file(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
@@ -84,7 +84,7 @@ class TestInterfaceWrite(unittest.TestCase):
         self.assertEqual(len(conn.execs), 3)
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[1][3], 'iface file definition')
+        self.assertEqual(conn.execs[1][3], b'iface file definition')
 
 
 if __name__ == '__main__':

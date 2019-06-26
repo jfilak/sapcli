@@ -59,7 +59,7 @@ class TestADTIFace(unittest.TestCase):
         self.assertEqual(put_request.params['lockHandle'], 'win')
 
         self.maxDiff = None
-        self.assertEqual(put_request.body, FIXTURE_IFACE_MAIN_CODE)
+        self.assertEqual(put_request.body, bytes(FIXTURE_IFACE_MAIN_CODE[:-1], 'utf-8'))
 
     def test_adt_class_fetch(self):
         conn = Connection([Response(text=GET_INTERFACE_ADT_XML,

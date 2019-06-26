@@ -80,7 +80,7 @@ class TestClassWrite(unittest.TestCase):
         self.assertEqual(len(conn.execs), 3)
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[1][3], 'class stdin definition')
+        self.assertEqual(conn.execs[1][3], b'class stdin definition')
 
     def test_class_read_from_file(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
@@ -94,7 +94,7 @@ class TestClassWrite(unittest.TestCase):
         self.assertEqual(len(conn.execs), 3)
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[1][3], 'class file definition')
+        self.assertEqual(conn.execs[1][3], b'class file definition')
 
     def test_class_read_from_file_with_name(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])

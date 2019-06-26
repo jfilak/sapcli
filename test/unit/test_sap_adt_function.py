@@ -52,7 +52,7 @@ class TestFunctionGroup(unittest.TestCase):
         self.assertEqual(put_request.params, {'lockHandle': 'win'})
 
         self.maxDiff = None
-        self.assertEqual(put_request.body, 'FUGR')
+        self.assertEqual(put_request.body, b'FUGR')
 
     def test_function_group_write_with_corrnr(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
@@ -113,7 +113,7 @@ class TestFunctionModule(unittest.TestCase):
         self.assertEqual(put_request.params, {'lockHandle': 'win'})
 
         self.maxDiff = None
-        self.assertEqual(put_request.body, 'FUGR')
+        self.assertEqual(put_request.body, b'FUGR')
 
     def test_function_module_write_with_corrnr(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])

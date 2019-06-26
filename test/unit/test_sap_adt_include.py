@@ -66,7 +66,7 @@ class TestADTInclude(unittest.TestCase):
         self.assertEqual(put_request.params, {'lockHandle': 'win'})
 
         self.maxDiff = None
-        self.assertEqual(put_request.body, FIXTURE_INCLUDE_CODE)
+        self.assertEqual(put_request.body, bytes(FIXTURE_INCLUDE_CODE, 'utf-8'))
 
     def test_adt_include_write_with_corrnr(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])

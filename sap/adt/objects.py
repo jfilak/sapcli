@@ -600,12 +600,17 @@ class ADTObjectSourceEditor(ADTObjectEditor):
 
         text_uri = self.uri + self.get_uri_for_type('text/plain')
 
+        if content[-1] == '\n':
+            content = content[:-1]
+
+        data = bytes(content, 'utf-8')
+
         resp = self.connection.execute(
             'PUT',
             text_uri,
             params=modify_object_params(self.lock_handle, self.corrnr),
             headers=self.get_headers(),
-            body=content)
+            body=data)
 
         mod_log().debug("Write text response status: %i", resp.status_code)
 

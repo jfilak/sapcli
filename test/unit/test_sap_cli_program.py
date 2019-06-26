@@ -43,7 +43,7 @@ class TestProgramWrite(unittest.TestCase):
         self.assertEqual(len(conn.execs), 3)
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[1][3], FIXTURE_STDIN_REPORT_SRC)
+        self.assertEqual(conn.execs[1][3], bytes(FIXTURE_STDIN_REPORT_SRC[:-1], 'utf-8'))
 
     def test_read_from_file(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
@@ -57,7 +57,7 @@ class TestProgramWrite(unittest.TestCase):
         self.assertEqual(len(conn.execs), 3)
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[1][3], FIXTURE_FILE_REPORT_SRC)
+        self.assertEqual(conn.execs[1][3], bytes(FIXTURE_FILE_REPORT_SRC[:-1], 'utf-8'))
 
     def test_write_with_corrnr(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
