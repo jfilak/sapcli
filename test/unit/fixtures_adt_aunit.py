@@ -83,3 +83,25 @@ AUNIT_RESULTS_XML = '''<?xml version="1.0" encoding="utf-8"?>
   </program>
 </aunit:runResult>
 '''
+
+GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<aunit:runResult xmlns:aunit="http://www.sap.com/adt/aunit">
+  <program xmlns:adtcore="http://www.sap.com/adt/core" adtcore:uri="/sap/bc/adt/oo/classes/zcl_test_class" adtcore:type="CLAS/OC" adtcore:name="ZCL_TEST_CLASS" uriType="semantic" durationCategory="short" riskLevel="harmless">
+    <testClasses>
+      <testClass adtcore:uri="/sap/bc/adt/oo/classes/zcl_test_class/source/main" adtcore:type="CLAS/OC" adtcore:name="ZCL_TEST_CLASS" adtcore:parentUri="/sap/bc/adt/oo/classes/zcl_test_class" uriType="semantic" navigationUri="/sap/bc/adt/oo/classes/zcl_test_class/source/main" durationCategory="short" riskLevel="harmless">
+        <alerts>
+          <alert kind="warning" severity="tolerable">
+            <title>The global test class [ZCL_TEST_CLASS] is not abstract</title>
+            <details>
+              <detail text="You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;"/>
+            </details>
+          </alert>
+        </alerts>
+        <testMethods>
+          <testMethod adtcore:uri="/sap/bc/adt/oo/classes/zcl_test_class/source/main#type=CLAS%2FOM;name=DO_THE_TEST" adtcore:type="CLAS/OM/private" adtcore:name="DO_THE_TEST" executionTime="0" uriType="semantic" navigationUri="/sap/bc/adt/oo/classes/zcl_test_class/source/main#type=CLAS%2FOM;name=DO_THE_TEST" unit="s"/>
+        </testMethods>
+      </testClass>
+    </testClasses>
+  </program>
+</aunit:runResult>
+'''

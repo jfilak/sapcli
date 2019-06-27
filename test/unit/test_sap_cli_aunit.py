@@ -12,7 +12,7 @@ import sap.cli.aunit
 
 from mock import Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
-from fixtures_adt_aunit import AUNIT_NO_TEST_RESULTS_XML, AUNIT_RESULTS_XML
+from fixtures_adt_aunit import AUNIT_NO_TEST_RESULTS_XML, AUNIT_RESULTS_XML, GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML
 
 
 class TestAUnitWrite(unittest.TestCase):
@@ -131,35 +131,48 @@ class TestAUnitWrite(unittest.TestCase):
 '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="ypackage">
   <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
-    <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
+    <testcase name="DO_THE_FAIL" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="ERR">
       <system-err>True expected
 Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
       <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</error>
     </testcase>
-    <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
+    <testcase name="DO_THE_TEST" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST_HARDER" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
-    <testcase name="DO_THE_FAIL" classname="LTCL_TEST_HARDER" status="ERR">
+    <testcase name="DO_THE_FAIL" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST_HARDER" status="ERR">
       <system-err>True expected
 Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
       <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</error>
     </testcase>
-    <testcase name="DO_THE_TEST" classname="LTCL_TEST_HARDER" status="OK"/>
+    <testcase name="DO_THE_TEST" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST_HARDER" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST" package="ZEXAMPLE_TESTS" tests="2">
-    <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
+    <testcase name="DO_THE_FAIL" classname="ZEXAMPLE_TESTS=&gt;LTCL_TEST" status="ERR">
       <system-err>True expected
 Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.</system-err>
       <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
 Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
       <error type="failedAssertion" message="Error&lt;LOAD_PROGRAM_CLASS_MISMATCH&gt;"/>
     </testcase>
-    <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
+    <testcase name="DO_THE_TEST" classname="ZEXAMPLE_TESTS=&gt;LTCL_TEST" status="OK"/>
   </testsuite>
 </testsuites>
 ''')
 
+    def test_aunit_parser_results_global_class_tests(self):
+        results = sap.adt.aunit.parse_run_results(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML)
+        output = StringIO()
+        sap.cli.aunit.print_junit4(results, SimpleNamespace(name='$TMP'), output)
 
+        self.maxDiff = None
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="$TMP">
+  <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
+    <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
+  </testsuite>
+</testsuites>
+''')
 
 if __name__ == '__main__':
     unittest.main()

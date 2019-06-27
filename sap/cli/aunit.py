@@ -119,6 +119,12 @@ tests="{len(test_class.test_methods)}"', file=stream, end='')
 
             print('>', file=stream)
 
+            tc_class_name = test_class.name
+            if program.name != test_class.name:
+                tc_class_name = f'{program.name}=>{test_class.name}'
+
+            tc_class_name = escape(tc_class_name)
+
             for test_method in test_class.test_methods:
                 status = None
 
@@ -130,7 +136,7 @@ tests="{len(test_class.test_methods)}"', file=stream, end='')
                 else:
                     status = 'OK'
 
-                print(f'    <testcase name="{escape(test_method.name)}" classname="{escape(test_class.name)}" \
+                print(f'    <testcase name="{escape(test_method.name)}" classname="{tc_class_name}" \
 status="{escape(status)}"',
                       file=stream, end='')
 
