@@ -54,9 +54,9 @@ The JUnit format was assembled from:
 * testcase
   - name: testMethod[name]
   - skipped: alert[kind]
-  - system-out: alert/details
-  - system-err: alert/stack
+  - system-err: alert/details
 
 * error: alert
   - message: title
   - type: kind
+  - text = alert/stack

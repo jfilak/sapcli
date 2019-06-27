@@ -132,32 +132,26 @@ class TestAUnitWrite(unittest.TestCase):
 <testsuites name="ypackage">
   <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
     <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
-      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">
-        <system-out>True expected</system-out>
-        <system-out>Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-out>
-        <system-err>Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</system-err>
-      </error>
+      <system-err>True expected
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
+      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</error>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST_HARDER" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
     <testcase name="DO_THE_FAIL" classname="LTCL_TEST_HARDER" status="ERR">
-      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">
-        <system-out>True expected</system-out>
-        <system-out>Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-out>
-        <system-err>Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</system-err>
-      </error>
+      <system-err>True expected
+Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
+      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</error>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST_HARDER" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST" package="ZEXAMPLE_TESTS" tests="2">
     <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
-      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">
-        <system-out>True expected</system-out>
-        <system-out>Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.</system-out>
-        <system-err>Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)</system-err>
-        <system-err>Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</system-err>
-      </error>
+      <system-err>True expected
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.</system-err>
+      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
+Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
       <error type="failedAssertion" message="Error&lt;LOAD_PROGRAM_CLASS_MISMATCH&gt;"/>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>

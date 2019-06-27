@@ -2,6 +2,7 @@
 
 import sys
 from xml.sax.saxutils import escape
+from itertools import islice
 
 import sap.adt
 import sap.adt.aunit
@@ -64,6 +65,42 @@ def print_results_to_stream(run_results, stream):
     return len(critical)
 
 
+def print_junit4_system_err(stream, details, elem_pad):
+    """Print AUnit Alert.Details in testcase/system-err"""
+
+    if not details:
+        return
+
+    print(f'{elem_pad}<system-err>', file=stream, end='')
+
+    for detail in islice(details, len(details) - 1):
+        print(escape(detail), file=stream)
+
+    print(escape(details[-1]), file=stream, end='')
+
+    print('</system-err>', file=stream)
+
+
+def print_junit4_testcase_error(stream, alert, elem_pad):
+    """Print AUnit Alert as JUnit4 testcase/error"""
+
+    print(f'{elem_pad}<error type="{escape(alert.kind)}" message="{escape(alert.title)}"',
+          file=stream, end='')
+
+    if not alert.stack:
+        print('/>', file=stream)
+        return
+
+    print('>', file=stream, end='')
+
+    for frame in islice(alert.stack, len(alert.stack) - 1):
+        print(escape(frame), file=stream)
+
+    print(escape(alert.stack[-1]), file=stream, end='')
+
+    print('</error>', file=stream)
+
+
 def print_junit4(run_results, args, stream):
     """Print results to stream in the form of JUnit"""
 
@@ -104,21 +141,8 @@ status="{escape(status)}"',
                 print('>', file=stream)
 
                 for alert in test_method.alerts:
-                    print(f'      <error type="{escape(alert.kind)}" message="{escape(alert.title)}"',
-                          file=stream, end='')
-                    if not alert.details and not alert.stack:
-                        print('/>', file=stream)
-                        continue
-
-                    print('>', file=stream)
-
-                    for detail in alert.details:
-                        print(f'        <system-out>{escape(detail)}</system-out>', file=stream)
-
-                    for frame in alert.stack:
-                        print(f'        <system-err>{escape(frame)}</system-err>', file=stream)
-
-                    print('      </error>', file=stream)
+                    print_junit4_system_err(stream, alert.details, '      ')
+                    print_junit4_testcase_error(stream, alert, '      ')
 
                 print('    </testcase>', file=stream)
 
