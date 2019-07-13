@@ -168,7 +168,7 @@ class ADTCoreData:
         """ADT Reference by Name"""
 
         def __init__(self, name=None):
-            self._name = name
+            self._name = None if name is None else name.upper()
 
         @xml_attribute('adtcore:name')
         def name(self):
@@ -180,7 +180,7 @@ class ADTCoreData:
         def name(self, value):
             """Sets reference name"""
 
-            self._name = value
+            self._name = None if value is None else value.upper()
 
     # pylint: disable=too-many-arguments
     def __init__(self, package=None, description=None, language=None,

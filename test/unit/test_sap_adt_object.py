@@ -4,6 +4,7 @@ import unittest
 
 from sap.errors import SAPCliError
 import sap.adt
+import sap.adt.objects
 import sap.adt.wb
 
 from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, GET_DUMMY_OBJECT_ADT_XML
@@ -20,6 +21,23 @@ ACTIVATE_RESPONSE_FAILED='''<?xml version="1.0" encoding="utf-8"?>
     </msg>
   </chkl:messages>
 '''
+
+
+class TestADTCoreReference(unittest.TestCase):
+
+    def test_name_none(self):
+        ref = sap.adt.objects.ADTCoreData.Reference(name=None)
+        self.assertIsNone(ref.name)
+
+        ref.name = None
+        self.assertIsNone(ref.name)
+
+    def test_name_upper(self):
+        ref = sap.adt.objects.ADTCoreData.Reference(name='package')
+        self.assertEqual(ref.name, 'PACKAGE')
+
+        ref.name = 'child'
+        self.assertEqual(ref.name, 'CHILD')
 
 
 class TestADTObject(unittest.TestCase):
