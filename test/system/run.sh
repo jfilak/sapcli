@@ -1,10 +1,49 @@
 #!/usr/bin/env bash
 
-export SAP_USER=DEVELOPER
-export SAP_PASSWORD=Down1oad
-export SAP_ASHOST=localhost
-export SAP_CLIENT=001
-export SAP_PORT=8000
-export SAP_SSL=false
+function phaseStart
+{
+    echo "Phase:: $@"
+}
 
-bash abap_include.sh
+function phaseEnd
+{
+    echo "Phase:: End"
+}
+
+function setupStepStart
+{
+    echo "Test:: $@"
+}
+
+function setupStepEnd
+{
+    echo "Test:: End"
+}
+
+function testStart
+{
+    echo "Test:: $@"
+}
+
+function testEnd
+{
+    echo "Test:: End"
+}
+
+source ./config.sh
+
+phaseStart "Setup"
+    for setup_step in $( ls -A1 setup/ ); do
+        setupStepStart ${setup_step}
+            source setup/${setup_step}
+        setupStepEnd
+    done
+phaseEnd
+
+phaseStart "Testing"
+    for test_case in $( ls -A1 test_cases/ ); do
+        testStart ${test_case}
+            source test_cases/${test_case}
+        testEnd
+    done
+phaseEnd
