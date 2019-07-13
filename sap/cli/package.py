@@ -1,7 +1,17 @@
 """ADT proxy for ABAP Package (Developmen Class)"""
 
+from sap import get_logger
+
 import sap.adt
+from sap.adt.errors import ExceptionResourceAlreadyExists
+
 import sap.cli.core
+
+
+def mod_log():
+    """ADT Module logger"""
+
+    return get_logger()
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -14,6 +24,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 
 @CommandGroup.argument_corrnr()
+@CommandGroup.argument('--no-error-existing', action='store_true', default=False,
+                       help='Do not fail if already exists')
 @CommandGroup.argument('--transport-layer', default=None, help='Transport layer')
 @CommandGroup.argument('--software-component', default='LOCAL', help='Software component')
 @CommandGroup.argument('--app-component', default=None, help='Application component')
@@ -42,7 +54,13 @@ def create(connection, args):
     if args.transport_layer is not None:
         package.set_transport_layer(args.transport_layer.upper())
 
-    package.create(corrnr=args.corrnr)
+    try:
+        package.create(corrnr=args.corrnr)
+    except ExceptionResourceAlreadyExists as err:
+        if not args.no_error_existing:
+            raise err
+
+        mod_log().info(err.message)
 
 
 @CommandGroup.argument('-r', '--recursive', default=False, action='store_true', help='List sub-packages')

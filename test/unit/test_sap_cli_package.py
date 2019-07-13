@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import patch, call
+from unittest.mock import patch, call, Mock
 from types import SimpleNamespace
 from argparse import ArgumentParser
 
 from sap.errors import SAPCliError
+from sap.adt.errors import ExceptionResourceAlreadyExists
 import sap.cli.package
 
 from mock import Connection, Response
-from fixtures_adt import EMPTY_RESPONSE_OK
+from fixtures_adt import EMPTY_RESPONSE_OK, ERROR_XML_PACKAGE_ALREADY_EXISTS
 
+RESPONSE_PACKAGE_EXISTS = Response(status_code=405,
+                                   headers={'content-type': 'application/xml'},
+                                   text=ERROR_XML_PACKAGE_ALREADY_EXISTS)
 
 def parse_args(*argv):
     parser = ArgumentParser()
@@ -67,6 +71,26 @@ class TestPackageCreate(unittest.TestCase):
         sap.cli.package.create(connection, args)
 
         self.assertEqual(connection.execs[0].params['corrNr'], '420')
+
+    def test_create_package_error_exists_ignored(self):
+        connection = Connection([RESPONSE_PACKAGE_EXISTS])
+
+        mock_logger = Mock()
+
+        args = parse_args('create', '$TEST', 'description', '--no-error-existing')
+
+        with patch('sap.cli.package.mod_log', Mock(return_value=mock_logger)) as mock_mod_log:
+            sap.cli.package.create(connection, args)
+
+        mock_mod_log.assert_called_once()
+        mock_logger.info.assert_called_once_with('Resource Package $SAPCLI_TEST_ROOT does already exist.')
+
+    def test_create_package_error_exists_reported(self):
+        connection = Connection([RESPONSE_PACKAGE_EXISTS])
+
+        args = parse_args('create', '$TEST', 'description')
+        with self.assertRaises(ExceptionResourceAlreadyExists):
+            sap.cli.package.create(connection, args)
 
 
 class TestPackageList(unittest.TestCase):

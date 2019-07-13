@@ -84,11 +84,9 @@ class Connection:
         # else - unformatted text
         raise HTTPRequestError(req, res)
 
-    @staticmethod
-    def _execute_with_session(session, method, url, params=None, headers=None, body=None):
-        """Executes the given URL using the given method in
-           the common HTTP session.
-        """
+    # pylint: disable=no-self-use
+    def _retrieve(self, session, method, url, params=None, headers=None, body=None):
+        """A helper method for easier testing."""
 
         req = requests.Request(method.upper(), url, params=params, data=body, headers=headers)
         req = session.prepare_request(req)
@@ -97,6 +95,15 @@ class Connection:
         res = session.send(req)
 
         mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
+
+        return (req, res)
+
+    def _execute_with_session(self, session, method, url, params=None, headers=None, body=None):
+        """Executes the given URL using the given method in
+           the common HTTP session.
+        """
+
+        req, res = self._retrieve(session, method, url, params=params, headers=headers, body=body)
 
         if res.status_code >= 400:
             Connection._handle_http_error(req, res)
@@ -125,7 +132,7 @@ class Connection:
 
             url = self._build_adt_url('core/discovery')
 
-            response = Connection._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
+            response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
 
             self._session.headers.update({'x-csrf-token': response.headers['x-csrf-token']})
 
@@ -140,7 +147,7 @@ class Connection:
 
         url = self._build_adt_url(adt_uri)
 
-        return Connection._execute_with_session(session, method, url, params=params, headers=headers, body=body)
+        return self._execute_with_session(session, method, url, params=params, headers=headers, body=body)
 
     def get_text(self, relativeuri):
         """Executes a GET HTTP request with the headers Accept = text/plain.
