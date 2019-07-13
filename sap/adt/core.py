@@ -5,7 +5,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger
-from sap.adt.errors import HTTPRequestError
+from sap.adt.errors import HTTPRequestError, new_adt_error_from_xml
 
 
 def mod_log():
@@ -72,6 +72,19 @@ class Connection:
             query_args=self._query_args)
 
     @staticmethod
+    def _handle_http_error(req, res):
+        """Raise the correct exception based on response content."""
+
+        if res.headers['content-type'] == 'application/xml':
+            error = new_adt_error_from_xml(res.text)
+
+            if error is not None:
+                raise error
+
+        # else - unformatted text
+        raise HTTPRequestError(req, res)
+
+    @staticmethod
     def _execute_with_session(session, method, url, params=None, headers=None, body=None):
         """Executes the given URL using the given method in
            the common HTTP session.
@@ -86,7 +99,7 @@ class Connection:
         mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
 
         if res.status_code >= 400:
-            raise HTTPRequestError(req, res)
+            Connection._handle_http_error(req, res)
 
         return res
 

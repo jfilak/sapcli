@@ -69,6 +69,9 @@ GET_DUMMY_OBJECT_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
 </win:dummies>
 '''
 
+ERROR_XML_PACKAGE_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceAlreadyExists"/><message lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</message><localizedMessage lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</localizedMessage><properties/></exc:exception>'''
+
+ERROR_XML_MADEUP_PROBLEM='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="org.example.whatever"/><type id="UnitTestSAPCLI"/><message lang="EN">Made up problem.</message><localizedMessage lang="EN">Made up problem.</localizedMessage><properties/></exc:exception>'''
 
 
 class DummyADTObject(sap.adt.ADTObject):
