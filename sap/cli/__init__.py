@@ -22,6 +22,7 @@ class CommandsCache:
         import sap.cli.datadefinition
         import sap.cli.function
         import sap.cli.aunit
+        import sap.cli.datapreview
         import sap.cli.package
         import sap.cli.cts
         import sap.cli.checkout
@@ -36,6 +37,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.function.CommandGroupFunctionGroup()),
                 (adt_connection_from_args, sap.cli.function.CommandGroupFunctionModule()),
                 (adt_connection_from_args, sap.cli.aunit.CommandGroup()),
+                (adt_connection_from_args, sap.cli.datapreview.CommandGroup()),
                 (adt_connection_from_args, sap.cli.package.CommandGroup()),
                 (adt_connection_from_args, sap.cli.cts.CommandGroup()),
                 (adt_connection_from_args, sap.cli.checkout.CommandGroup())
