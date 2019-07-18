@@ -3,11 +3,18 @@ from typing import Dict, NamedTuple
 import sap.adt
 
 
-class Response(NamedTuple):
+class Response:
 
-    text: str
-    status_code: int
-    headers: Dict
+    def __init__(self, text=None, status_code=None, headers=None, content_type=None):
+        self.text = text
+        self.status_code = status_code
+        self.headers = headers
+
+        if content_type is not None:
+            if self.headers is None:
+                self.headers = {}
+
+            self.headers['Content-Type'] = content_type
 
 
 class Request(NamedTuple):
