@@ -5,7 +5,7 @@ import os
 import collections
 
 import sap.cli.core
-from sap.cli.core import InvalidCommandLineError
+from sap.cli.core import InvalidCommandLineError, printout
 import sap.errors
 
 import sap.adt
@@ -197,10 +197,10 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         toactivate = collections.OrderedDict()
 
-        sap.cli.printout('Writing:')
+        printout('Writing:')
 
         for obj, text in write_args_to_objects(self, connection, args):
-            sap.cli.printout('*', str(obj))
+            printout('*', str(obj))
 
             with obj.open_editor(corrnr=args.corrnr) as editor:
                 editor.write(''.join(text))
@@ -208,20 +208,20 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
             toactivate[obj.name] = obj
 
         if args.activate:
-            sap.cli.printout('Activating:')
+            printout('Activating:')
 
             for name, obj in toactivate.items():
-                sap.cli.printout('*', name)
+                printout('*', name)
 
                 sap.adt.wb.activate(obj)
 
     def activate_objects(self, connection, args):
         """Actives the given object."""
 
-        sap.cli.printout('Activating:')
+        printout('Activating:')
 
         for name in args.name:
-            sap.cli.printout('*', name)
+            printout('*', name)
 
             obj = self.instance(connection, name, args)
             sap.adt.wb.activate(obj)

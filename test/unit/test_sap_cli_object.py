@@ -261,7 +261,7 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         args = self.parse_args('write', '-', 'z_one.abap', 'z_one.incl.abap', 'z_two.abap', '--corrnr', '123456', '--activate')
 
         with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open, \
-             patch('sap.cli.printout') as fake_printout:
+             patch('sap.cli.object.printout') as fake_printout:
             args.execute(connection, args)
 
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock), call(self.group.new_object_mock)])
@@ -292,7 +292,7 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         args = self.parse_args('activate', 'myname', 'anothername')
 
         with patch('sap.adt.wb.activate') as fake_activate, \
-             patch('sap.cli.printout') as fake_printout:
+             patch('sap.cli.object.printout') as fake_printout:
             args.execute(connection, args)
 
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock),

@@ -162,3 +162,34 @@ class CommandGroup:
             return func
 
         return p_argument
+
+
+class PrintConsole:
+    """Standard user output"""
+
+    # pylint: disable=no-self-use
+    def printout(self, *objects, sep=' ', end='\n'):
+        """Prints out using the python's print function"""
+
+        print(*objects, sep=sep, end=end)
+
+
+_CONSOLE = None
+
+
+def get_console():
+    """Standard user output. Don't user for logging!"""
+
+    # pylint: disable=global-statement
+    global _CONSOLE
+
+    if _CONSOLE is None:
+        _CONSOLE = PrintConsole()
+
+    return _CONSOLE
+
+
+def printout(*objects, sep=' ', end='\n'):
+    """A shortcut for get_console().printout()"""
+
+    get_console().printout(*objects, sep=sep, end=end)
