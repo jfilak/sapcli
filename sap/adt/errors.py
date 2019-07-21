@@ -9,6 +9,20 @@ ADT_EXCEPTION_XML_FRAGMENT = '''<?xml version="1.0" encoding="utf-8"?>\
 <exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework">'''
 
 
+class UnexpectedResponseContent(SAPCliError):
+    """Exception for unexpected responses content"""
+
+    def __init__(self, expected, received, content):
+        super(UnexpectedResponseContent, self).__init__()
+
+        self.expected = expected
+        self.received = received
+        self.content = content
+
+    def __str__(self):
+        return f'Unexpected Content-Type: {self.received} with: {self.content}'
+
+
 class HTTPRequestError(SAPCliError):
     """Exception for unexpected HTTP responses"""
 

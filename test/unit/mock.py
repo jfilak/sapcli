@@ -39,19 +39,21 @@ class Connection(sap.adt.Connection):
         self.execs = list()
         self._resp_iter = ok_responses() if responses is None else iter(responses)
 
+    def _get_session(self):
+        return 'bogus session'
+
+    def _build_adt_url(self, adt_uri):
+        return '/' + self.uri + '/' + adt_uri
+
     def _retrieve(self, session, method, url, params=None, headers=None, body=None):
         req = Request(method, url, headers, body, params)
+        self.execs.append(req)
+
         res = next(self._resp_iter)
         if res is None:
             res = next(ok_responses())
 
         return (req, res)
-
-    def execute(self, method, adt_uri, params=None, headers=None, body=None):
-        final_uri = '/' + self.uri + '/' + adt_uri
-        self.execs.append(Request(method, final_uri, headers, body, params))
-
-        return self._execute_with_session(None, method, adt_uri, params=params, headers=headers, body=body)
 
     def mock_methods(self):
         return  [(e.method, e.adt_uri) for e in self.execs]

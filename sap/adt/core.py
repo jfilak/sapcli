@@ -5,7 +5,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger
-from sap.adt.errors import HTTPRequestError, new_adt_error_from_xml
+from sap.adt.errors import HTTPRequestError, new_adt_error_from_xml, UnexpectedResponseContent
 
 
 def mod_log():
@@ -138,7 +138,7 @@ class Connection:
 
         return self._session
 
-    def execute(self, method, adt_uri, params=None, headers=None, body=None):
+    def execute(self, method, adt_uri, params=None, headers=None, body=None, accept=None, content_type=None):
         """Executes the given ADT URI as an HTTP request and returns
            the requests response object
         """
@@ -147,7 +147,33 @@ class Connection:
 
         url = self._build_adt_url(adt_uri)
 
-        return self._execute_with_session(session, method, url, params=params, headers=headers, body=body)
+        if headers is None:
+            headers = {}
+
+        if accept is not None:
+            if isinstance(accept, list):
+                headers['Accept'] = ', '.join(accept)
+            else:
+                headers['Accept'] = accept
+
+        if content_type is not None:
+            headers['Content-Type'] = content_type
+
+        if not headers:
+            headers = None
+
+        resp = self._execute_with_session(session, method, url, params=params, headers=headers, body=body)
+
+        if accept:
+            resp_content_type = resp.headers['Content-Type']
+
+            if isinstance(accept, str):
+                accept = [accept]
+
+            if not any((resp_content_type.startswith(accepted) for accepted in accept)):
+                raise UnexpectedResponseContent(accept, resp_content_type, resp.text)
+
+        return resp
 
     def get_text(self, relativeuri):
         """Executes a GET HTTP request with the headers Accept = text/plain.
