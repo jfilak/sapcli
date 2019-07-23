@@ -6,7 +6,7 @@ from collections import deque
 # pylint: disable=unused-import
 from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import ADTObjectType, ADTObject, ADTCoreData
-from sap.adt.objects import XMLNamespace
+from sap.adt.objects import xmlns_adtcore_ancestor
 from sap.adt.annotations import xml_attribute, xml_element
 from sap.adt.repository import Repository
 
@@ -37,7 +37,7 @@ class Package(ADTObject):
     OBJTYPE = ADTObjectType(
         'DEVC/K',
         'packages',
-        XMLNamespace('pak', 'http://www.sap.com/adt/packages'),
+        xmlns_adtcore_ancestor('pak', 'http://www.sap.com/adt/packages'),
         'application/vnd.sap.adt.packages.v1+xml',
         {},
         'package'

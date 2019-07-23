@@ -199,20 +199,68 @@ class Marshal:
         name = adt_object_to_element_name(adt_object)
 
         root = Element(name)
-        xmlns = objtype.xmlnamespace
-
-        root.add_attribute(f'xmlns:{xmlns.name}', xmlns.uri)
-
-        if xmlns.name != 'adtcore':
-            root.add_attribute('xmlns:adtcore', 'http://www.sap.com/adt/core')
+        declared_ns = self._declare_xmlns(root, objtype.xmlnamespace)
 
         if objtype.code is not None:
             root.add_attribute('adtcore:type', objtype.code)
 
-        self._build_tree(root, adt_object)
+        self._build_tree(root, adt_object, declared_ns)
         return root
 
-    def _build_tree(self, root, obj):
+    # pylint: disable=no-self-use
+    def _declare_xmlns(self, root, xmlns, declared_ns=None):
+        """Adds the xmlns attribute if such a Namespace hasn't already been
+           declared any parent nodes.
+
+           Returns set of all declared Namespaces.
+        """
+
+        if declared_ns is None:
+            declared = set()
+        else:
+            declared = set(declared_ns)
+
+        if xmlns.name not in declared:
+            root.add_attribute(f'xmlns:{xmlns.name}', xmlns.uri)
+            declared.add(xmlns.name)
+
+        for parent_ns in xmlns.parents:
+            if parent_ns.name in declared:
+                continue
+
+            root.add_attribute(f'xmlns:{parent_ns.name}', parent_ns.uri)
+            declared.add(parent_ns.name)
+
+        return declared
+
+    def _serialize_object_to_node(self, root, node_name, child, declared_ns):
+
+        if not isinstance(child, list):
+            # Put a solo object to a list to simplify
+            # the algorithm below - this might be a bad idea.
+            child = [child]
+
+        for item in child:
+
+            new_ns = None
+            if hasattr(item, 'objtype'):
+                if hasattr(item.objtype, 'xmlnamespace'):
+                    new_ns = item.objtype.xmlnamespace
+
+            if node_name is XmlElementProperty.NAME_FROM_OBJECT:
+                child_name = adt_object_to_element_name(item)
+                child_elem = root.add_child(child_name)
+            else:
+                child_elem = root.add_child(node_name)
+
+            if new_ns is None:
+                child_ns = declared_ns
+            else:
+                child_ns = self._declare_xmlns(child_elem, new_ns, declared_ns)
+
+            self._build_tree(child_elem, item, child_ns)
+
+    def _build_tree(self, root, obj, declared_ns):
         """Convert ADT Object members to XML elements"""
 
         if obj is None:
@@ -226,18 +274,7 @@ class Marshal:
 
             if isinstance(attr, XmlElementProperty):
                 child = getattr(obj, attr_name)
-
-                node_name = attr.name
-                if node_name is XmlElementProperty.NAME_FROM_OBJECT:
-                    node_name = adt_object_to_element_name(child)
-
-                new_element = partial(root.add_child, node_name)
-
-                if isinstance(child, list):
-                    for item in child:
-                        self._build_tree(new_element(), item)
-                else:
-                    self._build_tree(new_element(), child)
+                self._serialize_object_to_node(root, attr.name, child, declared_ns)
             elif isinstance(attr, XmlAttributeProperty):
                 value = getattr(obj, attr_name)
                 if value is not None:

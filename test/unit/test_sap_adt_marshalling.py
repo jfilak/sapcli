@@ -5,7 +5,7 @@ import unittest
 from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
 from sap.adt.objects import XMLNamespace
-from sap.adt.annotations import xml_element, xml_attribute
+from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty
 from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
 
 
@@ -272,6 +272,35 @@ class DummyContainer(ADTObject):
         return [DummyContainerItem('1'), DummyContainerItem('2'), DummyContainerItem('3')]
 
 
+class ChildrenADTObject(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock',
+                                                  parents=[XMLNamespace('foo', 'bar')]),
+                                     'application/xml',
+                                     None,
+                                     'child')
+
+    @xml_attribute('value')
+    def value(self):
+        return "stub"
+
+
+class ParentADTObject(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'parent')
+
+    @xml_element(XmlElementProperty.NAME_FROM_OBJECT)
+    def children(self):
+        return ChildrenADTObject()
+
+
 class TestADTAnnotation(unittest.TestCase):
 
 
@@ -392,6 +421,16 @@ class TestADTAnnotation(unittest.TestCase):
 <item number="2"/>
 <item number="3"/>
 </adtcore:container>''')
+
+    def test_serialize_with_elem_from_object(self):
+        parent = ParentADTObject()
+
+        act = Marshal().serialize(parent)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:parent xmlns:mock="https://example.org/mock">
+<mock:child xmlns:foo="bar" value="stub"/>
+</mock:parent>''')
 
 
 if __name__ == '__main__':

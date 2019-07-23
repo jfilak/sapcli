@@ -4,7 +4,7 @@ from copy import copy
 
 # pylint: disable=unused-import
 from sap.adt.objects import OrderedClassMembers
-from sap.adt.objects import ADTObjectType, ADTObject, ADTObjectSourceEditorWithResponse, XMLNamespace
+from sap.adt.objects import ADTObjectType, ADTObject, ADTObjectSourceEditorWithResponse, xmlns_adtcore_ancestor
 from sap.adt.annotations import xml_attribute, xml_element
 
 
@@ -73,7 +73,7 @@ class FunctionGroup(ADTObject):
     OBJTYPE = ADTObjectType(
         'FUGR/F',
         'functions/groups',
-        XMLNamespace('group', 'http://www.sap.com/adt/functions/groups'),
+        xmlns_adtcore_ancestor('group', 'http://www.sap.com/adt/functions/groups'),
         'application/vnd.sap.adt.functions.groups.v2+xml',
         {'text/plain': 'source/main'},
         'abapFunctionGroup',
@@ -116,7 +116,7 @@ class FunctionModule(ADTObject):
     OBJTYPE = ADTObjectType(
         'FUGR/FF',
         'functions/groups/{function_group}/fmodules',
-        XMLNamespace('fmodule', 'http://www.sap.com/adt/functions/fmodules'),
+        xmlns_adtcore_ancestor('fmodule', 'http://www.sap.com/adt/functions/fmodules'),
         'application/vnd.sap.adt.functions.fmodules.v2+xml',
         {'text/plain': 'source/main'},
         'abapFunctionModule',

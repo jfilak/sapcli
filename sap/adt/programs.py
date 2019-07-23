@@ -4,7 +4,7 @@ import urllib
 
 # pylint: disable=unused-import
 from sap.adt.objects import OrderedClassMembers
-from sap.adt.objects import ADTObjectType, ADTObject, ADTCoreData, ADTObjectSourceEditor, XMLNamespace
+from sap.adt.objects import ADTObjectType, ADTObject, ADTCoreData, ADTObjectSourceEditor, xmlns_adtcore_ancestor
 from sap.adt.annotations import xml_attribute, xml_element
 
 
@@ -37,7 +37,7 @@ class Program(BaseProgram):
     OBJTYPE = ADTObjectType(
         'PROG/P',
         'programs/programs',
-        XMLNamespace('program', 'http://www.sap.com/adt/programs/programs'),
+        xmlns_adtcore_ancestor('program', 'http://www.sap.com/adt/programs/programs'),
         'application/vnd.sap.adt.programs.programs.v2+xml',
         {'text/plain': 'source/main'},
         'abapProgram',
@@ -105,7 +105,7 @@ class Include(BaseProgram):
     OBJTYPE = ADTObjectType(
         'PROG/I',
         'programs/includes',
-        XMLNamespace('include', 'http://www.sap.com/adt/programs/includes'),
+        xmlns_adtcore_ancestor('include', 'http://www.sap.com/adt/programs/includes'),
         # application/vnd.sap.adt.programs.includes+xml, application/vnd.sap.adt.programs.includes.v2+xml
         'application/vnd.sap.adt.programs.includes.v2+xml',
         {'text/plain': 'source/main'},

@@ -46,12 +46,45 @@ def modify_object_params(lock_handle, corrnr):
     return params
 
 
-# pylint: disable=too-few-public-methods
-class XMLNamespace(NamedTuple):
+class XMLNamespace:
     """XML Namespace definition"""
 
-    name: str
-    uri: str
+    def __init__(self, name, uri, parents=None):
+        self._name = name
+        self._uri = uri
+        self._parents = parents
+
+    @property
+    def name(self):
+        """Returns Namespace name"""
+
+        return self._name
+
+    @property
+    def uri(self):
+        """Returns Namespace URI"""
+
+        return self._uri
+
+    @property
+    def parents(self):
+        """Returns a list of parent Namespaces"""
+
+        if self._parents is None:
+            return []
+
+        return [parent for parent in self._parents]
+
+
+XMLNS_ADTCORE = XMLNamespace('adtcore', 'http://www.sap.com/adt/core')
+
+
+def xmlns_adtcore_ancestor(name, uri):
+    """Factory method returning a new namespace which has the namespace adtcore
+       in the parent list.
+    """
+
+    return XMLNamespace(name, uri, parents=[XMLNS_ADTCORE])
 
 
 # pylint: disable=too-many-instance-attributes
@@ -713,7 +746,7 @@ class ADTObjectReferences(metaclass=OrderedClassMembers):
 
         return ADTObjectType(None,
                              None,
-                             XMLNamespace('adtcore', 'http://www.sap.com/adt/core'),
+                             XMLNS_ADTCORE,
                              'application/xml',
                              None,
                              'objectReferences')
@@ -824,7 +857,7 @@ class ADTObjectSets(metaclass=OrderedClassMembers):
 
     def __init__(self):
         self.objtype = ADTObjectType(None, None,
-                                     XMLNamespace('adtcore', 'http://www.sap.com/adt/core'),
+                                     XMLNS_ADTCORE,
                                      'application/xml',
                                      None,
                                      'objectSets')
@@ -880,7 +913,7 @@ class Interface(OOADTObjectBase):
     OBJTYPE = ADTObjectType(
         'INTF/OI',
         'oo/interfaces',
-        XMLNamespace('intf', 'http://www.sap.com/adt/oo/interfaces'),
+        xmlns_adtcore_ancestor('intf', 'http://www.sap.com/adt/oo/interfaces'),
         # application/vnd.sap.adt.oo.interfaces+xml, application/vnd.sap.adt.oo.interfaces.v2+xml
         'application/vnd.sap.adt.oo.interfaces.v2+xml',
         {'text/plain': 'source/main'},
@@ -920,7 +953,7 @@ class Class(OOADTObjectBase):
     OBJTYPE = ADTObjectType(
         'CLAS/OC',
         'oo/classes',
-        XMLNamespace('class', 'http://www.sap.com/adt/oo/classes'),
+        xmlns_adtcore_ancestor('class', 'http://www.sap.com/adt/oo/classes'),
         'application/vnd.sap.adt.oo.classes.v2+xml',
         {'text/plain': 'source/main'},
         'abapClass',
@@ -1130,7 +1163,7 @@ class DataDefinition(ADTObject):
     OBJTYPE = ADTObjectType(
         'DDLS/DF',
         'ddic/ddl/sources',
-        XMLNamespace('ddl', 'http://www.sap.com/adt/ddic/ddlsources'),
+        xmlns_adtcore_ancestor('ddl', 'http://www.sap.com/adt/ddic/ddlsources'),
         # application/vnd.sap.adt.ddlSource.v2+xml, application/vnd.sap.adt.ddlSource+xml
         'application/vnd.sap.adt.ddlSource+xml',
         {'text/plain': 'source/main'},
