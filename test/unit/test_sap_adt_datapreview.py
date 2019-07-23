@@ -11,7 +11,6 @@ from fixtures_adt_datapreview import ADT_XML_FREESTYLE_TABLE_T000, ADT_XML_FREES
 class TestFreeStyleTableParseResults(unittest.TestCase):
 
     def test_parse_full(self):
-        #sap.get_logger().setLevel(0)
         clients = sap.adt.datapreview.parse_freestyle_table(ADT_XML_FREESTYLE_TABLE_T000, rows=100)
 
         self.maxDiff = None
@@ -52,6 +51,5 @@ class TestFreeStyleTableParseResults(unittest.TestCase):
                                     'ORT01': 'Walldorf'}])
 
     def test_parse_not_all_rows(self):
-        #sap.get_logger().setLevel(0)
         clients = sap.adt.datapreview.parse_freestyle_table(ADT_XML_FREESTYLE_TABLE_T000_ONE_ROW, rows=1)
         self.assertEqual(clients, [{'MANDT': '000'}])

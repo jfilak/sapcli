@@ -63,7 +63,6 @@ class TestADTPackage(unittest.TestCase):
                                     headers={'Content-Type': 'application/vnd.sap.adt.packages.v1+xml; charset=utf-8'})])
 
         package = sap.adt.Package(conn, '$IAMTHEKING')
-        #get_logger().setLevel(0)
         package.fetch()
 
         self.assertEqual(len(conn.execs), 1)

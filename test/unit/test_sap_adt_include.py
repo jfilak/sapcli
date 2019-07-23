@@ -81,7 +81,6 @@ class TestADTInclude(unittest.TestCase):
     def test_adt_include_fetch(self):
         conn = Connection([Response(text=GET_INCLUDE_PROGRAM_ADT_XML, status_code=200, headers={})])
         include = sap.adt.Include(conn, 'ZHELLO_INCLUDE')
-        # get_logger().setLevel(0)
         include.fetch()
 
         self.assertEqual(conn.mock_methods(), [('GET', '/sap/bc/adt/programs/includes/zhello_include')])

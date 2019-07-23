@@ -62,7 +62,6 @@ class TestADTProgram(unittest.TestCase):
     def test_adt_program_fetch(self):
         conn = Connection([Response(text=GET_EXECUTABLE_PROGRAM_ADT_XML, status_code=200, headers={})])
         program = sap.adt.Program(conn, 'ZHELLO_WORLD')
-        # get_logger().setLevel(0)
         program.fetch()
 
         self.assertEqual(program.name, 'ZHELLO_WORLD')

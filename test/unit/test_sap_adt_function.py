@@ -67,7 +67,6 @@ class TestFunctionGroup(unittest.TestCase):
     def test_function_group_fetch(self):
         conn = Connection([Response(text=GET_FUNCTION_GROUP_ADT_XML, status_code=200, headers={})])
         fugr = sap.adt.FunctionGroup(conn, 'ZFG_HELLO_WORLD')
-        # get_logger().setLevel(0)
         fugr.fetch()
 
         self.assertEqual(fugr.name, 'ZFG_HELLO_WORLD')
@@ -128,7 +127,6 @@ class TestFunctionModule(unittest.TestCase):
     def test_function_module_fetch(self):
         conn = Connection([Response(text=GET_FUNCTION_MODULE_ADT_XML, status_code=200, headers={})])
         function = sap.adt.FunctionModule(conn, 'Z_FN_HELLO_WORLD', 'ZFG_HELLO_WORLD')
-        # get_logger().setLevel(0)
         function.fetch()
 
         self.assertEqual(function.name, 'Z_FN_HELLO_WORLD')

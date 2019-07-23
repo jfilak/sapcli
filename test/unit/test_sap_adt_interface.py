@@ -67,7 +67,6 @@ class TestADTIFace(unittest.TestCase):
                            headers={'Content-Type': 'application/vnd.sap.adt.oo.interfaces.v2+xml; charset=utf-8'})])
 
         intf = sap.adt.Interface(conn, 'ZIF_HELLO_WORLD')
-        # get_logger().setLevel(0)
         intf.fetch()
 
         self.assertEqual(intf.name, 'ZIF_HELLO_WORLD')

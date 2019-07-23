@@ -23,7 +23,6 @@ class TestAUnit(unittest.TestCase):
 class TestAUnitParseResults(unittest.TestCase):
 
     def test_parse_full(self):
-        #sap.get_logger().setLevel(0)
         run_results = sap.adt.aunit.parse_run_results(AUNIT_RESULTS_XML)
 
         self.assertEqual([program.name for program in run_results.programs], ['ZCL_THEKING_MANUAL_HARDCORE', 'ZEXAMPLE_TESTS'])

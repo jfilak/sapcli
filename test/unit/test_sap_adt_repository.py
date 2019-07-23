@@ -22,7 +22,6 @@ class TestRepository(unittest.TestCase):
 
         repository = sap.adt.Repository(connection)
 
-        #sap.get_logger().setLevel(0)
         if nodekeys is None:
             node = repository.read_node(mypkg)
         else:

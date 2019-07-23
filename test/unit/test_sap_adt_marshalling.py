@@ -374,7 +374,6 @@ class TestADTAnnotation(unittest.TestCase):
         xml_data = marshal.serialize(obj)
 
         clone = DummyWithSetters()
-        #get_logger().setLevel(0)
         ret = Marshal.deserialize(xml_data, clone)
         self.assertEqual(clone, ret)
 
@@ -388,7 +387,6 @@ class TestADTAnnotation(unittest.TestCase):
     def test_deserialize_with_factory(self):
         dummy = DummyWithChildFactory()
 
-        #get_logger().setLevel(0)
         Marshal.deserialize("""<?xml version="1.0" encoding="UTF-8"?>
 <dummyxmlns:dummyelem>
   <child attribute="implicit"/>
@@ -411,7 +409,6 @@ class TestADTAnnotation(unittest.TestCase):
     def test_serialize_list(self):
         container = DummyContainer()
 
-        get_logger().setLevel(0)
         act = Marshal().serialize(container)
 
         self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>

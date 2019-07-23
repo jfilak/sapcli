@@ -159,7 +159,6 @@ class TestADTClass(unittest.TestCase):
     def test_adt_class_fetch(self):
         conn = Connection([Response(text=GET_CLASS_ADT_XML, status_code=200, headers={})])
         clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
-        # get_logger().setLevel(0)
         clas.fetch()
 
         self.assertEqual(clas.name, 'ZCL_HELLO_WORLD')
