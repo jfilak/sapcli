@@ -2,14 +2,13 @@
 """Objects ADT functionality module"""
 
 import re
-import collections
 from typing import NamedTuple
 
 from sap.adt.core import mod_log
 from sap.errors import SAPCliError
 
 import sap.adt.marshalling
-from sap.adt.annotations import xml_attribute, xml_element, XmlElementProperty
+from sap.adt.annotations import xml_attribute, xml_element, XmlElementProperty, OrderedClassMembers
 
 
 LOCK_ACCESS_MODE_MODIFY = 'MODIFY'
@@ -172,32 +171,6 @@ class ADTObjectType:
             return '/' + self._typeuris[mimetype]
         except KeyError:
             raise SAPCliError('Object {type} does not support plain \'text\' format')
-
-
-class OrderedClassMembers(type):
-    """MetaClass to preserve get order of member declarations
-       to serialize the XML elements in the expected order.
-    """
-
-    @classmethod
-    # pylint: disable=unused-argument
-    def __prepare__(mcs, name, bases):
-        return collections.OrderedDict()
-
-    def __new__(mcs, name, bases, classdict):
-        members = []
-
-        if bases:
-            parent = bases[-1]
-            if hasattr(parent, '__ordered__'):
-                members.extend(parent.__ordered__)
-
-        members.extend([key for key in classdict.keys()
-                        if key not in ('__module__', '__qualname__')])
-
-        classdict['__ordered__'] = members
-
-        return type.__new__(mcs, name, bases, classdict)
 
 
 class ADTCoreData:

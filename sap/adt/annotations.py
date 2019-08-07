@@ -1,6 +1,33 @@
 """Python decorators for conversions of Python objects to ADT XML fragments"""
 
 from enum import Enum
+import collections
+
+
+class OrderedClassMembers(type):
+    """MetaClass to preserve get order of member declarations
+       to serialize the XML elements in the expected order.
+    """
+
+    @classmethod
+    # pylint: disable=unused-argument
+    def __prepare__(mcs, name, bases):
+        return collections.OrderedDict()
+
+    def __new__(mcs, name, bases, classdict):
+        members = []
+
+        if bases:
+            parent = bases[-1]
+            if hasattr(parent, '__ordered__'):
+                members.extend(parent.__ordered__)
+
+        members.extend([key for key in classdict.keys()
+                        if key not in ('__module__', '__qualname__')])
+
+        classdict['__ordered__'] = members
+
+        return type.__new__(mcs, name, bases, classdict)
 
 
 class XmlElementKind(Enum):
@@ -98,6 +125,52 @@ class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
 
         # TODO: reorder inheritance - this is stupid!
         raise NotImplementedError()
+
+
+class XmlContainerMeta(OrderedClassMembers):
+    """A MetaClass adding the class-method 'define' which returns
+       a class representing ADT XML container - i.e a wrapping node
+       with many children of the same tag.
+    """
+
+    def define(cls, item_element_name, item_factory):
+        """Defines a new class with the property items which will be
+           annotated as XmlElement.
+
+           The annotated property is named 'items' and can be publicly used.
+        """
+
+        items_property = XmlElementProperty(item_element_name, cls._get_items, fset=cls._add_item,
+                                            deserialize=True, factory=item_factory, kind=XmlElementKind.OBJECT)
+
+        return type(f'XMLContainer_{item_factory.__name__}', (cls,), dict(items=items_property))
+
+
+class XmlContainer(metaclass=XmlContainerMeta):
+    """A template class with the property items which is annotated as XmlElement."""
+
+    def __init__(self):
+        self._items = list()
+
+    def _get_items(self):
+        return self._items
+
+    def _add_item(self, value):
+        self._items.append(value)
+
+    def append(self, value):
+        """Appends the give value to the XML container"""
+
+        self._add_item(value)
+
+    def __iter__(self):
+        return self._items.__iter__()
+
+    def __getitem__(self, index):
+        return self._items.__getitem__(index)
+
+    def __len__(self):
+        return self._items.__len__()
 
 
 def xml_text_node_property(name, value=None, deserialize=True):

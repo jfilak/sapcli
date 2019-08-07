@@ -4,13 +4,16 @@ import unittest
 
 import sap.adt
 from sap.adt.annotations import xml_attribute, xml_element, XmlElementKind, XmlNodeProperty, XmlElementProperty, \
-                                XmlAttributeProperty, XmlNodeAttributeProperty
+                                XmlAttributeProperty, XmlNodeAttributeProperty, XmlContainer
 
 
 class DummyClass:
 
     def __init__(self, value):
         self._value = value
+
+    def __eq__(self, other):
+        return self._value == other._value
 
     @xml_attribute('myValue')
     def value(self):
@@ -37,6 +40,9 @@ class ElementClass:
     @xml_element('serializer', deserialize=False)
     def readonly(self):
         return self._dummy
+
+
+DummyList = XmlContainer.define('dummyitem', DummyClass)
 
 
 class TestADTAnnotation(unittest.TestCase):
@@ -163,6 +169,21 @@ class TestADTAnnotation(unittest.TestCase):
         node.set(obj, 'foo2')
         self.assertEqual(node.get(obj), 'foo2')
         self.assertEqual(node.default_value, 'value2')
+
+    def test_xml_container_instance(self):
+        the_list = DummyList()
+
+        the_list.items = DummyClass(1)
+        the_list.items = DummyClass(2)
+
+        self.assertEqual(the_list.items, [DummyClass(1), DummyClass(2)])
+
+        self.assertEqual(len(the_list), 2)
+        self.assertEqual(the_list[0], DummyClass(1))
+        self.assertEqual(the_list[1], DummyClass(2))
+
+        copy = [item for item in the_list]
+        self.assertEqual(copy, [DummyClass(1), DummyClass(2)])
 
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
 from sap.adt.objects import XMLNamespace
 from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty, XmlElementKind, XmlNodeProperty, \
-                                XmlNodeAttributeProperty
+                                XmlNodeAttributeProperty, XmlContainer
 from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
 
 
@@ -246,12 +246,22 @@ class DummyADTCore(ADTObject):
 
 class DummyContainerItem(metaclass=OrderedClassMembers):
 
-    def __init__(self, no):
+    def __init__(self, no=None):
         self._no = no
 
     @xml_attribute('number')
     def attribute(self):
         return self._no
+
+    @attribute.setter
+    def attribute(self, value):
+        self._no = int(value)
+
+    def __eq__(self, other):
+        return self._no == other._no
+
+    def __repr__(self):
+        return f'DummyContainerItem({self._no})'
 
 
 class DummyContainer(ADTObject):
@@ -271,6 +281,29 @@ class DummyContainer(ADTObject):
     @xml_element('item')
     def items(self):
         return [DummyContainerItem('1'), DummyContainerItem('2'), DummyContainerItem('3')]
+
+
+class DummyOjbectWithContainer(ADTObject):
+
+    OBJTYPE = ADTObjectType(
+        None,
+        None,
+        XMLNamespace('adtcore', 'http://www.sap.com/adt/core'),
+        None,
+        None,
+        'container'
+    )
+
+    ContainerClass = XmlContainer.define('item', DummyContainerItem)
+
+    def __init__(self):
+        super(DummyOjbectWithContainer, self).__init__(None, None)
+
+        self._items = DummyOjbectWithContainer.ContainerClass()
+
+    @xml_element('items')
+    def items(self):
+        return self._items
 
 
 class ChildrenADTObject(metaclass=OrderedClassMembers):
@@ -595,6 +628,42 @@ class TestADTAnnotation(unittest.TestCase):
 <mock:xmlnode xmlns:mock="https://example.org/mock" mock:attribute="deserialize"/>''', parent)
 
         self.assertEqual(parent.attribute, 'deserialize')
+
+    def test_serialize_xml_container(self):
+        container = DummyOjbectWithContainer()
+
+        container.items.append(DummyContainerItem(1))
+        container.items.append(DummyContainerItem(2))
+        container.items.append(DummyContainerItem(3))
+
+        act = Marshal().serialize(container)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:container xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:packageRef/>
+<items>
+<item number="1"/>
+<item number="2"/>
+<item number="3"/>
+</items>
+</adtcore:container>''')
+
+    def test_deserialize_xml_container(self):
+        container = DummyOjbectWithContainer()
+
+        act = Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:container xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:packageRef/>
+<items>
+<item number="1"/>
+<item number="2"/>
+<item number="3"/>
+</items>
+</adtcore:container>''', container)
+
+        self.assertEqual(container.items[0], DummyContainerItem(1))
+        self.assertEqual(container.items[1], DummyContainerItem(2))
+        self.assertEqual(container.items[2], DummyContainerItem(3))
 
 
 if __name__ == '__main__':
