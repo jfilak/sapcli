@@ -58,7 +58,7 @@ system-test:
 	export PATH=$$(pwd):$$PATH; cd test/system && ./run.sh
 
 .PHONY: check
-check: lint test
+check: lint report-coverage
 
 .PHONY: clean
 clean:
