@@ -32,3 +32,14 @@ PYTHONPATH=$(pwd):$PYTHONPATH flake8 --config=.flake8 bin/sapcli
 ```bash
 python -m unittest discover -b -v -s test/unit
 ```
+
+4. Check code coverage - run either `make report-coverage` or
+
+```bash
+coverage run -m unittest discover -b -v -s test/unit
+coverage report bin/sapcli $(find sap -type f -name '*.py')
+```
+
+You can also use `html` instead of `run` which will create
+the report at the path `SOURCE_CODE_DIR/htmlcov/index.html`.
+(Of course, the convenience make target exists - `report-coverage-html`).

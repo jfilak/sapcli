@@ -2,3 +2,5 @@ ve/
 *.pyc
 */__pycache__/
 *.orig
+.coverage
+.htmlcov/
