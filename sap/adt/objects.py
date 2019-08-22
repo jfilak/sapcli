@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """Objects ADT functionality module"""
 
 import re
@@ -8,7 +9,7 @@ from sap.adt.core import mod_log
 from sap.errors import SAPCliError
 
 import sap.adt.marshalling
-from sap.adt.annotations import xml_attribute, xml_element
+from sap.adt.annotations import xml_attribute, xml_element, XmlElementProperty
 
 
 LOCK_ACCESS_MODE_MODIFY = 'MODIFY'
@@ -624,6 +625,232 @@ class ADTObjectSourceEditorWithResponse(ADTObjectSourceEditor):
         headers = super(ADTObjectSourceEditorWithResponse, self).get_headers()
         headers['Accept'] = 'text/plain'
         return headers
+
+
+class ADTObjectReference(metaclass=OrderedClassMembers):
+    """ADT Object Reference"""
+
+    def __init__(self, uri=None, typ=None, name=None, parent_uri=None, description=None):
+        self._uri = uri
+        self._typ = typ
+        self._name = name
+        self._parent_uri = parent_uri
+        self._description = description
+
+    @xml_attribute('adtcore:uri')
+    def uri(self):
+        """Returns referenced object's URI"""
+
+        return self._uri
+
+    @uri.setter
+    def uri(self, value):
+        """Sets referenced object's URI"""
+
+        self._uri = value
+
+    @xml_attribute('adtcore:type')
+    def typ(self):
+        """Returns referenced object's type"""
+
+        return self._typ
+
+    @typ.setter
+    def typ(self, value):
+        """Sets referenced object's type"""
+
+        self._typ = value
+
+    @xml_attribute('adtcore:name')
+    def name(self):
+        """Returns referenced object's name"""
+
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        """Sets referenced object's name"""
+
+        self._name = value
+
+    @xml_attribute('adtcore:parentUri')
+    def parent_uri(self):
+        """Returns referenced object's parent URI"""
+
+        return self._parent_uri
+
+    @parent_uri.setter
+    def parent_uri(self, value):
+        """Sets referenced object's parent URI"""
+
+        self._parent_uri = value
+
+    @xml_attribute('adtcore:description')
+    def description(self):
+        """Returns referenced object's description"""
+
+        return self._description
+
+    @description.setter
+    def description(self, value):
+        """Sets referenced object's description"""
+
+        self._description = value
+
+
+class ADTObjectReferences(metaclass=OrderedClassMembers):
+    """List of ADT Object references"""
+
+    def __init__(self, references=None):
+        """:param references: A list of :clas:`ADTObjectReferences`"""
+
+        self._refs = references
+
+    # pylint: disable=no-self-use
+    @property
+    def objtype(self):
+        """Monkey Patch ADTObject"""
+
+        return ADTObjectType(None,
+                             None,
+                             XMLNamespace('adtcore', 'http://www.sap.com/adt/core'),
+                             'application/xml',
+                             None,
+                             'objectReferences')
+
+    @xml_element('adtcore:objectReference')
+    def references(self):
+        """Get references
+
+           :rtype: A list of :clas:`ADTObjectReferences`
+        """
+
+        return self._refs
+
+    @property
+    def _references(self):
+        """A private property which intialiazes the returned list.
+
+           The public property must not initialize the list because that could
+           confuse the XML generator.
+        """
+
+        if self._refs is None:
+            self._refs = list()
+
+        return self._refs
+
+    def add_reference(self, object_reference):
+        """Adds the given reference.
+
+           :param object_reference:
+        """
+
+        self._references.append(object_reference)
+
+        return object_reference
+
+    def add_object(self, adt_object):
+        """Turns the given adt_object into a reference and adds it.
+
+           Tries to populate these reference fields:
+            - uri = adt_object.uri
+            - name = adt_object.name
+
+           Leaves untouched these reference fields:
+            - typ
+            - parent_uri
+            - description
+
+           If you need to intialized the reference differently,
+           please use the method add_reference.
+
+           :param adt_object: An instance of ADTObject
+           :rtype: The Object Reference :class:`ADTObjectReference`
+        """
+
+        reference = ADTObjectReference(
+            uri=adt_object.full_adt_uri,
+            name=adt_object.name.upper()
+        )
+
+        return self.add_reference(reference)
+
+
+class ADTObjectSet(metaclass=OrderedClassMembers):
+    """Set of ADT Objects stored in the form of ADT Object References"""
+
+    def __init__(self, kind):
+        """Plase use the static method new_inclusive.
+
+           :param kind: string representing the kind
+        """
+
+        self._kind = kind
+        self._references = ADTObjectReferences()
+
+    @xml_attribute('kind')
+    def kind(self):
+        """Returns the kind of the set"""
+
+        return self._kind
+
+    @xml_element(XmlElementProperty.NAME_FROM_OBJECT)
+    def references(self):
+        """Returns the object references"""
+
+        return self._references
+
+    def add_object(self, adt_object):
+        """Adds a reference to the give object
+
+           :rtype: The object reference as an instance of :clas:`ADTObjectReference`
+        """
+
+        return self._references.add_object(adt_object)
+
+    @staticmethod
+    def new_inclusive():
+        """Builds a new inclusive object set.
+
+           :rtype: A instance of :class:`ADTObjectSet`
+        """
+
+        return ADTObjectSet('inclusive')
+
+
+class ADTObjectSets(metaclass=OrderedClassMembers):
+    """Wrapper class for object sets"""
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('adtcore', 'http://www.sap.com/adt/core'),
+                                     'application/xml',
+                                     None,
+                                     'objectSets')
+
+        self._inclusive = None
+
+    @xml_element('objectSet')
+    def inclusive(self):
+        """Returns the inclusive set.
+
+           :rtype: None if the set is empty
+        """
+
+        return self._inclusive
+
+    def include_object(self, adt_object):
+        """Includes the give ADT Object
+
+           :param adt_object: An instance of :clas:`ADTObject`
+           :rtype: The object reference.
+        """
+
+        if self._inclusive is None:
+            self._inclusive = ADTObjectSet.new_inclusive()
+
+        return self._inclusive.add_object(adt_object)
 
 
 class OOADTObjectBase(ADTObject):
