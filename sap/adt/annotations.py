@@ -19,6 +19,8 @@ class XmlAttributeProperty(property):
 class XmlElementProperty(property):
     """XML Annotation"""
 
+    NAME_FROM_OBJECT = None
+
     def __init__(self, name, fget, fset=None, deserialize=True, factory=None):
         super(XmlElementProperty, self).__init__(fget, fset)
 

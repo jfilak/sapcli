@@ -226,7 +226,12 @@ class Marshal:
 
             if isinstance(attr, XmlElementProperty):
                 child = getattr(obj, attr_name)
-                new_element = partial(root.add_child, attr.name)
+
+                node_name = attr.name
+                if node_name is XmlElementProperty.NAME_FROM_OBJECT:
+                    node_name = adt_object_to_element_name(child)
+
+                new_element = partial(root.add_child, node_name)
 
                 if isinstance(child, list):
                     for item in child:
