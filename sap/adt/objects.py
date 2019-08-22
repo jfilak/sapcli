@@ -158,6 +158,12 @@ class ADTObjectType:
 
         return self._xmlname
 
+    @property
+    def xmlelement(self):
+        """XML name prefixed with XML Namespace name"""
+
+        return f'{self._xmlnamespace.name}:{self._xmlname}'
+
     def get_uri_for_type(self, mimetype):
         """Returns and an ADT URL fragment for the given MIME type.
         """

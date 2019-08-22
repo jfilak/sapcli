@@ -271,16 +271,19 @@ class TestADTObjectType(unittest.TestCase):
         self.adt_object = sap.adt.objects.ADTObjectType(
             'code',
             'basepath',
-            sap.adt.objects.XMLNamespace(name='name', uri='uri'),
+            sap.adt.objects.XMLNamespace(name='xmlnsname', uri='uri'),
             'mimetype',
             {'text/plain': '/text'},
-            'xmlname')
+            'xmlelementname')
 
     def test_adt_object_type_basepath(self):
         self.assertEqual(self.adt_object.basepath, 'basepath')
 
         self.adt_object.basepath = 'newpath'
         self.assertEqual(self.adt_object.basepath, 'newpath')
+
+    def test_adt_object_type_xmlelement(self):
+        self.assertEqual(self.adt_object.xmlelement, 'xmlnsname:xmlelementname')
 
 
 if __name__ == '__main__':
