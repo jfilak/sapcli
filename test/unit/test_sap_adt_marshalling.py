@@ -5,7 +5,8 @@ import unittest
 from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
 from sap.adt.objects import XMLNamespace
-from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty, XmlElementKind
+from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty, XmlElementKind, XmlNodeProperty, \
+                                XmlNodeAttributeProperty
 from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
 
 
@@ -320,6 +321,30 @@ class TextElementADTObject(metaclass=OrderedClassMembers):
         self._text = value
 
 
+class XmlNodePropertyADTObject(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'xmlnodeparent')
+
+    child = XmlNodeProperty('mock:child', factory=DummyChild)
+
+
+class XmlNodeAttributePropertyADTObject(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'xmlnode')
+
+    attribute = XmlNodeAttributeProperty('mock:attribute')
+
+
 class TestADTAnnotation(unittest.TestCase):
 
 
@@ -477,6 +502,99 @@ class TestADTAnnotation(unittest.TestCase):
 </mock:have_child_with_text>''', parent)
 
         self.assertEqual(parent.text, '')
+
+    def test_serialize_with_node_object_none(self):
+        parent = XmlNodePropertyADTObject()
+        self.assertIsNone(parent.child)
+
+        act = Marshal().serialize(parent)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnodeparent xmlns:mock="https://example.org/mock">
+<mock:child/>
+</mock:xmlnodeparent>''')
+
+    def test_serialize_with_node_attribute_value_none(self):
+        parent = XmlNodeAttributePropertyADTObject()
+        self.assertIsNone(parent.attribute)
+
+        act = Marshal().serialize(parent)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnode xmlns:mock="https://example.org/mock"/>''')
+
+    def test_serialize_with_node_object(self):
+        parent = XmlNodePropertyADTObject()
+        parent.child = DummyChild()
+        self.assertIsNotNone(parent.child)
+
+        # TODO: why it does not mind invalid attr name
+        parent.child.attribute = 'foo'
+        self.assertEqual(parent.child.attribute, 'foo')
+
+        act = Marshal().serialize(parent)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnodeparent xmlns:mock="https://example.org/mock">
+<mock:child attribute="foo"/>
+</mock:xmlnodeparent>''')
+
+    def test_serialize_with_node_attribute_value(self):
+        parent = XmlNodeAttributePropertyADTObject()
+        parent.attribute = 'foo'
+        self.assertIsNotNone(parent.attribute)
+
+        # TODO: why it does not mind invalid attr name
+        parent.attribute = 'foo'
+        self.assertEqual(parent.attribute, 'foo')
+
+        act = Marshal().serialize(parent)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnode xmlns:mock="https://example.org/mock" mock:attribute="foo"/>''')
+
+    def test_deserialize_with_node_object_missing(self):
+        parent = XmlNodePropertyADTObject()
+
+        Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnodeparent xmlns:mock="https://example.org/mock"/>''', parent)
+
+        self.assertIsNone(parent.child)
+
+    def test_deserialize_with_node_attribute_missing(self):
+        parent = XmlNodeAttributePropertyADTObject()
+
+        Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnode xmlns:mock="https://example.org/mock"/>''', parent)
+
+        self.assertIsNone(parent.attribute)
+
+    def test_deserialize_with_node_object_none(self):
+        parent = XmlNodePropertyADTObject()
+
+        Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnodeparent xmlns:mock="https://example.org/mock">
+<mock:child/>
+</mock:xmlnodeparent>''', parent)
+
+        self.assertIsNotNone(parent.child)
+
+    def test_deserialize_with_node_object(self):
+        parent = XmlNodePropertyADTObject()
+        Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnodeparent xmlns:mock="https://example.org/mock">
+<mock:child attribute="deserialize"/>
+</mock:xmlnodeparent>''', parent)
+
+        self.assertIsNotNone(parent.child)
+        self.assertEqual(parent.child.attribute, 'deserialize')
+
+    def test_deserialize_with_node_attribute_value(self):
+        parent = XmlNodeAttributePropertyADTObject()
+        Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:xmlnode xmlns:mock="https://example.org/mock" mock:attribute="deserialize"/>''', parent)
+
+        self.assertEqual(parent.attribute, 'deserialize')
 
 
 if __name__ == '__main__':

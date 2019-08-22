@@ -43,6 +43,71 @@ class XmlElementProperty(property):
                           kind=self.kind)
 
 
+class XmlPropertyImpl:
+    """XML Property implementation which enriches the given object with a new
+       attribute whose name is built from the corresponding XML name.
+    """
+
+    def __init__(self, name, default_value=None):
+
+        self.attr = f'_{name}'.replace(':', '_')
+        self.default_value = default_value
+
+    def get(self, obj):
+        """Getter"""
+
+        try:
+            return getattr(obj, self.attr)
+        except AttributeError:
+            return self.default_value
+
+    def set(self, obj, value):
+        """Setter"""
+
+        obj.__dict__[self.attr] = value
+
+
+class XmlNodeProperty(XmlElementProperty, XmlPropertyImpl):
+    """A descriptor class to avoid the need to define 2 useless functions
+       get/set when absolutely not necessary.
+    """
+
+    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT):
+        super(XmlNodeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize, factory=factory,
+                                              kind=kind)
+        XmlPropertyImpl.__init__(self, name, default_value=value)
+
+    def setter(self, fset):
+        """Turned off setter decorator which is not necessary and confusing"""
+
+        # TODO: reorder inheritance - this is stupid!
+        raise NotImplementedError()
+
+
+class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
+    """A descriptor class to avoid the need to define 2 useless functions
+       get/set when absolutely not necessary.
+    """
+
+    def __init__(self, name, value=None, deserialize=True):
+        super(XmlNodeAttributeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize)
+        XmlPropertyImpl.__init__(self, name, default_value=value)
+
+    def setter(self, fset):
+        """Turned off setter decorator which is not necessary and confusing"""
+
+        # TODO: reorder inheritance - this is stupid!
+        raise NotImplementedError()
+
+
+def xml_text_node_property(name, value=None, deserialize=True):
+    """A factory method returning a descriptor property XML Element holding
+       the value in a text node.
+    """
+
+    return XmlNodeProperty(name, value=value, deserialize=deserialize, factory=None, kind=XmlElementKind.TEXT)
+
+
 def xml_attribute(name, deserialize=True):
     """Mark the given property as a XML element attribute of the given name"""
 

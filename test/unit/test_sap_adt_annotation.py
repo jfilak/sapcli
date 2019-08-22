@@ -3,7 +3,8 @@
 import unittest
 
 import sap.adt
-from sap.adt.annotations import xml_attribute, xml_element, XmlElementKind
+from sap.adt.annotations import xml_attribute, xml_element, XmlElementKind, XmlNodeProperty, XmlElementProperty, \
+                                XmlAttributeProperty, XmlNodeAttributeProperty
 
 
 class DummyClass:
@@ -114,6 +115,54 @@ class TestADTAnnotation(unittest.TestCase):
 
         kind_setter = xml_element('factory', kind=XmlElementKind.TEXT)
         self.assertEqual(kind_setter(None).setter(None).kind, XmlElementKind.TEXT)
+
+    def test_xml_node_property_init(self):
+        template = XmlElementProperty('element', None)
+
+        node = XmlNodeProperty('element')
+        self.assertIsNone(node.default_value)
+        self.assertEqual(node.name, template.name)
+        self.assertEqual(node.kind, template.kind)
+        self.assertEqual(node.factory, template.factory)
+        self.assertEqual(node.deserialize, template.deserialize)
+
+        node = XmlNodeProperty('element', value='value', deserialize=False, factory=str, kind=XmlElementKind.TEXT)
+        self.assertEqual(node.default_value, 'value')
+        self.assertEqual(node.name, 'element')
+        self.assertEqual(node.kind, XmlElementKind.TEXT)
+        self.assertEqual(node.factory, str)
+        self.assertFalse(node.deserialize)
+
+    def test_xml_node_property_get_set(self):
+        node = XmlNodeProperty('element', value='value')
+        obj = node
+
+        self.assertEqual(node.get(obj), 'value')
+        node.set(obj, 'foo')
+        self.assertEqual(node.get(obj), 'foo')
+        self.assertEqual(node.default_value, 'value')
+
+    def test_xml_node_attribute_property_init(self):
+        template = XmlAttributeProperty('attribute', None)
+
+        node = XmlNodeAttributeProperty('attribute')
+        self.assertIsNone(node.default_value)
+        self.assertEqual(node.name, template.name)
+        self.assertEqual(node.deserialize, template.deserialize)
+
+        node = XmlNodeAttributeProperty('attribute2', value='value', deserialize=False)
+        self.assertEqual(node.default_value, 'value')
+        self.assertEqual(node.name, 'attribute2')
+        self.assertFalse(node.deserialize)
+
+    def test_xml_node_property_get_set(self):
+        node = XmlNodeAttributeProperty('attribute3', value='value2')
+        obj = node
+
+        self.assertEqual(node.get(obj), 'value2')
+        node.set(obj, 'foo2')
+        self.assertEqual(node.get(obj), 'foo2')
+        self.assertEqual(node.default_value, 'value2')
 
 
 if __name__ == '__main__':
