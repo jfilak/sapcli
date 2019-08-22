@@ -3,7 +3,7 @@
 import unittest
 
 import sap.adt
-from sap.adt.annotations import xml_attribute, xml_element
+from sap.adt.annotations import xml_attribute, xml_element, XmlElementKind
 
 
 class DummyClass:
@@ -104,6 +104,17 @@ class TestADTAnnotation(unittest.TestCase):
 
         factory = xml_element('factory', factory=int)
         self.assertEqual(factory(None).setter(None).factory, int)
+
+    def test_xml_element_kind(self):
+        wo_kind = xml_element('wo_kind')
+        self.assertEqual(wo_kind(None).kind, XmlElementKind.OBJECT)
+
+        kind = xml_element('kind', kind=XmlElementKind.TEXT)
+        self.assertEqual(kind(None).kind, XmlElementKind.TEXT)
+
+        kind_setter = xml_element('factory', kind=XmlElementKind.TEXT)
+        self.assertEqual(kind_setter(None).setter(None).kind, XmlElementKind.TEXT)
+
 
 if __name__ == '__main__':
     unittest.main()

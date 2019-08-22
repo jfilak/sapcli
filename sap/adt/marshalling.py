@@ -6,7 +6,15 @@ import xml.sax
 from xml.sax.handler import ContentHandler
 
 from sap import get_logger
-from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty
+from sap.errors import FatalError
+from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty, XmlElementKind
+
+
+class MarshallingError(FatalError):
+    """Base Marshalling error for generic problems"""
+
+    # pylint: disable=unnecessary-pass
+    pass
 
 
 class Element:
@@ -14,6 +22,7 @@ class Element:
 
     def __init__(self, name):
         self._name = name
+        self._text = None
         self._children = []
         self._attributes = {}
 
@@ -35,8 +44,26 @@ class Element:
 
         return self._attributes
 
+    @property
+    def text(self):
+        """Element text"""
+
+        return self._text
+
+    @text.setter
+    def text(self, value):
+        """Sets Element text"""
+
+        if self._children:
+            raise MarshallingError(f'Cannot set text the text element "{self._name}" with children')
+
+        self._text = value
+
     def add_child(self, name):
         """Adds a new child element and return it"""
+
+        if self._text is not None:
+            raise MarshallingError(f'Cannot add the child "{name}" the text element "{self._name}"')
 
         child = Element(name)
         self._children.append(child)
@@ -66,23 +93,31 @@ def factory_with_setter(factory, setter, obj):
 class ElementHandler:
     """XML element desirialization"""
 
-    def __init__(self, my_xpath, elements, factory=None):
+    def __init__(self, my_xpath, elements, factory=None, textproperty=None):
         self.my_xpath = my_xpath
         self.elements = elements
         self.factory = factory
         self.attributes = None
         self.obj = None
+        self.textproperty = textproperty
 
     def new(self):
         """Returns a new object"""
 
         self.obj = self.factory()
-        self.attributes = ElementHandler.load_definitions(self, self.obj)
+
+        if self.textproperty is None:
+            self.attributes = ElementHandler.load_definitions(self, self.obj)
 
     def set(self, attr_name, value):
         """Sets object's property value"""
 
         get_logger().debug('Going to set XML attribute property: %s', attr_name)
+
+        if self.textproperty is not None:
+            # TODO: potentially programming error
+            raise MarshallingError()
+
         try:
             self.attributes[attr_name].__set__(self.obj, value)
             get_logger().debug('Set XML attribute property: %s', attr_name)
@@ -90,6 +125,39 @@ class ElementHandler:
             get_logger().error('XML property %s: %s', attr_name, str(ex))
         except KeyError:
             get_logger().debug('Not an XML attribute property: %s', attr_name)
+
+    def clear_text(self):
+        """Clear text value"""
+
+        get_logger().debug('Going to clear text')
+
+        if self.textproperty is None:
+            get_logger().debug('Not a text property')
+            return
+
+        self.textproperty.__set__(self.obj, '')
+        get_logger().debug('Set the text property to None')
+
+    def append_text(self, chunk):
+        """Appends text chunk"""
+
+        get_logger().debug('Going to append text')
+
+        if self.textproperty is None:
+            if not chunk.isspace():
+                # TODO: potentially programming error
+                raise MarshallingError()
+
+            return
+
+        current = self.textproperty.__get__(self.obj)
+        if current is None:
+            current = chunk
+        else:
+            current += chunk
+
+        self.textproperty.__set__(self.obj, current)
+        get_logger().debug('Set text to: %s', current)
 
     def load_definitions(self, obj):
         """Examines annotations of the current object"""
@@ -106,6 +174,14 @@ class ElementHandler:
 
                 if not attr.deserialize:
                     get_logger().debug('Found readonly XML element property: %s -> %s', attr_name, xml_path)
+                    continue
+
+                if attr.kind == XmlElementKind.TEXT:
+                    get_logger().debug('Found Text XML element property: %s -> %s', attr_name, xml_path)
+                    self.elements[xml_path] = ElementHandler(xml_path,
+                                                             self.elements,
+                                                             factory=lambda: obj,
+                                                             textproperty=attr)
                     continue
 
                 get_logger().debug('Found XML element property: %s -> %s', attr_name, xml_path)
@@ -139,6 +215,7 @@ class ADTObjectSAXHandler(ContentHandler):
         self.stack = list()
         self.current = ''
         self.elements = elements
+        self.handler = None
 
     def startElement(self, name, attrs):
         self.stack.append(self.current)
@@ -146,23 +223,32 @@ class ADTObjectSAXHandler(ContentHandler):
         get_logger().debug('Encountered XML element: %s', self.current)
 
         try:
-            handler = self.elements[self.current]
+            self.handler = self.elements[self.current]
         except KeyError:
             return
 
         get_logger().debug('Deserializing element: %s', self.current)
 
         # this loads handlers for children elements!! /o\
-        handler.new()
+        self.handler.new()
+        self.handler.clear_text()
 
         for attr_name, value in attrs.items():
             get_logger().debug('Encountered XML attribute: %s', attr_name)
             try:
-                handler.set(attr_name, value)
+                self.handler.set(attr_name, value)
             except KeyError:
                 pass
 
+    def characters(self, content):
+        if self.handler is None:
+            return
+
+        get_logger().debug('Trying to set text for the current handler: "%s"', content)
+        self.handler.append_text(content)
+
     def endElement(self, name):
+        self.handler = None
         self.current = self.stack.pop()
 
 
@@ -233,7 +319,7 @@ class Marshal:
 
         return declared
 
-    def _serialize_object_to_node(self, root, node_name, child, declared_ns):
+    def _serialize_object_to_node(self, root, node_name, child, declared_ns, kind):
 
         if not isinstance(child, list):
             # Put a solo object to a list to simplify
@@ -258,7 +344,12 @@ class Marshal:
             else:
                 child_ns = self._declare_xmlns(child_elem, new_ns, declared_ns)
 
-            self._build_tree(child_elem, item, child_ns)
+            if kind == XmlElementKind.OBJECT:
+                self._build_tree(child_elem, item, child_ns)
+            elif kind == XmlElementKind.TEXT:
+                child_elem.text = item
+            else:
+                raise MarshallingError()
 
     def _build_tree(self, root, obj, declared_ns):
         """Convert ADT Object members to XML elements"""
@@ -274,7 +365,7 @@ class Marshal:
 
             if isinstance(attr, XmlElementProperty):
                 child = getattr(obj, attr_name)
-                self._serialize_object_to_node(root, attr.name, child, declared_ns)
+                self._serialize_object_to_node(root, attr.name, child, declared_ns, attr.kind)
             elif isinstance(attr, XmlAttributeProperty):
                 value = getattr(obj, attr_name)
                 if value is not None:
@@ -296,9 +387,14 @@ class Marshal:
         if attributes:
             xml_str += f' {attributes}'
 
-        children = '\n'.join((self._element_to_xml(child) for child in tree.children))
-        if children:
-            xml_str += f'>\n{children}\n</{tree.name}>'
+        content = tree.text
+
+        if content is None and tree.children:
+            subnode = str('\n'.join((self._element_to_xml(child) for child in tree.children)))
+            content = f'\n{subnode}\n'
+
+        if content is not None:
+            xml_str += f'>{content}</{tree.name}>'
         else:
             xml_str += '/>'
 

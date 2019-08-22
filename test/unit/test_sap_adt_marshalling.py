@@ -5,7 +5,7 @@ import unittest
 from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
 from sap.adt.objects import XMLNamespace
-from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty
+from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty, XmlElementKind
 from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
 
 
@@ -301,6 +301,25 @@ class ParentADTObject(metaclass=OrderedClassMembers):
         return ChildrenADTObject()
 
 
+class TextElementADTObject(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'have_child_with_text')
+        self._text = 'content'
+
+    @xml_element('mock:holdstext', kind=XmlElementKind.TEXT)
+    def text(self):
+        return self._text
+
+    @text.setter
+    def text(self, value):
+        self._text = value
+
+
 class TestADTAnnotation(unittest.TestCase):
 
 
@@ -428,6 +447,36 @@ class TestADTAnnotation(unittest.TestCase):
 <mock:parent xmlns:mock="https://example.org/mock">
 <mock:child xmlns:foo="bar" value="stub"/>
 </mock:parent>''')
+
+    def test_serialize_with_elem_text(self):
+        parent = TextElementADTObject()
+
+        act = Marshal().serialize(parent)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:have_child_with_text xmlns:mock="https://example.org/mock">
+<mock:holdstext>content</mock:holdstext>
+</mock:have_child_with_text>''')
+
+    def test_deserialize_with_elem_text(self):
+        parent = TextElementADTObject()
+
+        Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:have_child_with_text xmlns:mock="https://example.org/mock">
+<mock:holdstext>message</mock:holdstext>
+</mock:have_child_with_text>''', parent)
+
+        self.assertEqual(parent.text, 'message')
+
+    def test_deserialize_with_elem_text_empty(self):
+        parent = TextElementADTObject()
+
+        Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:have_child_with_text xmlns:mock="https://example.org/mock">
+<mock:holdstext></mock:holdstext>
+</mock:have_child_with_text>''', parent)
+
+        self.assertEqual(parent.text, '')
 
 
 if __name__ == '__main__':
