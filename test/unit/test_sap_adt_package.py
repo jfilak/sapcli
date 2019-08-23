@@ -67,7 +67,7 @@ class TestADTPackage(unittest.TestCase):
 
         self.assertEqual(len(conn.execs), 1)
 
-        self.assertEqual(conn.mock_methods(), [('GET', '/sap/bc/adt/packages/$iamtheking')])
+        self.assertEqual(conn.mock_methods(), [('GET', '/sap/bc/adt/packages/%24iamtheking')])
 
         self.maxDiff = None
         self.assertEqual(package.description, 'This is a package')

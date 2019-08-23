@@ -3,6 +3,7 @@
 
 import re
 from typing import NamedTuple
+from urllib.parse import quote_plus
 
 from sap.adt.core import mod_log
 from sap.errors import SAPCliError
@@ -412,7 +413,7 @@ class ADTObject(metaclass=OrderedClassMembers):
         """ADT object URL fragment"""
 
         # pylint: disable=no-member
-        return self.objtype.basepath + '/' + self.name.lower()
+        return self.objtype.basepath + '/' + quote_plus(self.name.lower())
 
     @property
     def full_adt_uri(self):
