@@ -1,19 +1,25 @@
 # ABAP Unit
 
-## Usage
+1. [run](#run)
+
+## run
 
 Execute `sapcli` with the parameters `aunit run {package|class|program} $OBJECT_NAME`.
 
 The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests.
 
-## Output format
+```bash
+sapcli aunit run {package,class,program} NAME [--output {raw,human,junit4}]
+```
 
-### Raw
+### Output format
+
+#### Raw
 
 Tests results are printed in the form as they were returned from ADT.
 
-### Human
+#### Human
 
 This format attempts to provide nice human readable form of the test results.
 
@@ -37,7 +43,7 @@ Skipped:   1
 Failed:    1
 ```
 
-### JUnit
+#### JUnit
 
 The JUnit format was assembled from:
 - https://github.com/windyroad/JUnit-Schema/blob/master/JUnit.xsd
