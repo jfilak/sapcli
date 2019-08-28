@@ -95,9 +95,9 @@ class TestADTPackageWalk(unittest.TestCase):
         self.assertEqual(root_path, [])
         self.assertEqual(subpackages, ['$VICTORY_TESTS'])
         self.assertEqual(objects,
-                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD'),
-                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD'),
-                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD')])
+                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD', uri='/sap/bc/adt/oo/classes/zcl_hello_world'),
+                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD', uri='/sap/bc/adt/oo/interfaces/zif_hello_world'),
+                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='/sap/bc/adt/programs/programs/z_hello_world')])
 
         root_path, subpackages, objects = next(walk_iter)
 
@@ -145,9 +145,9 @@ class TestADTPackageWalk(unittest.TestCase):
         self.assertEqual(root_path, ['$VICTORY_TESTS'])
         self.assertEqual(subpackages, [])
         self.assertEqual(objects,
-                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD'),
-                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD'),
-                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD')])
+                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD', uri='/sap/bc/adt/oo/classes/zcl_hello_world'),
+                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD', uri='/sap/bc/adt/oo/interfaces/zif_hello_world'),
+                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='/sap/bc/adt/programs/programs/z_hello_world')])
 
 
 if __name__ == '__main__':
