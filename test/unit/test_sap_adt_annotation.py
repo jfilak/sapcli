@@ -4,7 +4,7 @@ import unittest
 
 import sap.adt
 from sap.adt.annotations import xml_attribute, xml_element, XmlElementKind, XmlNodeProperty, XmlElementProperty, \
-                                XmlAttributeProperty, XmlNodeAttributeProperty, XmlContainer
+                                XmlAttributeProperty, XmlNodeAttributeProperty, XmlContainer, XmlListNodeProperty
 
 
 class DummyClass:
@@ -161,7 +161,7 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(node.name, 'attribute2')
         self.assertFalse(node.deserialize)
 
-    def test_xml_node_property_get_set(self):
+    def test_xml_node_attribute_property_get_set(self):
         node = XmlNodeAttributeProperty('attribute3', value='value2')
         obj = node
 
@@ -184,6 +184,49 @@ class TestADTAnnotation(unittest.TestCase):
 
         copy = [item for item in the_list]
         self.assertEqual(copy, [DummyClass(1), DummyClass(2)])
+
+    def test_xml_list_node_property_init(self):
+        template = XmlElementProperty('element', None)
+
+        node = XmlListNodeProperty('element')
+        self.assertIsNone(node.default_value)
+        self.assertEqual(node.name, template.name)
+        self.assertEqual(node.kind, template.kind)
+        self.assertEqual(node.factory, template.factory)
+        self.assertEqual(node.deserialize, template.deserialize)
+
+        node = XmlListNodeProperty('element', value=['value'], deserialize=False, factory=str, kind=XmlElementKind.TEXT)
+        self.assertEqual(node.default_value, ['value'])
+        self.assertEqual(node.name, 'element')
+        self.assertEqual(node.kind, XmlElementKind.TEXT)
+        self.assertEqual(node.factory, str)
+        self.assertFalse(node.deserialize)
+
+    def test_xml_list_node_property_get_set(self):
+        check_value = ['a', 'b']
+        node = XmlListNodeProperty('element', value=check_value)
+        obj = node
+
+        self.assertEqual(node.__get__(obj), ['a', 'b'])
+        node.__set__(obj, 'c')
+        self.assertEqual(node.__get__(obj), ['a', 'b', 'c'])
+
+        self.assertEqual(node.default_value, ['a', 'b'])
+        self.assertEqual(check_value, ['a', 'b'])
+
+    def test_xml_list_node_property_default_none(self):
+        node = XmlListNodeProperty('element')
+        obj = node
+
+        self.assertEqual(node.__get__(obj), None)
+        node.__set__(obj, 'c')
+        self.assertEqual(node.__get__(obj), ['c'])
+
+        self.assertEqual(node.default_value, None)
+
+    def test_xml_list_node_property_default_no_list(self):
+        with self.assertRaises(RuntimeError) as caught:
+            node = XmlListNodeProperty('element', value=1)
 
 
 if __name__ == '__main__':

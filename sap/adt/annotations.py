@@ -127,6 +127,47 @@ class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
         raise NotImplementedError()
 
 
+class XmlListNodeProperty(XmlElementProperty):
+    """Many repetitions of the same tag"""
+
+    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT):
+        super(XmlListNodeProperty, self).__init__(name, self.get, fset=self.append, deserialize=deserialize,
+                                                  factory=factory, kind=kind)
+
+        if value is not None and not isinstance(value, list):
+            raise RuntimeError()
+
+        self.attr = f'_{name}'.replace(':', '_')
+        self.default_value = value
+
+    def _get_list(self, obj):
+        items = obj.__dict__.get(self.attr, None)
+        if items is None:
+            if self.default_value is not None:
+                items = list(self.default_value)
+                obj.__dict__[self.attr] = items
+
+        return items
+
+    def get(self, obj):
+        """Getter"""
+
+        try:
+            return getattr(obj, self.attr)
+        except AttributeError:
+            return self._get_list(obj)
+
+    def append(self, obj, value):
+        """Setter"""
+
+        items = self._get_list(obj)
+        if items is None:
+            items = list()
+            obj.__dict__[self.attr] = items
+
+        items.append(value)
+
+
 class XmlContainerMeta(OrderedClassMembers):
     """A MetaClass adding the class-method 'define' which returns
        a class representing ADT XML container - i.e a wrapping node
@@ -140,8 +181,8 @@ class XmlContainerMeta(OrderedClassMembers):
            The annotated property is named 'items' and can be publicly used.
         """
 
-        items_property = XmlElementProperty(item_element_name, cls._get_items, fset=cls._add_item,
-                                            deserialize=True, factory=item_factory, kind=XmlElementKind.OBJECT)
+        items_property = XmlListNodeProperty(item_element_name, deserialize=True, factory=item_factory,
+                                             value=list(), kind=XmlElementKind.OBJECT)
 
         return type(f'XMLContainer_{item_factory.__name__}', (cls,), dict(items=items_property))
 
@@ -149,28 +190,23 @@ class XmlContainerMeta(OrderedClassMembers):
 class XmlContainer(metaclass=XmlContainerMeta):
     """A template class with the property items which is annotated as XmlElement."""
 
-    def __init__(self):
-        self._items = list()
-
-    def _get_items(self):
-        return self._items
-
-    def _add_item(self, value):
-        self._items.append(value)
-
     def append(self, value):
         """Appends the give value to the XML container"""
 
-        self._add_item(value)
+        # pylint: disable=no-member
+        self.items.append(value)
 
     def __iter__(self):
-        return self._items.__iter__()
+        # pylint: disable=no-member
+        return self.items.__iter__()
 
     def __getitem__(self, index):
-        return self._items.__getitem__(index)
+        # pylint: disable=no-member
+        return self.items.__getitem__(index)
 
     def __len__(self):
-        return self._items.__len__()
+        # pylint: disable=no-member
+        return self.items.__len__()
 
 
 def xml_text_node_property(name, value=None, deserialize=True):
