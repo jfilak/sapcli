@@ -100,6 +100,7 @@ class ElementHandler:
         self.attributes = None
         self.obj = None
         self.textproperty = textproperty
+        self._textvalue = None
 
     def new(self):
         """Returns a new object"""
@@ -135,7 +136,7 @@ class ElementHandler:
             get_logger().debug('Not a text property')
             return
 
-        self.textproperty.__set__(self.obj, '')
+        self._textvalue = ''
         get_logger().debug('Set the text property to None')
 
     def append_text(self, chunk):
@@ -150,14 +151,24 @@ class ElementHandler:
 
             return
 
-        current = self.textproperty.__get__(self.obj)
-        if current is None:
-            current = chunk
-        else:
-            current += chunk
+        self._textvalue += chunk
 
-        self.textproperty.__set__(self.obj, current)
-        get_logger().debug('Set text to: %s', current)
+        get_logger().debug('Set text to: %s', self._textvalue)
+
+    def set_text(self):
+        """Sets the text value"""
+
+        get_logger().debug('Going to set text')
+
+        if self.textproperty is None:
+            if self._textvalue is not None and not self._textvalue.isspace():
+                # TODO: potentially programming error
+                raise MarshallingError()
+
+            get_logger().debug('The property is not a text node')
+            return
+
+        self.textproperty.__set__(self.obj, self._textvalue)
 
     def load_definitions(self, obj):
         """Examines annotations of the current object"""
@@ -248,7 +259,10 @@ class ADTObjectSAXHandler(ContentHandler):
         self.handler.append_text(content)
 
     def endElement(self, name):
-        self.handler = None
+        if self.handler is not None:
+            self.handler.set_text()
+            self.handler = None
+
         self.current = self.stack.pop()
 
 

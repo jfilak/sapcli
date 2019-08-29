@@ -6,7 +6,7 @@ from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
 from sap.adt.objects import XMLNamespace
 from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty, XmlElementKind, XmlNodeProperty, \
-                                XmlNodeAttributeProperty, XmlContainer
+                                XmlNodeAttributeProperty, XmlContainer, XmlListNodeProperty
 from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
 
 
@@ -378,6 +378,18 @@ class XmlNodeAttributePropertyADTObject(metaclass=OrderedClassMembers):
     attribute = XmlNodeAttributeProperty('mock:attribute')
 
 
+class DummyWithTheTextList(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'withlist')
+
+    the_text_list = XmlListNodeProperty('mock:item', kind=XmlElementKind.TEXT)
+
+
 class TestADTAnnotation(unittest.TestCase):
 
 
@@ -664,6 +676,34 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(container.items[0], DummyContainerItem(1))
         self.assertEqual(container.items[1], DummyContainerItem(2))
         self.assertEqual(container.items[2], DummyContainerItem(3))
+
+    def test_serialize_xml_text_list(self):
+        container = DummyWithTheTextList()
+
+        container.the_text_list = '1'
+        container.the_text_list = '2'
+        container.the_text_list = '3'
+
+        act = Marshal().serialize(container)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:withlist xmlns:mock="https://example.org/mock">
+<mock:item>1</mock:item>
+<mock:item>2</mock:item>
+<mock:item>3</mock:item>
+</mock:withlist>''')
+
+    def test_deserialize_xml_text_list(self):
+        container = DummyWithTheTextList()
+
+        act = Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:withlist xmlns:mock="https://example.org/mock">
+<mock:item>1</mock:item>
+<mock:item>2</mock:item>
+<mock:item>3</mock:item>
+</mock:withlist>''', container)
+
+        self.assertEqual(container.the_text_list, ['1', '2', '3'])
 
 
 if __name__ == '__main__':
