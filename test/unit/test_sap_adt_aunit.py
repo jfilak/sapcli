@@ -2,8 +2,9 @@
 
 import unittest
 
-import sap.adt
 import sap
+import sap.adt
+from sap.adt.aunit import Alert, AlertSeverity
 
 from fixtures_adt import DummyADTObject
 from fixtures_adt_aunit import AUNIT_RESULTS_XML, AUNIT_NO_TEST_RESULTS_XML
@@ -18,6 +19,29 @@ class TestAUnit(unittest.TestCase):
 
         victory_uri = sap.adt.AUnit.build_tested_object_uri(connection, victory)
         self.assertEquals(victory_uri, '/sap/bc/adt/awesome/success/noobject')
+
+
+class TestAlert(unittest.TestCase):
+
+    def test_error_as_severity_fatal(self):
+        alert = sap.adt.aunit.Alert(severity=AlertSeverity.FATAL, kind=None, title=None, details=None, stack=None)
+        self.assertTrue(alert.is_error)
+        self.assertFalse(alert.is_warning)
+
+    def test_error_as_severity_critical(self):
+        alert = sap.adt.aunit.Alert(severity=AlertSeverity.CRITICAL, kind=None, title=None, details=None, stack=None)
+        self.assertTrue(alert.is_error)
+        self.assertFalse(alert.is_warning)
+
+    def test_warning_as_severity_tolerable(self):
+        alert = sap.adt.aunit.Alert(severity=AlertSeverity.TOLERABLE, kind=None, title=None, details=None, stack=None)
+        self.assertTrue(alert.is_warning)
+        self.assertFalse(alert.is_error)
+
+    def test_ok_as_severity_random(self):
+        alert = sap.adt.aunit.Alert(severity='UNKNOWN', kind=None, title=None, details=None, stack=None)
+        self.assertFalse(alert.is_warning)
+        self.assertFalse(alert.is_error)
 
 
 class TestAUnitParseResults(unittest.TestCase):

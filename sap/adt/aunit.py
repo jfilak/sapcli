@@ -105,6 +105,14 @@ class TestMethod(NamedTuple):
     alerts: List
 
 
+class AlertSeverity:
+    """AUnit Alert severity Identifiers"""
+
+    CRITICAL = 'critical'
+    FATAL = 'fatal'
+    TOLERABLE = 'tolerable'
+
+
 # pylint: disable=too-few-public-methods
 class Alert(NamedTuple):
     """ABAP Unit Tests Framework ADT results Alert node"""
@@ -114,6 +122,18 @@ class Alert(NamedTuple):
     title: str
     details: List
     stack: List
+
+    @property
+    def is_error(self):
+        """Returns true if the alert represents an error"""
+
+        return self.severity in [AlertSeverity.CRITICAL, AlertSeverity.FATAL]
+
+    @property
+    def is_warning(self):
+        """Returns true if the alert represents a warning"""
+
+        return self.severity == AlertSeverity.TOLERABLE
 
 
 # pylint: disable=too-many-instance-attributes

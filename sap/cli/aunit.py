@@ -36,10 +36,10 @@ def print_results_to_stream(run_results, stream):
 
             for test_method in test_class.test_methods:
                 result = None
-                if any((alert.severity == 'critical' for alert in test_method.alerts)):
+                if any((alert.is_error for alert in test_method.alerts)):
                     result = 'ERR'
                     critical.append((program, test_class, test_method))
-                elif any((alert.severity == 'tolerable' for alert in test_method.alerts)):
+                elif any((alert.is_warning for alert in test_method.alerts)):
                     result = 'SKIP'
                     tolerable += 1
                 else:
@@ -59,8 +59,8 @@ def print_results_to_stream(run_results, stream):
         print('', file=stream)
 
     print(f'Successful: {successful}', file=stream)
-    print(f'Tolerable:  {tolerable}', file=stream)
-    print(f'Critical:   {len(critical)}', file=stream)
+    print(f'Warnings:   {tolerable}', file=stream)
+    print(f'Errors:     {len(critical)}', file=stream)
 
     return len(critical)
 
@@ -128,10 +128,10 @@ tests="{len(test_class.test_methods)}"', file=stream, end='')
             for test_method in test_class.test_methods:
                 status = None
 
-                if any((alert.severity == 'critical' for alert in test_method.alerts)):
+                if any((alert.is_error for alert in test_method.alerts)):
                     critical += 1
                     status = 'ERR'
-                elif any((alert.severity == 'tolerable' for alert in test_method.alerts)):
+                elif any((alert.is_warning for alert in test_method.alerts)):
                     status = 'SKIP'
                 else:
                     status = 'OK'
@@ -168,7 +168,7 @@ def print_raw(aunit_xml, run_results):
     for program in run_results.programs:
         for test_class in program.test_classes:
             for test_method in test_class.test_methods:
-                if any((alert.severity == 'critical' for alert in test_method.alerts)):
+                if any((alert.is_error for alert in test_method.alerts)):
                     critical += 1
 
     return critical

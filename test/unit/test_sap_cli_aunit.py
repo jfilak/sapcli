@@ -28,11 +28,11 @@ class TestAUnitWrite(unittest.TestCase):
 
         self.assertEqual(
             mock_print.call_args_list[2],
-            call('Tolerable:  0', file=sys.stdout))
+            call('Warnings:   0', file=sys.stdout))
 
         self.assertEqual(
             mock_print.call_args_list[3],
-            call('Critical:   0', file=sys.stdout))
+            call('Errors:     0', file=sys.stdout))
 
     def test_aunit_invalid(self):
         with self.assertRaises(SAPCliError) as cm:
@@ -101,8 +101,8 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(mock_print.call_args_list[18], call('*  [critical] [failedAssertion] - Error<LOAD_PROGRAM_CLASS_MISMATCH>', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[19], call('', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[20], call('Successful: 3', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[21], call('Tolerable:  0', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[22], call('Critical:   3', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[21], call('Warnings:   0', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[22], call('Errors:     3', file=sys.stdout))
 
     def test_aunit_package_with_results_raw(self):
         connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
