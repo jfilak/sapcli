@@ -6,6 +6,7 @@ from itertools import islice
 
 import sap.adt
 import sap.adt.aunit
+import sap.adt.objects
 import sap.cli.core
 from sap.errors import SAPCliError
 
@@ -192,9 +193,11 @@ def run(connection, args):
     except KeyError:
         raise SAPCliError(f'Unknown type: {args.type}')
 
-    aunit = sap.adt.AUnit(connection)
     obj = typ(connection, args.name)
-    response = aunit.execute(obj)
+    sets = sap.adt.objects.ADTObjectSets()
+    sets.include_object(obj)
+    aunit = sap.adt.AUnit(connection)
+    response = aunit.execute(sets)
     run_results = sap.adt.aunit.parse_run_results(response.text)
 
     if args.output == 'human':

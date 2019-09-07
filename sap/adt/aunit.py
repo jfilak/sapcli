@@ -6,6 +6,12 @@ import xml.sax
 from xml.sax.handler import ContentHandler
 
 from sap import get_logger
+from sap.adt.objects import ADTObjectType, XMLNamespace
+from sap.adt.annotations import OrderedClassMembers, XmlElementProperty, XmlNodeProperty, XmlNodeAttributeProperty
+from sap.adt.marshalling import Marshal
+
+
+XMLNS_AUNIT = XMLNamespace('aunit', 'http://www.sap.com/adt/aunit')
 
 
 def mod_log():
@@ -14,6 +20,197 @@ def mod_log():
     return get_logger()
 
 
+# pylint: disable=too-few-public-methods
+class CoverageOption(metaclass=OrderedClassMembers):
+    """Enabled/Disabled coverage for an ABAP Unit Test run.
+
+       Usage:
+         run = RunConfiguration()
+         run.external.coverage.active = 'false'
+    """
+
+    active = XmlNodeAttributeProperty('active', value='false')
+
+
+# pylint: disable=too-few-public-methods
+class RunConfigurationOptionsExternal(metaclass=OrderedClassMembers):
+    """External configuration of an ABAP Unit Test run.
+
+       This class servers the option box purpose.
+
+       Usage:
+         run = RunConfiguration()
+         run.external.coverage.active = 'false'
+    """
+
+    coverage = XmlNodeProperty('coverage')
+
+    def __init__(self):
+        self.coverage = CoverageOption()
+
+
+# pylint: disable=too-few-public-methods
+class UriTypeOptionValue(metaclass=OrderedClassMembers):
+    """Enum of URI types of passed object sets to AUNIT run."""
+
+    SEMANTIC = 'semantic'
+
+
+# pylint: disable=too-few-public-methods
+class UriTypeOption(metaclass=OrderedClassMembers):
+    """URI Type of Objects in ABAP Unit Test run configuration.
+
+       Usage:
+         run = RunConfiguration()
+         run.options.uri_type.value = UriTypeOptionValue.SEMANTIC
+    """
+
+    value = XmlNodeAttributeProperty('value', value=UriTypeOptionValue.SEMANTIC)
+
+
+# pylint: disable=too-few-public-methods
+class TestDeterminationStrategy(metaclass=OrderedClassMembers):
+    """Parameters for selection of executed tests
+
+       Usage:
+         run = RunConfiguration()
+         run.options.test_determination_strategy.same_program = 'true'
+         run.options.test_determination_strategy.assigned_tests = 'false'
+         run.options.test_determination_strategy.append_assigned_tests_preview = 'true'
+    """
+
+    same_program = XmlNodeAttributeProperty('sameProgram', value='true')
+    assigned_tests = XmlNodeAttributeProperty('assignedTests', value='false')
+    append_assigned_tests_preview = XmlNodeAttributeProperty('appendAssignedTestsPreview',
+                                                             value='true')
+
+
+# pylint: disable=too-few-public-methods
+class TestRiskLevelSettings(metaclass=OrderedClassMembers):
+    """Parameters for selection of executed tests.
+
+       Usage:
+         run = RunConfiguration()
+         run.options.test_risk_levels.harmless = 'true'
+         run.options.test_risk_levels.dangerous = 'true'
+         run.options.test_risk_levels.critical = 'true'
+    """
+
+    harmless = XmlNodeAttributeProperty('harmless', value='true')
+    dangerous = XmlNodeAttributeProperty('dangerous', value='true')
+    critical = XmlNodeAttributeProperty('critical', value='true')
+
+
+# pylint: disable=too-few-public-methods
+class TestDurationSettings(metaclass=OrderedClassMembers):
+    """Parameters for selection of executed tests.
+
+       Usage:
+         run = RunConfiguration()
+         run.options.test_durations.short = 'true'
+         run.options.test_durations.medium = 'true'
+         run.options.test_durations.long = 'true'
+    """
+
+    short = XmlNodeAttributeProperty('short', value='true')
+    medium = XmlNodeAttributeProperty('medium', value='true')
+    long = XmlNodeAttributeProperty('long', value='true')
+
+
+# pylint: disable=too-few-public-methods
+class WithNavigationUriOption(metaclass=OrderedClassMembers):
+    """Enable/Disable Results Navigation URI.
+
+       Usage:
+         run = RunConfiguration()
+         run.options.with_navigation_uri.enabled = 'false'
+    """
+
+    enabled = XmlNodeAttributeProperty('enabled', value='false')
+
+
+# pylint: disable=too-few-public-methods
+class RunConfigurationOptions(metaclass=OrderedClassMembers):
+    """AUnit test run configuration carrier
+
+       Usage:
+         run = RunConfiguration()
+
+         run.options.uri_type.value = UriTypeOptionValue.SEMANTIC
+
+         run.options.test_determination_strategy.same_program = 'true'
+         run.options.test_determination_strategy.assigned_tests = 'false'
+         run.options.test_determination_strategy.append_assigned_tests_preview = 'true'
+
+         run.options.test_risk_levels.harmless = 'true'
+         run.options.test_risk_levels.dangerous = 'true'
+         run.options.test_risk_levels.critical = 'true'
+
+         run.options.test_durations.short = 'true'
+         run.options.test_durations.medium = 'true'
+         run.options.test_durations.long = 'true'
+
+         run.options.with_navigation_uri.enabled = 'false'
+    """
+
+    uri_type = XmlNodeProperty('uriType')
+    test_determination_strategy = XmlNodeProperty('testDeterminationStrategy')
+    test_risk_levels = XmlNodeProperty('testRiskLevels')
+    test_durations = XmlNodeProperty('testDurations')
+    with_navigation_uri = XmlNodeProperty('withNavigationUri')
+
+    def __init__(self):
+        self.uri_type = UriTypeOption()
+        self.test_determination_strategy = TestDeterminationStrategy()
+        self.test_risk_levels = TestRiskLevelSettings()
+        self.test_durations = TestDurationSettings()
+        self.with_navigation_uri = WithNavigationUriOption()
+
+
+# pylint: disable=too-few-public-methods
+class RunConfiguration(metaclass=OrderedClassMembers):
+    """ABAP Unit Test run configuration
+
+       Usage with all possible options re-set to default values:
+         run = RunConfiguration()
+
+         run.external.coverage.active = 'false'
+
+         run.options.uri_type.value = UriTypeOptionValue.SEMANTIC
+
+         run.options.test_determination_strategy.same_program = 'true'
+         run.options.test_determination_strategy.assigned_tests = 'false'
+         run.options.test_determination_strategy.append_assigned_tests_preview = 'true'
+
+         run.options.test_risk_levels.harmless = 'true'
+         run.options.test_risk_levels.dangerous = 'true'
+         run.options.test_risk_levels.critical = 'true'
+
+         run.options.test_durations.short = 'true'
+         run.options.test_durations.medium = 'true'
+         run.options.test_durations.long = 'true'
+
+         run.options.with_navigation_uri.enabled = 'false'
+    """
+
+    objtype = ADTObjectType(None,
+                            'abapunit/testruns',
+                            XMLNS_AUNIT,
+                            'application/vnd.sap.adt.abapunit.testruns.config.v4+xml',
+                            None,
+                            'runConfiguration')
+
+    external = XmlNodeProperty('external')
+    options = XmlNodeProperty('options')
+    objects = XmlNodeProperty(XmlElementProperty.NAME_FROM_OBJECT)
+
+    def __init__(self, objects):
+        self.external = RunConfigurationOptionsExternal()
+        self.options = RunConfigurationOptions()
+        self.objects = objects
+
+
+# pylint: disable=too-few-public-methods
 class AUnit:
     """ABAP Unit tests
     """
@@ -21,55 +218,16 @@ class AUnit:
     def __init__(self, connection):
         self._connection = connection
 
-    @staticmethod
-    def build_tested_object_uri(connection, adt_object):
-        """Build URL for the tested object.
-        """
+    def execute(self, adt_object_sets):
+        """Executes ABAP Unit tests on the given ADT object set"""
 
-        return '/' + connection.uri + '/' + adt_object.uri
-
-    @staticmethod
-    def build_test_configuration(adt_object_uri):
-        """Build the AUnit ADT URI of the tested object.
-        """
-
-        test_config = '''<?xml version="1.0" encoding="UTF-8"?>
-<aunit:runConfiguration xmlns:aunit="http://www.sap.com/adt/aunit">
-  <external>
-    <coverage active="false"/>
-  </external>
-  <options>
-    <uriType value="semantic"/>
-    <testDeterminationStrategy sameProgram="true" assignedTests="false" appendAssignedTestsPreview="true"/>
-    <testRiskLevels harmless="true" dangerous="true" critical="true"/>
-    <testDurations short="true" medium="true" long="true"/>
-  </options>
-  <adtcore:objectSets xmlns:adtcore="http://www.sap.com/adt/core">
-    <objectSet kind="inclusive">
-      <adtcore:objectReferences>
-        <adtcore:objectReference adtcore:uri="'''
-
-        test_config += adt_object_uri
-
-        test_config += '''"/>
-      </adtcore:objectReferences>
-    </objectSet>
-  </adtcore:objectSets>
-</aunit:runConfiguration>'''
-
-        return test_config
-
-    def execute(self, adt_object):
-        """Executes ABAP Unit tests on the given ADT object
-        """
-
-        adt_object_uri = AUnit.build_tested_object_uri(self._connection, adt_object)
-        test_config = AUnit.build_test_configuration(adt_object_uri)
+        run_configuration = RunConfiguration(adt_object_sets)
+        test_config = Marshal().serialize(run_configuration)
 
         return self._connection.execute(
-            'POST', 'abapunit/testruns',
-            headers={
-                'Content-Type': 'application/vnd.sap.adt.abapunit.testruns.config.v4+xml'},
+            'POST',
+            run_configuration.objtype.basepath,
+            content_type=run_configuration.objtype.mimetype,
             body=test_config)
 
 

@@ -5,21 +5,52 @@ import unittest
 import sap
 import sap.adt
 from sap.adt.aunit import Alert, AlertSeverity
+from sap.adt.objects import ADTObjectSets
 
 from fixtures_adt import DummyADTObject
 from fixtures_adt_aunit import AUNIT_RESULTS_XML, AUNIT_NO_TEST_RESULTS_XML
 
+from mock import Connection
 
-connection = sap.adt.Connection('nohost', 'noclient', 'nouser', 'nopassword')
 
 class TestAUnit(unittest.TestCase):
 
-    def test_build_tested_object_uri(self):
-        victory = DummyADTObject()
+    def test_run_configuration_default(self):
+        connection = Connection()
 
-        victory_uri = sap.adt.AUnit.build_tested_object_uri(connection, victory)
-        self.assertEquals(victory_uri, '/sap/bc/adt/awesome/success/noobject')
+        victory = DummyADTObject(connection=connection)
 
+        tested_objects = ADTObjectSets()
+        tested_objects.include_object(victory)
+
+        runner = sap.adt.aunit.AUnit(connection)
+        response = runner.execute(tested_objects)
+
+        self.maxDiff = None
+
+        self.assertEqual(connection.execs[0].body,
+'''<?xml version="1.0" encoding="UTF-8"?>
+<aunit:runConfiguration xmlns:aunit="http://www.sap.com/adt/aunit">
+<external>
+<coverage active="false"/>
+</external>
+<options>
+<uriType value="semantic"/>
+<testDeterminationStrategy sameProgram="true" assignedTests="false" appendAssignedTestsPreview="true"/>
+<testRiskLevels harmless="true" dangerous="true" critical="true"/>
+<testDurations short="true" medium="true" long="true"/>
+<withNavigationUri enabled="false"/>
+</options>
+<adtcore:objectSets xmlns:adtcore="http://www.sap.com/adt/core">
+<objectSet kind="inclusive">
+<adtcore:objectReferences>
+<adtcore:objectReference adtcore:uri="/sap/bc/adt/awesome/success/noobject" adtcore:name="NOOBJECT"/>
+</adtcore:objectReferences>
+</objectSet>
+</adtcore:objectSets>
+</aunit:runConfiguration>''')
+
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/abapunit/testruns')
 
 class TestAlert(unittest.TestCase):
 
