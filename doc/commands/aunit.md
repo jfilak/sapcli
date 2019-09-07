@@ -4,13 +4,22 @@
 
 ## run
 
-Execute `sapcli` with the parameters `aunit run {package|class|program} $OBJECT_NAME`.
+Execute `sapcli` with the parameters `aunit run {package|class|program|transport} $OBJECT_NAME`.
 
 The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests.
 
 ```bash
-sapcli aunit run {package,class,program} NAME [--output {raw,human,junit4}]
+sapcli aunit run {package,class,program,transport} NAME [--output {raw,human,junit4}] [--as4user NAME]
+```
+
+- _transport_ : if you use transport, NAME is Transport Number
+- _--as4user_ : used only for transports to be able to select the transport
+
+If you struggle to get Transport User, you can use [datapreview](datapreview.md):
+
+```bash
+sapcli datapreview osql --noheadings "SELECT as4user FROM e070 WHERE trkorr EQ '$CORRNR'"
 ```
 
 ### Output format

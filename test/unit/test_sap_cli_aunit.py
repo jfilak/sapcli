@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
 
 import sys
+from argparse import ArgumentParser
 
 import unittest
-from unittest.mock import patch, call
+from unittest.mock import patch, call, Mock
 from io import StringIO
 from types import SimpleNamespace
 
 from sap.errors import SAPCliError
 import sap.cli.aunit
+import sap.adt.cts
 
 from mock import Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 from fixtures_adt_aunit import AUNIT_NO_TEST_RESULTS_XML, AUNIT_RESULTS_XML, GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML
+
+
+parser = ArgumentParser()
+sap.cli.aunit.CommandGroup().install_parser(parser)
+
+
+def parse_args(*argv):
+    return parser.parse_args(argv)
 
 
 class TestAUnitWrite(unittest.TestCase):
@@ -173,6 +183,70 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
   </testsuite>
 </testsuites>
 ''')
+
+
+class TestAUnitCommandRunTransport(unittest.TestCase):
+
+    @patch('sap.adt.cts.Workbench.fetch_transport_request')
+    def test_not_found_transport(self, fake_fetch_transports):
+        fake_fetch_transports.return_value = None
+
+        connection = Mock()
+        args = parse_args('run', 'transport', 'NPLK123456')
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            args.execute(connection, args)
+
+        self.assertEqual(str(caught.exception), 'The transport was not found: NPLK123456')
+
+    @patch('sap.cli.core.printerr')
+    @patch('sap.adt.cts.Workbench.fetch_transport_request')
+    def test_no_testable_objects(self, fake_fetch_transports, fake_printerr):
+        connection = Mock()
+
+        fake_fetch_transports.return_value = sap.adt.cts.WorkbenchTransport(
+            [], connection, 'NPLK123456', 'FILAK', 'Description', 'D')
+
+        args = parse_args('run', 'transport', 'NPLK123456')
+        ret = args.execute(connection, args)
+
+        fake_printerr.assert_called_once_with('No testable objects found')
+        self.assertEqual(ret, 1)
+
+    @patch('sap.adt.cts.Workbench.fetch_transport_request')
+    @patch('sap.adt.AUnit.execute')
+    def test_all_kinds_and_more(self, fake_execute, fake_fetch_transports):
+        connection = Connection()
+
+        fake_fetch_transports.return_value = sap.adt.cts.WorkbenchTransport(
+            [sap.adt.cts.WorkbenchTask('NPLK123456',
+                [sap.adt.cts.WorkbenchABAPObject('R3TR', 'PROG', 'program', 'T', 'descr', 'X'),
+                 sap.adt.cts.WorkbenchABAPObject('R3TR', 'CLAS', 'class', 'T', 'descr', 'X'),
+                ],
+                connection, 'NPLK123457', 'FILAK', 'Description', 'D'),
+             sap.adt.cts.WorkbenchTask('NPLK123456',
+                [sap.adt.cts.WorkbenchABAPObject('R3TR', 'FUGR', 'functions', 'T', 'descr', 'X'),
+                 sap.adt.cts.WorkbenchABAPObject('R3TR', 'TABU', 'table', 'T', 'descr', 'X'),
+                ],
+                connection, 'NPLK123458', 'FILAK', 'Description', 'D'),
+            ],
+            connection, 'NPLK123456', 'FILAK', 'Description', 'D')
+
+        class SentinelError(Exception):
+            pass
+
+        def assert_objects(obj_sets):
+            inclusive = [(ref.uri, ref.name) for ref in obj_sets.inclusive.references.references]
+            self.assertEqual(inclusive, [('/sap/bc/adt/programs/programs/program', 'PROGRAM'),
+                                         ('/sap/bc/adt/oo/classes/class', 'CLASS'),
+                                         ('/sap/bc/adt/functions/groups/functions', 'FUNCTIONS')])
+            raise SentinelError()
+
+        fake_execute.side_effect = assert_objects
+
+        args = parse_args('run', 'transport', 'NPLK123456')
+        with self.assertRaises(SentinelError):
+            args.execute(connection, args)
+
 
 if __name__ == '__main__':
     unittest.main()

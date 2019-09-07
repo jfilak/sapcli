@@ -4,11 +4,20 @@ import sys
 from xml.sax.saxutils import escape
 from itertools import islice
 
+import sap
+
 import sap.adt
 import sap.adt.aunit
 import sap.adt.objects
+import sap.adt.cts
 import sap.cli.core
 from sap.errors import SAPCliError
+
+
+def mod_log():
+    """AUnit module logger"""
+
+    return sap.get_logger()
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -175,9 +184,46 @@ def print_raw(aunit_xml, run_results):
     return critical
 
 
+class TransportObjectSelector:
+    """Select all objects in the transport (task)"""
+
+    def __init__(self, connection, number):
+        self._connection = connection
+        self._number = number
+
+    def get_testable_objects(self, user=None):
+        """Returns the list of all objects which can potentially have Unit tests
+           and are included in the give transport.
+        """
+
+        types = {'PROG': sap.adt.Program, 'CLAS': sap.adt.Class, 'FUGR': sap.adt.FunctionGroup}
+
+        mod_log().info('Fetching the transport or task %s', self._number)
+        workbench = sap.adt.cts.Workbench(self._connection)
+        transport = workbench.fetch_transport_request(self._number, user=user)
+
+        if transport is None:
+            raise SAPCliError(f'The transport was not found: {self._number}')
+
+        result = []
+        for task in transport.tasks:
+            for abap_object in task.objects:
+                mod_log().debug('? %s %s', abap_object.type, abap_object.name)
+
+                try:
+                    # TODO: get rid of the need to create the instances!
+                    result.append(types[abap_object.type](self._connection, abap_object.name))
+                    mod_log().info('+ %s %s', abap_object.type, abap_object.name)
+                except KeyError:
+                    pass
+
+        return result
+
+
+@CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
 @CommandGroup.argument('--output', choices=['raw', 'human', 'junit4'], default='human')
 @CommandGroup.argument('name')
-@CommandGroup.argument('type', choices=['program', 'class', 'package'])
+@CommandGroup.argument('type', choices=['program', 'class', 'package', 'transport'])
 @CommandGroup.command()
 def run(connection, args):
     """Prints it out based on command line configuration.
@@ -187,7 +233,9 @@ def run(connection, args):
            - when the given type does not belong to the type white list
     """
 
-    types = {'program': sap.adt.Program, 'class': sap.adt.Class, 'package': sap.adt.Package}
+    types = {'program': sap.adt.Program, 'class': sap.adt.Class, 'package': sap.adt.Package,
+             'transport': TransportObjectSelector}
+
     try:
         typ = types[args.type]
     except KeyError:
@@ -195,7 +243,19 @@ def run(connection, args):
 
     obj = typ(connection, args.name)
     sets = sap.adt.objects.ADTObjectSets()
-    sets.include_object(obj)
+
+    if args.type == 'transport':
+        testable = obj.get_testable_objects(args.as4user)
+
+        if not testable:
+            sap.cli.core.printerr('No testable objects found')
+            return 1
+
+        for tr_obj in testable:
+            sets.include_object(tr_obj)
+    else:
+        sets.include_object(obj)
+
     aunit = sap.adt.AUnit(connection)
     response = aunit.execute(sets)
     run_results = sap.adt.aunit.parse_run_results(response.text)
