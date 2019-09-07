@@ -60,6 +60,7 @@ def printer(stream, output):
 
 @CommandGroup.argument('--owner')
 @CommandGroup.argument('-r', '--recursive', action='count', default=0)
+@CommandGroup.argument('number', nargs='*', type=str)
 @CommandGroup.argument('type', choices=REQUEST_TYPES)
 @CommandGroup.command(cmd_name='list')
 def print_list(connection, args):
@@ -90,7 +91,20 @@ def print_list(connection, args):
     object_printer = printers[depth]
 
     workbench = Workbench(connection)
-    transports = workbench.get_transport_requests(user=args.owner)
+
+    transports = []
+
+    if args.number:
+        # TODO: handle the case where also the arg owner is provided.
+        for number in args.number:
+            transport = workbench.fetch_transport_request(number)
+
+            if transport is None:
+                sap.cli.core.printerr('The transport was not found:', number)
+            else:
+                transports.append(transport)
+    else:
+        transports = workbench.get_transport_requests(user=args.owner)
 
     for transport in transports:
         transport_printer(

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+from argparse import ArgumentParser
+
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from io import StringIO
 from types import SimpleNamespace
 
@@ -18,10 +20,12 @@ from fixtures_adt import (
 )
 
 
-class TestCTSCommandGroup(unittest.TestCase):
+parser = ArgumentParser()
+sap.cli.cts.CommandGroup().install_parser(parser)
 
-    def test_cts_command_group_create(self):
-        sap.cli.cts.CommandGroup()
+
+def parse_args(*argv):
+    return parser.parse_args(argv)
 
 
 class TestCTSRelease(unittest.TestCase):
@@ -55,7 +59,7 @@ class TestCTSList(unittest.TestCase):
         connection = Connection([Response(SHORTENED_WORKBENCH_XML, 200, {})])
 
         with patch('sys.stdout', new_callable=StringIO) as fake_output:
-            sap.cli.cts.print_list(connection, SimpleNamespace(type=request_type, recursive=recursive, owner='FILAK'))
+            sap.cli.cts.print_list(connection, SimpleNamespace(type=request_type, recursive=recursive, owner='FILAK', number=None))
 
         self.assertEqual(
             [(request.adt_uri, request.params['user']) for request in connection.execs],
@@ -96,7 +100,7 @@ class TestCTSList(unittest.TestCase):
         connection = Connection([Response(SHORTENED_WORKBENCH_XML, 200, {})], user='ANZEIGER')
 
         with patch('sys.stdout', new_callable=StringIO) as fake_output:
-            sap.cli.cts.print_list(connection, SimpleNamespace(type='transport', recursive=0, owner=None))
+            sap.cli.cts.print_list(connection, SimpleNamespace(type='transport', recursive=0, owner=None, number=None))
 
         self.assertEqual(
             [(request.adt_uri, request.params['user']) for request in connection.execs],
@@ -104,6 +108,33 @@ class TestCTSList(unittest.TestCase):
         )
 
         self.assertEqual(fake_output.getvalue(), f'{TRANSPORT_NUMBER} D FILAK Transport Description\n')
+
+    @patch('sap.cli.core.printerr')
+    @patch('sap.adt.cts.Workbench.fetch_transport_request')
+    def test_workbench_display_transport(self, fake_fetch_transport_request, fake_err):
+        err_output = []
+
+        def add_err(msg, transport, sep=' ', end='\n'):
+           err_output.append(sep.join((msg, transport)) + end)
+
+        fake_err.side_effect = add_err
+
+        def return_transport(corr_nr):
+            if corr_nr == 'NPLK654321':
+                return None
+
+            return sap.adt.cts.WorkbenchTransport('connection', [], corr_nr, 'FILAK', 'TR')
+
+        fake_fetch_transport_request.side_effect = return_transport
+
+        connection = Mock()
+        args = parse_args('list', 'transport', 'NPLK654321', 'NPLK654322', 'NPLK654323')
+
+        with patch('sys.stdout', new_callable=StringIO) as fake_output:
+            args.execute(connection, args)
+
+        self.assertEqual(''.join(err_output), 'The transport was not found: NPLK654321\n')
+        self.assertEqual(fake_output.getvalue(), f'NPLK654322 ? FILAK TR\nNPLK654323 ? FILAK TR\n')
 
 
 if __name__ == '__main__':
