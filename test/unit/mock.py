@@ -43,7 +43,7 @@ class Connection(sap.adt.Connection):
         return 'bogus session'
 
     def _build_adt_url(self, adt_uri):
-        return '/' + self.uri + '/' + adt_uri
+        return f'/{self.uri}/{adt_uri}'
 
     def _retrieve(self, session, method, url, params=None, headers=None, body=None):
         req = Request(method, url, headers, body, params)
