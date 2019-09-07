@@ -264,3 +264,15 @@ class Workbench:
         xml.sax.parseString(resp.text, xml_handler)
 
         return builder.transports
+
+    def fetch_transport_request(self, number, user=None):
+        """Returns the transport request"""
+
+        # TODO: user is None, use GET /sap/bc/adt/cts/transporrequests/{number}
+        transports = self.get_transport_requests(user=user)
+
+        for trns in transports:
+            if trns.number == number:
+                return trns
+
+        return None

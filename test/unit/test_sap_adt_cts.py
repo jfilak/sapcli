@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+from unittest.mock import patch, Mock
 from functools import partial
 import xml.sax
 
@@ -371,6 +372,54 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
 
         self.assert_trasport_equal(transport[0], connection)
         self.assert_task_equal(transport[0].tasks[0], connection)
+
+    @patch('sap.adt.cts.Workbench.get_transport_requests')
+    def test_fetch_transport_requests_no_transports(self, fake_get_transports):
+        workbench = sap.adt.cts.Workbench(Mock())
+
+        fake_get_transports.return_value = []
+
+        transport = workbench.fetch_transport_request('NPLK123456')
+
+        self.assertIsNone(transport)
+        fake_get_transports.assert_called_once_with(user=None)
+
+    @patch('sap.adt.cts.Workbench.get_transport_requests')
+    def test_fetch_transport_requests_with_user(self, fake_get_transports):
+        workbench = sap.adt.cts.Workbench(Mock())
+
+        fake_get_transports.return_value = []
+
+        transport = workbench.fetch_transport_request('NPLK123456', user='anzeiger')
+
+        self.assertIsNone(transport)
+        fake_get_transports.assert_called_once_with(user='anzeiger')
+
+    @patch('sap.adt.cts.Workbench.get_transport_requests')
+    def test_fetch_transport_requests_different_transports(self, fake_get_transports):
+        workbench = sap.adt.cts.Workbench(Mock())
+
+        wbr = sap.adt.cts.AbstractWorkbenchRequest('connection', 'num_wb1', 'user_owner', 'description')
+
+        fake_get_transports.return_value = [wbr]
+
+        transport = workbench.fetch_transport_request('NPLK123456')
+
+        self.assertIsNone(transport)
+
+    @patch('sap.adt.cts.Workbench.get_transport_requests')
+    def test_fetch_transport_requests_found_transports(self, fake_get_transports):
+        workbench = sap.adt.cts.Workbench(Mock())
+
+        wbr_1 = sap.adt.cts.AbstractWorkbenchRequest('connection', 'num_wb1', 'user_owner', 'description')
+        wbr_2 = sap.adt.cts.AbstractWorkbenchRequest('connection', 'NPLK123456', 'user_owner', 'description')
+
+        fake_get_transports.return_value = [wbr_1, wbr_2]
+
+        transport = workbench.fetch_transport_request('NPLK123456')
+
+        self.assertIsNotNone(transport)
+        self.assertEqual(transport.number, 'NPLK123456')
 
 
 if __name__ == '__main__':
