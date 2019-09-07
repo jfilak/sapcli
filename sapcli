@@ -10,7 +10,7 @@ import sys
 import importlib.util
 from importlib.machinery import SourceFileLoader
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
+base_dir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
 sys.path.append(base_dir)
 
 sapcli_bin = os.path.join(base_dir, 'bin', 'sapcli')
