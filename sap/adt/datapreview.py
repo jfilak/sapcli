@@ -12,6 +12,7 @@ def mod_log():
     return get_logger()
 
 
+# pylint: disable=too-many-instance-attributes
 class FreeStyleTableXMLHandler(ContentHandler):
     """ABAP Unit Test Framework ADT results XML parser"""
 
@@ -24,6 +25,8 @@ class FreeStyleTableXMLHandler(ContentHandler):
         self._row = None
         self._datahandler = lambda x: x
         self._iter = None
+        self._cntr = 0
+        self._total_rows = 0
         self._rows = rows
 
     def _initrows(self, content):
@@ -41,11 +44,15 @@ class FreeStyleTableXMLHandler(ContentHandler):
         mod_log().debug('XML: %s', name)
         if name == 'dataPreview:totalRows':
             self._datahandler = self._initrows
+        elif name == 'dataPreview:columns':
+            if self.table is None:
+                self._initrows(self._rows)
         elif name == 'dataPreview:metadata':
             self._column = attrs.get('dataPreview:name')
             self._known_columns.append(self._column)
             self._iter = iter(self.table)
         elif name == 'dataPreview:data':
+            self._cntr += 1
             self._datahandler = self._assigncolumn
             self._row = next(self._iter)
 
@@ -62,7 +69,11 @@ class FreeStyleTableXMLHandler(ContentHandler):
             self._iter = None
         elif name == 'dataPreview:data':
             self._datahandler = lambda x: x
+        elif name == 'dataPreview:dataSet':
+            self._total_rows = max(self._total_rows, self._cntr)
+            self._cntr = 0
         elif name == 'dataPreview:tableData':
+            self.table = self.table[0:self._total_rows]
             for column in self._known_columns:
                 for row in self.table:
                     if column not in row:

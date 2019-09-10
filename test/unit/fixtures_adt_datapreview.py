@@ -139,3 +139,21 @@ ADT_XML_FREESTYLE_TABLE_T000_ONE_ROW='''<?xml version="1.0" encoding="UTF-8"?>
     </dataPreview:dataSet>
   </dataPreview:columns>
 </dataPreview:tableData>'''
+
+ADT_XML_FREESTYLE_TABLE_T000_4_ROWS_NO_TOTAL='''<?xml version="1.0" encoding="utf-8"?>
+<dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+    <dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+    <dataPreview:executedQueryString>
+        select mandt from t000   INTO     TABLE @DATA(LT_RESULT)   UP TO 100  ROWS   .
+    </dataPreview:executedQueryString>
+    <dataPreview:queryExecutionTime>0.2310000</dataPreview:queryExecutionTime>
+    <dataPreview:columns>
+        <dataPreview:metadata dataPreview:name="MANDT" dataPreview:type="C" dataPreview:description="MANDT" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+        <dataPreview:dataSet>
+            <dataPreview:data>000</dataPreview:data>
+            <dataPreview:data>001</dataPreview:data>
+            <dataPreview:data>002</dataPreview:data>
+            <dataPreview:data>003</dataPreview:data>
+        </dataPreview:dataSet>
+    </dataPreview:columns>
+</dataPreview:tableData>'''
