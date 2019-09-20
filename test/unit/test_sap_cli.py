@@ -1,5 +1,7 @@
 #!/bin/python
 
+import sys
+
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -37,17 +39,27 @@ class TestPrinting(unittest.TestCase):
             fake_get_console.return_value = console
 
             sap.cli.core.printout('a', 'b', sep=':', end='$')
+            sap.cli.core.printerr('e', 'r', sep='-', end='!')
 
-        fake_get_console.assert_called_once_with()
+        self.assertEqual(2, len(fake_get_console.call_args))
         console.printout.assert_called_once_with('a', 'b', sep=':', end='$')
+        console.printerr.assert_called_once_with('e', 'r', sep='-', end='!')
 
-    def test_printconsole_sanity(self):
+    def test_printconsole_sanity_printout(self):
         console = sap.cli.core.PrintConsole()
 
         with patch('sap.cli.core.print') as fake_print:
             console.printout('a', 'b', sep=':', end='$')
 
-        fake_print.assert_called_once_with('a', 'b', sep=':', end='$')
+        fake_print.assert_called_once_with('a', 'b', sep=':', end='$', file=sys.stdout)
+
+    def test_printconsole_sanity_printerr(self):
+        console = sap.cli.core.PrintConsole()
+
+        with patch('sap.cli.core.print') as fake_print:
+            console.printerr('a', 'b', sep=':', end='$')
+
+        fake_print.assert_called_once_with('a', 'b', sep=':', end='$', file=sys.stderr)
 
 
 if __name__ == '__main__':

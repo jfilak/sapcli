@@ -1,5 +1,7 @@
 """CLI basic functionality"""
 
+import sys
+
 from sap.errors import SAPCliError
 
 
@@ -168,10 +170,18 @@ class PrintConsole:
     """Standard user output"""
 
     # pylint: disable=no-self-use
+    def _do_print(self, objects, file, sep=' ', end='\n'):
+        print(*objects, sep=sep, end=end, file=file)
+
     def printout(self, *objects, sep=' ', end='\n'):
         """Prints out using the python's print function"""
 
-        print(*objects, sep=sep, end=end)
+        self._do_print(objects, sep=sep, end=end, file=sys.stdout)
+
+    def printerr(self, *objects, sep=' ', end='\n'):
+        """Prints out an error message"""
+
+        self._do_print(objects, sep=sep, end=end, file=sys.stderr)
 
 
 _CONSOLE = None
@@ -193,3 +203,9 @@ def printout(*objects, sep=' ', end='\n'):
     """A shortcut for get_console().printout()"""
 
     get_console().printout(*objects, sep=sep, end=end)
+
+
+def printerr(*objects, sep=' ', end='\n'):
+    """A shortcut for get_console().printerr()"""
+
+    get_console().printerr(*objects, sep=sep, end=end)
