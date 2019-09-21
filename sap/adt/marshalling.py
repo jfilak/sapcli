@@ -371,6 +371,7 @@ class Marshal:
         if obj is None:
             return
 
+        get_logger().debug('Building tree for %s (%s)', str(obj), root.name)
         for attr_name in obj.__class__.__ordered__:
             if attr_name.startswith('_'):
                 continue
@@ -379,6 +380,7 @@ class Marshal:
 
             if isinstance(attr, XmlElementProperty):
                 child = getattr(obj, attr_name)
+                get_logger().debug('Serializing Child Element %s (%s)', attr.name, attr_name)
                 self._serialize_object_to_node(root, attr.name, child, declared_ns, attr.kind)
             elif isinstance(attr, XmlAttributeProperty):
                 value = getattr(obj, attr_name)
