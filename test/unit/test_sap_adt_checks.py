@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import sap
 import sap.adt
 import sap.adt.checks
+from sap.adt.marshalling import Marshal
 
 from mock import Connection, Response, Request
 from fixtures_adt_checks import ADT_XML_CHECK_REPORTERS
@@ -51,6 +52,26 @@ class TestReporter(unittest.TestCase):
 
         connection = Mock()
         self.assertTrue(reporter.supports_object(sap.adt.Class(connection, 'CL_FOO')))
+
+
+class TestCheckObjectLiss(unittest.TestCase):
+
+    def test_serialize(self):
+        connection = Connection()
+
+        obj_list = sap.adt.checks.CheckObjectList()
+        obj_list.add_object(sap.adt.Class(connection, 'CL_FIRST'))
+        obj_list.add_object(sap.adt.Class(connection, 'CL_SECOND'))
+
+        xml_obj_list = Marshal().serialize(obj_list)
+
+        self.maxDiff = None
+        self.assertEqual(xml_obj_list,
+                         '''<?xml version="1.0" encoding="UTF-8"?>
+<chkrun:checkObjectList xmlns:chkrun="http://www.sap.com/adt/checkrun" xmlns:adtcore="http://www.sap.com/adt/core">
+<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_first" chkrun:version="new"/>
+<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_second" chkrun:version="new"/>
+</chkrun:checkObjectList>''')
 
 
 if __name__ == '__main__':
