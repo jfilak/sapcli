@@ -1,5 +1,7 @@
 """Object Checks ADT wrappers"""
 
+from fnmatch import fnmatch
+
 from sap.adt.objects import ADTObjectType, XMLNamespace
 from sap.adt.marshalling import Marshal
 from sap.adt.annotations import OrderedClassMembers, XmlNodeAttributeProperty, XmlListNodeProperty, XmlElementKind, \
@@ -15,6 +17,16 @@ class Reporter(metaclass=OrderedClassMembers):
 
     name = XmlNodeAttributeProperty('chkrun:name')
     supported_types = XmlListNodeProperty('chkrun:supportedType', kind=XmlElementKind.TEXT)
+
+    def supports_type(self, obj_code):
+        """Returns true if the give object code is supported"""
+
+        return any((fnmatch(obj_code, styp) for styp in self.supported_types))
+
+    def supports_object(self, adt_obj):
+        """Returns true if the given object is supported"""
+
+        return self.supports_type(adt_obj.objtype.code)
 
 
 # pylint: disable=invalid-name
