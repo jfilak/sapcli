@@ -10,8 +10,14 @@ import sap.adt.checks
 from sap.adt.marshalling import Marshal
 
 from mock import Connection, Response, Request
-from fixtures_adt_checks import ADT_XML_CHECK_REPORTERS
+from fixtures_adt_checks import ADT_XML_CHECK_REPORTERS, ADT_XML_RUN_CHECK_2_REPORTERS
 
+
+FIXTURE_TWO_CLASSES_REQUEST = '''<?xml version="1.0" encoding="UTF-8"?>
+<chkrun:checkObjectList xmlns:chkrun="http://www.sap.com/adt/checkrun" xmlns:adtcore="http://www.sap.com/adt/core">
+<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_first" chkrun:version="new"/>
+<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_second" chkrun:version="new"/>
+</chkrun:checkObjectList>'''
 
 
 class TestFetchReporters(unittest.TestCase):
@@ -66,12 +72,7 @@ class TestCheckObjectLiss(unittest.TestCase):
         xml_obj_list = Marshal().serialize(obj_list)
 
         self.maxDiff = None
-        self.assertEqual(xml_obj_list,
-                         '''<?xml version="1.0" encoding="UTF-8"?>
-<chkrun:checkObjectList xmlns:chkrun="http://www.sap.com/adt/checkrun" xmlns:adtcore="http://www.sap.com/adt/core">
-<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_first" chkrun:version="new"/>
-<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_second" chkrun:version="new"/>
-</chkrun:checkObjectList>''')
+        self.assertEqual(xml_obj_list, FIXTURE_TWO_CLASSES_REQUEST)
 
     def test_object_list_add_uri(self):
         connection = Connection()
@@ -91,6 +92,28 @@ class TestCheckObjectLiss(unittest.TestCase):
         obj_list.add_uri('/2/uri')
 
         self.assertEqual(['/1/uri', '/2/uri'], [obj.uri for obj in obj_list])
+
+
+class TestRunForObjects(unittest.TestCase):
+
+    def test_2_reportes_2_classes(self):
+        connection = Connection([Response(status_code=200,
+                                          content_type='application/vnd.sap.adt.checkmessages+xml; charset=utf-8',
+                                          text=ADT_XML_RUN_CHECK_2_REPORTERS)])
+
+        reporter = sap.adt.checks.Reporter('abapCheckRun')
+        reporter.supported_types = '*'
+
+        reports = sap.adt.checks.run_for_supported_objects(connection, reporter,
+                                                           [sap.adt.Class(connection, 'CL_FIRST'),
+                                                            sap.adt.Class(connection, 'CL_SECOND')])
+
+        self.assertEqual(connection.mock_methods(), [('POST', '/sap/bc/adt/checkruns')])
+        self.assertEqual(connection.execs[0].body, FIXTURE_TWO_CLASSES_REQUEST)
+
+        self.assertEqual(['abapCheckRun', 'tableStatusCheck'], [report.reporter for report in reports])
+        self.assertEqual(['First', 'Second'], [msg.short_text for msg in reports[0].messages])
+        self.assertEqual(['Third', 'Fourth'], [msg.short_text for msg in reports[1].messages])
 
 
 if __name__ == '__main__':

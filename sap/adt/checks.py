@@ -5,7 +5,7 @@ from fnmatch import fnmatch
 from sap.adt.objects import ADTObjectType, XMLNamespace, xmlns_adtcore_ancestor
 from sap.adt.marshalling import Marshal
 from sap.adt.annotations import OrderedClassMembers, XmlNodeAttributeProperty, XmlListNodeProperty, XmlElementKind, \
-    XmlContainer
+    XmlContainer, XmlNodeProperty
 
 
 XMLNS_CHKRUN = XMLNamespace('chkrun', 'http://www.sap.com/adt/checkrun')
@@ -18,6 +18,9 @@ class Reporter(metaclass=OrderedClassMembers):
 
     name = XmlNodeAttributeProperty('chkrun:name')
     supported_types = XmlListNodeProperty('chkrun:supportedType', kind=XmlElementKind.TEXT)
+
+    def __init__(self, name=None):
+        self.name = name
 
     def supports_type(self, obj_code):
         """Returns true if the give object code is supported"""
@@ -76,6 +79,42 @@ class CheckObjectList(metaclass=OrderedClassMembers):
         self.add_uri(adt_object.full_adt_uri)
 
 
+class CheckMessage(metaclass=OrderedClassMembers):
+    """Run Check result message"""
+
+    uri = XmlNodeAttributeProperty('chkrun:uri')
+    typ = XmlNodeAttributeProperty('chkrun:type')
+    short_text = XmlNodeAttributeProperty('chkrun:shortText')
+    category = XmlNodeAttributeProperty('chkrun:category')
+
+
+# pylint: disable=invalid-name
+CheckMessageList = XmlContainer.define('chkrun:checkMessage', CheckMessage)
+
+
+class CheckReport(metaclass=OrderedClassMembers):
+    """Group of messages for a single reporter"""
+
+    reporter = XmlNodeAttributeProperty('chkrun:reporter')
+    triggering_uri = XmlNodeAttributeProperty('chkrun:triggeringUri')
+    status = XmlNodeAttributeProperty('chkrun:status')
+    status_text = XmlNodeAttributeProperty('chkrun:statusText')
+    messages = XmlNodeProperty('chkrun:checkMessageList')
+
+    def __init__(self):
+        self.messages = CheckMessageList()
+
+
+# pylint: disable=invalid-name
+CheckReportList = XmlContainer.define('chkrun:checkReport', CheckReport)
+CheckReportList.objtype = ADTObjectType(None,
+                                        'checkruns',
+                                        XMLNS_CHKRUN,
+                                        'application/vnd.sap.adt.checkmessages+xml',
+                                        None,
+                                        'checkRunReports')
+
+
 def fetch_reporters(connection):
     """Returns the list of supported ADT reporters"""
 
@@ -88,6 +127,23 @@ def fetch_reporters(connection):
     return reporters.items
 
 
+def run(connection, reporter, object_list):
+    """Run the reporter :class Reporter: for the give object list :class CheckObjectList:"""
+
+    xml = Marshal().serialize(object_list)
+
+    resp = connection.execute('POST', object_list.objtype.basepath,
+                              accept=CheckReportList.objtype.mimetype,
+                              content_type=object_list.objtype.mimetype,
+                              params={'reporters': reporter.name},
+                              body=xml)
+
+    report_list = CheckReportList()
+    Marshal.deserialize(resp.text, report_list)
+
+    return report_list.items
+
+
 def run_for_supported_objects(connection, reporter, adt_objects):
     """Runs the give checks for all supported adt objects"""
 
@@ -97,10 +153,4 @@ def run_for_supported_objects(connection, reporter, adt_objects):
         if reporter.supports_object(obj):
             object_list.add_object(obj)
 
-    xml = Marshal().serialize(object_list)
-
-    connection.execute('POST', object_list.objtype.basepath,
-                       accept='application/vnd.sap.adt.checkmessages+xml',
-                       content_type=object_list.objtype.mimetype,
-                       params={'reporters': reporter.name},
-                       body=xml)
+    return run(connection, reporter, object_list)
