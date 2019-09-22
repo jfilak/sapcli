@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch, call, Mock
 from types import SimpleNamespace
 from argparse import ArgumentParser
+from io import StringIO
 
 from sap.errors import SAPCliError
 from sap.adt.errors import ExceptionResourceAlreadyExists
@@ -140,6 +141,81 @@ class TestPackageList(unittest.TestCase):
                                                  call('Z_HELLO_WORLD'),
                                                  call('$VICTORY_TESTS/ZCL_TESTS'),
                                                  call('$VICTORY_DOC/')])
+
+
+class TestPackageCheck(unittest.TestCase):
+
+    @patch('sap.cli.core.get_console')
+    @patch('sap.adt.checks.run')
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.checks.fetch_reporters')
+    def test_check_with_objects(self, fake_fetch_reporters, fake_walk, fake_run, fake_get_console):
+
+        reporter_all = sap.adt.checks.Reporter('all')
+        reporter_all.supported_types = '*'
+
+        reporter_clas = sap.adt.checks.Reporter('clas')
+        reporter_clas.supported_types = 'CLAS'
+
+        reporter_tabl = sap.adt.checks.Reporter('tabl')
+        reporter_tabl.supported_types = 'TABL/*'
+
+        fake_fetch_reporters.return_value = [reporter_all, reporter_clas, reporter_tabl]
+
+        fake_walk.return_value = [('foo',
+                                   None,
+                                   [SimpleNamespace(typ='PROG', name='ZPROGRAM', uri='programs/programs/zprogram'),
+                                    SimpleNamespace(typ='CLAS', name='ZCL', uri='oo/classes/zcl')]),
+                                  ('foo_sub',
+                                   None,
+                                   [SimpleNamespace(typ='TABL/DB', name='ZTABLE', uri='ddic/tables/ztable')])]
+
+        runs = []
+        def sap_adt_checks_run(connection, reporter, object_list):
+            runs.append([reporter.name] + [obj.uri for obj in object_list])
+
+            check_report = sap.adt.checks.CheckReport()
+            check_report.reporter = reporter.name
+
+            check_message = sap.adt.checks.CheckMessage()
+            check_message.uri = f'fake/uri/{reporter.name}'
+
+            if reporter.name == 'all':
+                check_message.typ = 'W'
+            else:
+                check_message.typ = 'E'
+
+            check_message.short_text = f'Test {reporter.name}'
+            check_message.category = reporter.name[0]
+
+            check_report.messages.append(check_message)
+
+            return [check_report]
+
+        fake_run.side_effect = sap_adt_checks_run
+
+        std_output = StringIO()
+        err_output = StringIO()
+
+        fake_get_console.return_value = sap.cli.core.PrintConsole(std_output, err_output)
+
+        connection = Connection()
+
+        args = parse_args('check', 'foo')
+        args.execute(connection, args)
+
+        self.assertEqual(runs, [['all', 'programs/programs/zprogram', 'oo/classes/zcl', 'ddic/tables/ztable'],
+                                ['clas', 'oo/classes/zcl'],
+                                ['tabl', 'ddic/tables/ztable']])
+
+        self.assertEqual(std_output.getvalue(), '''W :: a :: Test all
+E :: c :: Test clas
+E :: t :: Test tabl
+Messages: 3
+Warnings: 1
+Errors:   2
+''')
+        self.assertEqual(err_output.getvalue(), '')
 
 
 if __name__ == '__main__':

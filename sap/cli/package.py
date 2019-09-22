@@ -3,6 +3,7 @@
 from sap import get_logger
 
 import sap.adt
+import sap.adt.checks
 from sap.adt.errors import ExceptionResourceAlreadyExists
 
 import sap.cli.core
@@ -89,3 +90,71 @@ def list_package(connection, args):
             print(f'{basedir}')
 
     return 0
+
+
+def _run_reporters_for_objects(connection, reporters, package_objects):
+
+    results = []
+    for reporter in reporters:
+        check_objects = sap.adt.checks.CheckObjectList()
+
+        for objref in package_objects:
+            if reporter.supports_type(objref.typ):
+                check_objects.add_uri(objref.uri)
+
+        reports = sap.adt.checks.run(connection, reporter, check_objects)
+        results.extend(reports)
+
+    return results
+
+
+def _print_out_messages(reports, console):
+
+    messages = 0
+    warnings = 0
+    errors = 0
+
+    for report in reports:
+        for message in report.messages:
+            messages += 1
+
+            if message.typ == 'W':
+                warnings += 1
+            elif message.typ == 'E':
+                errors += 1
+
+            console.printout(f'{message.typ} :: {message.category} :: {message.short_text}')
+
+    console.printout(f'Messages: {messages}')
+    console.printout(f'Warnings: {warnings}')
+    console.printout(f'Errors:   {errors}')
+
+    return (messages, warnings, errors)
+
+
+@CommandGroup.argument('-c', '--checks', nargs='*', help='name of the check reporter; default: all available')
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def check(connection, args):
+    """Run ADT checks for all objects in all sub-packages"""
+
+    reporters = sap.adt.checks.fetch_reporters(connection)
+    if not reporters:
+        sap.cli.core.printerr('No ADT Checks Reporters provided by the system')
+        return 1
+
+    package = sap.adt.Package(connection, args.name)
+
+    all_objects = []
+    for _, __, objects in sap.adt.package.walk(package):
+        all_objects.extend(objects)
+
+    if not all_objects:
+        sap.cli.core.printerr('No objects found')
+        return 1
+
+    reports = _run_reporters_for_objects(connection, reporters, all_objects)
+
+    _, __, errors = _print_out_messages(reports, sap.cli.core.get_console())
+
+    return 0 if errors == 0 else 1
