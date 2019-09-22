@@ -169,6 +169,10 @@ class CommandGroup:
 class PrintConsole:
     """Standard user output"""
 
+    def __init__(self, out_file=None, err_file=None):
+        self._out = out_file if out_file is not None else sys.stdout
+        self._err = err_file if err_file is not None else sys.stderr
+
     # pylint: disable=no-self-use
     def _do_print(self, objects, file, sep=' ', end='\n'):
         print(*objects, sep=sep, end=end, file=file)
@@ -176,12 +180,12 @@ class PrintConsole:
     def printout(self, *objects, sep=' ', end='\n'):
         """Prints out using the python's print function"""
 
-        self._do_print(objects, sep=sep, end=end, file=sys.stdout)
+        self._do_print(objects, sep=sep, end=end, file=self._out)
 
     def printerr(self, *objects, sep=' ', end='\n'):
         """Prints out an error message"""
 
-        self._do_print(objects, sep=sep, end=end, file=sys.stderr)
+        self._do_print(objects, sep=sep, end=end, file=self._err)
 
 
 _CONSOLE = None

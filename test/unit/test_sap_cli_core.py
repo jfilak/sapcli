@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import unittest
 from unittest.mock import call, MagicMock
 
@@ -167,6 +168,19 @@ class TestCommandGroup(unittest.TestCase):
         args = parse_args(['dummy_corrnr', 'fabulous', '--corrnr', '420'])
         self.assertEqual(args.name, 'fabulous')
         self.assertEqual(args.corrnr, '420')
+
+
+class TestPrintConsole(unittest.TestCase):
+
+    def test_print_console_ctor_default(self):
+        console = sap.cli.core.PrintConsole()
+        self.assertIs(console._out, sys.stdout)
+        self.assertIs(console._err, sys.stderr)
+
+    def test_print_console_ctor_values(self):
+        console = sap.cli.core.PrintConsole(out_file='Foo', err_file='Bar')
+        self.assertIs(console._out, 'Foo')
+        self.assertIs(console._err, 'Bar')
 
 
 if __name__ == '__main__':
