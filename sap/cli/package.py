@@ -95,20 +95,33 @@ def list_package(connection, args):
 def _run_reporters_for_objects(connection, reporters, package_objects):
 
     results = []
+    checks = 0
     for reporter in reporters:
         check_objects = sap.adt.checks.CheckObjectList()
 
+        has_object = False
         for objref in package_objects:
             if reporter.supports_type(objref.typ):
+                has_object = True
+                mod_log().debug('Reporter %s supports %s %s', reporter.name, objref.typ, objref.name)
                 check_objects.add_uri(objref.uri)
 
-        reports = sap.adt.checks.run(connection, reporter, check_objects)
-        results.extend(reports)
+        if not has_object:
+            mod_log().debug('No object for Report %s', reporter.name)
+            continue
 
-    return results
+        try:
+            reports = sap.adt.checks.run(connection, reporter, check_objects)
+            checks += 1
+        except sap.adt.errors.HTTPRequestError as ex:
+            mod_log().info('Reporter %s\n%s', reporter.name, str(ex))
+        else:
+            results.extend(reports)
+
+    return checks, results
 
 
-def _print_out_messages(reports, console):
+def _print_out_messages(reports, checks, console):
 
     messages = 0
     warnings = 0
@@ -125,6 +138,7 @@ def _print_out_messages(reports, console):
 
             console.printout(f'{message.typ} :: {message.category} :: {message.short_text}')
 
+    console.printout(f'Checks:   {checks}')
     console.printout(f'Messages: {messages}')
     console.printout(f'Warnings: {warnings}')
     console.printout(f'Errors:   {errors}')
@@ -153,8 +167,14 @@ def check(connection, args):
         sap.cli.core.printerr('No objects found')
         return 1
 
-    reports = _run_reporters_for_objects(connection, reporters, all_objects)
+    checks = 0
+    reports = []
+    for obj in all_objects:
+        mod_log().info('Checking object: %s %s %s', obj.typ, obj.uri, obj.name)
+        runs, results = _run_reporters_for_objects(connection, reporters, [obj])
+        checks += runs
+        reports.extend(results)
 
-    _, __, errors = _print_out_messages(reports, sap.cli.core.get_console())
+    _, __, errors = _print_out_messages(reports, checks, sap.cli.core.get_console())
 
     return 0 if errors == 0 else 1

@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from io import StringIO
 
 from sap.errors import SAPCliError
-from sap.adt.errors import ExceptionResourceAlreadyExists
+from sap.adt.errors import ExceptionResourceAlreadyExists, HTTPRequestError
 import sap.cli.package
 
 from mock import Connection, Response
@@ -145,11 +145,55 @@ class TestPackageList(unittest.TestCase):
 
 class TestPackageCheck(unittest.TestCase):
 
-    @patch('sap.cli.core.get_console')
-    @patch('sap.adt.checks.run')
-    @patch('sap.adt.package.walk')
-    @patch('sap.adt.checks.fetch_reporters')
-    def test_check_with_objects(self, fake_fetch_reporters, fake_walk, fake_run, fake_get_console):
+    def run_checks(self, args, reporters, walk_results):
+        with patch('sap.cli.core.get_console') as fake_get_console, \
+             patch('sap.adt.checks.run') as fake_run, \
+             patch('sap.adt.package.walk') as fake_walk, \
+             patch('sap.adt.checks.fetch_reporters') as fake_fetch_reporters:
+
+            fake_fetch_reporters.return_value = reporters
+            fake_walk.return_value = walk_results
+
+            runs = []
+            def sap_adt_checks_run(connection, reporter, object_list):
+                if reporter.name == 'Exception':
+                    raise HTTPRequestError(Mock(), Mock())
+
+                runs.append([reporter.name] + [obj.uri for obj in object_list])
+
+                check_report = sap.adt.checks.CheckReport()
+                check_report.reporter = reporter.name
+
+                check_message = sap.adt.checks.CheckMessage()
+                check_message.uri = f'fake/uri/{reporter.name}'
+
+                if reporter.name == 'all':
+                    check_message.typ = 'W'
+                else:
+                    check_message.typ = 'E'
+
+                check_message.short_text = f'Test {reporter.name}'
+                check_message.category = reporter.name[0]
+
+                check_report.messages.append(check_message)
+
+                return [check_report]
+
+            fake_run.side_effect = sap_adt_checks_run
+
+            std_output = StringIO()
+            err_output = StringIO()
+
+            fake_get_console.return_value = sap.cli.core.PrintConsole(std_output, err_output)
+
+            connection = Connection()
+
+            ret = args.execute(connection, args)
+
+            return (runs, std_output.getvalue(), err_output.getvalue(), ret)
+
+
+    def test_check_with_objects(self):
 
         reporter_all = sap.adt.checks.Reporter('all')
         reporter_all.supported_types = '*'
@@ -160,62 +204,124 @@ class TestPackageCheck(unittest.TestCase):
         reporter_tabl = sap.adt.checks.Reporter('tabl')
         reporter_tabl.supported_types = 'TABL/*'
 
-        fake_fetch_reporters.return_value = [reporter_all, reporter_clas, reporter_tabl]
-
-        fake_walk.return_value = [('foo',
-                                   None,
-                                   [SimpleNamespace(typ='PROG', name='ZPROGRAM', uri='programs/programs/zprogram'),
-                                    SimpleNamespace(typ='CLAS', name='ZCL', uri='oo/classes/zcl')]),
-                                  ('foo_sub',
-                                   None,
-                                   [SimpleNamespace(typ='TABL/DB', name='ZTABLE', uri='ddic/tables/ztable')])]
-
-        runs = []
-        def sap_adt_checks_run(connection, reporter, object_list):
-            runs.append([reporter.name] + [obj.uri for obj in object_list])
-
-            check_report = sap.adt.checks.CheckReport()
-            check_report.reporter = reporter.name
-
-            check_message = sap.adt.checks.CheckMessage()
-            check_message.uri = f'fake/uri/{reporter.name}'
-
-            if reporter.name == 'all':
-                check_message.typ = 'W'
-            else:
-                check_message.typ = 'E'
-
-            check_message.short_text = f'Test {reporter.name}'
-            check_message.category = reporter.name[0]
-
-            check_report.messages.append(check_message)
-
-            return [check_report]
-
-        fake_run.side_effect = sap_adt_checks_run
-
-        std_output = StringIO()
-        err_output = StringIO()
-
-        fake_get_console.return_value = sap.cli.core.PrintConsole(std_output, err_output)
-
-        connection = Connection()
-
         args = parse_args('check', 'foo')
-        args.execute(connection, args)
 
-        self.assertEqual(runs, [['all', 'programs/programs/zprogram', 'oo/classes/zcl', 'ddic/tables/ztable'],
+        runs, std, err, _ = self.run_checks(
+            args,
+            [reporter_all, reporter_clas, reporter_tabl],
+            [('foo',
+              None,
+              [SimpleNamespace(typ='PROG', name='ZPROGRAM', uri='programs/programs/zprogram'),
+               SimpleNamespace(typ='CLAS', name='ZCL', uri='oo/classes/zcl')]),
+             ('foo_sub',
+              None,
+              [SimpleNamespace(typ='TABL/DB', name='ZTABLE', uri='ddic/tables/ztable')])
+            ],
+        )
+
+        self.assertEqual(runs, [['all', 'programs/programs/zprogram'],
+                                ['all', 'oo/classes/zcl'],
                                 ['clas', 'oo/classes/zcl'],
+                                ['all', 'ddic/tables/ztable'],
                                 ['tabl', 'ddic/tables/ztable']])
 
-        self.assertEqual(std_output.getvalue(), '''W :: a :: Test all
+        self.assertEqual(std, '''W :: a :: Test all
+W :: a :: Test all
 E :: c :: Test clas
+W :: a :: Test all
 E :: t :: Test tabl
-Messages: 3
-Warnings: 1
+Checks:   5
+Messages: 5
+Warnings: 3
 Errors:   2
 ''')
-        self.assertEqual(err_output.getvalue(), '')
+        self.assertEqual(err, '')
+
+    def test_check_with_objects_no_matching_reporter(self):
+
+        reporter_clas = sap.adt.checks.Reporter('clas')
+        reporter_clas.supported_types = 'CLAS'
+
+        args = parse_args('check', 'foo')
+
+        runs, std, err, ret = self.run_checks(
+            args,
+            [reporter_clas],
+            [('foo',
+              None,
+              [SimpleNamespace(typ='PROG', name='ZPROGRAM', uri='programs/programs/zprogram')])
+            ],
+        )
+
+        self.assertEqual(runs, [])
+
+        self.assertEqual(std, '''Checks:   0
+Messages: 0
+Warnings: 0
+Errors:   0
+''')
+
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
+
+    def test_check_without_reporters(self):
+        args = parse_args('check', 'foo')
+
+        runs, std, err, ret = self.run_checks(
+            args,
+            [],
+            [('foo',
+              None,
+              [SimpleNamespace(typ='PROG', name='ZPROGRAM', uri='programs/programs/zprogram')]
+             )
+            ],
+        )
+        self.assertEqual(std, '')
+        self.assertEqual(err, 'No ADT Checks Reporters provided by the system\n')
+        self.assertEqual(ret, 1)
+
+    def test_check_without_objects(self):
+        reporter_clas = sap.adt.checks.Reporter('clas')
+        reporter_clas.supported_types = 'CLAS'
+
+        args = parse_args('check', 'foo')
+
+        runs, std, err, ret = self.run_checks(
+            args,
+            [reporter_clas],
+            [],
+        )
+
+        self.assertEqual(std, '')
+        self.assertEqual(err, 'No objects found\n')
+        self.assertEqual(ret, 1)
+
+    def test_check_with_http_error(self):
+
+        reporter_clas = sap.adt.checks.Reporter('Exception')
+        reporter_clas.supported_types = 'CLAS'
+
+        args = parse_args('check', 'foo')
+
+        runs, std, err, ret = self.run_checks(
+            args,
+            [reporter_clas],
+            [('foo',
+              None,
+              [SimpleNamespace(typ='CLAS', name='ZCL', uri='oo/classes/zcl')]),
+            ],
+        )
+
+        self.assertEqual(runs, [])
+
+        self.assertEqual(std, '''Checks:   0
+Messages: 0
+Warnings: 0
+Errors:   0
+''')
+
+        self.assertEqual(err, '')
+        self.assertEqual(ret, 0)
 
 
 if __name__ == '__main__':
