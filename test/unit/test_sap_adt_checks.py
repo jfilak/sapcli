@@ -15,8 +15,8 @@ from fixtures_adt_checks import ADT_XML_CHECK_REPORTERS, ADT_XML_RUN_CHECK_2_REP
 
 FIXTURE_TWO_CLASSES_REQUEST = '''<?xml version="1.0" encoding="UTF-8"?>
 <chkrun:checkObjectList xmlns:chkrun="http://www.sap.com/adt/checkrun" xmlns:adtcore="http://www.sap.com/adt/core">
-<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_first" chkrun:version="new"/>
-<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_second" chkrun:version="new"/>
+<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_first" chkrun:version="active"/>
+<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_second" chkrun:version="active"/>
 </chkrun:checkObjectList>'''
 
 

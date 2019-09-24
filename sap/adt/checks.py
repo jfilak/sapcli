@@ -47,7 +47,7 @@ class CheckObject(metaclass=OrderedClassMembers):
     """ADT Check Object item for the run request"""
 
     uri = XmlNodeAttributeProperty('adtcore:uri')
-    chkrun_version = XmlNodeAttributeProperty('chkrun:version', value='new')
+    chkrun_version = XmlNodeAttributeProperty('chkrun:version', value='active')
 
     def __init__(self, uri):
         self.uri = uri
