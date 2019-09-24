@@ -163,6 +163,8 @@ class TestPackageCheck(unittest.TestCase):
 
                 check_report = sap.adt.checks.CheckReport()
                 check_report.reporter = reporter.name
+                obj = next(iter(object_list))
+                check_report.triggering_uri = obj.uri
 
                 check_message = sap.adt.checks.CheckMessage()
                 check_message.uri = f'fake/uri/{reporter.name}'
@@ -225,11 +227,11 @@ class TestPackageCheck(unittest.TestCase):
                                 ['all', 'ddic/tables/ztable'],
                                 ['tabl', 'ddic/tables/ztable']])
 
-        self.assertEqual(std, '''W :: a :: Test all
-W :: a :: Test all
-E :: c :: Test clas
-W :: a :: Test all
-E :: t :: Test tabl
+        self.assertEqual(std, '''W :: a :: Test all :: PROG ZPROGRAM
+W :: a :: Test all :: CLAS ZCL
+E :: c :: Test clas :: CLAS ZCL
+W :: a :: Test all :: TABL/DB ZTABLE
+E :: t :: Test tabl :: TABL/DB ZTABLE
 Checks:   5
 Messages: 5
 Warnings: 3

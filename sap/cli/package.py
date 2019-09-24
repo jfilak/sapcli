@@ -121,13 +121,15 @@ def _run_reporters_for_objects(connection, reporters, package_objects):
     return checks, results
 
 
-def _print_out_messages(reports, checks, console):
+def _print_out_messages(reports, checks, index, console):
 
     messages = 0
     warnings = 0
     errors = 0
 
     for report in reports:
+        obj = index[report.triggering_uri]
+
         for message in report.messages:
             messages += 1
 
@@ -136,7 +138,7 @@ def _print_out_messages(reports, checks, console):
             elif message.typ == 'E':
                 errors += 1
 
-            console.printout(f'{message.typ} :: {message.category} :: {message.short_text}')
+            console.printout(f'{message.typ} :: {message.category} :: {message.short_text} :: {obj.typ} {obj.name}')
 
     console.printout(f'Checks:   {checks}')
     console.printout(f'Messages: {messages}')
@@ -169,12 +171,15 @@ def check(connection, args):
 
     checks = 0
     reports = []
+    index = dict()
     for obj in all_objects:
+        index[obj.uri] = obj
+
         mod_log().info('Checking object: %s %s %s', obj.typ, obj.uri, obj.name)
         runs, results = _run_reporters_for_objects(connection, reporters, [obj])
         checks += runs
         reports.extend(results)
 
-    _, __, errors = _print_out_messages(reports, checks, sap.cli.core.get_console())
+    _, __, errors = _print_out_messages(reports, checks, index, sap.cli.core.get_console())
 
     return 0 if errors == 0 else 1
