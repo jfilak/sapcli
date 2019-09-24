@@ -48,8 +48,15 @@ class NodeStructureXMLHandler(ContentHandler):
         if self._property is None:
             return
 
-        mod_log().debug('XML: object property value: %s', content)
-        setattr(self._object, self._property, content)
+        try:
+            text = getattr(self._object, self._property)
+        except AttributeError:
+            text = content
+        else:
+            text += content
+
+        mod_log().debug('XML: object property value: %s', text)
+        setattr(self._object, self._property, text)
 
     def endElement(self, name):
         if name != self._property:
