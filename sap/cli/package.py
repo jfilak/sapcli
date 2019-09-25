@@ -88,7 +88,8 @@ def list_package(connection, args):
 
         if not args.recursive:
             break
-        elif not subpackages and not objects:
+
+        if not subpackages and not objects:
             print(f'{basedir}')
 
     return 0

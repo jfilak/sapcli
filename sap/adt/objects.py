@@ -73,7 +73,7 @@ class XMLNamespace:
         if self._parents is None:
             return []
 
-        return [parent for parent in self._parents]
+        return self._parents.copy()
 
 
 XMLNS_ADTCORE = XMLNamespace('adtcore', 'http://www.sap.com/adt/core')
