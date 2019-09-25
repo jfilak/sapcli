@@ -1,5 +1,7 @@
 """ADT proxy for ABAP Package (Developmen Class)"""
 
+from collections import OrderedDict
+
 from sap import get_logger
 
 import sap.adt
@@ -121,33 +123,73 @@ def _run_reporters_for_objects(connection, reporters, package_objects):
     return checks, results
 
 
-def _print_out_messages(reports, checks, index, console):
+# pylint: disable=too-few-public-methods
+class GroupByChoice:
+    """Group by options"""
 
-    messages = 0
-    warnings = 0
-    errors = 0
+    OBJECT = 'object'
+    MESSAGE = 'message'
+
+
+# pylint: disable=too-many-locals
+def _print_out_messages(reports, checks_cntr, index, group_by, console):
+
+    messages_cntr = 0
+    warnings_cntr = 0
+    errors_cntr = 0
+
+    objects_index = OrderedDict()
+    messages_index = OrderedDict()
 
     for report in reports:
         obj = index[report.triggering_uri]
+        mod_log().debug('Processing Report: %s (%s %s %s)', report.triggering_uri, obj.typ, obj.name, obj.uri)
 
         for message in report.messages:
-            messages += 1
+            mod_log().debug('Processing Message: %s', message.short_text)
+
+            messages_cntr += 1
 
             if message.typ == 'W':
-                warnings += 1
+                warnings_cntr += 1
             elif message.typ == 'E':
-                errors += 1
+                errors_cntr += 1
 
-            console.printout(f'{message.typ} :: {message.category} :: {message.short_text} :: {obj.typ} {obj.name}')
+            if group_by is None:
+                console.printout(f'{message.typ} :: {message.category} :: {message.short_text} :: {obj.typ} {obj.name}')
+            elif group_by == GroupByChoice.OBJECT:
+                items = objects_index.get(obj.uri, [])
+                items.append(message)
+                objects_index[obj.uri] = items
+            elif group_by == GroupByChoice.MESSAGE:
+                key = f'{message.typ} :: {message.category} :: {message.short_text}'
+                items = messages_index.get(key, [])
+                items.append(obj)
+                messages_index[key] = items
+            else:
+                raise RuntimeError(f'Forgotten GroupByChoice {group_by}')
 
-    console.printout(f'Checks:   {checks}')
-    console.printout(f'Messages: {messages}')
-    console.printout(f'Warnings: {warnings}')
-    console.printout(f'Errors:   {errors}')
+    for obj_uri, obj_messages in objects_index.items():
+        obj = index[obj_uri]
+        console.printout(f'{obj.typ} {obj.name}')
+        for message in obj_messages:
+            console.printout(f'* {message.typ} :: {message.category} :: {message.short_text}')
 
-    return (messages, warnings, errors)
+    for message, caught_objects in messages_index.items():
+        console.printout(message)
+        for obj in caught_objects:
+            console.printout(f'* {obj.typ} {obj.name}')
+
+    console.printout(f'Checks:   {checks_cntr}')
+    console.printout(f'Messages: {messages_cntr}')
+    console.printout(f'Warnings: {warnings_cntr}')
+    console.printout(f'Errors:   {errors_cntr}')
+
+    return (messages_cntr, warnings_cntr, errors_cntr)
 
 
+@CommandGroup.argument('--group-by', nargs='?', choices=[GroupByChoice.OBJECT, GroupByChoice.MESSAGE],
+                       help='to group output by')
 @CommandGroup.argument('-c', '--checks', nargs='*', help='name of the check reporter; default: all available')
 @CommandGroup.argument('name')
 @CommandGroup.command()
@@ -180,6 +222,6 @@ def check(connection, args):
         checks += runs
         reports.extend(results)
 
-    _, __, errors = _print_out_messages(reports, checks, index, sap.cli.core.get_console())
+    _, __, errors = _print_out_messages(reports, checks, index, args.group_by, sap.cli.core.get_console())
 
     return 0 if errors == 0 else 1

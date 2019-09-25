@@ -177,6 +177,7 @@ class TestPackageCheck(unittest.TestCase):
                 check_message.short_text = f'Test {reporter.name}'
                 check_message.category = reporter.name[0]
 
+                sap.get_logger().debug('FAKE message: %s %s', check_report.triggering_uri, check_message.short_text)
                 check_report.messages.append(check_message)
 
                 return [check_report]
@@ -194,8 +195,7 @@ class TestPackageCheck(unittest.TestCase):
 
             return (runs, std_output.getvalue(), err_output.getvalue(), ret)
 
-
-    def test_check_with_objects(self):
+    def run_check_with_objects(self, args, exp_std, exp_err):
 
         reporter_all = sap.adt.checks.Reporter('all')
         reporter_all.supported_types = '*'
@@ -206,7 +206,6 @@ class TestPackageCheck(unittest.TestCase):
         reporter_tabl = sap.adt.checks.Reporter('tabl')
         reporter_tabl.supported_types = 'TABL/*'
 
-        args = parse_args('check', 'foo')
 
         runs, std, err, _ = self.run_checks(
             args,
@@ -227,7 +226,13 @@ class TestPackageCheck(unittest.TestCase):
                                 ['all', 'ddic/tables/ztable'],
                                 ['tabl', 'ddic/tables/ztable']])
 
-        self.assertEqual(std, '''W :: a :: Test all :: PROG ZPROGRAM
+        self.assertEqual(std, exp_std)
+        self.assertEqual(err, exp_err)
+
+    def test_check_with_objects_no_grouping(self):
+        args = parse_args('check', 'foo')
+        self.run_check_with_objects(args,
+                                    '''W :: a :: Test all :: PROG ZPROGRAM
 W :: a :: Test all :: CLAS ZCL
 E :: c :: Test clas :: CLAS ZCL
 W :: a :: Test all :: TABL/DB ZTABLE
@@ -236,8 +241,44 @@ Checks:   5
 Messages: 5
 Warnings: 3
 Errors:   2
-''')
-        self.assertEqual(err, '')
+''',
+                                    '')
+
+    def test_check_with_objects_by_object(self):
+        args = parse_args('check', 'foo', '--group-by', 'object')
+        self.run_check_with_objects(args,
+                                    '''PROG ZPROGRAM
+* W :: a :: Test all
+CLAS ZCL
+* W :: a :: Test all
+* E :: c :: Test clas
+TABL/DB ZTABLE
+* W :: a :: Test all
+* E :: t :: Test tabl
+Checks:   5
+Messages: 5
+Warnings: 3
+Errors:   2
+''',
+                                    '')
+
+    def test_check_with_objects_by_message(self):
+        args = parse_args('check', 'foo', '--group-by', 'message')
+        self.run_check_with_objects(args,
+                                    '''W :: a :: Test all
+* PROG ZPROGRAM
+* CLAS ZCL
+* TABL/DB ZTABLE
+E :: c :: Test clas
+* CLAS ZCL
+E :: t :: Test tabl
+* TABL/DB ZTABLE
+Checks:   5
+Messages: 5
+Warnings: 3
+Errors:   2
+''',
+                                    '')
 
     def test_check_with_objects_no_matching_reporter(self):
 
