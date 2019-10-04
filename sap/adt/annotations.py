@@ -4,6 +4,34 @@ from enum import Enum
 import collections
 
 
+def _make_attr_name_for_version(element_name, version):
+    """Makes the given name unique for the given version parameter
+       which can be:
+       - None : version is irrelevant
+       - str : single version
+       - list|set : name appears in several versions
+    """
+
+    def format_name(version, suffix):
+        return f'{version}_{suffix}'
+
+    name = f'_{element_name}'.replace(':', '_')
+
+    if version is None:
+        # No suffix needed
+        return name
+
+    if isinstance(version, str):
+        # Single version
+        return format_name(name, version)
+
+    if isinstance(version, list) or isinstance(version, set):
+        # Multiple versions
+        return format_name(name, '_'.join(version))
+
+    raise TypeError(f'Version cannot be of the type {type(version).__name__}')
+
+
 class OrderedClassMembers(type):
     """MetaClass to preserve get order of member declarations
        to serialize the XML elements in the expected order.
@@ -41,11 +69,12 @@ class XmlElementKind(Enum):
 class XmlAttributeProperty(property):
     """XML Annotation"""
 
-    def __init__(self, name, fget, fset=None, deserialize=True):
+    def __init__(self, name, fget, fset=None, deserialize=True, version=None):
         super(XmlAttributeProperty, self).__init__(fget, fset)
 
         self.name = name
         self.deserialize = deserialize
+        self.version = version
 
     def setter(self, fset):
         return type(self)(self.name, self.fget, fset, deserialize=self.deserialize)
@@ -57,13 +86,14 @@ class XmlElementProperty(property):
 
     NAME_FROM_OBJECT = None
 
-    def __init__(self, name, fget, fset=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT):
+    def __init__(self, name, fget, fset=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
         super(XmlElementProperty, self).__init__(fget, fset)
 
         self.name = name
         self.deserialize = deserialize
         self.factory = factory
         self.kind = kind
+        self.version = version
 
     def setter(self, fset):
         return type(self)(self.name, self.fget, fset, deserialize=self.deserialize, factory=self.factory,
@@ -75,9 +105,10 @@ class XmlPropertyImpl:
        attribute whose name is built from the corresponding XML name.
     """
 
-    def __init__(self, name, default_value=None):
+    def __init__(self, name, default_value=None, version=None):
 
-        self.attr = f'_{name}'.replace(':', '_')
+        self.attr = _make_attr_name_for_version(element_name, version)
+
         self.default_value = default_value
 
     def get(self, obj):
@@ -99,10 +130,10 @@ class XmlNodeProperty(XmlElementProperty, XmlPropertyImpl):
        get/set when absolutely not necessary.
     """
 
-    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT):
+    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
         super(XmlNodeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize, factory=factory,
-                                              kind=kind)
-        XmlPropertyImpl.__init__(self, name, default_value=value)
+                                              kind=kind, version=version)
+        XmlPropertyImpl.__init__(self, name, default_value=value, version=version)
 
     def setter(self, fset):
         """Turned off setter decorator which is not necessary and confusing"""
@@ -116,9 +147,9 @@ class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
        get/set when absolutely not necessary.
     """
 
-    def __init__(self, name, value=None, deserialize=True):
-        super(XmlNodeAttributeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize)
-        XmlPropertyImpl.__init__(self, name, default_value=value)
+    def __init__(self, name, value=None, deserialize=True, version=None):
+        super(XmlNodeAttributeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize, version=version)
+        XmlPropertyImpl.__init__(self, name, default_value=value, version=version)
 
     def setter(self, fset):
         """Turned off setter decorator which is not necessary and confusing"""
@@ -130,14 +161,15 @@ class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
 class XmlListNodeProperty(XmlElementProperty):
     """Many repetitions of the same tag"""
 
-    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT):
+    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=version):
         super(XmlListNodeProperty, self).__init__(name, self.get, fset=self.append, deserialize=deserialize,
-                                                  factory=factory, kind=kind)
+                                                  factory=factory, kind=kind, version=version)
 
         if value is not None and not isinstance(value, list):
             raise RuntimeError()
 
-        self.attr = f'_{name}'.replace(':', '_')
+        self.attr = _make_attr_name_for_version(element_name, version)
+
         self.default_value = value
 
     def _get_list(self, obj):
@@ -174,7 +206,7 @@ class XmlContainerMeta(OrderedClassMembers):
        with many children of the same tag.
     """
 
-    def define(cls, item_element_name, item_factory):
+    def define(cls, item_element_name, item_factory, version=None):
         """Defines a new class with the property items which will be
            annotated as XmlElement.
 
@@ -182,7 +214,7 @@ class XmlContainerMeta(OrderedClassMembers):
         """
 
         items_property = XmlListNodeProperty(item_element_name, deserialize=True, factory=item_factory,
-                                             value=list(), kind=XmlElementKind.OBJECT)
+                                             value=list(), kind=XmlElementKind.OBJECT, version=version)
 
         return type(f'XMLContainer_{item_factory.__name__}', (cls,), dict(items=items_property))
 
@@ -209,31 +241,31 @@ class XmlContainer(metaclass=XmlContainerMeta):
         return self.items.__len__()
 
 
-def xml_text_node_property(name, value=None, deserialize=True):
+def xml_text_node_property(name, value=None, deserialize=True, version=None):
     """A factory method returning a descriptor property XML Element holding
        the value in a text node.
     """
 
-    return XmlNodeProperty(name, value=value, deserialize=deserialize, factory=None, kind=XmlElementKind.TEXT)
+    return XmlNodeProperty(name, value=value, deserialize=deserialize, factory=None, kind=XmlElementKind.TEXT, version=version)
 
 
-def xml_attribute(name, deserialize=True):
+def xml_attribute(name, deserialize=True, version=None):
     """Mark the given property as a XML element attribute of the given name"""
 
     def decorator(meth):
         """Creates a property object"""
 
-        return XmlAttributeProperty(name, meth, deserialize=deserialize)
+        return XmlAttributeProperty(name, meth, deserialize=deserialize, version=version)
 
     return decorator
 
 
-def xml_element(name, deserialize=True, factory=None, kind=XmlElementKind.OBJECT):
+def xml_element(name, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
     """Mark the given property as a XML element of the given name"""
 
     def decorator(meth):
         """Creates a property object"""
 
-        return XmlElementProperty(name, meth, deserialize=deserialize, factory=factory, kind=kind)
+        return XmlElementProperty(name, meth, deserialize=deserialize, factory=factory, kind=kind, version=version)
 
     return decorator

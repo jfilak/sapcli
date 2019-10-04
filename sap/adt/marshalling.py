@@ -10,6 +10,19 @@ from sap.errors import FatalError
 from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty, XmlElementKind
 
 
+def  _attr_supports_version(attr, version):
+    if attr.version is None:
+        return True
+
+    if isinstance(attr.version, str):
+        return attr.version == version
+
+    if isinstance(attr.version, list) or isinstance(attr.version, set):
+        return any((aver == version for aver in attr.version))
+
+    raise TypeError(f'Version cannot be of the type {type(version).__name__}')
+
+
 class MarshallingError(FatalError):
     """Base Marshalling error for generic problems"""
 
@@ -269,6 +282,9 @@ class ADTObjectSAXHandler(ContentHandler):
 class Marshal:
     """ADT object marshaling"""
 
+    def __init__(self, object_schema_version):
+        self.version = object_schema_version
+
     def serialize(self, adt_object):
         """Serialized ADT Object"""
 
@@ -377,6 +393,9 @@ class Marshal:
                 continue
 
             attr = getattr(obj.__class__, attr_name)
+            if not _attr_supports_version(attr, self.version):
+                get_logger().debug('Skipping class attribute %s for not supported version %s', attr.name, self.version)
+                continue
 
             if isinstance(attr, XmlElementProperty):
                 child = getattr(obj, attr_name)

@@ -99,7 +99,7 @@ class ADTObjectType:
             - basepath:
             - xmlnamespace: a tuple where the first item is a nick and
                             the second item is actually the namespace URI
-            - mimetype: object MIME type
+            - mimetype: object MIME type - can be list
             - typeuris: patterns for the object format URL (text, xml, ...)
             - xmlname: something from ADT ;)
         """
@@ -143,6 +143,18 @@ class ADTObjectType:
     @property
     def mimetype(self):
         """ADT object MIME type"""
+
+        if isinstance(self._mimetype, list):
+            return self._mimetype[0]
+
+        return self._mimetype
+
+    @property
+    def all_mimetypes(self):
+        """All supported ADT object MIME type"""
+
+        if not isinstance(self._mimetype, list):
+            return [self._mimetype]
 
         return self._mimetype
 
@@ -454,7 +466,14 @@ class ADTObject(metaclass=OrderedClassMembers):
         """Creates ADT object
         """
 
-        marshal = sap.adt.marshalling.Marshal()
+        mimes = self._connection.get_collection_types(self.objtype.basepath)
+
+        seri_mime = next((mime for mime in mimes if mime in supp_mimes), None)
+        if seri_mime is None:
+            raise RuntimeError('Not supported mimes')
+
+        version = mimetype_to_version(seri_mime)
+        marshal = sap.adt.marshalling.Marshal(version)
         xml = marshal.serialize(self)
 
         return self._connection.execute(
@@ -467,8 +486,10 @@ class ADTObject(metaclass=OrderedClassMembers):
     def fetch(self):
         """Retrieve data from ADT"""
 
-        resp = self._connection.execute('GET', self.uri)
-        sap.adt.marshalling.Marshal.deserialize(resp.text, self)
+        resp = self._connection.execute('GET', self.uri, accept=self.objtype.all_mimetypes)
+        version = mimetype_to_version(resp.headers['Content-Type'])
+        marshal = sap.adt.marshalling.Marshal(version)
+        marshal.deserialize(resp.text, self)
 
     def lock(self):
         """Locks the object"""

@@ -132,7 +132,14 @@ class Connection:
 
             url = self._build_adt_url('core/discovery')
 
-            response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
+            try:
+                response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
+            except HTTPRequestError as ex:
+                if ex.resp.status_code != 404:
+                    raise ex
+
+                url = self._build_adt_url('discovery')
+                response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
 
             self._session.headers.update({'x-csrf-token': response.headers['x-csrf-token']})
 
