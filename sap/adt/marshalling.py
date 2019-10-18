@@ -11,6 +11,9 @@ from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty, XmlEle
 
 
 def  _attr_supports_version(attr, version):
+    if version is None and attr.version is not None:
+        raise RuntimeError(f'Supported version not declared but XML item versioned defined')
+
     if attr.version is None:
         return True
 
@@ -282,7 +285,7 @@ class ADTObjectSAXHandler(ContentHandler):
 class Marshal:
     """ADT object marshaling"""
 
-    def __init__(self, object_schema_version):
+    def __init__(self, object_schema_version=None):
         self.version = object_schema_version
 
     def serialize(self, adt_object):
