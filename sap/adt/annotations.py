@@ -25,7 +25,7 @@ def _make_attr_name_for_version(element_name, version):
         # Single version
         return format_name(name, version)
 
-    if isinstance(version, list) or isinstance(version, set):
+    if isinstance(version, (list, set)):
         # Multiple versions
         return format_name(name, '_'.join(version))
 
@@ -80,13 +80,14 @@ class XmlAttributeProperty(property):
         return type(self)(self.name, self.fget, fset, deserialize=self.deserialize)
 
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods,too-many-arguments
 class XmlElementProperty(property):
     """XML Annotation"""
 
     NAME_FROM_OBJECT = None
 
-    def __init__(self, name, fget, fset=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
+    def __init__(self, name, fget, fset=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT,
+                 version=None):
         super(XmlElementProperty, self).__init__(fget, fset)
 
         self.name = name
@@ -107,7 +108,7 @@ class XmlPropertyImpl:
 
     def __init__(self, name, default_value=None, version=None):
 
-        self.attr = _make_attr_name_for_version(element_name, version)
+        self.attr = _make_attr_name_for_version(name, version)
 
         self.default_value = default_value
 
@@ -148,7 +149,8 @@ class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
     """
 
     def __init__(self, name, value=None, deserialize=True, version=None):
-        super(XmlNodeAttributeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize, version=version)
+        super(XmlNodeAttributeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize,
+                                                       version=version)
         XmlPropertyImpl.__init__(self, name, default_value=value, version=version)
 
     def setter(self, fset):
@@ -161,14 +163,14 @@ class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
 class XmlListNodeProperty(XmlElementProperty):
     """Many repetitions of the same tag"""
 
-    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=version):
+    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
         super(XmlListNodeProperty, self).__init__(name, self.get, fset=self.append, deserialize=deserialize,
                                                   factory=factory, kind=kind, version=version)
 
         if value is not None and not isinstance(value, list):
             raise RuntimeError()
 
-        self.attr = _make_attr_name_for_version(element_name, version)
+        self.attr = _make_attr_name_for_version(name, version)
 
         self.default_value = value
 
@@ -246,7 +248,8 @@ def xml_text_node_property(name, value=None, deserialize=True, version=None):
        the value in a text node.
     """
 
-    return XmlNodeProperty(name, value=value, deserialize=deserialize, factory=None, kind=XmlElementKind.TEXT, version=version)
+    return XmlNodeProperty(name, value=value, deserialize=deserialize, factory=None, kind=XmlElementKind.TEXT,
+                           version=version)
 
 
 def xml_attribute(name, deserialize=True, version=None):
