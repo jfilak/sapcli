@@ -20,7 +20,7 @@ def  _attr_supports_version(attr, version):
     if isinstance(attr.version, str):
         return attr.version == version
 
-    if isinstance(attr.version, list) or isinstance(attr.version, set):
+    if isinstance(attr.version, (list, set)):
         return any((aver == version for aver in attr.version))
 
     raise TypeError(f'Version cannot be of the type {type(version).__name__}')
@@ -396,15 +396,20 @@ class Marshal:
                 continue
 
             attr = getattr(obj.__class__, attr_name)
-            if not _attr_supports_version(attr, self.version):
-                get_logger().debug('Skipping class attribute %s for not supported version %s', attr.name, self.version)
-                continue
 
             if isinstance(attr, XmlElementProperty):
+                if not _attr_supports_version(attr, self.version):
+                    get_logger().debug('Skipping class attribute %s for not supported version %s', attr.name, self.version)
+                    continue
+
                 child = getattr(obj, attr_name)
                 get_logger().debug('Serializing Child Element %s (%s)', attr.name, attr_name)
                 self._serialize_object_to_node(root, attr.name, child, declared_ns, attr.kind)
             elif isinstance(attr, XmlAttributeProperty):
+                if not _attr_supports_version(attr, self.version):
+                    get_logger().debug('Skipping class attribute %s for not supported version %s', attr.name, self.version)
+                    continue
+
                 value = getattr(obj, attr_name)
                 if value is not None:
                     root.add_attribute(attr.name, value)

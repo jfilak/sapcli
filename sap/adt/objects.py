@@ -15,6 +15,18 @@ from sap.adt.annotations import xml_attribute, xml_element, XmlElementProperty, 
 LOCK_ACCESS_MODE_MODIFY = 'MODIFY'
 
 
+def mimetype_to_version(mime):
+    dot_plus = mime.rfind('+')
+    dot_version = mime.rfind('.', 0, dot_plus)
+
+    print(dot_plus, dot_version)
+
+    if dot_plus == -1 or dot_version == -1:
+        raise SAPCliError('not a version + xml mime: ' + mime)
+
+    return mime[dot_version:dot_plus]
+
+
 def lock_params(access_mode):
     """Returns parameters for Action Lock"""
 
@@ -466,11 +478,12 @@ class ADTObject(metaclass=OrderedClassMembers):
         """Creates ADT object
         """
 
-        mimes = self._connection.get_collection_types(self.objtype.basepath)
+        mimes = self._connection.get_collection_types(self.objtype)
 
-        seri_mime = next((mime for mime in mimes if mime in supp_mimes), None)
+        seri_mime = next((mime for mime in mimes if mime in self.objtype.all_mimetypes), None)
         if seri_mime is None:
-            raise RuntimeError('Not supported mimes')
+            raise RuntimeError('Not supported mimes: %s ! in %s',
+                               ';'.join(mimes.join), join(';'.join(self.objtype.all_mimetypes)))
 
         version = mimetype_to_version(seri_mime)
         marshal = sap.adt.marshalling.Marshal(version)
@@ -479,7 +492,7 @@ class ADTObject(metaclass=OrderedClassMembers):
         return self._connection.execute(
             'POST',
             self.objtype.basepath,
-            headers={'Content-Type': self.objtype.mimetype},
+            headers={'Content-Type': seri_mime},
             params=create_params(corrnr),
             body=xml)
 

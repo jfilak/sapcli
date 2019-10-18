@@ -49,6 +49,7 @@ class Connection:
         self._user = user
         self._auth = HTTPBasicAuth(user, password)
         self._session = None
+        self._collection_types = {}
 
     @property
     def user(self):
@@ -187,3 +188,9 @@ class Connection:
         """
 
         return self.execute('GET', relativeuri, headers={'Accept': 'text/plain'}).text
+
+    def get_collection_types(self, objtype):
+        try:
+            return self._collection_types[objtype.basepath]
+        except KeyError:
+            return [objtype.mimetype]

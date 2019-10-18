@@ -43,6 +43,7 @@ class ElementClass:
 
 
 DummyList = XmlContainer.define('dummyitem', DummyClass)
+DummyListConfigured = XmlContainer.define('dummyitemconfigured', DummyClass, version='v2')
 
 
 class TestADTAnnotation(unittest.TestCase):
@@ -70,6 +71,13 @@ class TestADTAnnotation(unittest.TestCase):
 
         victory.value = 'updated'
         self.assertEquals(victory.value, 'updated')
+
+    def test_xml_attribute_version(self):
+        deserialized = xml_attribute('versioned')
+        self.assertIsNone(deserialized(None).version)
+
+        readonly = xml_attribute('readonly', version='v2')
+        self.assertEqual(readonly(None).version, 'v2')
 
     def test_xml_element(self):
         def fget(obj):
@@ -102,6 +110,13 @@ class TestADTAnnotation(unittest.TestCase):
         readonly = xml_element('readonly', deserialize=False)
         self.assertFalse(readonly(None).deserialize)
 
+    def test_xml_element_version(self):
+        deserialized = xml_element('versioned')
+        self.assertIsNone(deserialized(None).version)
+
+        readonly = xml_element('readonly', version='v2')
+        self.assertEqual(readonly(None).version, 'v2')
+
     def test_xml_element_factory(self):
         wo_factory = xml_element('wo_factory')
         self.assertIsNone(wo_factory(None).factory)
@@ -131,13 +146,16 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(node.kind, template.kind)
         self.assertEqual(node.factory, template.factory)
         self.assertEqual(node.deserialize, template.deserialize)
+        self.assertEqual(node.version, template.version)
 
-        node = XmlNodeProperty('element', value='value', deserialize=False, factory=str, kind=XmlElementKind.TEXT)
+        node = XmlNodeProperty('element', value='value', deserialize=False, factory=str, kind=XmlElementKind.TEXT,
+                               version='v2')
         self.assertEqual(node.default_value, 'value')
         self.assertEqual(node.name, 'element')
         self.assertEqual(node.kind, XmlElementKind.TEXT)
         self.assertEqual(node.factory, str)
         self.assertFalse(node.deserialize)
+        self.assertEqual(node.version, 'v2')
 
     def test_xml_node_property_get_set(self):
         node = XmlNodeProperty('element', value='value')
@@ -155,11 +173,13 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertIsNone(node.default_value)
         self.assertEqual(node.name, template.name)
         self.assertEqual(node.deserialize, template.deserialize)
+        self.assertEqual(node.version, template.version)
 
-        node = XmlNodeAttributeProperty('attribute2', value='value', deserialize=False)
+        node = XmlNodeAttributeProperty('attribute2', value='value', deserialize=False, version='v2')
         self.assertEqual(node.default_value, 'value')
         self.assertEqual(node.name, 'attribute2')
         self.assertFalse(node.deserialize)
+        self.assertEqual(node.version, 'v2')
 
     def test_xml_node_attribute_property_get_set(self):
         node = XmlNodeAttributeProperty('attribute3', value='value2')
@@ -185,6 +205,15 @@ class TestADTAnnotation(unittest.TestCase):
         copy = [item for item in the_list]
         self.assertEqual(copy, [DummyClass(1), DummyClass(2)])
 
+    def test_xml_container_version(self):
+        the_nover_list = DummyList()
+        attr = getattr(the_nover_list.__class__, 'items')
+        self.assertEqual(attr.version, None)
+
+        the_configured_list = DummyListConfigured()
+        attr = getattr(the_configured_list.__class__, 'items')
+        self.assertEqual(attr.version, 'v2')
+
     def test_xml_list_node_property_init(self):
         template = XmlElementProperty('element', None)
 
@@ -194,13 +223,16 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(node.kind, template.kind)
         self.assertEqual(node.factory, template.factory)
         self.assertEqual(node.deserialize, template.deserialize)
+        self.assertEqual(node.version, template.version)
 
-        node = XmlListNodeProperty('element', value=['value'], deserialize=False, factory=str, kind=XmlElementKind.TEXT)
+        node = XmlListNodeProperty('element', value=['value'], deserialize=False, factory=str, kind=XmlElementKind.TEXT,
+                                   version='v2')
         self.assertEqual(node.default_value, ['value'])
         self.assertEqual(node.name, 'element')
         self.assertEqual(node.kind, XmlElementKind.TEXT)
         self.assertEqual(node.factory, str)
         self.assertFalse(node.deserialize)
+        self.assertEqual(node.version, 'v2')
 
     def test_xml_list_node_property_get_set(self):
         check_value = ['a', 'b']
