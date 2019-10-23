@@ -10,6 +10,22 @@ from sap.errors import FatalError
 from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty, XmlElementKind
 
 
+def _attr_supports_version(attr, version):
+    if version is None and attr.version is not None:
+        raise RuntimeError(f'Supported version not declared but XML item versioned defined')
+
+    if attr.version is None:
+        return True
+
+    if isinstance(attr.version, str):
+        return attr.version == version
+
+    if isinstance(attr.version, (list, set)):
+        return any((aver == version for aver in attr.version))
+
+    raise TypeError(f'Version cannot be of the type {type(version).__name__}')
+
+
 class MarshallingError(FatalError):
     """Base Marshalling error for generic problems"""
 
@@ -269,6 +285,9 @@ class ADTObjectSAXHandler(ContentHandler):
 class Marshal:
     """ADT object marshaling"""
 
+    def __init__(self, object_schema_version=None):
+        self.version = object_schema_version
+
     def serialize(self, adt_object):
         """Serialized ADT Object"""
 
@@ -379,10 +398,20 @@ class Marshal:
             attr = getattr(obj.__class__, attr_name)
 
             if isinstance(attr, XmlElementProperty):
+                if not _attr_supports_version(attr, self.version):
+                    get_logger().debug('Skipping class attribute %s for not supported version %s',
+                                       attr.name, self.version)
+                    continue
+
                 child = getattr(obj, attr_name)
                 get_logger().debug('Serializing Child Element %s (%s)', attr.name, attr_name)
                 self._serialize_object_to_node(root, attr.name, child, declared_ns, attr.kind)
             elif isinstance(attr, XmlAttributeProperty):
+                if not _attr_supports_version(attr, self.version):
+                    get_logger().debug('Skipping class attribute %s for not supported version %s',
+                                       attr.name, self.version)
+                    continue
+
                 value = getattr(obj, attr_name)
                 if value is not None:
                     root.add_attribute(attr.name, value)

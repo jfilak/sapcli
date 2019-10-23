@@ -390,6 +390,51 @@ class DummyWithTheTextList(metaclass=OrderedClassMembers):
     the_text_list = XmlListNodeProperty('mock:item', kind=XmlElementKind.TEXT)
 
 
+class DummyADTObjectWithVersions(ADTObject):
+
+    OBJTYPE = ADTObjectType(
+        None,
+        None,
+        XMLNamespace('mock', 'https://github.com/jfilak/sapcli/mock'),
+        None,
+        None,
+        'versioned'
+    )
+
+    elemverfst = XmlNodeProperty('mock:elemverfst', kind=XmlElementKind.TEXT, version='V1')
+    elemverboth = XmlNodeProperty('mock:elemverboth', kind=XmlElementKind.TEXT, version=['V1', 'V2'])
+
+    attrverfst = XmlNodeAttributeProperty('mock:attrverfst', version='V1')
+    attrverboth = XmlNodeAttributeProperty('mock:attrverboth', version=['V1', 'V2'])
+
+    def __init__(self):
+        super(DummyADTObjectWithVersions, self).__init__(None, None)
+
+        self._elemverall = 'Init-elem-all'
+        self.elemverfst = 'Init-elem-fst'
+        self.elemverboth = 'Init-elem-both'
+
+        self._attrverall = 'Init-attr-all'
+        self.attrverfst = 'Init-attr-fst'
+        self.attrverboth = 'Init-attr-both'
+
+    @xml_element('mock:elemverall', kind=XmlElementKind.TEXT)
+    def elemverall(self):
+        return self._elemverall
+
+    @elemverall.setter
+    def elemverall(self, value):
+        self._elemverall = value
+
+    @xml_attribute('mock:attrverall')
+    def attrverall(self):
+        return self._attrverall
+
+    @attrverall.setter
+    def attrverall(self, value):
+        self._attrverall = value
+
+
 class TestADTAnnotation(unittest.TestCase):
 
 
@@ -704,6 +749,67 @@ class TestADTAnnotation(unittest.TestCase):
 </mock:withlist>''', container)
 
         self.assertEqual(container.the_text_list, ['1', '2', '3'])
+
+    def test_serialize_versioned_ver1(self):
+        obj = DummyADTObjectWithVersions()
+        marshal = Marshal(object_schema_version='V1')
+        xml = marshal.serialize(obj)
+
+        self.maxDiff = None
+
+        self.assertEqual(xml, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:versioned xmlns:mock="https://github.com/jfilak/sapcli/mock" mock:attrverfst="Init-attr-fst" mock:attrverboth="Init-attr-both" mock:attrverall="Init-attr-all">
+<adtcore:packageRef/>
+<mock:elemverfst>Init-elem-fst</mock:elemverfst>
+<mock:elemverboth>Init-elem-both</mock:elemverboth>
+<mock:elemverall>Init-elem-all</mock:elemverall>
+</mock:versioned>''')
+
+    def test_serialize_versioned_ver2(self):
+        obj = DummyADTObjectWithVersions()
+        marshal = Marshal(object_schema_version='V2')
+        xml = marshal.serialize(obj)
+
+        self.maxDiff = None
+
+        self.assertEqual(xml, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:versioned xmlns:mock="https://github.com/jfilak/sapcli/mock" mock:attrverboth="Init-attr-both" mock:attrverall="Init-attr-all">
+<adtcore:packageRef/>
+<mock:elemverboth>Init-elem-both</mock:elemverboth>
+<mock:elemverall>Init-elem-all</mock:elemverall>
+</mock:versioned>''')
+
+    def test_serialize_versioned_ver3(self):
+        obj = DummyADTObjectWithVersions()
+        marshal = Marshal(object_schema_version='V3')
+        xml = marshal.serialize(obj)
+
+        self.maxDiff = None
+
+        self.assertEqual(xml, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:versioned xmlns:mock="https://github.com/jfilak/sapcli/mock" mock:attrverall="Init-attr-all">
+<adtcore:packageRef/>
+<mock:elemverall>Init-elem-all</mock:elemverall>
+</mock:versioned>''')
+
+    def test_deserialize_versioned(self):
+        obj = DummyADTObjectWithVersions()
+        marshal = Marshal()
+        marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:versioned xmlns:mock="https://github.com/jfilak/sapcli/mock" mock:attrverfst="de-attr-fst" mock:attrverboth="de-attr-both" mock:attrverall="de-attr-all">
+<adtcore:packageRef/>
+<mock:elemverfst>de-elem-fst</mock:elemverfst>
+<mock:elemverboth>de-elem-both</mock:elemverboth>
+<mock:elemverall>de-elem-all</mock:elemverall>
+</mock:versioned>''', obj)
+
+        self.assertEqual(obj.attrverfst, 'de-attr-fst')
+        self.assertEqual(obj.attrverboth, 'de-attr-both')
+        self.assertEqual(obj.attrverall, 'de-attr-all')
+
+        self.assertEqual(obj.elemverfst, 'de-elem-fst')
+        self.assertEqual(obj.elemverboth, 'de-elem-both')
+        self.assertEqual(obj.elemverall, 'de-elem-all')
 
 
 if __name__ == '__main__':
