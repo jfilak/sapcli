@@ -792,14 +792,24 @@ class TestADTAnnotation(unittest.TestCase):
 <mock:elemverall>Init-elem-all</mock:elemverall>
 </mock:versioned>''')
 
-    def test_deserialize_versioned_ver1(self):
+    def test_deserialize_versioned(self):
         obj = DummyADTObjectWithVersions()
+        marshal = Marshal()
+        marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:versioned xmlns:mock="https://github.com/jfilak/sapcli/mock" mock:attrverfst="de-attr-fst" mock:attrverboth="de-attr-both" mock:attrverall="de-attr-all">
+<adtcore:packageRef/>
+<mock:elemverfst>de-elem-fst</mock:elemverfst>
+<mock:elemverboth>de-elem-both</mock:elemverboth>
+<mock:elemverall>de-elem-all</mock:elemverall>
+</mock:versioned>''', obj)
 
-    def test_deserialize_versioned_ver2(self):
-        obj = DummyADTObjectWithVersions()
+        self.assertEqual(obj.attrverfst, 'de-attr-fst')
+        self.assertEqual(obj.attrverboth, 'de-attr-both')
+        self.assertEqual(obj.attrverall, 'de-attr-all')
 
-    def test_deserialize_versioned_ver3(self):
-        obj = DummyADTObjectWithVersions()
+        self.assertEqual(obj.elemverfst, 'de-elem-fst')
+        self.assertEqual(obj.elemverboth, 'de-elem-both')
+        self.assertEqual(obj.elemverall, 'de-elem-all')
 
 
 if __name__ == '__main__':
