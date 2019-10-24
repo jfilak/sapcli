@@ -15,6 +15,33 @@ from sap.adt.annotations import xml_attribute, xml_element, XmlElementProperty, 
 LOCK_ACCESS_MODE_MODIFY = 'MODIFY'
 
 
+def mimetype_to_version(mime):
+    """Converts Object MIME type to a version string"""
+
+    if not mime.startswith('application/vnd.sap.'):
+        return None
+
+    smcln = mime.rfind(';')
+    if smcln != -1:
+        ver = mime[smcln + 1:]
+        if ver.startswith('version='):
+            return ver.split('=')[1]
+
+    plus = mime.rfind('+')
+    if plus == -1:
+        raise SAPCliError('not a version + xml mime: ' + mime)
+
+    dot = mime.rfind('.', 0, plus)
+    if dot == -1:
+        raise SAPCliError('not a version + xml mime: ' + mime)
+
+    ver = mime[dot + 2:plus]
+    if ver.isdigit():
+        return ver
+
+    return '0'
+
+
 def lock_params(access_mode):
     """Returns parameters for Action Lock"""
 
@@ -99,7 +126,7 @@ class ADTObjectType:
             - basepath:
             - xmlnamespace: a tuple where the first item is a nick and
                             the second item is actually the namespace URI
-            - mimetype: object MIME type
+            - mimetype: object MIME type - can be list
             - typeuris: patterns for the object format URL (text, xml, ...)
             - xmlname: something from ADT ;)
         """
@@ -143,6 +170,18 @@ class ADTObjectType:
     @property
     def mimetype(self):
         """ADT object MIME type"""
+
+        if isinstance(self._mimetype, list):
+            return self._mimetype[0]
+
+        return self._mimetype
+
+    @property
+    def all_mimetypes(self):
+        """All supported ADT object MIME type"""
+
+        if not isinstance(self._mimetype, list):
+            return [self._mimetype]
 
         return self._mimetype
 
@@ -450,17 +489,30 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._metadata.package_reference
 
+    def serialize(self):
+        """Creates a text representation"""
+
+        mimes = self._connection.get_collection_types(self.objtype.basepath, self.objtype.mimetype)
+
+        seri_mime = next((mime for mime in mimes if mime in self.objtype.all_mimetypes), None)
+        if seri_mime is None:
+            raise SAPCliError('Not supported mimes: {} not in {}'
+                              .format(';'.join(mimes), ';'.join(self.objtype.all_mimetypes)))
+
+        version = mimetype_to_version(seri_mime)
+        marshal = sap.adt.marshalling.Marshal(object_schema_version=version)
+        return (marshal.serialize(self), seri_mime)
+
     def create(self, corrnr=None):
         """Creates ADT object
         """
 
-        marshal = sap.adt.marshalling.Marshal()
-        xml = marshal.serialize(self)
+        xml, seri_mime = self.serialize()
 
         return self._connection.execute(
             'POST',
             self.objtype.basepath,
-            headers={'Content-Type': self.objtype.mimetype},
+            headers={'Content-Type': seri_mime},
             params=create_params(corrnr),
             body=xml)
 
@@ -468,7 +520,8 @@ class ADTObject(metaclass=OrderedClassMembers):
         """Retrieve data from ADT"""
 
         resp = self._connection.execute('GET', self.uri)
-        sap.adt.marshalling.Marshal.deserialize(resp.text, self)
+        marshal = sap.adt.marshalling.Marshal()
+        marshal.deserialize(resp.text, self)
 
     def lock(self):
         """Locks the object"""
@@ -567,8 +620,7 @@ class ADTObjectEditor:
     def serialize(self):
         """Serializes the object"""
 
-        marshal = sap.adt.marshalling.Marshal()
-        return marshal.serialize(self._obj)
+        return self._obj.serialize()
 
     @property
     def lock_handle(self):
@@ -590,12 +642,12 @@ class ADTObjectEditor:
     def push(self):
         """Pushes object's Attributes to ADT"""
 
-        payload = self.serialize()
+        payload, mimetype = self.serialize()
 
         return self.connection.execute(
             'PUT',
             self.uri,
-            headers={'Content-Type': self.mimetype},
+            headers={'Content-Type': mimetype},
             params=modify_object_params(self.lock_handle, self.corrnr),
             body=payload)
 

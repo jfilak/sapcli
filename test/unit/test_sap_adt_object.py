@@ -176,7 +176,7 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(connection.execs[0].method, 'POST')
         self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/awesome/success')
 
-        self.assertEqual(connection.execs[0].headers['Content-Type'], 'application/super.cool.txt+xml')
+        self.assertEqual(connection.execs[0].headers['Content-Type'], 'application/vnd.sap.super.cool.txt+xml')
         self.assertEqual(sorted(connection.execs[0].headers.keys()), ['Content-Type'])
 
         self.assertIsNone(connection.execs[0].params)
@@ -195,6 +195,38 @@ class TestADTObject(unittest.TestCase):
 
         self.assertEqual(connection.execs[0].params['corrNr'], 'NPL000008')
         self.assertEqual(sorted(connection.execs[0].params.keys()), ['corrNr'])
+
+    def test_create_v2(self):
+        conn = Connection(collections={'/sap/bc/adt/awesome/success': ['application/vnd.sap.super.cool.txt.v2+xml']})
+        victory = DummyADTObject(connection=conn)
+        victory.create()
+
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.super.cool.txt.v2+xml'})
+
+        self.maxDiff = None
+        self.assertEqual(conn.execs[0].body, '''<?xml version="1.0" encoding="UTF-8"?>
+<win:dummies xmlns:win="http://www.example.com/never/lose" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="DUMMY/S" adtcore:description="adt fixtures dummy object" adtcore:name="noobject">
+<adtcore:packageRef/>
+<elemv2>version2</elemv2>
+</win:dummies>''' )
+
+    def test_create_v0_priority(self):
+        conn = Connection(collections={'/sap/bc/adt/awesome/success': ['application/vnd.sap.super.cool.txt+xml',
+                                                                       'application/vnd.sap.super.cool.txt.v2+xml']})
+        victory = DummyADTObject(connection=conn)
+        victory.create()
+
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.super.cool.txt+xml'})
+
+    def test_create_mime_not_found(self):
+        conn = Connection(collections={'/sap/bc/adt/awesome/success': ['application/something.else+xml']})
+        victory = DummyADTObject(connection=conn)
+
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            victory.create()
+
+        self.assertEqual(str(caught.exception), 'Not supported mimes: application/something.else+xml not in application/vnd.sap.super.cool.txt+xml;application/vnd.sap.super.cool.txt.v2+xml')
+
 
     def test_properties(self):
         victory = DummyADTObject()
@@ -226,7 +258,7 @@ class TestADTObject(unittest.TestCase):
 
         with victory.open_editor() as editor:
             self.assertEqual(editor.uri, 'awesome/success/editor_test')
-            self.assertEqual(editor.mimetype, 'application/super.cool.txt+xml')
+            self.assertEqual(editor.mimetype, 'application/vnd.sap.super.cool.txt+xml')
             self.assertEqual(editor.connection, connection)
             self.assertEqual(editor.lock_handle, 'win')
             self.assertIsNone(editor.corrnr)
@@ -253,7 +285,7 @@ class TestADTObject(unittest.TestCase):
         request = connection.execs[1]
 
         self.assertEqual(sorted(request.headers.keys()), ['Content-Type'])
-        self.assertEqual(request.headers['Content-Type'], 'application/super.cool.txt+xml')
+        self.assertEqual(request.headers['Content-Type'], 'application/vnd.sap.super.cool.txt+xml')
 
         self.assertEqual(sorted(request.params.keys()), ['lockHandle'])
         self.assertEqual(request.params['lockHandle'], 'win')
@@ -284,6 +316,31 @@ class TestADTObjectType(unittest.TestCase):
 
     def test_adt_object_type_xmlelement(self):
         self.assertEqual(self.adt_object.xmlelement, 'xmlnsname:xmlelementname')
+
+    def test_adt_object_type_mime_string(self):
+        self.assertEqual(self.adt_object.mimetype, 'mimetype')
+        self.assertEqual(self.adt_object.all_mimetypes, ['mimetype'])
+
+    def test_adt_object_type_mime_list(self):
+        self.adt_object._mimetype = ['mimetype2', 'mimetype1']
+        self.assertEqual(self.adt_object.mimetype, 'mimetype2')
+        self.assertEqual(self.adt_object.all_mimetypes, ['mimetype2','mimetype1'])
+
+
+class TestMIMEVersion(unittest.TestCase):
+
+    def test_parse_out_versin_from_mime(self):
+        known_mime_variants = [
+            ('application/vnd.sap.ap.adt.bopf.businessobjects.v2+xml', '2'),
+            ('text/plain', None),
+            ('application/vnd.sap.adt.quickfixes.evaluation+xml;version=1.0.0', '1.0.0'),
+            ('application/vnd.sap.adt.wdy.view+xml', '0'),
+            ('application/vnd.sap.adt.wdy.view.v1+xml', '1')
+        ]
+
+        for mime, exp_version in known_mime_variants:
+            act_version = sap.adt.objects.mimetype_to_version(mime)
+            self.assertEqual(act_version, exp_version, mime)
 
 
 if __name__ == '__main__':

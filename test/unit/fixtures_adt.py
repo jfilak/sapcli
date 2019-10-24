@@ -1,5 +1,6 @@
 import sap.adt
 from sap.adt.objects import xmlns_adtcore_ancestor
+from sap.adt.annotations import xml_element, XmlElementKind
 
 from mock import Response
 
@@ -158,7 +159,7 @@ class DummyADTObject(sap.adt.ADTObject):
         'DUMMY/S',
         'awesome/success',
         xmlns_adtcore_ancestor('win', 'http://www.example.com/never/lose'),
-        'application/super.cool.txt+xml',
+        ['application/vnd.sap.super.cool.txt+xml', 'application/vnd.sap.super.cool.txt.v2+xml'],
         {'text/plain': 'no/bigdeal'},
         'dummies',
         editor_factory=sap.adt.objects.ADTObjectSourceEditor
@@ -167,3 +168,7 @@ class DummyADTObject(sap.adt.ADTObject):
     def __init__(self, connection='noconnection', name='noobject', metadata=None):
         super(DummyADTObject, self).__init__(connection, name,
                                              metadata if metadata is not None else sap.adt.ADTCoreData(description='adt fixtures dummy object'))
+
+    @xml_element('elemv2', kind=XmlElementKind.TEXT, version=['2'])
+    def elemv2(self):
+        return 'version2'

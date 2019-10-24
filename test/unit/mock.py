@@ -33,9 +33,10 @@ def ok_responses():
 
 class Connection(sap.adt.Connection):
 
-    def __init__(self, responses=None, user='ANZEIGER'):
+    def __init__(self, responses=None, user='ANZEIGER', collections=None):
         super(Connection, self).__init__('mockhost', 'mockclient', user, 'mockpass')
 
+        self.collections = collections
         self.execs = list()
         self._resp_iter = ok_responses() if responses is None else iter(responses)
 
@@ -60,4 +61,7 @@ class Connection(sap.adt.Connection):
 
     def get_collection_types(self, basepath, default_mimetype):
 
-        return [default_mimetype]
+        if self.collections is None:
+            return [default_mimetype]
+
+        return self.collections[f'/{self._adt_uri}/{basepath}']
