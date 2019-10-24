@@ -38,7 +38,8 @@ class Package(ADTObject):
         'DEVC/K',
         'packages',
         xmlns_adtcore_ancestor('pak', 'http://www.sap.com/adt/packages'),
-        'application/vnd.sap.adt.packages.v1+xml',
+        ['application/vnd.sap.adt.packages.v2+xml',
+         'application/vnd.sap.adt.packages.v1+xml'],
         {},
         'package'
     )

@@ -4,6 +4,7 @@ import unittest
 from types import SimpleNamespace
 
 from sap import get_logger
+import sap.errors
 import sap.adt
 
 from mock import Connection, Response
@@ -37,7 +38,7 @@ FIXTURE_PACKAGE_XML="""<?xml version="1.0" encoding="UTF-8"?>
 class TestADTPackage(unittest.TestCase):
 
     def test_init(self):
-        conn = Connection()
+        conn = Connection(collections={'/sap/bc/adt/packages': ['application/vnd.sap.adt.packages.v1+xml']})
 
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', master_system='NPL', responsible='FILAK')
         package = sap.adt.Package(conn, '$TEST', metadata=metadata)
@@ -54,6 +55,23 @@ class TestADTPackage(unittest.TestCase):
         self.assertEqual(conn.execs[0][0], 'POST')
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/packages')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v1+xml'})
+        self.maxDiff = None
+        self.assertEqual(conn.execs[0][3], FIXTURE_PACKAGE_XML)
+
+    def test_package_serialization_v2(self):
+        conn = Connection()
+
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', master_system='NPL', responsible='FILAK')
+        package = sap.adt.Package(conn, '$TEST', metadata=metadata)
+        package.description = 'description'
+        package.set_package_type('development')
+        package.set_software_component('LOCAL')
+        package.set_transport_layer('HOME')
+        package.set_app_component('PPM')
+        package.super_package.name = '$MASTER'
+        package.create()
+
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v2+xml'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_PACKAGE_XML)
 
