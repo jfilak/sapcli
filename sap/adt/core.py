@@ -1,6 +1,10 @@
 """Base ADT functionality module"""
 
 import os
+
+import xml.sax
+from xml.sax.handler import ContentHandler
+
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -14,6 +18,60 @@ def mod_log():
     return get_logger()
 
 
+class _DiscoveryHandler(ContentHandler):
+
+    def __init__(self):
+        super(_DiscoveryHandler, self).__init__()
+
+        self.result = {}
+        self._collection = None
+        self._mimetypes = None
+        self._accept = None
+
+    def startElement(self, name, attrs):
+        if name == 'app:collection':
+            self._collection = attrs['href']
+            self._mimetypes = []
+        elif name == 'app:accept':
+            self._accept = ''
+
+    def characters(self, content):
+        if self._accept is None:
+            return
+
+        self._accept += content
+
+    def endElement(self, name):
+        if name == 'app:collection':
+            if self._mimetypes:
+                self.result[self._collection] = self._mimetypes
+
+            self._collection = None
+            self._mimetypes = None
+        elif name == 'app:accept':
+            self._mimetypes.append(self._accept)
+            self._accept = None
+
+
+def _get_collection_accepts(discovery_xml):
+    """Transform the following XML excerpt:
+        <app:service>
+          <app:workspace>
+            <app:collection href="/sap/bc/adt/...">
+              <app:accept>application/vnd.sap.ap.adt.?.v?+xml<app:accept>
+              <app:accept>application/vnd.sap.ap.adt.?.v?+xml<app:accept>
+
+       To:
+         {href: [app:accept, app:accept]}
+    """
+
+    xml_handler = _DiscoveryHandler()
+    xml.sax.parseString(discovery_xml, xml_handler)
+
+    return xml_handler.result
+
+
+# pylint: disable=too-many-instance-attributes
 class Connection:
     """ADT Connection for HTTP communication built on top Python requests.
     """
@@ -49,6 +107,7 @@ class Connection:
         self._user = user
         self._auth = HTTPBasicAuth(user, password)
         self._session = None
+        self._collection_types = None
 
     @property
     def user(self):
@@ -132,7 +191,15 @@ class Connection:
 
             url = self._build_adt_url('core/discovery')
 
-            response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
+            try:
+                response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
+            except HTTPRequestError as ex:
+                if ex.response.status_code != 404:
+                    raise ex
+
+                url = self._build_adt_url('discovery')
+                response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
+                self._collection_types = _get_collection_accepts(response.text)
 
             self._session.headers.update({'x-csrf-token': response.headers['x-csrf-token']})
 
@@ -180,3 +247,16 @@ class Connection:
         """
 
         return self.execute('GET', relativeuri, headers={'Accept': 'text/plain'}).text
+
+    def get_collection_types(self, basepath, default_mimetype):
+        """Returns the accepted object XML format - mime type"""
+
+        if self._collection_types is None:
+            response = self.execute('GET', 'discovery')
+            self._collection_types = _get_collection_accepts(response.text)
+
+        uri = f'/{self._adt_uri}/{basepath}'
+        try:
+            return self._collection_types[uri]
+        except KeyError:
+            return [default_mimetype]

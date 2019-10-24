@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import sap.adt
 import sap.adt.errors
 
-from fixtures_adt import ERROR_XML_PACKAGE_ALREADY_EXISTS
+from fixtures_adt import ERROR_XML_PACKAGE_ALREADY_EXISTS, DISCOVERY_ADT_XML
 
 class TestADTConnection(unittest.TestCase):
     """Connection(host, client, user, password, port=None, ssl=True)"""
@@ -202,6 +202,31 @@ class TestADTConnection(unittest.TestCase):
 
         self.assertEqual(str(caught.exception),
                          'Unexpected Content-Type: text/plain with: mock')
+
+    @patch('sap.adt.core.Connection.execute')
+    def test_parse_collection_accept(self, mock_exec):
+        mock_exec.return_value = Mock()
+        mock_exec.return_value.headers = {'Content-Type': 'application/xml'}
+        mock_exec.return_value.text = DISCOVERY_ADT_XML
+
+        results = {
+            'bopf/businessobjects': ['application/vnd.sap.ap.adt.bopf.businessobjects.v4+xml',
+                                     'application/vnd.sap.ap.adt.bopf.businessobjects.v2+xml',
+                                     'application/vnd.sap.ap.adt.bopf.businessobjects.v3+xml'],
+            'bopf/businessobjects/$validation': ['foo/mock+bopf/businessobjects/$validation'],
+            'packages': ['application/vnd.sap.adt.packages.v1+xml'],
+            'ddic/ddl/formatter/identifiers': ['text/plain'],
+            'sadl/gw/mde': ['application/xml'],
+            'quickfixes/evaluation': ['application/vnd.sap.adt.quickfixes.evaluation+xml;version=1.0.0'],
+            'wdy/views': ['application/vnd.sap.adt.wdy.view+xml',
+                          'application/vnd.sap.adt.wdy.view.v1+xml']
+        }
+
+        for basepath, exp_mimetypes in results.items():
+            mimetype = f'foo/mock+{basepath}'
+
+            act_types = self.connection.get_collection_types(basepath, mimetype)
+            self.assertEqual(act_types, exp_mimetypes)
 
 
 if __name__ == '__main__':

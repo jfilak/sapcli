@@ -73,6 +73,84 @@ ERROR_XML_PACKAGE_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:e
 
 ERROR_XML_MADEUP_PROBLEM='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="org.example.whatever"/><type id="UnitTestSAPCLI"/><message lang="EN">Made up problem.</message><localizedMessage lang="EN">Made up problem.</localizedMessage><properties/></exc:exception>'''
 
+DISCOVERY_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<app:service xmlns:app="http://www.w3.org/2007/app" xmlns:atom="http://www.w3.org/2005/Atom">
+  <app:workspace>
+    <atom:title>BOPF</atom:title>
+    <app:collection href="/sap/bc/adt/bopf/businessobjects">
+      <atom:title>Business Objects</atom:title>
+      <app:accept>application/vnd.sap.ap.adt.bopf.businessobjects.v4+xml</app:accept>
+      <app:accept>application/vnd.sap.ap.adt.bopf.businessobjects.v2+xml</app:accept>
+      <app:accept>application/vnd.sap.ap.adt.bopf.businessobjects.v3+xml</app:accept>
+      <atom:category term="BusinessObjects" scheme="http://www.sap.com/adt/categories/businessobjects"/>
+      <adtcomp:templateLinks xmlns:adtcomp="http://www.sap.com/adt/compatibility">
+        <adtcomp:templateLink rel="http://www.sap.com/adt/categories/businessobjects/newAttributeBinding" template="/sap/bc/adt/bopf/newAttributeBinding"/>
+        <adtcomp:templateLink rel="http://www.sap.com/adt/categories/businessobjects/actionExportingParameter" template="/sap/bc/adt/bopf/actionExportingParameter"/>
+        <adtcomp:templateLink rel="http://www.sap.com/adt/categories/businessobjects/draftObject" template="/sap/bc/adt/bopf/draftObject"/>
+        <adtcomp:templateLink rel="http://www.sap.com/adt/categories/businessobjects/nodeProperty" template="/sap/bc/adt/bopf/nodeProperty"/>
+      </adtcomp:templateLinks>
+    </app:collection>
+    <app:collection href="/sap/bc/adt/bopf/businessobjects/$validation">
+      <atom:title>Validation</atom:title>
+      <atom:category term="Validation" scheme="http://www.sap.com/adt/categories/businessobjects"/>
+      <adtcomp:templateLinks xmlns:adtcomp="http://www.sap.com/adt/compatibility">
+        <adtcomp:templateLink rel="http://www.sap.com/adt/categories/businessobjects/validation" template="/sap/bc/adt/bopf/businessobjects/$validation{?context,objname,baseobjname,nodename,persistent,transient,entitytype,classname,datatype,paramtype,resulttype,queryName}"/>
+      </adtcomp:templateLinks>
+    </app:collection>
+  </app:workspace>
+  <app:workspace>
+    <atom:title>Packages</atom:title>
+    <app:collection href="/sap/bc/adt/packages">
+      <atom:title>Packages</atom:title>
+      <app:accept>application/vnd.sap.adt.packages.v1+xml</app:accept>
+      <atom:category term="devck" scheme="http://www.sap.com/wbobj/packages"/>
+      <adtcomp:templateLinks xmlns:adtcomp="http://www.sap.com/adt/compatibility">
+        <adtcomp:templateLink rel="applicationcomponents" template="/sap/bc/adt/packages/valuehelps/applicationcomponents"/>
+        <adtcomp:templateLink rel="softwarecomponents" template="/sap/bc/adt/packages/valuehelps/softwarecomponents"/>
+        <adtcomp:templateLink rel="transportlayers" template="/sap/bc/adt/packages/valuehelps/transportlayers"/>
+        <adtcomp:templateLink rel="translationrelevances" template="/sap/bc/adt/packages/valuehelps/translationrelevances"/>
+      </adtcomp:templateLinks>
+    </app:collection>
+  </app:workspace>
+  <app:workspace>
+    <atom:title>ABAP DDL Sources</atom:title>
+    <app:collection href="/sap/bc/adt/ddic/ddl/formatter/identifiers">
+      <atom:title>DDL Case Preserving Formatter for Identifiers</atom:title>
+      <app:accept>text/plain</app:accept>
+      <atom:category term="formatter/identifiers" scheme="http://www.sap.com/adt/categories/ddic/ddlsources"/>
+    </app:collection>
+  </app:workspace>
+  <app:workspace>
+    <atom:title>Annotation Pushdown: Get Meta Data Extentions</atom:title>
+    <app:collection href="/sap/bc/adt/sadl/gw/mde">
+      <atom:title>SADL: Annotation Pushdown Metadata Extentions</atom:title>
+      <app:accept>application/xml</app:accept>
+      <atom:category term="SADLAnnotationPushdownMetaDataExtensions" scheme="http://www.sap.com/adt/categories/sadl/gw/mde"/>
+      <adtcomp:templateLinks xmlns:adtcomp="http://www.sap.com/adt/compatibility"/>
+    </app:collection>
+  </app:workspace>
+  <app:workspace>
+    <atom:title>Quickfixes</atom:title>
+    <app:collection href="/sap/bc/adt/quickfixes/evaluation">
+      <atom:title>Quickfixes</atom:title>
+      <app:accept>application/vnd.sap.adt.quickfixes.evaluation+xml;version=1.0.0</app:accept>
+      <atom:category term="evaluation" scheme="http://www.sap.com/adt/categories/quickfixes"/>
+    </app:collection>
+  </app:workspace>
+  <app:workspace>
+    <atom:title>Web Dynpro</atom:title>
+    <app:collection href="/sap/bc/adt/wdy/views">
+      <atom:title>Webdynpro View</atom:title>
+      <app:accept>application/vnd.sap.adt.wdy.view+xml</app:accept>
+      <app:accept>application/vnd.sap.adt.wdy.view.v1+xml</app:accept>
+      <atom:category term="Views" scheme="http://www.sap.com/adt/categories/webdynpro"/>
+      <adtcomp:templateLinks xmlns:adtcomp="http://www.sap.com/adt/compatibility">
+        <adtcomp:templateLink rel="http://www.sap.com/adt/categories/webdynpro/view/validatecontextbinding" template="/sap/bc/adt/wdy/views/{comp_name}/{view_name}{?_action,elementDefName,elementLibName,property}"/>
+      </adtcomp:templateLinks>
+    </app:collection>
+  </app:workspace>
+</app:service>
+'''
 
 class DummyADTObject(sap.adt.ADTObject):
 

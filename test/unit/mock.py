@@ -57,3 +57,7 @@ class Connection(sap.adt.Connection):
 
     def mock_methods(self):
         return  [(e.method, e.adt_uri) for e in self.execs]
+
+    def get_collection_types(self, basepath, default_mimetype):
+
+        return [default_mimetype]
