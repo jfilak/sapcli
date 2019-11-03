@@ -100,6 +100,8 @@ class CommandGroup:
             get_args.set_defaults(execute=command.handler)
             command.install_arguments(get_args)
 
+        return command_args
+
     @classmethod
     def get_commands(cls):
         """Get a dictionary of command definitions where the key is an
