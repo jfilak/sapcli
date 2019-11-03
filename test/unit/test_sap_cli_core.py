@@ -2,7 +2,7 @@
 
 import sys
 import unittest
-from unittest.mock import call, MagicMock
+from unittest.mock import call, patch, MagicMock
 
 from argparse import ArgumentParser
 
@@ -182,6 +182,16 @@ class TestCommandGroup(unittest.TestCase):
         parser = ArgumentParser()
         # Must not fail ...
         EmptyDummyCommandGroup().install_parser(parser)
+
+    def test_install_parser_returns_group(self):
+        parser = ArgumentParser()
+
+        with patch('argparse.ArgumentParser.add_subparsers') as fake_adder:
+            fake_adder.return_value = 'FakeParser'
+
+            act_ret = EmptyDummyCommandGroup().install_parser(parser)
+
+        self.assertEqual(act_ret, fake_adder.return_value)
 
 
 class TestPrintConsole(unittest.TestCase):
