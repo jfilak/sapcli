@@ -135,6 +135,15 @@ class DummyCommandGroup(sap.cli.core.CommandGroup):
         super(DummyCommandGroup, self).__init__('pytest')
 
 
+class EmptyDummyCommandGroup(sap.cli.core.CommandGroup):
+    """Test empty command group for the case where you need
+       want to have a group of groups (i.e. you have no commands).
+    """
+
+    def __init__(self):
+        super(EmptyDummyCommandGroup, self).__init__('empty-pytest')
+
+
 @DummyCommandGroup.argument('name')
 @DummyCommandGroup.argument_corrnr()
 @DummyCommandGroup.command()
@@ -168,6 +177,11 @@ class TestCommandGroup(unittest.TestCase):
         args = parse_args(['dummy_corrnr', 'fabulous', '--corrnr', '420'])
         self.assertEqual(args.name, 'fabulous')
         self.assertEqual(args.corrnr, '420')
+
+    def test_install_parser_without_commands(self):
+        parser = ArgumentParser()
+        # Must not fail ...
+        EmptyDummyCommandGroup().install_parser(parser)
 
 
 class TestPrintConsole(unittest.TestCase):
