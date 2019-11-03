@@ -1,3 +1,6 @@
+from mock import Response, Request
+
+
 PREAUDIT_ACTIVATION_XML='''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
 <adtcore:objectReference adtcore:uri="/sap/bc/adt/oo/classes/cl_hello_world" adtcore:name="CL_HELLO_WORLD"/>
@@ -32,6 +35,12 @@ INACTIVE_OBJECTS_XML='''<?xml version="1.0" encoding="UTF-8"?>
     <ioc:transport/>
   </ioc:entry>
 </ioc:inactiveObjects>'''
+
+RESPONSE_INACTIVE_OBJECTS_V1 = Response(
+    status_code=200,
+    text=INACTIVE_OBJECTS_XML,
+    content_type='application/vnd.sap.adt.inactivectsobjects.v1+xml'
+)
 
 ACTIVATION_REFERENCES_XML='''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
