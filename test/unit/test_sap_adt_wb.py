@@ -6,7 +6,7 @@ from unittest.mock import Mock, PropertyMock
 from sap.errors import SAPCliError
 import sap.adt.wb
 
-from mock import Connection, Response
+from mock import Connection, Response, Request
 from fixtures_adt import EMPTY_RESPONSE_OK
 from fixtures_adt_wb import ACTIVATION_REFERENCES_XML, INACTIVE_OBJECTS_XML, PREAUDIT_ACTIVATION_XML
 
@@ -19,6 +19,12 @@ FIXTURES_ACTIVATION_REQUEST_SINGLE = f'''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReference adtcore:uri="{FIXTURES_EXP_FULL_ADT_URI}" adtcore:name="{FIXTURES_EXP_OBJECT_NAME}"/>
 </adtcore:objectReferences>'''
 FIXTURES_EXP_ERROR_RESPONSE = '<?xml version="1.0" encoding="utf-8"><error>failure</error>'
+
+RESPONSE_INACTIVE_OBJECTS_V1 = Response(
+    status_code=200,
+    text=INACTIVE_OBJECTS_XML,
+    content_type='application/vnd.sap.adt.inactivectsobjects.v1+xml'
+)
 
 
 class TestADTWBActivate(unittest.TestCase):
@@ -76,10 +82,7 @@ class TestADTWBActivate(unittest.TestCase):
     def test_adt_wb_activate_children(self):
         adt_object = self.create_fake_object('/sap/bc/adt/oo/classes/cl_hello_world',
                                              'cl_hello_world',
-                                             [Response(status_code=200,
-                                                       text=INACTIVE_OBJECTS_XML,
-                                                       headers={'Content-Type': 'application/vnd.sap.adt.inactivectsobjects.v1+xml'}),
-                                              EMPTY_RESPONSE_OK])
+                                             [RESPONSE_INACTIVE_OBJECTS_V1, EMPTY_RESPONSE_OK])
 
         sap.adt.wb.activate(adt_object)
 
@@ -106,6 +109,20 @@ class TestADTWBActivate(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(conn.execs[0].body, PREAUDIT_ACTIVATION_XML)
         self.assertEqual(conn.execs[1].body, ACTIVATION_REFERENCES_XML)
+
+
+class TestADTWBFetchInactive(unittest.TestCase):
+
+    def test_fetch_inactive_objects(self):
+        exp_request = Request.get(adt_uri='activation/inactiveobjects')
+
+        conn = Connection(responses=[(RESPONSE_INACTIVE_OBJECTS_V1, exp_request)])
+        conn.asserter = self
+
+        inactive_objects = sap.adt.wb.fetch_inactive_objects(conn)
+
+        self.assertEquals(inactive_objects.entries[0].transport.reference.name, 'C50K000377')
+        self.assertEquals(inactive_objects.entries[1].object.reference.name, 'CL_HELLO_WORLD')
 
 
 if __name__ == '__main__':

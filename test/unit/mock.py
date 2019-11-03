@@ -1,3 +1,4 @@
+import copy
 from typing import Dict, NamedTuple
 
 import sap.adt
@@ -7,7 +8,7 @@ class Response:
 
     def __init__(self, text=None, status_code=None, headers=None, content_type=None):
         self.text = text
-        self.status_code = status_code
+        self.status_code = status_code if status_code is not None else 200
         self.headers = headers
 
         if content_type is not None:
@@ -25,20 +26,66 @@ class Request(NamedTuple):
     body: str
     params: Dict
 
+    def to_short_str(self):
+        return f'{self.method} {self.adt_uri}'
+
+    def __str__(self):
+        str_request = self.to_short_str()
+
+        if self.params:
+            str_request += '?' + '&'.join((f'{key}={value}' for (key, value) in self.params.items()))
+
+        if self.headers:
+            str_request += '\n' + '\n'.join((f'{key}: {value}' for (key, value) in self.headers.items()))
+
+        if self.body:
+            str_request += '\n' + self.body
+
+    def assertEqual(self, other, asserter):
+        asserter.assertEqual(self.to_short_str(), other.to_short_str())
+        asserter.assertEqual(self.body, other.body, f'Not matching bodies for {self.to_short_str()}')
+        asserter.assertEqual(self.params, other.params, f'Not matching parameters for {self.to_short_str()}')
+        asserter.assertEqual(self.headers, other.headers, f'Not matching parameters for {self.to_short_str()}')
+
+    @staticmethod
+    def get(adt_uri=None, headers=None, body=None, params=None):
+        return Request(method='GET', adt_uri=adt_uri, headers=headers, body=body, params=params)
+
+
+    def clone_with_uri(self, uri):
+        return Request(
+            method=self.method,
+            adt_uri=uri,
+            headers=self.headers,
+            body=self.body,
+            params=self.params)
 
 def ok_responses():
 
     yield Response(text='', status_code=200, headers={})
 
 
+class SimpleAsserter:
+
+    def assertEqual(self, lhs, rhs, message=None):
+        assert lhs == rhs, message
+
+
 class Connection(sap.adt.Connection):
 
-    def __init__(self, responses=None, user='ANZEIGER', collections=None):
+    def __init__(self, responses=None, user='ANZEIGER', collections=None, asserter=None):
+        """
+        Args:
+            response: A list of Response instances or tuples (Response, Request)
+                      if you want to automatically check the request. Ins such
+                      case, you should also pass the argument asserter.
+        """
         super(Connection, self).__init__('mockhost', 'mockclient', user, 'mockpass')
 
         self.collections = collections
         self.execs = list()
         self._resp_iter = ok_responses() if responses is None else iter(responses)
+        self.asserter = asserter if asserter is not None else SimpleAsserter()
 
     def _get_session(self):
         return 'bogus session'
@@ -53,6 +100,15 @@ class Connection(sap.adt.Connection):
         res = next(self._resp_iter)
         if res is None:
             res = next(ok_responses())
+
+        if isinstance(res, tuple):
+            exp_request = res[1]
+            res = res[0]
+
+            full_uri = self._build_adt_url(exp_request.adt_uri)
+            exp_request = exp_request.clone_with_uri(full_uri)
+
+            exp_request.assertEqual(req, self.asserter)
 
         return (req, res)
 
