@@ -159,3 +159,10 @@ def activate(adt_object):
 
     if resp.text:
         raise SAPCliError(f'Could not activate the object {adt_object.name}: {resp.text}')
+
+
+def fetch_inactive_objects(connection):
+    """Returns list of inactive objects"""
+
+    resp = connection.execute('GET', 'activation/inactiveobjects')
+    return Marshal.deserialize(resp.text, IOCList())
