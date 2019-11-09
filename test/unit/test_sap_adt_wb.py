@@ -27,6 +27,24 @@ RESPONSE_INACTIVE_OBJECTS_V1 = Response(
 )
 
 
+class TestIOCEntryData(unittest.TestCase):
+
+    def test_forward_reference_properties(self):
+        entry = sap.adt.wb.IOCEntryData()
+
+        entry.reference.name = 'Name'
+        entry.reference.typ = 'Type'
+        entry.reference.uri = 'URI'
+        entry.reference.parent_uri = 'Parent URI'
+        entry.reference.description = 'Description'
+
+        self.assertEqual(entry.reference.name, entry.name)
+        self.assertEqual(entry.reference.typ, entry.typ)
+        self.assertEqual(entry.reference.uri, entry.uri)
+        self.assertEqual(entry.reference.parent_uri, entry.parent_uri)
+        self.assertEqual(entry.reference.description, entry.description)
+
+
 class TestADTWBActivate(unittest.TestCase):
 
     def create_fake_object(self, full_adt_uri, name, responses=None):

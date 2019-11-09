@@ -61,6 +61,36 @@ class IOCEntryData(metaclass=OrderedClassMembers):
 
         self._deleted = value
 
+    @property
+    def name(self):
+        """Reference Object Name"""
+
+        return self._reference.name
+
+    @property
+    def uri(self):
+        """Reference Object URI"""
+
+        return self._reference.uri
+
+    @property
+    def parent_uri(self):
+        """Reference Parent Object URI"""
+
+        return self._reference.parent_uri
+
+    @property
+    def typ(self):
+        """Reference Object Type"""
+
+        return self._reference.typ
+
+    @property
+    def description(self):
+        """Reference Object Description"""
+
+        return self._reference.description
+
 
 class IOCEntry(metaclass=OrderedClassMembers):
     """Inactive CTS Object Entry"""
