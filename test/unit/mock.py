@@ -1,7 +1,11 @@
 import copy
 from typing import Dict, NamedTuple
+from io import StringIO
+from argparse import ArgumentParser
+from unittest.mock import patch
 
 import sap.adt
+import sap.cli.core
 
 
 class Response:
@@ -121,3 +125,36 @@ class Connection(sap.adt.Connection):
             return [default_mimetype]
 
         return self.collections[f'/{self._adt_uri}/{basepath}']
+
+
+class BufferConsole(sap.cli.core.PrintConsole):
+
+    def __init__(self):
+        self.std_output = StringIO()
+        self.err_output = StringIO()
+
+        super(BufferConsole, self).__init__(out_file=self.std_output, err_file=self.err_output)
+
+
+def patch_get_print_console_with_buffer():
+    """Capture output printed out by sapcli.
+
+        with patch_print_console_with_buffer() as fake_get_console:
+            sap.cli.core.printout('Test!')
+            sap.cli.core.printout('Yet another Test!')
+
+        self.assertEqual(fake_get_console.return_value.std_output, 'Test!\nYet another Test!\n')
+    """
+
+    return patch('sap.cli.core.get_console', return_value=BufferConsole())
+
+
+class GroupArgumentParser:
+
+    def __init__(self, group_class):
+        self._group = group_class()
+        self._parser = ArgumentParser()
+        self._group.install_parser(self._parser)
+
+    def parse(self, *argv):
+        return self._parser.parse_args(argv)
