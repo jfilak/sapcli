@@ -1,6 +1,17 @@
 # pylint: skip-file
 """ABAP language utilities"""
 
+import xml.sax
+from xml.sax.handler import ContentHandler
+
+from sap import get_logger
+
+
+def mod_log():
+    """ADT Module logger"""
+
+    return get_logger()
+
 
 # pylint: disable=too-few-public-methods
 class Structure:
@@ -119,6 +130,9 @@ class InternalTable(metaclass=InternalTableMeta):
         elif len(args) > 1:
             for row in args:
                 self._append_row(row)
+
+    def __repr__(self):
+        return f'[[{self._rows}]]'
 
     def __iter__(self):
         return self._rows.__iter__()
@@ -241,3 +255,182 @@ def to_xml(abap_struct_or_table, dest, top_element=None):
 
     dest.write(''' </asx:values>
 </asx:abap>\n''')
+
+
+class ABAPBaseWriter:
+    """An adapter for structures and tables"""
+
+    def __init__(self, parent, obj, name):
+        self.parent = parent
+        self.obj = obj
+        self.name = name
+
+    def do_start(self, name, attrs):
+        """Handle opening tag in an ancestor class.
+           Should return a writer adapter - either self or a new child adapter.
+        """
+
+        return self
+
+    def start(self, name, attrs):
+        """Handle opening tag - (overwrite do_start)"""
+
+        return self.do_start(name, attrs)
+
+    def get_type(self):
+        """Returns type of the adapted object"""
+
+        raise NotImplementedError()
+
+    def get_member_type(self, name):
+        """Returns type of the member of the given name"""
+
+        typ = self.get_type()
+        try:
+            return self.get_type().__annotations__[name]
+        except KeyError:
+            raise RuntimeError(f'{typ.__name__} does not have the member {name}')
+
+    def do_end(self, name, contents):
+        """Handle closing tag in an ancestor class.
+           Should return a writer adapter - either self or a new child adapter.
+        """
+
+        raise NotImplementedError()
+
+    def set_child(self, name, child_obj):
+        """Sets the member of the given name in the adapted object"""
+
+        raise NotImplementedError()
+
+    def end(self, name, contents):
+        """Handle closing tag - (overwrite do_end)"""
+
+        if name == self.name:
+            if self.parent is not None:
+                mod_log().debug('Setting: %s.%s = %s', self.parent.obj, name, self.obj)
+                self.parent.set_child(name, self.obj)
+
+            return self.parent
+
+        return self.do_end(name, contents)
+
+
+class ABAPStructureWriter(ABAPBaseWriter):
+
+    def get_type(self):
+        return type(self.obj)
+
+    def set_child(self, name, child_obj):
+        setattr(self.obj, name, child_obj)
+
+    def do_end(self, name, contents):
+        self.set_child(name, contents)
+
+        return self
+
+
+class ABAPTableWriter(ABAPBaseWriter):
+
+    def __init__(self, *args, **kwargs):
+        super(ABAPTableWriter, self).__init__(*args, **kwargs)
+
+        typ = self.get_type()
+        self.plain_list = not issubclass(typ, (Structure, InternalTable))
+
+    def get_type(self):
+        return type(self.obj._type)
+
+    def get_member_type(self, name):
+        if not self.plain_list:
+            raise RuntimeError('Must be called from object writer')
+
+        return self.get_type()
+
+    def do_start(self, name, attrs):
+        if name == 'item':
+            if not self.plain_list:
+                raise RuntimeError('Structure called "item" is not allowed')
+
+            return self
+
+        # Return a new adapter for item type of the table
+        row = self.obj._type()
+        return ABAPStructureWriter(self, row, name)
+
+    def set_child(self, name, child_obj):
+        mod_log().debug('Appending: %s', child_obj)
+        self.obj.append(child_obj)
+
+    def do_end(self, name, contents):
+        if name != 'item':
+            # Closing tag of the item type must be
+            # handled in the corresponding adapter.
+            raise RuntimeError('No members allowed')
+
+        if not self.plain_list:
+            raise RuntimeError('Structure called "item" is not allowed')
+
+        row = self.obj._type(contents)
+        self.set_child(name, row)
+
+        return self
+
+
+class ABAPContentHandler(ContentHandler):
+    """A helper class for parsing ABAP types serialized into XML"""
+
+    def __init__(self, master_obj, root_elem=None):
+        self.root_elem = master_obj.__class__.__name__ if root_elem is None else root_elem
+
+        typ = type(master_obj)
+
+        if issubclass(typ, Structure):
+            self.current = ABAPStructureWriter(None, master_obj, self.root_elem)
+        elif issubclass(typ, InternalTable):
+            self.current = ABAPTableWriter(None, master_obj, self.root_elem)
+        else:
+            raise RuntimeError('Master object must be structure or internal table')
+
+        self.contents = None
+
+    def startElement(self, name, attrs):
+        mod_log().debug('<%s>', name)
+
+        if name in ['asx:abap', 'asx:values', self.root_elem]:
+            return
+
+        typ = self.current.get_member_type(name)
+
+        if issubclass(typ, Structure):
+            self.current = ABAPStructureWriter(self.current, typ(), name)
+        elif issubclass(typ, InternalTable):
+            self.current = ABAPTableWriter(self.current, typ(), name)
+        else:
+            self.current = self.current.start(name, attrs)
+            self.contents = ''
+
+    def characters(self, content):
+        if self.contents is None:
+            return
+
+        self.contents += content
+        mod_log().debug('<>%s</>', self.contents)
+
+    def endElement(self, name):
+        mod_log().debug('</%s>', name)
+
+        if name in ['asx:abap', 'asx:values']:
+            return
+
+        self.current = self.current.end(name, self.contents)
+        self.contents = None
+
+
+def from_xml(abap_struct_or_table, xml_contents, root_elem=None):
+    """"Reads the given xml_contents and stores the values in the give abap_struct_or_table"""
+
+    parser = ABAPContentHandler(abap_struct_or_table, root_elem=root_elem)
+    xml.sax.parseString(xml_contents, parser)
+
+    return abap_struct_or_table
