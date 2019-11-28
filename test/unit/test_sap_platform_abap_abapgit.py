@@ -52,5 +52,32 @@ class TestXMLSerializer(unittest.TestCase):
 ''')
 
 
+class TestDOT_ABAP_GIT(unittest.TestCase):
+
+    def test_dot_abap_git_from_xml(self):
+        config = sap.platform.abap.abapgit.DOT_ABAP_GIT.from_xml('''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DATA>
+   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
+   <STARTING_FOLDER>/backend/</STARTING_FOLDER>
+   <FOLDER_LOGIC>FULL</FOLDER_LOGIC>
+   <IGNORE>
+    <item>/.gitignore</item>
+    <item>/LICENSE</item>
+    <item>/README.md</item>
+    <item>/package.json</item>
+    <item>/.travis.yml</item>
+   </IGNORE>
+  </DATA>
+ </asx:values>
+</asx:abap>''');
+
+        self.assertEqual(config.MASTER_LANGUAGE, 'E')
+        self.assertEqual(config.STARTING_FOLDER, '/backend/')
+        self.assertEqual(config.FOLDER_LOGIC, 'FULL')
+        self.assertEqual([itm for itm in config.IGNORE], ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
+
+
 if __name__ == '__main__':
     unittest.main()

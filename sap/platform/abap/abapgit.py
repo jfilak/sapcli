@@ -1,5 +1,6 @@
 """ABAP Git ABAP types and utilities"""
 
+import sap.platform.abap
 from sap.platform.abap import Structure, StringTable, XMLSerializers
 
 
@@ -28,6 +29,14 @@ class DOT_ABAP_GIT(Structure):
 
         return DOT_ABAP_GIT(MASTER_LANGUAGE=MASTER_LANGUAGE, STARTING_FOLDER=STARTING_FOLDER,
                             FOLDER_LOGIC=FOLDER_LOGIC, IGNORE=IGNORE)
+
+    @staticmethod
+    def from_xml(xml_contents):
+        """Creates new instance of DOT_ABAP_GIT for XML data"""
+
+        config = DOT_ABAP_GIT()
+        sap.platform.abap.from_xml(config, xml_contents, root_elem='DATA')
+        return config
 
 
 # TODO: make it a context manager
