@@ -149,6 +149,11 @@ class DummyCommandGroup(sap.cli.core.CommandGroup):
 
     def __init__(self):
         super(DummyCommandGroup, self).__init__('pytest')
+        self._tune_parser_called = False
+
+    def _tune_parser(self, group_parers, command_subparser):
+        self._tune_parser_called = True
+        return command_subparser
 
 
 class EmptyDummyCommandGroup(sap.cli.core.CommandGroup):
@@ -170,7 +175,11 @@ def dummy_corrnr(connection, args):
 
 def parse_args(argv):
     parser = ArgumentParser()
-    DummyCommandGroup().install_parser(parser)
+
+    group = DummyCommandGroup()
+    group.install_parser(parser)
+    assert group._tune_parser_called
+
     return parser.parse_args(argv)
 
 

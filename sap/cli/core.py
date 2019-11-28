@@ -96,6 +96,13 @@ class CommandGroup:
     def __init__(self, name):
         self.name = name
 
+    # pylint: disable=unused-argument, no-self-use
+    def _tune_parser(self, group_parers, command_subparser):
+        """For ancestors - must return command_subparser or a new subparser
+        """
+
+        return command_subparser
+
     def install_parser(self, arg_parser):
         """Add own commands as sub-parser of the given ArgParser.
         """
@@ -107,7 +114,7 @@ class CommandGroup:
             get_args.set_defaults(execute=command.handler)
             command.install_arguments(get_args)
 
-        return command_args
+        return self._tune_parser(arg_parser, command_args)
 
     @classmethod
     def get_commands(cls):
