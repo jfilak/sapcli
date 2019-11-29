@@ -97,7 +97,7 @@ class CommandGroup:
         self.name = name
 
     # pylint: disable=unused-argument, no-self-use
-    def _tune_parser(self, group_parers, command_subparser):
+    def _tune_parser(self, group_parser, command_subparser):
         """For ancestors - must return command_subparser or a new subparser
         """
 
