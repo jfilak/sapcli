@@ -135,6 +135,14 @@ class BufferConsole(sap.cli.core.PrintConsole):
 
         super(BufferConsole, self).__init__(out_file=self.std_output, err_file=self.err_output)
 
+    @property
+    def capout(self):
+        return self.std_output.getvalue()
+
+    @property
+    def caperr(self):
+        return self.err_output.getvalue()
+
 
 def patch_get_print_console_with_buffer():
     """Capture output printed out by sapcli.
