@@ -158,3 +158,32 @@ class GroupArgumentParser:
 
     def parse(self, *argv):
         return self._parser.parse_args(argv)
+
+
+class PatcherTestCase:
+
+    def patch(self, spec, **kwargs):
+        if not hasattr(self, '_patchers'):
+            self._patchers = {}
+
+        if spec in self._patchers:
+            raise RuntimeError('Cannot patch patched %s' % (spec))
+
+        patcher = patch(spec, **kwargs)
+        self._patchers[spec] = patcher
+        return patcher.__enter__()
+
+    def patch_console(self, console=None):
+        if console is None:
+            console = BufferConsole()
+
+        return self.patch('sap.cli.core.get_console', return_value=console)
+
+    def tearDown(self):
+        print('Patcher tear down')
+
+        if not hasattr(self, '_patchers'):
+            return
+
+        for patcher in self._patchers.values():
+            patcher.__exit__(None, None, None)
