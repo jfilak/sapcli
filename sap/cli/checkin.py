@@ -22,6 +22,7 @@ class RepoPackage(typing.NamedTuple):
 
     name: str
     source: str
+    parent: str
 
 
 class Repository:
@@ -32,7 +33,12 @@ class Repository:
         self._full_fmt = '$%s' if name[0] == '$' else '%s'
         self._pfx_fmt = f'{name}_%s'
         self._config = config
-        self._packages = list()
+
+        self._dir_prefix = config.STARTING_FOLDER.split('/')
+        del self._dir_prefix[0]
+        del self._dir_prefix[-1]
+
+        self._packages = dict()
 
         self._pkg_name_bldr = {
             sap.platform.abap.abapgit.FOLDER_LOGIC_FULL: lambda parts: self._full_fmt % (parts[-1]),
@@ -41,38 +47,70 @@ class Repository:
         }[config.FOLDER_LOGIC]
 
     @property
+    def config(self):
+        return self._config
+
+    @property
     def packages(self):
         """List of packages"""
 
-        return self._packages
+        return self._packages.values()
 
-    def add_package_dir(self, dir_path):
+    def find_package_by_path(self, dir_path):
+        return self._packages[dir_path]
+
+    def add_package_dir(self, dir_path, parent=None):
         """add new directory package"""
+
+        pkg_file = os.path.join(dir_path, 'package.devc.xml', )
+        if not os.path.isfile(pkg_file):
+            raise sap.errors.SAPCliError('Not a package directory: {full_path}'.format(full_path=root))
 
         mod_log().debug('Adding new package dir: %s' % (dir_path))
 
         # Skip the first to ignore ./
         parts = dir_path.split('/')[1:]
-        if parts:
+        if len(parts) < len(self._dir_prefix):
+            raise sap.errors.SAPCliError(f'Sub-package dir {dir_path} not in starting folder {self._config.STARTING_FOLDER}')
+
+        for prefix in self._dir_prefix:
+            if parts[0] != prefix:
+                raise sap.errors.SAPCliError(f'Sub-package dir {dir_path} not in starting folder {self._config.STARTING_FOLDER}')
+
+            del parts[0]
+
+        if parts and parts[0]:
             pkg_name = self._pkg_name_bldr(parts)
         else:
             pkg_name = self._name
 
-        self._packages.append(RepoPackage(pkg_name, os.path.join(dir_path, 'package.devc')))
+        pkg = RepoPackage(pkg_name, pkg_file, parent)
+        self._packages[dir_path] = pkg
+
+        return pkg
 
 
-def _load_objects(repo, directory):
+
+
+def _load_objects(repo):
     # packages
     # ddic
     # interfaces
     # classes
     # programs + includes
 
-    for root, _, files in os.walk(directory):
-        if 'package.devc' not in files:
-            raise sap.errors.SAPCliError('Not a package directory: {full_path}'.format(full_path=root))
+    abap_dir = f'.{repo.config.STARTING_FOLDER}'
 
-        repo.add_package_dir(root)
+    mod_log().debug('Loading ABAP dir: %s' % (abap_dir))
+
+    repo.add_package_dir(abap_dir)
+
+    for root, dirs, files in os.walk(abap_dir):
+        parent = repo.find_package_by_path(root)
+
+        for sub_dir in dirs:
+            sub_pkg_dir = os.path.join(root, sub_dir)
+            repo.add_package_dir(sub_pkg_dir, parent=parent)
 
 
 def _get_config(starting_folder):
@@ -95,6 +133,16 @@ def _get_config(starting_folder):
     return config
 
 
+def print_package(package):
+    pfx = ''
+
+    if package.parent:
+        pfx = print_package(package.parent)
+
+    sap.cli.core.printout(f'{pfx}{package.name}')
+    return f'{pfx}  '
+
+
 def do_checkin(_, args):
     """Synchronize directory structure with ABAP package structure"""
 
@@ -104,10 +152,11 @@ def do_checkin(_, args):
 
     config = _get_config(args.starting_folder)
     repo = Repository(args.name, config)
-    _load_objects(repo, top_dir)
+
+    _load_objects(repo)
 
     for package in repo.packages:
-        sap.cli.core.printout(package[0])
+        print_package(package)
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
