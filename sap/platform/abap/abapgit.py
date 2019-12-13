@@ -30,6 +30,7 @@ class DOT_ABAP_GIT(Structure):
 
     # pylint: disable=invalid-name
     MASTER_LANGUAGE: str
+
     # pylint: disable=invalid-name
     STARTING_FOLDER: str
     # pylint: disable=invalid-name
@@ -141,7 +142,6 @@ class AGXMLContentHandler(ABAPContentHandler):
 
     def __init__(self, body_types):
         super().__init__(DOT_ABAP_GIT(), root_elem='_BogusNotMatchingTag')
-
         self.current = AGXMLObjectAdapter(body_types)
 
 
