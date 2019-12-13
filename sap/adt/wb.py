@@ -158,9 +158,9 @@ def activation_params(pre_audit_requested=True):
     return {'method': 'activate', 'preauditRequested': str(pre_audit_requested).lower()}
 
 
-def _send_activate(adt_object, request, params):
+def _send_activate(connection, request, params):
 
-    return adt_object.connection.execute(
+    return connection.execute(
         'POST',
         'activation',
         params=params,
@@ -172,13 +172,10 @@ def _send_activate(adt_object, request, params):
     )
 
 
-def activate(adt_object):
-    """Activates the given object"""
+def mass_activate(connection, references):
+    """Activates the given objects"""
 
-    request = ADTObjectReferences()
-    request.add_object(adt_object)
-
-    resp = _send_activate(adt_object, request, activation_params(pre_audit_requested=True))
+    resp = _send_activate(adt_object, references, activation_params(pre_audit_requested=True))
 
     if 'application/vnd.sap.adt.inactivectsobjects.v1+xml' in resp.headers.get('Content-Type', ''):
         ioc = Marshal.deserialize(resp.text, IOCList())
@@ -189,6 +186,15 @@ def activate(adt_object):
 
     if resp.text:
         raise SAPCliError(f'Could not activate the object {adt_object.name}: {resp.text}')
+
+
+def activate(adt_object):
+    """Activates the given object"""
+
+    references = ADTObjectReferences()
+    references.add_object(adt_object)
+
+    mass_activate(adt_object.connection, references)
 
 
 def fetch_inactive_objects(connection):

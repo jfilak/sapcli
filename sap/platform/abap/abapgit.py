@@ -1,11 +1,22 @@
 """ABAP Git ABAP types and utilities"""
 
+import xml.sax
+
+from sap import get_logger
+import sap.errors
+
 import sap.platform.abap
-from sap.platform.abap import Structure, StringTable, XMLSerializers
+from sap.platform.abap import Structure, StringTable, XMLSerializers, ABAPContentHandler, get_xml_object_adapter
 
 
 FOLDER_LOGIC_FULL = 'FULL'
 FOLDER_LOGIC_PREFIX = 'PREFIX'
+
+
+def mod_log():
+    """ADT Module logger"""
+
+    return get_logger()
 
 
 # pylint: disable=invalid-name
@@ -14,6 +25,7 @@ class DOT_ABAP_GIT(Structure):
 
     # pylint: disable=invalid-name
     MASTER_LANGUAGE: str
+
     # pylint: disable=invalid-name
     STARTING_FOLDER: str
     # pylint: disable=invalid-name
@@ -65,3 +77,67 @@ class XMLWriter:
 </abapGit>
 ''')
         self.dest_file = None
+
+
+# Implements Public API of ABAPBaseWriter
+class AGXMLObjectAdapter:
+
+    def __init__(self, body_types):
+        self.body_types = body_types
+        self.body_type_index = 0
+
+        self.results = dict()
+
+        self.current_body_type = self.body_types[self.body_type_index]
+        self.current_body_name = self.current_body_type.__name__
+
+        self.obj = 'Meta_Parent'
+
+    def get_member_type(self, name):
+        if name != self.current_body_name:
+            raise sap.errors.SAPCliError(f'Got unexpected tag {name} while expected {self.current_body_name}')
+
+        mod_log().debug('Opening the object: %s', name)
+
+        return self.current_body_type
+
+    def start(self, name, attrs):
+        raise sap.errors.SAPCliError(f'Meta abapGit XML Body adapter cannot be started: {name}')
+
+    def set_child(self, name, child_obj):
+        """Sets the member of the given name in the adapted object"""
+
+        if name != self.current_body_name:
+            raise
+
+        mod_log().debug('Saving the object: %s', name)
+        self.results[name] = child_obj
+
+        self.body_type_index += 1
+        if self.body_type_index >= len(self.body_types):
+            mod_log().debug('No more body members')
+            return
+
+        self.current_body_type = self.body_types[self.body_type_index]
+        self.current_body_name = self.current_body_type.__name__
+        mod_log().debug('Moving pointer the object: %s', name)
+
+    def end(self, name, contents):
+        mod_log().debug('Closing Meta_Parent', name)
+        return None
+
+
+class AGXMLContentHandler(ABAPContentHandler):
+
+    def __init__(self, body_types):
+        super(AGXMLContentHandler, self).__init__(DOT_ABAP_GIT(), root_elem='_BogusNotMatchingTag')
+
+        self.current = AGXMLObjectAdapter(body_types)
+
+
+def from_xml(body_types, xml_contents):
+
+    parser = AGXMLContentHandler(body_types)
+    xml.sax.parseString(xml_contents, parser)
+
+    return parser.current.results

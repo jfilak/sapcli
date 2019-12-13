@@ -339,20 +339,18 @@ class ABAPTableWriter(ABAPBaseWriter):
         self.plain_list = not issubclass(typ, (Structure, InternalTable))
 
     def get_type(self):
-        return type(self.obj._type)
+        mod_log().debug('Object of table is: %s', self.obj._type.__name__)
+        return self.obj._type
 
     def get_member_type(self, name):
-        if not self.plain_list:
-            raise RuntimeError('Must be called from object writer')
-
         return self.get_type()
 
     def do_start(self, name, attrs):
         if name == 'item':
-            if not self.plain_list:
-                raise RuntimeError('Structure called "item" is not allowed')
+            if self.plain_list:
+                return self
 
-            return self
+        mod_log().debug('New Instance of Complex: %s', self.obj._type.__name__)
 
         # Return a new adapter for item type of the table
         row = self.obj._type()
@@ -371,10 +369,32 @@ class ABAPTableWriter(ABAPBaseWriter):
         if not self.plain_list:
             raise RuntimeError('Structure called "item" is not allowed')
 
+        mod_log().debug('New Instance of Scalar: %s', self.obj._type.__name__)
         row = self.obj._type(contents)
         self.set_child(name, row)
 
         return self
+
+
+def get_xml_object_adapter(adapted_typ, adapted_obj, xml_tag, parent_adapter):
+
+    adapter_class = None
+
+    if issubclass(adapted_typ, Structure):
+        mod_log().debug('It is a structure')
+        adapter_class = ABAPStructureWriter
+    elif issubclass(adapted_typ, InternalTable):
+        mod_log().debug('It is a table')
+        adapter_class = ABAPTableWriter
+    else:
+        return None
+
+    if adapted_obj is None:
+        mod_log().debug('Creating a target object: %s', adapted_typ.__name__)
+        adapted_obj = adapted_typ()
+
+    mod_log().debug('Creating the adapter')
+    return adapter_class(parent_adapter, adapted_obj, xml_tag)
 
 
 class ABAPContentHandler(ContentHandler):
@@ -383,30 +403,34 @@ class ABAPContentHandler(ContentHandler):
     def __init__(self, master_obj, root_elem=None):
         self.root_elem = master_obj.__class__.__name__ if root_elem is None else root_elem
 
-        typ = type(master_obj)
-
-        if issubclass(typ, Structure):
-            self.current = ABAPStructureWriter(None, master_obj, self.root_elem)
-        elif issubclass(typ, InternalTable):
-            self.current = ABAPTableWriter(None, master_obj, self.root_elem)
-        else:
+        self.current = get_xml_object_adapter(type(master_obj), master_obj, self.root_elem, None)
+        if self.current is None:
             raise RuntimeError('Master object must be structure or internal table')
 
         self.contents = None
+        self._data = False
 
     def startElement(self, name, attrs):
         mod_log().debug('<%s>', name)
 
-        if name in ['asx:abap', 'asx:values', self.root_elem]:
+        if not self._data:
+            if name == 'asx:values':
+                self._data = True
             return
 
-        typ = self.current.get_member_type(name)
+        if name == self.root_elem:
+            return
 
-        if issubclass(typ, Structure):
-            self.current = ABAPStructureWriter(self.current, typ(), name)
-        elif issubclass(typ, InternalTable):
-            self.current = ABAPTableWriter(self.current, typ(), name)
+        mod_log().debug('Resolving type of <%s>', name)
+        typ = self.current.get_member_type(name)
+        mod_log().debug('<%s> == %s', name, typ.__name__)
+        adapter = get_xml_object_adapter(typ, None, name, self.current)
+
+        if adapter is not None:
+            mod_log().debug('<%s> delve deeper', name)
+            self.current = adapter
         else:
+            mod_log().debug('<%s> handle scalar value', name)
             self.current = self.current.start(name, attrs)
             self.contents = ''
 
@@ -420,7 +444,10 @@ class ABAPContentHandler(ContentHandler):
     def endElement(self, name):
         mod_log().debug('</%s>', name)
 
-        if name in ['asx:abap', 'asx:values']:
+        if name == 'asx:values':
+            self._data = False
+
+        if not self._data:
             return
 
         self.current = self.current.end(name, self.contents)

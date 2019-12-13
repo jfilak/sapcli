@@ -1,6 +1,7 @@
 """ADT Object import"""
 
 import os
+import glob
 import errno
 import typing
 
@@ -9,6 +10,9 @@ from sap import get_logger
 import sap.errors
 import sap.cli.core
 import sap.platform.abap.abapgit
+from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC
+import sap.adt
+import sap.adt.errors
 
 
 def mod_log():
@@ -21,8 +25,19 @@ class RepoPackage(typing.NamedTuple):
     """Package on file system"""
 
     name: str
-    source: str
-    parent: str
+    path: str
+    dir_path: str
+    parent: typing.Any
+
+
+
+class RepoObject(typing.NamedTuple):
+
+    code: str
+    name: str
+    path: str
+    package: RepoPackage
+    files: list
 
 
 class Repository:
@@ -39,6 +54,7 @@ class Repository:
         del self._dir_prefix[-1]
 
         self._packages = dict()
+        self._objects = list()
 
         self._pkg_name_bldr = {
             sap.platform.abap.abapgit.FOLDER_LOGIC_FULL: lambda parts: self._full_fmt % (parts[-1]),
@@ -56,9 +72,43 @@ class Repository:
 
         return self._packages.values()
 
+    @property
+    def objects(self):
+        """List of packages"""
+
+        return self._objects
+
     def find_package_by_path(self, dir_path):
         return self._packages[dir_path]
 
+    def add_object(self, obj_file_name, package):
+
+        obj_id_start = obj_file_name.find('.') + 1
+
+        if obj_id_start + 4 > len(obj_file_name) - 4:
+            raise sap.errors.SAPCliError(f'Invalid ABAP file name: {obj_file_name}')
+
+        obj_code = obj_file_name[obj_id_start:obj_id_start+4]
+
+        if obj_code == 'devc':
+            return
+
+        obj_name = obj_file_name[:obj_id_start-1]
+
+        other_files = list()
+
+        obj_file_pattern = os.path.join(package.dir_path, obj_name)
+        obj_file_pattern = f'{obj_file_pattern}.{obj_code}.*'
+        for source_file in glob.glob(obj_file_pattern):
+            if source_file.endswith('.xml'):
+                continue
+
+            other_files.append(source_file)
+
+        obj = RepoObject(obj_code, obj_name, os.path.join(package.dir_path, obj_file_name), package, other_files)
+        self._objects.append(obj)
+
+    # TODO: use dir_path 
     def add_package_dir(self, dir_path, parent=None):
         """add new directory package"""
 
@@ -84,12 +134,10 @@ class Repository:
         else:
             pkg_name = self._name
 
-        pkg = RepoPackage(pkg_name, pkg_file, parent)
+        pkg = RepoPackage(pkg_name, pkg_file, dir_path, parent)
         self._packages[dir_path] = pkg
 
         return pkg
-
-
 
 
 def _load_objects(repo):
@@ -106,11 +154,18 @@ def _load_objects(repo):
     repo.add_package_dir(abap_dir)
 
     for root, dirs, files in os.walk(abap_dir):
-        parent = repo.find_package_by_path(root)
+        package = repo.find_package_by_path(root)
 
         for sub_dir in dirs:
             sub_pkg_dir = os.path.join(root, sub_dir)
-            repo.add_package_dir(sub_pkg_dir, parent=parent)
+            # TODO: pass only dir name and not entire path
+            repo.add_package_dir(sub_pkg_dir, parent=package)
+
+        for obj_file_name in files:
+            if not obj_file_name.endswith('.xml'):
+                continue
+
+            repo.add_object(obj_file_name, package)
 
 
 def _get_config(starting_folder):
@@ -133,17 +188,192 @@ def _get_config(starting_folder):
     return config
 
 
-def print_package(package):
-    pfx = ''
+def checkin_package(connection, repo_package):
 
-    if package.parent:
-        pfx = print_package(package.parent)
+    devc = DEVC()
+    with open(repo_package.path) as devc_file:
+        sap.platform.abap.from_xml(devc, devc_file.read())
 
-    sap.cli.core.printout(f'{pfx}{package.name}')
-    return f'{pfx}  '
+    sap.cli.core.printout(f'Creating Package: {repo_package.name} {devc.CTEXT}')
+
+    # TODO: honor DEVC
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+
+    package = sap.adt.Package(connection, repo_package.name.upper(), metadata=metadata)
+    package.description = devc.CTEXT
+    package.set_package_type('development')
+
+    if repo_package.parent is not None:
+        package.super_package.name = repo_package.parent.name.upper()
+
+    # TODO: arguments
+    package.set_software_component('LOCAL')
+
+    # TODO: arguments / ENV
+    #package.set_app_component(args.app_component.upper())
+    #package.set_transport_layer(args.transport_layer.upper())
+
+    # TODO: corrnr
+    try:
+        package.create()
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
 
 
-def do_checkin(_, args):
+def _resolve_dependencies(objects):
+
+    libs = list()
+    bins = list()
+    others = list()
+
+    for obj in objects:
+        if obj.code in ['intf', 'clas']:
+            libs.append(obj)
+        elif obj.code in ['prog']:
+            bins.append(obj)
+        else:
+            others.append(obj)
+
+    return [libs, bins, others]
+
+
+def checkin_intf(connection, repo_obj):
+    sap.cli.core.printout('Creating Interface:', repo_obj.name)
+
+    if not repo_obj.files:
+        raise sap.errors.SAPCliError(f'No source file for interface {repo_obj.name}')
+
+    if len(repo_obj.files) > 1:
+        raise sap.errors.SAPCliError(f'Too many source files for interface {repo_obj.name}: %s' %(','.join(repo_obj.files)))
+
+    source_file = repo_obj.files[0]
+
+    if not source_file.endswith('.abap'):
+        raise sap.errors.SAPCliError(f'No .abap suffix of source file for interface {repo_obj.name}')
+
+    abap_data = VSEOINTERF()
+    with open(repo_obj.path) as abap_data_file:
+        sap.platform.abap.from_xml(abap_data, abap_data_file.read())
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+    interface = sap.adt.Interface(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
+    interface.description = abap_data.DESCRIPT
+
+    try:
+        interface.create()
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    sap.cli.core.printout('Writing Interface:', repo_obj.name)
+    # TODO: corrnr
+    with open(source_file, 'r') as source:
+        with interface.open_editor() as editor:
+            editor.write(source.read())
+
+    return interface
+
+
+def checkin_clas(connection, repo_obj):
+    sap.cli.core.printout('Creating Class:', repo_obj.name)
+
+    if not repo_obj.files:
+        raise sap.errors.SAPCliError(f'No source file for class {repo_obj.name}')
+
+    abap_data = VSEOCLASS()
+    with open(repo_obj.path) as abap_data_file:
+        sap.platform.abap.from_xml(abap_data, abap_data_file.read())
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+    clas = sap.adt.Class(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
+    clas.description = abap_data.DESCRIPT
+
+    try:
+        clas.create()
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    for source_file in repo_obj.files:
+        if not source_file.endswith('.abap'):
+            raise sap.errors.SAPCliError(f'No .abap suffix of source file for class {repo_obj.name}: {source_file}')
+
+        source_file_parts = source_file.split('.')
+        class_parts = {
+            'clas': clas,
+            'locals_def': clas.definitions,
+            'locals_imp': clas.implementations,
+            'testclasses': clas.test_classes,
+        }
+
+        sub_obj_id = source_file_parts[-2]
+        sub_obj = class_parts.get(sub_obj_id, None)
+        if sub_obj is None:
+            sap.cli.core.printerr(f'Unknown class part {source_file}')
+            continue
+
+        sap.cli.core.printout('Writing Clas:', repo_obj.name, sub_obj_id)
+
+        # TODO: corrnr
+        with open(source_file, 'r') as source:
+            with sub_obj.open_editor() as editor:
+                editor.write(source.read())
+
+    return clas
+
+
+def checkin_fugr(connection, repo_obj):
+    print('Creating Function Group:', repo_obj.name)
+
+
+def checkin_prog(connection, repo_obj):
+    print('Creating Program:', repo_obj.name)
+
+    if not repo_obj.files:
+        raise sap.errors.SAPCliError(f'No source file for program {repo_obj.name}')
+
+    if len(repo_obj.files) > 1:
+        raise sap.errors.SAPCliError(f'Too many source files for program {repo_obj.name}: %s' %(','.join(repo_obj.files)))
+
+    source_file = repo_obj.files[0]
+
+    if not source_file.endswith('.abap'):
+        raise sap.errors.SAPCliError(f'No .abap suffix of source file for program {repo_obj.name}')
+
+    with open(repo_obj.path) as abap_data_file:
+        results = sap.platform.abap.abapgit.from_xml([PROGDIR, TPOOL], abap_data_file.read())
+
+    progdir = results['PROGDIR']
+    tpool = results['TPOOL']
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+    program = sap.adt.Program(connection, name, package=package, metadata=metadata)
+
+    description = ''
+    for text in tpool:
+        if text.ID == 'R':
+            program.description = text.ENTRY
+
+    try:
+        program.create()
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    sap.cli.core.printout('Writing Program:', repo_obj.name)
+    # TODO: corrnr
+    with open(source_file, 'r') as source:
+        with interface.open_editor() as editor:
+            editor.write(source.read())
+
+    return program
+
+
+OBJECT_CHECKIN_HANDLERS = {
+    'intf': checkin_intf,
+    'clas': checkin_clas,
+    'fugr': checkin_fugr,
+    'prog': checkin_prog,
+}
+
+def do_checkin(connection, args):
     """Synchronize directory structure with ABAP package structure"""
 
     top_dir = '.'
@@ -155,8 +385,27 @@ def do_checkin(_, args):
 
     _load_objects(repo)
 
+    sap.cli.core.printout('Creating packages ...')
     for package in repo.packages:
-        print_package(package)
+        checkin_package(connection, package)
+
+    groups = _resolve_dependencies(repo.objects)
+
+    for activation_group in groups:
+        inactive_objects = sap.adt.wb.ADTObjectReferences()
+
+        for repo_obj in activation_group:
+            obj_handler = OBJECT_CHECKIN_HANDLERS.get(repo_obj.code)
+
+            if obj_handler is None:
+                continue
+
+            abap_obj = obj_handler(connection, repo_obj)
+
+            inactive_objects.add_object(abap_obj)
+
+        sap.cli.core.printout('Activating group ...')
+        sap.adt.wb.mass_activate(connection, inactive_objects)
 
 
 class CommandGroup(sap.cli.core.CommandGroup):

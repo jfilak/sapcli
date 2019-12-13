@@ -34,6 +34,9 @@ class VSEOCLASS(Structure):
     FIXPT: str
     # pylint: disable=invalid-name
     UNICODE: str
+    # pylint: disable=invalid-name
+    WITH_UNIT_TESTS: str
+    CATEGORY: str
 
 
 # pylint: disable=invalid-name
@@ -97,6 +100,7 @@ class PROGDIR(Structure):
     # ' ' Obsolete ABAP (Not Unicode)
     # pylint: disable=invalid-name
     UCCHECK: str
+    RLOAD: str
 
 
 # pylint: disable=invalid-name
