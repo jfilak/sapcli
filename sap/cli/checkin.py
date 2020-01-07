@@ -397,6 +397,7 @@ def do_checkin(connection, args):
     for activation_group in groups:
         inactive_objects = sap.adt.wb.ADTObjectReferences()
 
+        sap.cli.core.printout('Creating objects ...')
         for repo_obj in activation_group:
             obj_handler = OBJECT_CHECKIN_HANDLERS.get(repo_obj.code)
 
@@ -407,8 +408,22 @@ def do_checkin(connection, args):
 
             inactive_objects.add_object(abap_obj)
 
-        sap.cli.core.printout('Activating group ...')
-        sap.adt.wb.mass_activate(connection, inactive_objects)
+        sap.cli.core.printout('Activating objects ...')
+        messages = sap.adt.wb.try_mass_activate(connection, inactive_objects)
+
+        if not messages:
+            continue
+
+        error = False
+        for msg in messages:
+            if msg.typ == 'E':
+                error = True
+
+            sap.cli.core.printout(f'* {msg.typ}: {msg.short_text}')
+            sap.cli.core.printout(f'  {msg.obj_descr}')
+
+        if error:
+            sap.cli.core.printerr('Aborting because of activation errors')
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
