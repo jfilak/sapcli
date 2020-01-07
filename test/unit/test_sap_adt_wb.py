@@ -6,10 +6,13 @@ from unittest.mock import Mock, PropertyMock
 from sap.errors import SAPCliError
 import sap.adt.wb
 
+from sap.adt.objects import ADTObjectReferences
+
 from mock import Connection, Response, Request
 from fixtures_adt import EMPTY_RESPONSE_OK
 from fixtures_adt_wb import ACTIVATION_REFERENCES_XML, INACTIVE_OBJECTS_XML, PREAUDIT_ACTIVATION_XML, \
-         RESPONSE_INACTIVE_OBJECTS_V1
+         RESPONSE_INACTIVE_OBJECTS_V1, ACTIVATION_WARNING_XML, ACTIVATION_WITH_PROPERTIES_XML, \
+         ACTIVATION_ERROR_XML
 
 
 FIXTURES_EXP_FULL_ADT_URI = '/unit/test/mobject'
@@ -19,7 +22,6 @@ FIXTURES_ACTIVATION_REQUEST_SINGLE = f'''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
 <adtcore:objectReference adtcore:uri="{FIXTURES_EXP_FULL_ADT_URI}" adtcore:name="{FIXTURES_EXP_OBJECT_NAME}"/>
 </adtcore:objectReferences>'''
-FIXTURES_EXP_ERROR_RESPONSE = '<?xml version="1.0" encoding="utf-8"><error>failure</error>'
 
 
 class TestIOCEntryData(unittest.TestCase):
@@ -79,10 +81,19 @@ class TestADTWBActivate(unittest.TestCase):
         sap.adt.wb.activate(adt_object)
         self.assert_single_request(adt_object)
 
+    def test_adt_wb_activate_object_ok_with_props(self):
+        adt_object = self.create_fake_object(FIXTURES_EXP_FULL_ADT_URI,
+                                             FIXTURES_EXP_OBJECT_NAME.lower(),
+                                             [Response(status_code=200,
+                                                       text=ACTIVATION_WITH_PROPERTIES_XML,
+                                                       headers={})])
+        sap.adt.wb.activate(adt_object)
+        self.assert_single_request(adt_object)
+
     def test_adt_wb_activate_object_fail(self):
         adt_object = self.create_fake_object(FIXTURES_EXP_FULL_ADT_URI, FIXTURES_EXP_OBJECT_NAME)
         adt_object.connection = Connection([Response(status_code=200,
-                                                     text=FIXTURES_EXP_ERROR_RESPONSE,
+                                                     text=ACTIVATION_ERROR_XML,
                                                      headers={})])
 
         with self.assertRaises(SAPCliError) as caught:
@@ -90,7 +101,7 @@ class TestADTWBActivate(unittest.TestCase):
 
         self.assert_single_request(adt_object)
         self.assertEqual(str(caught.exception),
-                         f'Could not activate the object {FIXTURES_EXP_OBJECT_NAME}: {FIXTURES_EXP_ERROR_RESPONSE}')
+                         f'Could not activate: {ACTIVATION_ERROR_XML}')
 
     def test_adt_wb_activate_children(self):
         adt_object = self.create_fake_object('/sap/bc/adt/oo/classes/cl_hello_world',
@@ -122,6 +133,30 @@ class TestADTWBActivate(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(conn.execs[0].body, PREAUDIT_ACTIVATION_XML)
         self.assertEqual(conn.execs[1].body, ACTIVATION_REFERENCES_XML)
+
+    def test_adt_wb_activation_warnings(self):
+        adt_object = self.create_fake_object('/sap/bc/adt/oo/classes/cl_hello_world',
+                                             'cl_hello_world',
+                                             [Response(status_code=200,
+                                                       text=ACTIVATION_WARNING_XML,
+                                                       headers={})])
+
+        with self.assertRaises(sap.adt.wb.ActivationError) as caught:
+            results = sap.adt.wb.activate(adt_object)
+
+        conn = adt_object.connection
+
+        messages = caught.exception.results.messages
+
+        self.assertEqual(len(messages), 2)
+
+        self.assertEqual(messages[0].typ, 'W')
+        self.assertEqual(messages[0].short_text, 'Message 1')
+        self.assertEqual(messages[0].force_supported, 'true')
+
+        self.assertEqual(messages[1].typ, 'W')
+        self.assertEqual(messages[1].short_text, 'Warning 2')
+        self.assertEqual(messages[1].force_supported, 'true')
 
 
 class TestADTWBFetchInactive(unittest.TestCase):

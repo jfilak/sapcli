@@ -164,7 +164,7 @@ class TestADTObject(unittest.TestCase):
             sap.adt.wb.activate(victory)
 
         self.maxDiff = None
-        self.assertEqual(str(cm.exception), f'Could not activate the object activator: {ACTIVATE_RESPONSE_FAILED}')
+        self.assertEqual(str(cm.exception), f'Could not activate: {ACTIVATE_RESPONSE_FAILED}')
 
     def test_create_ok_wihout_corrnr(self):
         connection = Connection([EMPTY_RESPONSE_OK])

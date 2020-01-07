@@ -3,11 +3,15 @@
 from sap.adt.objects import (XMLNamespace, ADTObjectType, OrderedClassMembers,
                              ADTObjectReferences, ADTObjectReference)
 
-from sap.adt.annotations import xml_element, xml_attribute
+from sap.adt.annotations import xml_element, xml_attribute, xml_text_node_property, \
+    XmlNodeAttributeProperty, XmlNodeProperty, XmlListNodeProperty
 from sap.adt.marshalling import Marshal
 
 from sap import get_logger
 from sap.errors import SAPCliError
+
+
+XMLNS_CHKL = XMLNamespace('chkl', 'http://www.sap.com/abapxml/checklis')
 
 
 class IOCEntryData(metaclass=OrderedClassMembers):
@@ -172,6 +176,93 @@ def _send_activate(adt_object, request, params):
     )
 
 
+class CheckMessageText(metaclass=OrderedClassMembers):
+    """Activation Check response message"""
+
+    value = xml_text_node_property('txt')
+
+    def __str__(self):
+        return str(self.value)
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.value == other
+
+        return super(CheckMessageText, self).__eq__(other)
+
+    def __ne__(self, other):
+        if isinstance(other, str):
+            return self.value != other
+
+        return super(CheckMessageText, self).__ne__(other)
+
+
+# pylint: disable=too-few-public-methods
+class CheckMessage(metaclass=OrderedClassMembers):
+    """Run Check result message"""
+
+    obj_descr = XmlNodeAttributeProperty('objDescr')
+    typ = XmlNodeAttributeProperty('type')
+    line = XmlNodeAttributeProperty('line')
+    href = XmlNodeAttributeProperty('href')
+    force_supported = XmlNodeAttributeProperty('forceSupported')
+    short_text = XmlNodeProperty('shortText', factory=CheckMessageText)
+
+
+class CheckProperties(metaclass=OrderedClassMembers):
+    """Run Check result properties"""
+
+    checked = XmlNodeAttributeProperty('checkExecuted', value='false')
+    activated = XmlNodeAttributeProperty('activationExecuted', value='false')
+    generated = XmlNodeAttributeProperty('generationExecuted', value='false')
+
+    def __init__(self):
+        self.checked = 'false'
+        self.activated = 'false'
+        self.generated = 'false'
+
+    @property
+    def successful(self):
+        """Returns true if the activation was completely successful"""
+
+        return self.checked == 'true' and self.activated == 'true' and self.generated == 'true'
+
+
+class CheckResults(metaclass=OrderedClassMembers):
+    """Activation Run Check Results"""
+
+    objtype = ADTObjectType(None, None, XMLNS_CHKL, None, None, 'messages')
+
+    properties = XmlNodeProperty('chkl:properties', factory=CheckProperties)
+    messages = XmlListNodeProperty('msg', factory=CheckMessage)
+
+    @property
+    def successful(self):
+        """Returns true if the activation check left the objects
+        fully activated and generated"""
+
+        if self.properties is not None:
+            return self.properties.successful
+
+        return not self.messages
+
+
+class ActivationError(SAPCliError):
+    """Activation error.
+
+    You can still decide on your own by analyzing
+    contents of the member results and especially
+    its property messages which is of type list of CheckMessage
+
+    """
+
+    def __init__(self, message, response, results):
+        super(ActivationError, self).__init__(message)
+
+        self.response = response
+        self.results = results
+
+
 def activate(adt_object):
     """Activates the given object"""
 
@@ -187,8 +278,15 @@ def activate(adt_object):
                                        if entry.object is not None and entry.object.deleted == 'false'])
         resp = _send_activate(adt_object, request, activation_params(pre_audit_requested=False))
 
+    results = CheckResults()
+
     if resp.text:
-        raise SAPCliError(f'Could not activate the object {adt_object.name}: {resp.text}')
+        Marshal.deserialize(resp.text, results)
+
+        if not results.successful:
+            raise ActivationError(f'Could not activate: {resp.text}', resp, results)
+
+    return results
 
 
 def fetch_inactive_objects(connection):
