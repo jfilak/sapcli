@@ -264,6 +264,7 @@ class CheckResults(metaclass=OrderedClassMembers):
         return self.properties.generated != 'false'
 
 
+# pylint: disable=invalid-name
 CheckMessageList = XmlContainer.define('msg', CheckMessage)
 CheckMessageList.objtype = ADTObjectType(None,
                                          None,
