@@ -288,6 +288,7 @@ class TestCheckoutProgram(unittest.TestCase):
 
         progdir, tpool = sap.cli.checkout.build_program_abap_attributes(prog)
 
+
         self.assertEqual(progdir.NAME, 'ZHELLO_WORLD')
         self.assertEqual(progdir.STATE, 'S')
         self.assertEqual(progdir.DBAPL, 'S')
@@ -295,6 +296,12 @@ class TestCheckoutProgram(unittest.TestCase):
         self.assertEqual(progdir.SUBC, '1')
         self.assertEqual(progdir.LDBNAME, 'HANA')
         self.assertEqual(progdir.UCCHECK, 'X')
+
+        # deserialized by abapGit, ignored by sapcli
+        self.assertIsNone(progdir.RLOAD)
+        self.assertIsNone(progdir.RSTAT)
+        progdir.RLOAD = progdir.RSTAT = 'mock'
+
 
         self.assertEqual([], [attr for attr, value in progdir.__dict__.items() if not attr.startswith('_') and value is None])
 

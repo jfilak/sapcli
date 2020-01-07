@@ -10,6 +10,7 @@ class DEVC(Structure):
 
     # pylint: disable=invalid-name
     CTEXT: str
+    SRV_CHECK: str
 
 
 # pylint: disable=invalid-name
@@ -101,6 +102,7 @@ class PROGDIR(Structure):
     # pylint: disable=invalid-name
     UCCHECK: str
     RLOAD: str
+    RSTAT: str
 
 
 # pylint: disable=invalid-name
