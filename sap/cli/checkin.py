@@ -348,7 +348,7 @@ def checkin_prog(connection, repo_obj):
     tpool = results['TPOOL']
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
-    program = sap.adt.Program(connection, name, package=package, metadata=metadata)
+    program = sap.adt.Program(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
 
     description = ''
     for text in tpool:
@@ -363,7 +363,7 @@ def checkin_prog(connection, repo_obj):
     sap.cli.core.printout('Writing Program:', repo_obj.name)
     # TODO: corrnr
     with open(source_file, 'r') as source:
-        with interface.open_editor() as editor:
+        with program.open_editor() as editor:
             editor.write(source.read())
 
     return program
