@@ -175,14 +175,14 @@ def _send_activate(connection, request, params):
 def mass_activate(connection, references):
     """Activates the given objects"""
 
-    resp = _send_activate(adt_object, references, activation_params(pre_audit_requested=True))
+    resp = _send_activate(connection, references, activation_params(pre_audit_requested=True))
 
     if 'application/vnd.sap.adt.inactivectsobjects.v1+xml' in resp.headers.get('Content-Type', ''):
         ioc = Marshal.deserialize(resp.text, IOCList())
         get_logger().debug(ioc.entries)
         request = ADTObjectReferences([entry.object.reference for entry in ioc.entries
                                        if entry.object is not None and entry.object.deleted == 'false'])
-        resp = _send_activate(adt_object, request, activation_params(pre_audit_requested=False))
+        resp = _send_activate(connection, request, activation_params(pre_audit_requested=False))
 
     if resp.text:
         raise SAPCliError(f'Could not activate the object {adt_object.name}: {resp.text}')
