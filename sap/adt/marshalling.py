@@ -312,6 +312,7 @@ class Marshal:
 
         elements = {}
         handler = ElementHandler(name, elements, lambda: adt_object)
+        get_logger().debug('Deserializing object with the root name: %s', name)
         elements[name] = handler
 
         parser = ADTObjectSAXHandler(elements)
