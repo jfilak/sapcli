@@ -6,10 +6,12 @@ from unittest.mock import Mock, PropertyMock
 from sap.errors import SAPCliError
 import sap.adt.wb
 
+from sap.adt.objects import ADTObjectReferences
+
 from mock import Connection, Response, Request
 from fixtures_adt import EMPTY_RESPONSE_OK
 from fixtures_adt_wb import ACTIVATION_REFERENCES_XML, INACTIVE_OBJECTS_XML, PREAUDIT_ACTIVATION_XML, \
-         RESPONSE_INACTIVE_OBJECTS_V1
+         RESPONSE_INACTIVE_OBJECTS_V1, ACTIVATION_WARNING_XML
 
 
 FIXTURES_EXP_FULL_ADT_URI = '/unit/test/mobject'
@@ -90,7 +92,7 @@ class TestADTWBActivate(unittest.TestCase):
 
         self.assert_single_request(adt_object)
         self.assertEqual(str(caught.exception),
-                         f'Could not activate the object {FIXTURES_EXP_OBJECT_NAME}: {FIXTURES_EXP_ERROR_RESPONSE}')
+                         f'Could not activate: {FIXTURES_EXP_ERROR_RESPONSE}')
 
     def test_adt_wb_activate_children(self):
         adt_object = self.create_fake_object('/sap/bc/adt/oo/classes/cl_hello_world',
@@ -136,6 +138,35 @@ class TestADTWBFetchInactive(unittest.TestCase):
 
         self.assertEquals(inactive_objects.entries[0].transport.reference.name, 'C50K000377')
         self.assertEquals(inactive_objects.entries[1].object.reference.name, 'CL_HELLO_WORLD')
+
+
+class TestADTWBTryMassActivate(unittest.TestCase):
+
+    def test_parse_activation_warnings(self):
+        conn = Connection(responses=[Response(
+            status_code=200,
+            text=ACTIVATION_WARNING_XML,
+            content_type='application/xml'
+        )])
+
+        adt_object = Mock()
+        adt_object.full_adt_uri = 'BAR'
+        adt_object.name = 'FOO'
+        adt_object.connection = conn
+
+        references = ADTObjectReferences()
+        references.add_object(adt_object)
+
+        messages = sap.adt.wb.try_mass_activate(conn, references)
+        self.assertEqual(len(messages), 2)
+
+        self.assertEqual(messages[0].typ, 'W')
+        self.assertEqual(messages[0].short_text, 'Message 1')
+        self.assertEqual(messages[0].force_supported, 'true')
+
+        self.assertEqual(messages[1].typ, 'W')
+        self.assertEqual(messages[1].short_text, 'Warning 2')
+        self.assertEqual(messages[1].force_supported, 'true')
 
 
 if __name__ == '__main__':

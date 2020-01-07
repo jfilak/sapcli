@@ -48,3 +48,17 @@ ACTIVATION_REFERENCES_XML='''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReference adtcore:uri="/sap/bc/adt/oo/classes/cl_hello_world/includes/definitions" adtcore:type="CLAS/OCN/definitions" adtcore:name="CL_HELLO_WORLD" adtcore:parentUri="/sap/bc/adt/oo/classes/cl_hello_world"/>
 </adtcore:objectReferences>'''
 
+
+ACTIVATION_WARNING_XML= '''<?xml version="1.0" encoding="utf-8"?>
+<chkl:messages xmlns:chkl="http://www.sap.com/abapxml/checklist">
+    <msg objDescr="Class ZCL_USER_MASTER_RECORD, Method CONSTRUCTOR" type="W" line="1" href="/sap/bc/adt/oo/classes/zcl_user_master_record/source/main#start=99,10" forceSupported="true">
+        <shortText>
+            <txt>Message 1</txt>
+        </shortText>
+    </msg>
+    <msg objDescr="Class ZCL_USER_MASTER_RECORD, Method CONSTRUCTOR" type="W" line="2" href="/sap/bc/adt/oo/classes/zcl_user_master_record/source/main#start=99,10" forceSupported="true">
+        <shortText>
+            <txt>Warning 2</txt>
+        </shortText>
+    </msg>
+</chkl:messages>'''

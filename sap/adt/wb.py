@@ -3,7 +3,8 @@
 from sap.adt.objects import (XMLNamespace, ADTObjectType, OrderedClassMembers,
                              ADTObjectReferences, ADTObjectReference)
 
-from sap.adt.annotations import xml_element, xml_attribute
+from sap.adt.annotations import xml_element, xml_attribute, xml_text_node_property, \
+    XmlNodeAttributeProperty, XmlNodeProperty, XmlContainer
 from sap.adt.marshalling import Marshal
 
 from sap import get_logger
@@ -172,6 +173,58 @@ def _send_activate(connection, request, params):
     )
 
 
+class CheckeMessageText(metaclass=OrderedClassMembers):
+
+    value = xml_text_node_property('txt')
+
+    def __str__(self):
+        return str(self.value)
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.value == other
+
+        return super(CheckeMessageText, self).__eq__(other)
+
+    def __ne__(self, other):
+        if isinstance(other, str):
+            return self.value != other
+
+        return super(CheckeMessageText, self).__ne__(other)
+
+
+class CheckMessage(metaclass=OrderedClassMembers):
+    """Run Check result message"""
+
+    obj_descr = XmlNodeAttributeProperty('objDescr')
+    typ = XmlNodeAttributeProperty('type')
+    line = XmlNodeAttributeProperty('line')
+    href = XmlNodeAttributeProperty('href')
+    force_supported = XmlNodeAttributeProperty('forceSupported')
+    short_text = XmlNodeProperty('shortText', factory=CheckeMessageText)
+
+
+XMLNS_CHKL = XMLNamespace('chkl', 'http://www.sap.com/abapxml/checklis')
+
+
+# pylint: disable=invalid-name
+CheckMessageList = XmlContainer.define('msg', CheckMessage)
+CheckMessageList.objtype = ADTObjectType(None,
+                                         None,
+                                         XMLNS_CHKL,
+                                         None,
+                                         None,
+                                         'messages')
+
+
+class ActivationError(SAPCliError):
+
+    def __init__(self, message, response):
+        super(ActivationError, self).__init__(message)
+
+        self.response = response
+
+
 def mass_activate(connection, references):
     """Activates the given objects"""
 
@@ -185,7 +238,23 @@ def mass_activate(connection, references):
         resp = _send_activate(connection, request, activation_params(pre_audit_requested=False))
 
     if resp.text:
-        raise SAPCliError(f'Could not activate the object {adt_object.name}: {resp.text}')
+        raise ActivationError(f'Could not activate: {resp.text}', resp)
+
+
+def try_mass_activate(connection, references):
+    try:
+        mass_activate(connection, references)
+        return None
+    except ActivationError as ex:
+        resp = ex.response
+
+        if 'application/xml' not in resp.headers.get('Content-Type', ''):
+            raise ex
+
+        messages = CheckMessageList()
+        Marshal.deserialize(resp.text, messages)
+
+        return messages
 
 
 def activate(adt_object):
