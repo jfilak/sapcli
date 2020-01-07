@@ -50,8 +50,11 @@ class Repository:
         self._config = config
 
         self._dir_prefix = config.STARTING_FOLDER.split('/')
-        del self._dir_prefix[0]
-        del self._dir_prefix[-1]
+        if not self._dir_prefix[0]:
+            del self._dir_prefix[0]
+
+        if not self._dir_prefix[-1]:
+            del self._dir_prefix[-1]
 
         self._packages = dict()
         self._objects = list()
