@@ -117,7 +117,7 @@ class Repository:
 
         pkg_file = os.path.join(dir_path, 'package.devc.xml', )
         if not os.path.isfile(pkg_file):
-            raise sap.errors.SAPCliError('Not a package directory: {full_path}'.format(full_path=root))
+            raise sap.errors.SAPCliError('Not a package directory: {full_path}'.format(full_path=dir_path))
 
         mod_log().debug('Adding new package dir: %s' % (dir_path))
 
