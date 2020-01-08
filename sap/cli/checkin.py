@@ -357,7 +357,10 @@ def checkin_prog(connection, repo_obj):
 
     try:
         program.create()
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+    except sap.adt.errors.ExceptionResourceCreationFailure as err:
+        if not str(err).endswith(f'A program or include already exists with the name {repo_obj.name.upper()}'):
+            raise
+
         mod_log().info(err.message)
 
     sap.cli.core.printout('Writing Program:', repo_obj.name)

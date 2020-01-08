@@ -56,6 +56,11 @@ class ExceptionResourceCreationFailure(ADTError):
         return f'{self.message}'
 
 
+class ExceptionResourceCreationFailure(ADTError):
+
+    def __init__(self, message):
+        super(ExceptionResourceCreationFailure, self).__init__('com.sap.adt', self.__class__.__name__, message)
+
 def new_adt_error_from_xml(xmldata):
     """Parses the xml data and create the correct instance.
 
