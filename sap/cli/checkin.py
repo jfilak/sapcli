@@ -416,6 +416,9 @@ def do_checkin(connection, args):
 
             abap_obj = obj_handler(connection, repo_obj)
 
+            if abap_obj is None:
+                continue
+
             inactive_objects.add_object(abap_obj)
 
         sap.cli.core.printout('Activating objects ...')
