@@ -13,6 +13,10 @@ class DEVC(Structure):
     SRV_CHECK: str
 
 
+SUBC_EXECUTABLE_PROGRAM = '1'
+SUBC_INCLUDE = 'I'
+
+
 # pylint: disable=invalid-name
 # pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
