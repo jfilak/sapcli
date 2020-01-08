@@ -10,7 +10,8 @@ from sap import get_logger
 import sap.errors
 import sap.cli.core
 import sap.platform.abap.abapgit
-from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC
+from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, \
+         SUBC_EXECUTABLE_PROGRAM, SUBC_INCLUDE
 import sap.adt
 import sap.adt.errors
 
@@ -348,7 +349,13 @@ def checkin_prog(connection, repo_obj):
     tpool = results['TPOOL']
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
-    program = sap.adt.Program(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
+    if progdir.SUBC == SUBC_EXECUTABLE_PROGRAM:
+        program = sap.adt.Program(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
+    elif progdir.SUBC == SUBC_INCLUDE:
+        print('Creating Include:', repo_obj.name)
+        program = sap.adt.Include(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
+    else:
+        raise SAPCliError(f'Unknown program type {progdir.SUBC}')
 
     description = ''
     for text in tpool:
