@@ -20,14 +20,15 @@ sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
 Changes main source code of the given class without activation
 
 ```
-sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
-
+sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
 ```
 
 * _OBJECT\_NAME_ either class name or - when it should be deduced from FILE\_PATH
 * _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
+* _--ignore-errors_ continue activating objects ignoring errors
+* _--warning-errors_ treat activation warnings as errors
 
 Changes definitions source code of the given class without activation
 
@@ -51,8 +52,8 @@ sapcli class write "ZCL_HELLOWORLD" --type testclassess zcl_helloworld.testclass
 
 Activates the given class.
 
-```bash
-sapcli class activate ZCL_HELLOWORLD
+```
+sapcli class activate [--ignore-errors] [--warning-errors] NAME NAME ...
 ```
 
 ## read

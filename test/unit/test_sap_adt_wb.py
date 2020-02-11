@@ -141,12 +141,13 @@ class TestADTWBActivate(unittest.TestCase):
                                                        text=ACTIVATION_WARNING_XML,
                                                        headers={})])
 
-        with self.assertRaises(sap.adt.wb.ActivationError) as caught:
-            results = sap.adt.wb.activate(adt_object)
+        results = sap.adt.wb.activate(adt_object)
 
-        conn = adt_object.connection
+        self.assertTrue(results.generated)
+        self.assertTrue(results.has_warnings)
+        self.assertFalse(results.has_errors)
 
-        messages = caught.exception.results.messages
+        messages = results.messages
 
         self.assertEqual(len(messages), 2)
 
@@ -167,10 +168,10 @@ class TestADTWBFetchInactive(unittest.TestCase):
         conn = Connection(responses=[(RESPONSE_INACTIVE_OBJECTS_V1, exp_request)])
         conn.asserter = self
 
-        inactive_objects = sap.adt.wb.fetch_inactive_objects(conn)
+        my_inactive_objects = sap.adt.wb.fetch_inactive_objects(conn)
 
-        self.assertEquals(inactive_objects.entries[0].transport.reference.name, 'C50K000377')
-        self.assertEquals(inactive_objects.entries[1].object.reference.name, 'CL_HELLO_WORLD')
+        self.assertEquals(my_inactive_objects.entries[0].transport.reference.name, 'C50K000377')
+        self.assertEquals(my_inactive_objects.entries[1].object.reference.name, 'CL_HELLO_WORLD')
 
 
 if __name__ == '__main__':

@@ -19,21 +19,26 @@ sapcli interface create ZIF_GREETER "Interface description" '$PACKAGE'
 Changes source code of the given interfaces without activation
 
 ```bash
-sapcli interface write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
+sapcli interface write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
 ```
 
 * _OBJECT\_NAME_ either interface name or - when it should be deduced from FILE\_PATH
 * _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
+* _--ignore-errors_ continue activating objects ignoring errors
+* _--warning-errors_ treat activation warnings as errors
 
 ## activate
 
 Activates the given interface
 
 ```bash
-sapcli interface activate ZIF_GREETER
+sapcli interface activate [--ignore-errors] [--warning-errors] NAME NAME ...
 ```
+
+* _--ignore-errors_ continue activating objects ignoring errors
+* _--warning-errors_ treat activation warnings as errors
 
 ## read
 

@@ -10,6 +10,7 @@ import sap.errors
 
 import sap.adt
 import sap.adt.wb
+import sap.cli.wb
 
 
 _NAME_INDEX = 0
@@ -68,6 +69,49 @@ def write_args_to_objects(command, connection, args, metadata=None):
 
     else:
         raise InvalidCommandLineError('Source file can be a list only when Object name is -')
+
+
+def printout_activation_stats(stats):
+    """Prints out activation statistics"""
+
+    printout('Warnings:', stats.warnings)
+    printout('Errors:', stats.errors)
+
+
+def printout_adt_object(prefix, obj):
+    """Prints out ADT object in identifiable way"""
+
+    printout(f'{prefix}{obj.objtype.code} {obj.name}')
+
+
+def activate_object_list(activator, object_enumerable, count):
+    """Starts object activation and handles results"""
+
+    try:
+        stats = activator.activate_sequentially(object_enumerable, count)
+    except sap.cli.wb.StopObjectActivation as ex:
+        printout('Activation has stopped')
+
+        printout_activation_stats(ex.stats)
+
+        if ex.stats.active_objects:
+            printout('Active objects:')
+            for obj in ex.stats.active_objects:
+                printout_adt_object('  ', obj)
+
+        return 1
+    else:
+        printout('Activation has finished')
+        printout_activation_stats(stats)
+
+        if stats.inactive_objects:
+            printout('Inactive objects:')
+            for obj in stats.inactive_objects:
+                printout_adt_object('  ', obj)
+
+            return 1
+
+        return 1 if stats.errors > 0 else 9
 
 
 class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
@@ -131,6 +175,10 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
                                   help='a path or - for reading stdin; multiple allowed only when name is -')
         write_cmd.append_argument('-a', '--activate', action='store_true',
                                   default=False, help='activate after write')
+        write_cmd.append_argument('--ignore-errors', action='store_true',
+                                  default=False, help='Do not stop activation in case of errors')
+        write_cmd.append_argument('--warning-errors', action='store_true',
+                                  default=False, help='Treat Activation warnings as errors')
         write_cmd.declare_corrnr()
 
         return write_cmd
@@ -144,6 +192,10 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         activate_cmd = commands.add_command(self.activate_objects, name='activate')
         activate_cmd.append_argument('name', nargs='+')
+        activate_cmd.append_argument('--ignore-errors', action='store_true',
+                                     default=False, help='Do not stop activation in case of errors')
+        activate_cmd.append_argument('--warning-errors', action='store_true',
+                                     default=False, help='Treat Activation warnings as errors')
 
         return activate_cmd
 
@@ -192,6 +244,17 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         obj = self.instance(connection, args.name, args)
         print(obj.text)
 
+    # pylint: disable=no-self-use
+    def build_activator(self, args):
+        """For children to customize"""
+
+        activator = sap.cli.wb.ObjectActivationWorker()
+
+        activator.continue_on_errors = args.ignore_errors
+        activator.warnings_as_errors = args.warning_errors
+
+        return activator
+
     def write_object_text(self, connection, args):
         """Changes source code of the given program include"""
 
@@ -207,24 +270,17 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
             toactivate[obj.name] = obj
 
-        if args.activate:
-            printout('Activating:')
+        if not args.activate:
+            return 0
 
-            for name, obj in toactivate.items():
-                printout('*', name)
-
-                sap.adt.wb.activate(obj)
+        activated_items = toactivate.items()
+        return activate_object_list(self.build_activator(args), activated_items, count=len(activated_items))
 
     def activate_objects(self, connection, args):
         """Actives the given object."""
 
-        printout('Activating:')
-
-        for name in args.name:
-            printout('*', name)
-
-            obj = self.instance(connection, name, args)
-            sap.adt.wb.activate(obj)
+        activated_items = ((name, self.instance(connection, name, args)) for name in args.name)
+        return activate_object_list(self.build_activator(args), activated_items, count=len(args.name))
 
 
 # pylint: disable=abstract-method

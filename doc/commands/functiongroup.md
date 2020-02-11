@@ -19,13 +19,15 @@ sapcli functiongroup create ZFG_PARENT "Class description" '$PACKAGE'
 Changes main source code of the given function group.
 
 ```
-sapcli functiongroup write [FUNCTION_GROUP_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
+sapcli functiongroup write [FUNCTION_GROUP_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
 ```
 
 * _FUNCITON\_GROUP\_NAME_ either function group name or - when it should be deduced from FILE\_PATH
 * _FILE\_PATH_ if FUNCTION\_GROUP\_NAME is not -, a single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
+* _--ignore-errors_ continue activating objects ignoring errors
+* _--warning-errors_ treat activation warnings as errors
 
 ## activate
 

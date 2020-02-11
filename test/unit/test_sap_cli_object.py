@@ -8,8 +8,9 @@ from types import SimpleNamespace
 
 import sap.cli.object
 
-from mock import Connection, Response
+from mock import Connection, Response, patch_get_print_console_with_buffer
 from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, OBJECT_METADATA
+from fixtures_adt_wb import MessageBuilder
 
 
 class DummyADTObjectCommandGroup(sap.cli.object.CommandGroupObjectTemplate):
@@ -43,6 +44,7 @@ class DummyADTObjectCommandGroup(sap.cli.object.CommandGroupObjectTemplate):
         """Returns new instance of the ADT Object proxy class"""
 
         self.new_object_mock.name = name
+        self.new_object_mock.objtype.code = 'FAKE'
         return self.instace_mock(connection, name, args, metadata=metadata)
 
     def build_new_metadata(self, connection, args):
@@ -76,14 +78,14 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         act_write_cmd = self.commands.get_declaration(self.group.write_object_text)
 
         self.assertEqual(act_write_cmd, exp_write_cmd)
-        self.assertEqual(len(exp_write_cmd.arguments), 4)
+        self.assertEqual(len(exp_write_cmd.arguments), 6)
 
     def test_define_activate(self):
         exp_activate_cmd = self.group.define_activate(self.commands)
         act_activate_cmd = self.commands.get_declaration(self.group.activate_objects)
 
         self.assertEqual(act_activate_cmd, exp_activate_cmd)
-        self.assertEqual(len(exp_activate_cmd.arguments), 1)
+        self.assertEqual(len(exp_activate_cmd.arguments), 3)
 
     def test_define(self):
         self.group.define_create = MagicMock()
@@ -242,11 +244,13 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         self.group.new_object_mock.open_editor.assert_called_once_with(corrnr='123456')
         self.group.open_editor_mock.write.assert_called_once_with('source code')
 
-    @patch('sap.adt.wb.activate')
+    @patch('sap.adt.wb.try_activate')
     def test_write_object_text_stdin_corrnr_activate(self, fake_activate):
         connection = MagicMock()
 
         args = self.parse_args('write', 'myname', '-', '--corrnr', '123456', '--activate')
+
+        fake_activate.return_value = (sap.adt.wb.CheckResults(), None)
 
         with patch('sys.stdin.readlines') as fake_readlines:
             fake_readlines.return_value = 'source code'
@@ -254,45 +258,40 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
         fake_activate.assert_called_once_with(self.group.new_object_mock)
 
-    @patch('sap.adt.wb.activate')
+    @patch('sap.adt.wb.try_activate')
     def test_write_object_text_name_from_files_activate(self, fake_activate):
         connection = MagicMock()
 
         args = self.parse_args('write', '-', 'z_one.abap', 'z_one.incl.abap', 'z_two.abap', '--corrnr', '123456', '--activate')
 
+        fake_activate.return_value = (sap.adt.wb.CheckResults(), None)
+
         with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open, \
-             patch('sap.cli.object.printout') as fake_printout:
+             patch_get_print_console_with_buffer() as fake_console:
             args.execute(connection, args)
 
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock), call(self.group.new_object_mock)])
-
-        exp = [call('Writing:'),
-               call('*', 'str(z_one)'),
-               call('*', 'str(z_one)'),
-               call('*', 'str(z_two)'),
-               call('Activating:'),
-               call('*', 'z_one'),
-               call('*', 'z_two')]
-
-        self.assertEqual(fake_printout.call_args_list, exp)
-
-        for i, cl in enumerate(fake_printout.call_args_list):
-            if i >= len(exp):
-                self.fail('Redundant:\n' + str(fake_printout.call_args_list[i:]))
-
-            self.assertEqual(fake_printout.call_args_list[i], exp[i], msg=f'Pos={i}')
-
-        if not i + 1 == len(exp):
-            self.fail(f'Missing: \n' + str(exp[i:]))
-
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), '''Writing:
+* str(z_one)
+* str(z_one)
+* str(z_two)
+Activating 2 objects:
+* z_one (1/2)
+* z_two (2/2)
+Activation has finished
+Warnings: 0
+Errors: 0
+''')
 
     def test_activate_objects(self):
         connection = MagicMock()
 
         args = self.parse_args('activate', 'myname', 'anothername')
 
-        with patch('sap.adt.wb.activate') as fake_activate, \
-             patch('sap.cli.object.printout') as fake_printout:
+        with patch('sap.adt.wb.try_activate') as fake_activate, \
+             patch_get_print_console_with_buffer() as fake_console:
+            fake_activate.return_value = (sap.adt.wb.CheckResults(), None)
+
             args.execute(connection, args)
 
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock),
@@ -301,11 +300,92 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         self.assertEqual(self.group.instace_mock.call_args_list, [call(connection, 'myname', args, metadata=None),
                                                                   call(connection, 'anothername', args, metadata=None)])
 
-        exp = [call('Activating:'),
-               call('*', 'myname'),
-               call('*', 'anothername')]
 
-        self.assertEqual(fake_printout.call_args_list, exp)
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), '''Activating 2 objects:
+* myname (1/2)
+* anothername (2/2)
+Activation has finished
+Warnings: 0
+Errors: 0
+''')
+
+    def test_activate_objects_with_error(self):
+        connection = MagicMock()
+
+        args = self.parse_args('activate', 'myname', 'anothername')
+
+        message_builder = MessageBuilder()
+
+        response_iter = iter([(message_builder.build_results_without_messages(), None),
+                              (message_builder.build_results_with_errors(), None)])
+
+        with patch('sap.adt.wb.try_activate') as fake_activate, \
+             patch_get_print_console_with_buffer() as fake_console:
+            fake_activate.side_effect = lambda x: next(response_iter)
+
+            args.execute(connection, args)
+
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), f'''Activating 2 objects:
+* myname (1/2)
+* anothername (2/2)
+{message_builder.error_message[1]}Activation has stopped
+Warnings: 0
+Errors: 1
+Active objects:
+  FAKE anothername
+''')
+
+    def test_activate_objects_with_ignored_error(self):
+        connection = MagicMock()
+
+        args = self.parse_args('activate', '--ignore-errors', 'myname', 'anothername')
+
+        message_builder = MessageBuilder()
+
+        response_iter = iter([(message_builder.build_results_without_messages(), None),
+                              (message_builder.build_results_with_errors(), None)])
+
+        with patch('sap.adt.wb.try_activate') as fake_activate, \
+             patch_get_print_console_with_buffer() as fake_console:
+            fake_activate.side_effect = lambda x: next(response_iter)
+
+            args.execute(connection, args)
+
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), f'''Activating 2 objects:
+* myname (1/2)
+* anothername (2/2)
+{message_builder.error_message[1]}Activation has finished
+Warnings: 0
+Errors: 1
+Inactive objects:
+  FAKE anothername
+''')
+
+    def test_activate_objects_with_warning_as_error(self):
+        connection = MagicMock()
+
+        args = self.parse_args('activate', '--ignore-errors', '--warning-errors', 'myname', 'anothername')
+
+        message_builder = MessageBuilder()
+
+        response_iter = iter([(message_builder.build_results_without_messages(), None),
+                              (message_builder.build_results_with_warnings(), None)])
+
+        with patch('sap.adt.wb.try_activate') as fake_activate, \
+             patch_get_print_console_with_buffer() as fake_console:
+            fake_activate.side_effect = lambda x: next(response_iter)
+
+            exit_code = args.execute(connection, args)
+            self.assertEqual(exit_code, 1)
+
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), f'''Activating 2 objects:
+* myname (1/2)
+* anothername (2/2)
+{message_builder.warning_message[1]}Activation has finished
+Warnings: 1
+Errors: 1
+''')
+
 
 
 class MasterDummyADTObjectCommandGroup(sap.cli.object.CommandGroupObjectMaster):

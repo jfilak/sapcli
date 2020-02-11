@@ -13,7 +13,7 @@ from mock import Response, Connection
 
 ACTIVATE_RESPONSE_FAILED='''<?xml version="1.0" encoding="utf-8"?>
   <chkl:messages xmlns:chkl="http://www.sap.com/abapxml/checklist">
-    <msg objDescr="Program ZABAPGIT" type="W" line="1" href="/sap/bc/adt/programs/programs/zabapgit/source/main#start=41593,4" forceSupported="true">
+    <msg objDescr="Program ZABAPGIT" type="E" line="1" href="/sap/bc/adt/programs/programs/zabapgit/source/main#start=41593,4" forceSupported="true">
       <shortText>
         <txt>The exception CX_WDY_MD_EXCEPTION is not caught or declared in the RAISING clause of "RECOVER_DEFINITION". "RECOVER_DEFINITION".</txt>
       </shortText>

@@ -208,24 +208,30 @@ class CheckMessage(metaclass=OrderedClassMembers):
     force_supported = XmlNodeAttributeProperty('forceSupported')
     short_text = XmlNodeProperty('shortText', factory=CheckMessageText)
 
+    @property
+    def is_error(self):
+        """Returns true if the message is an error"""
+
+        return self.typ == 'E'
+
+    @property
+    def is_warning(self):
+        """Returns true if the message is an error"""
+
+        return self.typ == 'W'
+
 
 class CheckProperties(metaclass=OrderedClassMembers):
     """Run Check result properties"""
 
-    checked = XmlNodeAttributeProperty('checkExecuted', value='false')
-    activated = XmlNodeAttributeProperty('activationExecuted', value='false')
-    generated = XmlNodeAttributeProperty('generationExecuted', value='false')
+    checked = XmlNodeAttributeProperty('checkExecuted')
+    activated = XmlNodeAttributeProperty('activationExecuted')
+    generated = XmlNodeAttributeProperty('generationExecuted')
 
     def __init__(self):
-        self.checked = 'false'
-        self.activated = 'false'
-        self.generated = 'false'
-
-    @property
-    def successful(self):
-        """Returns true if the activation was completely successful"""
-
-        return self.checked == 'true' and self.activated == 'true' and self.generated == 'true'
+        self.checked = None
+        self.activated = None
+        self.generated = None
 
 
 class CheckResults(metaclass=OrderedClassMembers):
@@ -234,17 +240,28 @@ class CheckResults(metaclass=OrderedClassMembers):
     objtype = ADTObjectType(None, None, XMLNS_CHKL, None, None, 'messages')
 
     properties = XmlNodeProperty('chkl:properties', factory=CheckProperties)
-    messages = XmlListNodeProperty('msg', factory=CheckMessage)
+    messages = XmlListNodeProperty('msg', value=[], factory=CheckMessage)
 
     @property
-    def successful(self):
-        """Returns true if the activation check left the objects
-        fully activated and generated"""
+    def has_errors(self):
+        """Returns true if the results contains an error message"""
 
-        if self.properties is not None:
-            return self.properties.successful
+        return any((message.is_error for message in self.messages))
 
-        return not self.messages
+    @property
+    def has_warnings(self):
+        """Returns true if the results contains a warning message"""
+
+        return any((message.is_warning for message in self.messages))
+
+    @property
+    def generated(self):
+        """Returns true if the activation left the objects generated"""
+
+        if self.properties is None:
+            return not self.has_errors
+
+        return self.properties.generated != 'false'
 
 
 class ActivationError(SAPCliError):
@@ -263,8 +280,10 @@ class ActivationError(SAPCliError):
         self.results = results
 
 
-def activate(adt_object):
-    """Activates the given object"""
+def try_activate(adt_object):
+    """Activates the given object and returns CheckResults with
+    the activation results.
+    """
 
     request = ADTObjectReferences()
     request.add_object(adt_object)
@@ -283,8 +302,18 @@ def activate(adt_object):
     if resp.text:
         Marshal.deserialize(resp.text, results)
 
-        if not results.successful:
-            raise ActivationError(f'Could not activate: {resp.text}', resp, results)
+    return (results, resp)
+
+
+def activate(adt_object):
+    """Activates the given object and raises ActivationError
+    in the case where activation didn't generate the object.
+    """
+
+    results, resp = try_activate(adt_object)
+
+    if not results.generated:
+        raise ActivationError(f'Could not activate: {resp.text}', resp, results)
 
     return results
 

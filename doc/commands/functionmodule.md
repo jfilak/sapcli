@@ -20,7 +20,7 @@ sapcli functionmodule create ZFG_PARENT Z_FUNCTION_MODULE "Class description"
 Changes main source code of the given function module.
 
 ```
-sapcli functiongroup write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate]
+sapcli functiongroup write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
 ```
 
 * _GROUP\_NAME_ either function group name or - when it should be deduced from FILE\_PATH
@@ -28,6 +28,8 @@ sapcli functiongroup write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corr
 * _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
+* _--ignore-errors_ continue activating objects ignoring errors
+* _--warning-errors_ treat activation warnings as errors
 
 ## chattr
 

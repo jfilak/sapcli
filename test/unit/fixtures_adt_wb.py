@@ -1,5 +1,45 @@
 from mock import Response, Request
 
+import sap.adt.wb
+
+class MessageBuilder:
+
+    def __init__(self):
+        self.error_message = self.build_error()
+        self.warning_message = self.build_warning()
+
+    def build_message(self, typ, descr, short_text):
+        text = sap.adt.wb.CheckMessageText()
+        text.value = short_text
+
+        message = sap.adt.wb.CheckMessage()
+        message.obj_descr = descr
+        message.typ = typ
+        message.short_text = text
+
+        return (message, f'-- {descr}\n   {typ}: {short_text}\n')
+
+    def build_error(self):
+        return self.build_message('E', '/sap/adt/err_mock?line=3', 'An error!')
+
+    def build_warning(self):
+        return self.build_message('W', '/sap/adt/fake_warning?column=7', 'An warning \o/')
+
+    def build_results_without_messages(self):
+        return sap.adt.wb.CheckResults()
+
+    def build_results_with_warnings(self):
+        results = self.build_results_without_messages()
+        results.messages.append(self.warning_message[0])
+
+        return results
+
+    def build_results_with_errors(self):
+        results = self.build_results_without_messages()
+        results.messages.append(self.error_message[0])
+
+        return results
+
 
 PREAUDIT_ACTIVATION_XML='''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">

@@ -3,6 +3,7 @@
 import sap.adt
 import sap.adt.wb
 import sap.cli.core
+import sap.cli.object
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -30,8 +31,6 @@ def activate(connection, args):
     """Actives the given class.
     """
 
-    for name in args.name:
-        print(name, end=' ... ')
-        ddl = sap.adt.DataDefinition(connection, name)
-        sap.adt.wb.activate(ddl)
-        print('DONE')
+    activator = sap.cli.wb.ObjectActivationWorker()
+    activated_items = ((name, sap.adt.DataDefinition(connection, name)) for name in args.name)
+    sap.cli.object.activate_object_list(activator, activated_items, count=len(args.name))

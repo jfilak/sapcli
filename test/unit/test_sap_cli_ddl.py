@@ -7,6 +7,8 @@ from io import StringIO
 
 import sap.cli.interface
 
+from mock import patch_get_print_console_with_buffer
+
 
 def parse_args(argv):
     parser = ArgumentParser()
@@ -22,7 +24,7 @@ class TestCommandGroup(unittest.TestCase):
 
 class TestDDLActivate(unittest.TestCase):
 
-    @patch('sap.adt.wb.activate')
+    @patch('sap.adt.wb.try_activate')
     @patch('sap.adt.DataDefinition')
     def test_cli_ddl_activate_defaults(self, fake_ddl, fake_activate):
         instances = []
@@ -38,8 +40,9 @@ class TestDDLActivate(unittest.TestCase):
 
         fake_conn= Mock()
 
+        fake_activate.return_value = (sap.adt.wb.CheckResults(), None)
         args = parse_args(['activate', 'myusers', 'mygroups'])
-        with patch('sap.cli.datadefinition.print') as fake_print:
+        with patch_get_print_console_with_buffer() as fake_get_console:
             args.execute(fake_conn, args)
 
         self.assertEqual(fake_ddl.mock_calls, [call(fake_conn, 'myusers'), call(fake_conn, 'mygroups')])
@@ -49,10 +52,14 @@ class TestDDLActivate(unittest.TestCase):
 
         self.assertEqual(fake_activate.mock_calls, [call(instances[0]), call(instances[1])])
 
-        self.assertEqual(fake_print.mock_calls, [call('myusers', end=' ... '),
-                                                 call('DONE'),
-                                                 call('mygroups', end=' ... '),
-                                                 call('DONE')])
+        self.assertEqual(fake_get_console.return_value.err_output.getvalue(), '')
+        self.assertEqual(fake_get_console.return_value.std_output.getvalue(), '''Activating 2 objects:
+* myusers (1/2)
+* mygroups (2/2)
+Activation has finished
+Warnings: 0
+Errors: 0
+''')
 
 
 class TestDDLRead(unittest.TestCase):
