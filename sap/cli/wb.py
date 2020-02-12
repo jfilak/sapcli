@@ -80,14 +80,12 @@ class ObjectActivationWorker:
     def start_object(self, name, index, count):
         """Reports start of object activation"""
 
-        progress = f'({index}'
+        end = '\n'
+        if count is not None and count != 1:
+            end = f' ({index}/{count})\n'
 
-        if count is None or count == 1:
-            progress += ')'
-        else:
-            progress += f'/{count})'
+        printout('*', name, end=end)
 
-        printout('*', name, progress)
 
     # pylint: disable=no-self-use
     def handle_message(self, msg):

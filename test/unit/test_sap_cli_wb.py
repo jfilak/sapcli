@@ -44,8 +44,8 @@ class TestObjectActivationWorker(unittest.TestCase):
             self.assertEqual(fake_console.return_value.std_output.getvalue(), case[1], f'Case {no}')
 
     def test_start_object(self):
-        cases = [('CL_NONE', 1, None, '* CL_NONE (1)\n'),
-                 ('CL_ONE', 1, 1, '* CL_ONE (1)\n'),
+        cases = [('CL_NONE', 1, None, '* CL_NONE\n'),
+                 ('CL_ONE', 1, 1, '* CL_ONE\n'),
                  ('CL_TWO', 1, 2, '* CL_TWO (1/2)\n')]
 
         for no, case in enumerate(cases):
