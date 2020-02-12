@@ -111,7 +111,7 @@ def activate_object_list(activator, object_enumerable, count):
 
             return 1
 
-        return 1 if stats.errors > 0 else 9
+        return 1 if stats.errors > 0 else 0
 
 
 class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):

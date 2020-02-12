@@ -292,7 +292,8 @@ Errors: 0
              patch_get_print_console_with_buffer() as fake_console:
             fake_activate.return_value = (sap.adt.wb.CheckResults(), None)
 
-            args.execute(connection, args)
+            exit_code = args.execute(connection, args)
+            self.assertEqual(exit_code, 0)
 
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock),
                                                         call(self.group.new_object_mock)])
@@ -323,7 +324,8 @@ Errors: 0
              patch_get_print_console_with_buffer() as fake_console:
             fake_activate.side_effect = lambda x: next(response_iter)
 
-            args.execute(connection, args)
+            exit_code = args.execute(connection, args)
+            self.assertEqual(exit_code, 1)
 
         self.assertEqual(fake_console.return_value.std_output.getvalue(), f'''Activating 2 objects:
 * myname (1/2)
@@ -349,7 +351,8 @@ Active objects:
              patch_get_print_console_with_buffer() as fake_console:
             fake_activate.side_effect = lambda x: next(response_iter)
 
-            args.execute(connection, args)
+            exit_code = args.execute(connection, args)
+            self.assertEqual(exit_code, 1)
 
         self.assertEqual(fake_console.return_value.std_output.getvalue(), f'''Activating 2 objects:
 * myname (1/2)
