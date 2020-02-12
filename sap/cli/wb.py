@@ -86,7 +86,6 @@ class ObjectActivationWorker:
 
         printout('*', name, end=end)
 
-
     # pylint: disable=no-self-use
     def handle_message(self, msg):
         """Reports an activation message"""
