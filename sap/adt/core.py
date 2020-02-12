@@ -189,19 +189,26 @@ class Connection:
                 mod_log().info('SSL Server cert will not be verified: SAP_SSL_VERIFY = no')
                 self._session.verify = False
 
+            discovery_headers = {'x-csrf-token': 'Fetch'}
+            csrf_token = None
             url = self._build_adt_url('core/discovery')
 
             try:
-                response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
+                response = self._execute_with_session(self._session, 'GET', url, headers=discovery_headers)
+                discovery_headers = {}
+                csrf_token = response.headers['x-csrf-token']
             except HTTPRequestError as ex:
                 if ex.response.status_code != 404:
                     raise ex
 
-                url = self._build_adt_url('discovery')
-                response = self._execute_with_session(self._session, 'GET', url, headers={'x-csrf-token': 'Fetch'})
-                self._collection_types = _get_collection_accepts(response.text)
+            url = self._build_adt_url('discovery')
+            response = self._execute_with_session(self._session, 'GET', url, headers=discovery_headers)
+            self._collection_types = _get_collection_accepts(response.text)
 
-            self._session.headers.update({'x-csrf-token': response.headers['x-csrf-token']})
+            if csrf_token is None:
+                csrf_token = response.headers['x-csrf-token']
+
+            self._session.headers.update({'x-csrf-token': csrf_token})
 
         return self._session
 
