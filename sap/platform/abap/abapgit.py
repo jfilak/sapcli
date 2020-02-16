@@ -39,7 +39,7 @@ class DOT_ABAP_GIT(Structure):
     IGNORE: StringTable
 
     @staticmethod
-    def for_new_repo(MASTER_LANGUAGE: str = 'E', STARTING_FOLDER: str = 'src', FOLDER_LOGIC: str = FOLDER_LOGIC_FULL):
+    def for_new_repo(MASTER_LANGUAGE: str = 'E', STARTING_FOLDER: str = '/src/', FOLDER_LOGIC: str = FOLDER_LOGIC_FULL):
         """Creates new instance of DOT_ABAP_GIT for new repository"""
 
         IGNORE = StringTable('/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml')
