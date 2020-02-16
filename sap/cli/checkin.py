@@ -13,6 +13,7 @@ import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, \
          SUBC_EXECUTABLE_PROGRAM, SUBC_INCLUDE
 import sap.adt
+import sap.adt.objects
 import sap.adt.errors
 
 
@@ -93,6 +94,7 @@ class Repository:
             raise sap.errors.SAPCliError(f'Invalid ABAP file name: {obj_file_name}')
 
         obj_code = obj_file_name[obj_id_start:obj_id_start+4]
+        mod_log().debug('Handling object code: %s (%s)', obj_code, obj_file_name)
 
         if obj_code == 'devc':
             return
@@ -103,16 +105,18 @@ class Repository:
 
         obj_file_pattern = os.path.join(package.dir_path, obj_name)
         obj_file_pattern = f'{obj_file_pattern}.{obj_code}.*'
+
+        mod_log().debug('Searching for object files: %s', obj_file_pattern)
         for source_file in glob.glob(obj_file_pattern):
             if source_file.endswith('.xml'):
                 continue
 
+            mod_log().debug('Adding file: %s', source_file)
             other_files.append(source_file)
 
         obj = RepoObject(obj_code, obj_name, os.path.join(package.dir_path, obj_file_name), package, other_files)
         self._objects.append(obj)
 
-    # TODO: use dir_path 
     def add_package_dir(self, dir_path, parent=None):
         """add new directory package"""
 
@@ -120,9 +124,9 @@ class Repository:
         if not os.path.isfile(pkg_file):
             raise sap.errors.SAPCliError('Not a package directory: {full_path}'.format(full_path=dir_path))
 
-        mod_log().debug('Adding new package dir: %s' % (dir_path))
+        mod_log().debug('Adding new package dir: %s', dir_path)
 
-        # Skip the first to ignore ./
+        # Skip the first path part to ignore .
         parts = dir_path.split('/')[1:]
         if len(parts) < len(self._dir_prefix):
             raise sap.errors.SAPCliError(f'Sub-package dir {dir_path} not in starting folder {self._config.STARTING_FOLDER}')
@@ -158,12 +162,9 @@ def _load_objects(repo):
     repo.add_package_dir(abap_dir)
 
     for root, dirs, files in os.walk(abap_dir):
-        package = repo.find_package_by_path(root)
+        mod_log().debug('Analyzing package dir: %s', root)
 
-        for sub_dir in dirs:
-            sub_pkg_dir = os.path.join(root, sub_dir)
-            # TODO: pass only dir name and not entire path
-            repo.add_package_dir(sub_pkg_dir, parent=package)
+        package = repo.find_package_by_path(root)
 
         for obj_file_name in files:
             if not obj_file_name.endswith('.xml'):
@@ -171,8 +172,13 @@ def _load_objects(repo):
 
             repo.add_object(obj_file_name, package)
 
+        for sub_dir in dirs:
+            sub_pkg_dir = os.path.join(root, sub_dir)
+            # TODO: pass only dir name and not entire path
+            repo.add_package_dir(sub_pkg_dir, parent=package)
 
-def _get_config(starting_folder):
+
+def _get_config(starting_folder, console):
     config = None
 
     conf_file_contents = None
@@ -188,6 +194,9 @@ def _get_config(starting_folder):
         config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER=starting_folder)
     else:
         config = sap.platform.abap.abapgit.DOT_ABAP_GIT.from_xml(conf_file_contents)
+
+        if config.STARTING_FOLDER != starting_folder:
+            console.printout(f'Using starting-folder from .abapgit.xml: {config.STARTING_FOLDER}')
 
     return config
 
@@ -386,6 +395,42 @@ OBJECT_CHECKIN_HANDLERS = {
     'prog': checkin_prog,
 }
 
+
+def _checkin_dependency_group(connection, group):
+    inactive_objects = sap.adt.objects.ADTObjectReferences()
+
+    for repo_obj in group:
+        obj_handler = OBJECT_CHECKIN_HANDLERS.get(repo_obj.code)
+
+        if obj_handler is None:
+            continue
+
+        abap_obj = obj_handler(connection, repo_obj)
+
+        if abap_obj is None:
+            continue
+
+        inactive_objects.add_object(abap_obj)
+
+
+def _activate(connection, inactive_objects, console):
+    messages = sap.adt.wb.try_mass_activate(connection, inactive_objects)
+
+    if not messages:
+        return
+
+    error = False
+    for msg in messages:
+        if msg.typ == 'E':
+            error = True
+
+        console.printout(f'* {msg.obj_descr} ::')
+        console.printout(f'| {msg.typ}: {msg.short_text}')
+
+    if error:
+        raise SAPCliError('Aborting because of activation errors')
+
+
 def do_checkin(connection, args):
     """Synchronize directory structure with ABAP package structure"""
 
@@ -393,50 +438,28 @@ def do_checkin(connection, args):
     if args.starting_folder:
         top_dir = os.path.join(top_dir, args.starting_folder)
 
-    config = _get_config(args.starting_folder)
+    if not os.path.isdir(top_dir):
+        raise SAPCliError(f'Cannot check-in ABAP objects from "{top_dir}": not a directory')
+
+    console = sap.cli.core.get_console()
+
+    config = _get_config(args.starting_folder, console)
     repo = Repository(args.name, config)
 
     _load_objects(repo)
 
-    sap.cli.core.printout('Creating packages ...')
+    console.printout('Creating packages ...')
     for package in repo.packages:
         checkin_package(connection, package)
 
     groups = _resolve_dependencies(repo.objects)
 
     for activation_group in groups:
-        inactive_objects = sap.adt.wb.ADTObjectReferences()
+        console.printout('Creating objects ...')
+        inactive_objects = _checkin_dependency_group(connection, activation_group)
 
-        sap.cli.core.printout('Creating objects ...')
-        for repo_obj in activation_group:
-            obj_handler = OBJECT_CHECKIN_HANDLERS.get(repo_obj.code)
-
-            if obj_handler is None:
-                continue
-
-            abap_obj = obj_handler(connection, repo_obj)
-
-            if abap_obj is None:
-                continue
-
-            inactive_objects.add_object(abap_obj)
-
-        sap.cli.core.printout('Activating objects ...')
-        messages = sap.adt.wb.try_mass_activate(connection, inactive_objects)
-
-        if not messages:
-            continue
-
-        error = False
-        for msg in messages:
-            if msg.typ == 'E':
-                error = True
-
-            sap.cli.core.printout(f'* {msg.typ}: {msg.short_text}')
-            sap.cli.core.printout(f'  {msg.obj_descr}')
-
-        if error:
-            sap.cli.core.printerr('Aborting because of activation errors')
+        console.printout('Activating objects ...')
+        _activate(connection, inactive_objects, console)
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
