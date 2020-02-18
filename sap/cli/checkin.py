@@ -190,13 +190,16 @@ def _get_config(starting_folder, console):
     conf_file_path = '.abapgit.xml'
 
     try:
-        with open(conf_file_path) as conf_file:
+        with open(conf_file_path, 'r') as conf_file:
             conf_file_contents = conf_file.read()
     except OSError as ex:
         if ex.errno != errno.ENOENT:
             raise
 
-        config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER=starting_folder)
+        if starting_folder is None:
+            config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo()
+        else:
+            config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER=starting_folder)
     else:
         config = sap.platform.abap.abapgit.DOT_ABAP_GIT.from_xml(conf_file_contents)
 

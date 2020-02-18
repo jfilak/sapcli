@@ -3,14 +3,17 @@
 import os
 import unittest
 import fnmatch
+import errno
 from types import SimpleNamespace
-from unittest.mock import patch, Mock
+from unittest.mock import mock_open, patch, Mock
 from argparse import ArgumentParser
 
 import sap.cli.checkin
 from sap import get_logger
 
-from mock import PatcherTestCase, patch_get_print_console_with_buffer
+from mock import PatcherTestCase, patch_get_print_console_with_buffer, BufferConsole
+
+from fixtures_abap import ABAP_GIT_DEFAULT_XML
 
 
 class DirContentBuilder:
@@ -132,6 +135,57 @@ class TestRepository(unittest.TestCase):
         self.assertEqual(pkg.name, 'unittest_full_package_name')
 
 
+class TestGetConfig(unittest.TestCase):
+
+    def setUp(self):
+        self.console = BufferConsole()
+
+    def assertEmptyConsole(self, console,):
+        self.assertEqual(console.capout, '')
+        self.assertEqual(console.caperr, '')
+
+    def assertConsoleContents(self, console, stdout='', stderr=''):
+        self.assertEqual(console.capout, stdout)
+        self.assertEqual(console.caperr, stderr)
+
+    @patch('sap.cli.checkin.open', side_effect=lambda x, y: open('/foo/bar/invalid/non/existing'))
+    def test_get_config_noent(self, fake_open):
+        act = sap.cli.checkin._get_config('/backend/', self.console)
+        exp = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='/backend/')
+
+        self.assertEqual(act, exp)
+        self.assertEmptyConsole(self.console)
+
+    @patch('sap.cli.checkin.open', side_effect=lambda x, y: open('/foo/bar/invalid/non/existing'))
+    def test_get_config_noent_default(self, fake_open):
+        act = sap.cli.checkin._get_config(None, self.console)
+        exp = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo()
+
+        self.assertEqual(act, exp)
+        self.assertEmptyConsole(self.console)
+
+    @patch('sap.cli.checkin.open', side_effect=OSError(errno.EPERM))
+    def test_get_config_noperm(self, fake_open):
+        with self.assertRaises(OSError):
+            sap.cli.checkin._get_config('/backend/', self.console)
+
+        self.assertEmptyConsole(self.console)
+
+    def test_get_config_overwrites(self):
+        with patch('sap.cli.checkin.open', mock_open(read_data= ABAP_GIT_DEFAULT_XML)) as m:
+            config = sap.cli.checkin._get_config('/backend/', self.console)
+            self.assertEqual(config.STARTING_FOLDER, '/src/')
+
+        self.assertConsoleContents(self.console, stdout='Using starting-folder from .abapgit.xml: /src/\n')
+
+    def test_get_config_simple(self):
+        with patch('sap.cli.checkin.open', mock_open(read_data= ABAP_GIT_DEFAULT_XML)) as m:
+            config = sap.cli.checkin._get_config('/src/', self.console)
+            self.assertEqual(config.STARTING_FOLDER, '/src/')
+
+        self.assertEmptyConsole(self.console)
+
+
 class TestCheckIn(unittest.TestCase, PatcherTestCase):
 
     def walk(self, name):
@@ -201,22 +255,6 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
 
         self.assertEqual([(obj.package.name, obj.name) for obj in repo.objects],
                          [('unittest', 'run_report'), ('unittest_sub', 'if_strategy'), ('unittest_sub_grand', 'cl_implementor')])
-
-    def test_get_config_noent(self):
-
-        pass
-
-    def test_get_config_noperm(self):
-
-        pass
-
-    def test_get_config_overwrites(self):
-
-        pass
-
-    def test_get_config_simple(self):
-
-        pass
 
     def test_resolve_dependencies(self):
 
