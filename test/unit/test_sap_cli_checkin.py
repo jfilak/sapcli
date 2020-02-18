@@ -191,8 +191,16 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
         #TODO: _get_config asserts
 
     def test_load_objects(self):
+        config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX)
+        repo = sap.cli.checkin.Repository('unittest', config)
 
-        pass
+        sap.cli.checkin._load_objects(repo)
+
+        self.assertEqual([package.name for package in repo.packages],
+                         ['unittest', 'unittest_sub', 'unittest_sub_grand'])
+
+        self.assertEqual([(obj.package.name, obj.name) for obj in repo.objects],
+                         [('unittest', 'run_report'), ('unittest_sub', 'if_strategy'), ('unittest_sub_grand', 'cl_implementor')])
 
     def test_get_config_noent(self):
 
