@@ -143,6 +143,21 @@ class InternalTable(metaclass=InternalTableMeta):
     def __len__(self):
         return self._rows.__len__()
 
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        if id(other) == id(self):
+            return True
+
+        if other.__class__ != self.__class__:
+            return False
+
+        if len(other) != len(self):
+            return False
+
+        return self._rows == other._rows
+
     def _append_row(self, row):
         if not isinstance(row, self._type):
             srctyp = row.__class__.__name__
