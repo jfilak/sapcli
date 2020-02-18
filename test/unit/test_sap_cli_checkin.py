@@ -257,8 +257,16 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
                          [('unittest', 'run_report'), ('unittest_sub', 'if_strategy'), ('unittest_sub_grand', 'cl_implementor')])
 
     def test_resolve_dependencies(self):
+        clas = sap.cli.checkin.RepoObject(code='clas', name='cl_ass', path='./cl_ass', package=None, files=[])
+        intf = sap.cli.checkin.RepoObject(code='intf', name='if_ace', path='./if_ace', package=None, files=[])
+        prog = sap.cli.checkin.RepoObject(code='prog', name='program', path='./program', package=None, files=[])
+        fugr = sap.cli.checkin.RepoObject(code='fugr', name='function_group', path='./function_group', package=None, files=[])
 
-        pass
+        objects = [clas, prog, intf, fugr]
+
+        deps = sap.cli.checkin._resolve_dependencies(objects)
+
+        self.assertEqual(deps, [[clas, intf], [prog], [fugr]])
 
     def test_checkin_group_none_handler(self):
 
