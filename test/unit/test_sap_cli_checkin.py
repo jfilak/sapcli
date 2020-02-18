@@ -57,6 +57,81 @@ def parse_args(*argv):
     return parser.parse_args(argv)
 
 
+class TestRepository(unittest.TestCase):
+
+    def setUp(self):
+        self.config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo()
+        self.repo = sap.cli.checkin.Repository('unittest', self.config)
+        self.root_package = sap.cli.checkin.RepoPackage('unittest', './src/package.devc.xml', './src', None)
+
+    def test_init(self):
+        self.assertEqual(self.repo.config, self.config)
+        self.assertEqual(len(self.repo.packages), 0)
+        self.assertEqual(len(self.repo.objects), 0)
+
+        with self.assertRaises(KeyError):
+            self.repo.find_package_by_path('./src')
+
+    def test_repo_add_object_unsupported(self):
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            self.repo.add_object('log.txt', None)
+
+        self.assertEqual(str(caught.exception), 'Invalid ABAP file name: log.txt')
+
+    @patch('sap.cli.checkin.glob.glob', return_value=['zreport.prog.abap', 'zreport.prog.bogus', 'zreport.prog.xml'])
+    def test_repo_add_object_ok(self, fake_glob):
+        obj = self.repo.add_object('zreport.prog.xml', self.root_package)
+
+        self.assertEqual(obj, sap.cli.checkin.RepoObject('prog',
+                                                         'zreport',
+                                                         './src/zreport.prog.xml',
+                                                         self.root_package,
+                                                         ['zreport.prog.abap', 'zreport.prog.bogus']))
+
+    @patch('sap.cli.checkin.os.path.isfile', return_value=False)
+    def test_repo_not_a_packagedir(self, fake_isfile):
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            self.repo.add_package_dir('./.git', None)
+
+        self.assertEqual(str(caught.exception), 'Not a package directory: ./.git')
+
+    @patch('sap.cli.checkin.os.path.isfile', return_value=True)
+    def test_repo_package_add_root(self, fake_isfile):
+        pkg = self.repo.add_package_dir('./src', None)
+        self.assertEqual(pkg, self.root_package)
+
+        pkg = self.repo.find_package_by_path('./src')
+        self.assertEqual(pkg, self.root_package)
+
+    @patch('sap.cli.checkin.os.path.isfile', return_value=True)
+    def test_repo_package_dir_outside(self, fake_isfile):
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            self.repo.add_package_dir('./secret', None)
+
+        self.assertEqual(str(caught.exception), 'Sub-package dir ./secret not in starting folder /src/')
+
+    @patch('sap.cli.checkin.os.path.isfile', return_value=True)
+    def test_repo_package_dir_wrong_name(self, fake_isfile):
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            self.repo.add_package_dir('../foo', None)
+
+        self.assertEqual(str(caught.exception), 'Package dirs must start with "./": ../foo')
+
+    @patch('sap.cli.checkin.os.path.isfile', return_value=True)
+    def test_repo_package_name_fulll(self, fake_isfile):
+        pkg = self.repo.add_package_dir('./src/myapp/myapp_tests', None)
+        self.assertEqual(pkg.name, 'myapp_tests')
+
+    @patch('sap.cli.checkin.os.path.isfile', return_value=True)
+    def test_repo_package_name_prefix(self, fake_isfile):
+        config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo()
+        config.FOLDER_LOGIC = sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
+        repo = sap.cli.checkin.Repository('unittest', config)
+
+        pkg = repo.add_package_dir('./src/full/package/name', None)
+        self.assertEqual(pkg.name, 'unittest_full_package_name')
+
+
 class TestCheckIn(unittest.TestCase, PatcherTestCase):
 
     def walk(self, name):
@@ -114,22 +189,6 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
             args.execute(None, args)
 
         #TODO: _get_config asserts
-
-    def test_repo_add_object_unsupported(self):
-        repo = sap.cli.checkin.Repository('unittest', sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo())
-
-        with self.assertRaises(sap.errors.SAPCliError) as caught:
-            repo.add_object('log.txt', None)
-
-        self.assertEqual(str(caught.exception), 'Invalid ABAP file name: log.txt')
-
-    def test_repo_package_dir_outside(self):
-
-        pass
-
-    def test_repo_package_dir_wrong_name(self):
-
-        pass
 
     def test_load_objects(self):
 

@@ -117,12 +117,17 @@ class Repository:
         obj = RepoObject(obj_code, obj_name, os.path.join(package.dir_path, obj_file_name), package, other_files)
         self._objects.append(obj)
 
+        return obj
+
     def add_package_dir(self, dir_path, parent=None):
         """add new directory package"""
 
+        if not dir_path.startswith('./'):
+            raise sap.errors.SAPCliError(f'Package dirs must start with "./": {dir_path}')
+
         pkg_file = os.path.join(dir_path, 'package.devc.xml', )
         if not os.path.isfile(pkg_file):
-            raise sap.errors.SAPCliError('Not a package directory: {full_path}'.format(full_path=dir_path))
+            raise sap.errors.SAPCliError(f'Not a package directory: {dir_path}')
 
         mod_log().debug('Adding new package dir: %s', dir_path)
 
