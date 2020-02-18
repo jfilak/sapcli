@@ -404,21 +404,25 @@ OBJECT_CHECKIN_HANDLERS = {
 }
 
 
-def _checkin_dependency_group(connection, group):
+def _checkin_dependency_group(connection, group, console):
     inactive_objects = sap.adt.objects.ADTObjectReferences()
 
     for repo_obj in group:
         obj_handler = OBJECT_CHECKIN_HANDLERS.get(repo_obj.code)
 
         if obj_handler is None:
+            console.printerr(f'Object not supported: {repo_obj.path}')
             continue
 
         abap_obj = obj_handler(connection, repo_obj)
 
         if abap_obj is None:
+            console.printout(f'Object handled without activation: {repo_obj.path}')
             continue
 
         inactive_objects.add_object(abap_obj)
+
+    return inactive_objects
 
 
 def _activate(connection, inactive_objects, console):
@@ -464,10 +468,11 @@ def do_checkin(connection, args):
 
     for activation_group in groups:
         console.printout('Creating objects ...')
-        inactive_objects = _checkin_dependency_group(connection, activation_group)
+        inactive_objects = _checkin_dependency_group(connection, activation_group, console)
 
-        console.printout('Activating objects ...')
-        _activate(connection, inactive_objects, console)
+        if inactive_objects.references is not None:
+            console.printout('Activating objects ...')
+            _activate(connection, inactive_objects, console)
 
 
 class CommandGroup(sap.cli.core.CommandGroup):

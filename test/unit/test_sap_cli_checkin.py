@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 import sap.cli.checkin
 from sap import get_logger
 
-from mock import PatcherTestCase, patch_get_print_console_with_buffer, BufferConsole
+from mock import PatcherTestCase, patch_get_print_console_with_buffer, BufferConsole, ConsoleOutputTestCase
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
 
@@ -135,18 +135,7 @@ class TestRepository(unittest.TestCase):
         self.assertEqual(pkg.name, 'unittest_full_package_name')
 
 
-class TestGetConfig(unittest.TestCase):
-
-    def setUp(self):
-        self.console = BufferConsole()
-
-    def assertEmptyConsole(self, console,):
-        self.assertEqual(console.capout, '')
-        self.assertEqual(console.caperr, '')
-
-    def assertConsoleContents(self, console, stdout='', stderr=''):
-        self.assertEqual(console.capout, stdout)
-        self.assertEqual(console.caperr, stderr)
+class TestGetConfig(ConsoleOutputTestCase):
 
     @patch('sap.cli.checkin.open', side_effect=lambda x, y: open('/foo/bar/invalid/non/existing'))
     def test_get_config_noent(self, fake_open):
@@ -184,6 +173,41 @@ class TestGetConfig(unittest.TestCase):
             self.assertEqual(config.STARTING_FOLDER, '/src/')
 
         self.assertEmptyConsole(self.console)
+
+
+class TestCheckinGroup(ConsoleOutputTestCase):
+
+    def setUp(self):
+        super(TestCheckinGroup, self).setUp()
+
+        self.mock_object = sap.cli.checkin.RepoObject(code='bogu', name='bogus', path='./bogus.txt', package=None, files=[])
+        self.mock_object_group = [self.mock_object]
+
+    def test_checkin_group_none_handler(self):
+        sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console)
+
+        self.assertConsoleContents(self.console, stderr='Object not supported: ./bogus.txt\n')
+
+    def test_checkin_group_none_resp(self):
+        with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
+            fake_handler.get = Mock()
+            fake_handler.get.return_value = lambda x, y: None
+
+            inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console)
+
+        self.assertConsoleContents(self.console, stdout='Object handled without activation: ./bogus.txt\n')
+        self.assertIsNone(inactive.references)
+
+    def test_checkin_group_simple(self):
+        adt_object = Mock()
+
+        with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
+            fake_handler.get = Mock()
+            fake_handler.get.return_value = lambda x, y: adt_object
+
+            inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console)
+
+        self.assertEqual(len(inactive.references), 1)
 
 
 class TestCheckIn(unittest.TestCase, PatcherTestCase):
@@ -267,18 +291,6 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
         deps = sap.cli.checkin._resolve_dependencies(objects)
 
         self.assertEqual(deps, [[clas, intf], [prog], [fugr]])
-
-    def test_checkin_group_none_handler(self):
-
-        pass
-
-    def test_checkin_group_none_resp(self):
-
-        pass
-
-    def test_checkin_group_simple(self):
-
-        pass
 
     def test_activate_no_messages(self):
 
