@@ -2,6 +2,8 @@ import copy
 from typing import Dict, NamedTuple
 from io import StringIO
 from argparse import ArgumentParser
+
+import unittest
 from unittest.mock import patch
 
 import sap.adt
@@ -192,3 +194,18 @@ class PatcherTestCase:
 
         for patcher in self._patchers.values():
             patcher.__exit__(None, None, None)
+
+
+class ConsoleOutputTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.console = BufferConsole()
+
+    def assertEmptyConsole(self, console,):
+        self.assertEqual(console.capout, '')
+        self.assertEqual(console.caperr, '')
+
+    def assertConsoleContents(self, console, stdout='', stderr=''):
+        self.assertEqual(console.capout, stdout)
+        self.assertEqual(console.caperr, stderr)
+
