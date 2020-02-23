@@ -53,6 +53,9 @@ def resolve_default_values(arg_parser, args):
             ': '.join(('No SAP Application Server Host name provided',
                        'use the option --ashost or the environment variable SAP_ASHOST')))
 
+    if not args.sysnr:
+        args.sysnr = os.getenv('SAP_SYSNR', '00')
+
     if not args.client:
         args.client = os.getenv('SAP_CLIENT')
 
@@ -109,6 +112,9 @@ def parse_command_line(argv):
     arg_parser.add_argument(
         '--ashost', dest='ashost', type=str, default=None,
         help='Application Server address (DNS or IP)')
+    arg_parser.add_argument(
+        '--sysnr', dest='sysnr', type=str, default=None,
+        help='ABAP instance system number for RFC (default 00 (i.e. port 3200))')
     arg_parser.add_argument(
         '--client', dest='client', type=str, default=None,
         help='Client (MANDT)')
