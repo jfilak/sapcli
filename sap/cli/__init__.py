@@ -6,10 +6,14 @@ Dependency modules are lazy loaded to enable partial modular installation.
 """
 
 
+from sap import rfc
+
+
 class CommandsCache:
     """Cached of available commands"""
 
     adt = None
+    rfc = None
 
     @staticmethod
     def commands():
@@ -28,6 +32,7 @@ class CommandsCache:
         import sap.cli.cts
         import sap.cli.checkout
         import sap.cli.activation
+        import sap.cli.startrfc
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -47,7 +52,15 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.activation.CommandGroup())
             ]
 
-        return CommandsCache.adt
+        if CommandsCache.rfc is None:
+            if rfc.rfc_is_available():
+                CommandsCache.rfc = [
+                    (rfc_connection_from_args, sap.cli.startrfc.CommandGroup())
+                ]
+            else:
+                CommandsCache.rfc = list()
+
+        return CommandsCache.adt + CommandsCache.rfc
 
 
 def adt_connection_from_args(args):
@@ -59,6 +72,13 @@ def adt_connection_from_args(args):
     return sap.adt.Connection(
         args.ashost, args.client, args.user, args.password,
         port=args.port, ssl=args.ssl, verify=args.verify)
+
+
+def rfc_connection_from_args(args):
+    """Returns RFC connection constructed from the passed args (Namespace)
+    """
+
+    return rfc.connect(args.ashost, args.sysnr, args.client, args.user, args.password)
 
 
 def get_commands():
