@@ -8,6 +8,9 @@ Command line interface to SAP products
 This tool provides command line interface for ADT which should help you to
 build your CI tools.
 
+This tool also provides a limited set of RFC Functionality for the cases
+where ADT is no sufficient or possible.
+
 ## Installation and usage
 
 First of all you need Python3 (>=3.6) and then you need python-request module.
@@ -22,6 +25,22 @@ git clone https://github.com/jfilak/sapcli.git
 cd sapcli
 ./sapcli --help
 ```
+
+### Enable RFC features
+
+sapcli uses [PyRFC](https://sap.github.io/PyRFC/intro.html) which provides Python API for communication
+over SAP NetWeaver RFC.
+
+Please, follow the installation official install instructions at:
+[https://sap.github.io/PyRFC/install.html](https://sap.github.io/PyRFC/install.html)
+
+#### Linux hints
+
+It is not necessary to modify */etc/ld.so.conf.d/nwrfcsdk.conf* as you can
+just set the environment variable LD\_LIBRARY\_PATH.
+
+The required libraries are compiled the way you can executed them on any x86-64
+GNU/Linux, thus you can use the libraries located on your Application server.
 
 ## Features
 
@@ -77,6 +96,13 @@ The tool asks only for user and password if missing. All other parameters
 either have own default value or causes fatal error if not provided.
 
 Find the complete documentation in [doc/configuration.md](doc/configuration.md)
+
+### RFC usage
+
+When using the RFC features you have to provide the following additional
+parameters:
+
+* __--sysnr__ which can be provided as the environment value **SAP\_SYSNR**
 
 ## For developers
 

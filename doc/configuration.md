@@ -15,6 +15,15 @@ The value can be DNS name or IP address.
 This parameter is mandatory and must be provided either on the command line
 or as the environment variable `SAP_ASHOST`.
 
+### --sysnr
+
+ABAP system instance number.
+
+This parameter is optional and can be provided either on the command line
+or as the environment variable `SAP_SYSNR`.
+
+The default value of this parameter is 00 (i.e. the port 3200).
+
 ### --client
 
 SAP client number in the standard form with the leading zeros.
@@ -77,6 +86,7 @@ or as the environment variable `SAP_PASSWORD`, sapcli will prompt you for it.
 ## Environment variables
 
 - `SAP_ASHOST` : default value for the command line parameter --ashost
+- `SAP_SYSNR` : default value for the command line parameter --sysnr
 - `SAP_CLIENT` : default value for the command line parameter --client
 - `SAP_SSL` : negative default value for the command line parameter --no-ssl
    and accepts the values no, false, off; where all other values are considered as True;
