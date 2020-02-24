@@ -2,8 +2,15 @@
 
 import sys
 import json
+import pprint
 
 import sap.cli.core
+
+
+FORMATTERS = {
+    'human': pprint.PrettyPrinter(indent=2).pformat,
+    'json': json.dumps
+}
 
 
 def startrfc(connection, args):
@@ -16,7 +23,7 @@ def startrfc(connection, args):
 
     resp = connection.call(args.RFC_FUNCTION_MODULE, **rfc_params)
 
-    sap.cli.core.printout(resp)
+    sap.cli.core.printout(FORMATTERS[args.output](resp))
 
     return 0
 
@@ -30,6 +37,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
     def install_parser(self, arg_parser):
         """Just use the command group"""
 
+        arg_parser.add_argument('-o', '--output', choices=FORMATTERS.keys(), default=next(iter(FORMATTERS.keys())),
+                                help='Output format')
         arg_parser.add_argument('RFC_FUNCTION_MODULE')
         arg_parser.add_argument('JSON_PARAMETERS', nargs='?', default='{}',
                                 help='JSON string or - for reading the parameters from stdin')

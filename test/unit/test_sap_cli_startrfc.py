@@ -27,17 +27,25 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
 
         self.patch_console(console=self.console)
 
-        self.rfc_connection = MagicMock()
-        self.rfc_connection.call.return_value = 'RESPONSE'
+        self.response ={
+            'ECHOTXT': 'whatever',
+            'RESPONSE': 'SAP NW 751 anzeiger',
+            'PARAMS': {
+                'TABLE': ['A', 'B', 'C']
+            }
+        }
 
-    def execute_cmd(self, json_args_obj=None):
+        self.rfc_connection = MagicMock()
+        self.rfc_connection.call.return_value = self.response
+
+    def execute_cmd(self, json_args_obj=None, exp_stdout=None, params=[]):
 
         if json_args_obj is None:
-            args = parse_args(self.rfc_function_module)
+            args = parse_args(self.rfc_function_module, *params)
         elif json_args_obj == '-':
-            args = parse_args(self.rfc_function_module, '-')
+            args = parse_args(self.rfc_function_module, *params, '-')
         else:
-            args = parse_args(self.rfc_function_module, json.dumps(json_args_obj))
+            args = parse_args(self.rfc_function_module, *params, json.dumps(json_args_obj))
 
         args.execute(self.rfc_connection, args)
 
@@ -46,7 +54,10 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
         elif json_args_obj != '-':
             self.rfc_connection.call.assert_called_once_with(self.rfc_function_module, **json_args_obj)
 
-        self.assertConsoleContents(self.console, stdout='RESPONSE\n', stderr='')
+        if exp_stdout is None:
+            exp_stdout = sap.cli.startrfc.FORMATTERS['human'](self.response) + '\n'
+
+        self.assertConsoleContents(self.console, stdout=exp_stdout, stderr='')
 
     def test_startrfc_without_parameters(self):
         self.execute_cmd()
@@ -61,3 +72,9 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
             self.execute_cmd('-')
 
         self.rfc_connection.call.assert_called_once_with(self.rfc_function_module, **parameters)
+
+    def test_startrfc_output_json(self):
+        self.execute_cmd(exp_stdout=json.dumps(self.response) + '\n', params=['--output', 'json'])
+
+    def test_startrfc_output_dump(self):
+        self.execute_cmd(exp_stdout=json.dumps(self.response) + '\n', params=['--output', 'json'])
