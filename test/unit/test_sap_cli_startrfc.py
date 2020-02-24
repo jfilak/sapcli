@@ -47,5 +47,5 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
     def test_startrfc_without_parameters(self):
         self.execute_cmd()
 
-    def test_startrfc_without_parameters(self):
+    def test_startrfc_with_parameters(self):
         self.execute_cmd({'REQUTEXT':'ping'})
