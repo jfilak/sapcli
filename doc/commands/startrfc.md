@@ -3,13 +3,13 @@
 This command allows you to run an arbitrary RFC enabled Function Module.
 
 ```bash
-sapcli startrfc RFC_FUNCTION_MODULE JSON_PARAMETERS
+sapcli startrfc RFC_FUNCTION_MODULE {JSON_PARAMETERS,-}
 ```
 
 * _RFC\_FUNCION\_MODULE_ name of the executed Function Module
 
 * _JSON\_PARAMETERS_ the call paremeters in the form of JSON object serialized
-  into string
+  into string; if - , then JSON string is read from standard input
 
 ## Examples
 

@@ -2,9 +2,10 @@
 
 import json
 from argparse import ArgumentParser
+from io import StringIO
 
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import sap.cli.startrfc
 
@@ -26,21 +27,24 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
 
         self.patch_console(console=self.console)
 
+        self.rfc_connection = MagicMock()
+        self.rfc_connection.call.return_value = 'RESPONSE'
+
     def execute_cmd(self, json_args_obj=None):
-        rfc_connection = MagicMock()
-        rfc_connection.call.return_value = 'RESPONSE'
 
         if json_args_obj is None:
             args = parse_args(self.rfc_function_module)
+        elif json_args_obj == '-':
+            args = parse_args(self.rfc_function_module, '-')
         else:
             args = parse_args(self.rfc_function_module, json.dumps(json_args_obj))
 
-        args.execute(rfc_connection, args)
+        args.execute(self.rfc_connection, args)
 
         if json_args_obj is None:
-            rfc_connection.call.assert_called_once_with(self.rfc_function_module)
-        else:
-            rfc_connection.call.assert_called_once_with(self.rfc_function_module, **json_args_obj)
+            self.rfc_connection.call.assert_called_once_with(self.rfc_function_module)
+        elif json_args_obj != '-':
+            self.rfc_connection.call.assert_called_once_with(self.rfc_function_module, **json_args_obj)
 
         self.assertConsoleContents(self.console, stdout='RESPONSE\n', stderr='')
 
@@ -49,3 +53,11 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
 
     def test_startrfc_with_parameters(self):
         self.execute_cmd({'REQUTEXT':'ping'})
+
+    def test_startrfc_with_stdin(self):
+        parameters = {'REQUTEXT':'ping pong'}
+
+        with patch('sys.stdin', StringIO(json.dumps(parameters))):
+            self.execute_cmd('-')
+
+        self.rfc_connection.call.assert_called_once_with(self.rfc_function_module, **parameters)
