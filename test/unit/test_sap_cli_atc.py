@@ -220,7 +220,7 @@ class TetsPrintWorklistToStream(unittest.TestCase):
 * 3 :: PRIO_3 :: Prio 3
 * 4 :: PRIO_4 :: Prio 4
 ''')
-        self.assertEqual(4, ret)
+        self.assertEqual(1, ret)
 
     def test_error_level_2(self):
         output = StringIO()
@@ -232,7 +232,7 @@ class TetsPrintWorklistToStream(unittest.TestCase):
 * 3 :: PRIO_3 :: Prio 3
 * 4 :: PRIO_4 :: Prio 4
 ''')
-        self.assertEqual(2, ret)
+        self.assertEqual(1, ret)
 
     def test_error_level_0(self):
         output = StringIO()

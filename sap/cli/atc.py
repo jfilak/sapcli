@@ -38,7 +38,7 @@ def print_worklist_to_stream(run_results, stream, error_level=99):
 
             stream.write(f'*{finiding_pad}{finding.priority} :: {finding.check_title} :: {finding.message_title}\n')
 
-    return ret
+    return 0 if ret < 1 else 1
 
 
 @CommandGroup.command()
