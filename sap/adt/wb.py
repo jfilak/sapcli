@@ -174,6 +174,7 @@ def _send_activate(connection, request, params):
 
 
 class CheckeMessageText(metaclass=OrderedClassMembers):
+    """Wrapper for Activation message text"""
 
     value = xml_text_node_property('txt')
 
@@ -196,12 +197,25 @@ class CheckeMessageText(metaclass=OrderedClassMembers):
 class CheckMessage(metaclass=OrderedClassMembers):
     """Run Check result message"""
 
+    # pylint: disable=too-few-public-methods
+    class Type:
+        """Message types"""
+
+        WARNING = 'W'
+        ERROR = 'E'
+
     obj_descr = XmlNodeAttributeProperty('objDescr')
     typ = XmlNodeAttributeProperty('type')
     line = XmlNodeAttributeProperty('line')
     href = XmlNodeAttributeProperty('href')
     force_supported = XmlNodeAttributeProperty('forceSupported')
     short_text = XmlNodeProperty('shortText', factory=CheckeMessageText)
+
+    @property
+    def is_error(self):
+        """Returns true if the message represents Error"""
+
+        return self.typ == CheckMessage.Type.ERROR
 
 
 XMLNS_CHKL = XMLNamespace('chkl', 'http://www.sap.com/abapxml/checklis')
@@ -218,6 +232,7 @@ CheckMessageList.objtype = ADTObjectType(None,
 
 
 class ActivationError(SAPCliError):
+    """Exception for failed activations"""
 
     def __init__(self, message, response):
         super(ActivationError, self).__init__(message)
@@ -226,7 +241,7 @@ class ActivationError(SAPCliError):
 
 
 def mass_activate(connection, references):
-    """Activates the given objects"""
+    """Activates the given objects and raise ActivationError in case of any error."""
 
     resp = _send_activate(connection, references, activation_params(pre_audit_requested=True))
 
@@ -242,6 +257,10 @@ def mass_activate(connection, references):
 
 
 def try_mass_activate(connection, references):
+    """Calls the function mass_activate but catches the exception and returns
+       the messages.
+    """
+
     try:
         mass_activate(connection, references)
         return None

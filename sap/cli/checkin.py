@@ -433,14 +433,14 @@ def _activate(connection, inactive_objects, console):
 
     error = False
     for msg in messages:
-        if msg.typ == 'E':
+        if msg.is_error:
             error = True
 
         console.printout(f'* {msg.obj_descr} ::')
         console.printout(f'| {msg.typ}: {msg.short_text}')
 
     if error:
-        raise SAPCliError('Aborting because of activation errors')
+        raise sap.errors.SAPCliError('Aborting because of activation errors')
 
 
 def do_checkin(connection, args):
@@ -451,7 +451,7 @@ def do_checkin(connection, args):
         top_dir = os.path.join(top_dir, args.starting_folder)
 
     if not os.path.isdir(top_dir):
-        raise SAPCliError(f'Cannot check-in ABAP objects from "{top_dir}": not a directory')
+        raise sap.errors.SAPCliError(f'Cannot check-in ABAP objects from "{top_dir}": not a directory')
 
     console = sap.cli.core.get_console()
 

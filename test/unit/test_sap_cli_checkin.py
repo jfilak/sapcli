@@ -10,10 +10,36 @@ from argparse import ArgumentParser
 
 import sap.cli.checkin
 from sap import get_logger
+from sap.adt.wb import CheckMessage, CheckMessageList
 
 from mock import PatcherTestCase, patch_get_print_console_with_buffer, BufferConsole, ConsoleOutputTestCase
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
+
+
+class ActivationMessageGenerator:
+
+    def __init__(self):
+        self.check_message_list = None
+
+    def add_message(self, typ, obj_descr, short_text):
+        if self.check_message_list is None:
+            self.check_message_list = CheckMessageList()
+
+        message = CheckMessage()
+        message.typ = typ
+        message.obj_descr = obj_descr
+        message.short_text = short_text
+
+        self.check_message_list.append(message)
+
+        return self
+
+    def add_error(self, obj_descr, short_text):
+        return self.add_message(CheckMessage.Type.ERROR, obj_descr, short_text)
+
+    def add_warning(self, obj_descr, short_text):
+        return self.add_message(CheckMessage.Type.WARNING, obj_descr, short_text)
 
 
 class DirContentBuilder:
@@ -292,17 +318,53 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
 
         self.assertEqual(deps, [[clas, intf], [prog], [fugr]])
 
-    def test_activate_no_messages(self):
 
-        pass
+class TestActivate(ConsoleOutputTestCase, PatcherTestCase):
+
+    def setUp(self):
+        super(TestActivate, self).setUp()
+
+        self.fake_activate = self.patch('sap.adt.wb.try_mass_activate')
+
+        self.connection = Mock()
+        self.inactive_list = Mock()
+
+    def call_activate(self):
+        ret = sap.cli.checkin._activate(self.connection, self.inactive_list, self.console)
+        self.assertIsNone(ret)
+        self.fake_activate.assert_called_once_with(self.connection, self.inactive_list)
+
+    def test_activate_no_messages(self):
+        self.fake_activate.return_value = []
+
+        self.call_activate()
+
+        self.assertEmptyConsole(self.console)
 
     def test_activate_no_error(self):
+        self.fake_activate.return_value = ActivationMessageGenerator().add_warning('CLAS/A', 'One').add_warning('PROG/B', 'Two').check_message_list
 
-        pass
+        self.call_activate()
+
+        self.assertConsoleContents(self.console, stdout='''* CLAS/A ::
+| W: One
+* PROG/B ::
+| W: Two
+''')
 
     def test_activate_error(self):
+        self.fake_activate.return_value = ActivationMessageGenerator().add_error('CLAS/A', 'One').add_warning('PROG/B', 'Two').check_message_list
 
-        pass
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            self.call_activate()
+
+        self.assertEqual(str(caught.exception), 'Aborting because of activation errors')
+
+        self.assertConsoleContents(self.console, stdout='''* CLAS/A ::
+| E: One
+* PROG/B ::
+| W: Two
+''')
 
 
 class TestCheckInPackage(unittest.TestCase, PatcherTestCase):
