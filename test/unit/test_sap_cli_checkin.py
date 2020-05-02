@@ -266,7 +266,7 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
 
             args.execute(None, args)
 
-        #TODO: _get_config asserts
+        fake_config.assert_called_once_with(None, sap.cli.core.get_console())
 
     def test_load_objects(self):
         config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX)
