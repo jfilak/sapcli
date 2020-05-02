@@ -230,5 +230,20 @@ class TestADTWBTryMassActivate(unittest.TestCase):
         self.assertEqual(messages[1].force_supported, 'true')
 
 
+class TestCheckMessage(unittest.TestCase):
+
+    def test_check_message_is_errror(self):
+        message = sap.adt.wb.CheckMessage()
+        message.typ = sap.adt.wb.CheckMessage.Type.ERROR
+
+        self.assertTrue(message.is_error)
+
+    def test_check_message_is_errror_not(self):
+        message = sap.adt.wb.CheckMessage()
+        message.typ = sap.adt.wb.CheckMessage.Type.WARNING
+
+        self.assertFalse(message.is_error)
+
+
 if __name__ == '__main__':
     unittest.main()

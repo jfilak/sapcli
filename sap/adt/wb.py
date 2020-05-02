@@ -201,6 +201,13 @@ class CheckMessageText(metaclass=OrderedClassMembers):
 class CheckMessage(metaclass=OrderedClassMembers):
     """Run Check result message"""
 
+    # pylint: disable=too-few-public-methods
+    class Type:
+        """Message types"""
+
+        WARNING = 'W'
+        ERROR = 'E'
+
     obj_descr = XmlNodeAttributeProperty('objDescr')
     typ = XmlNodeAttributeProperty('type')
     line = XmlNodeAttributeProperty('line')
@@ -219,6 +226,12 @@ class CheckMessage(metaclass=OrderedClassMembers):
         """Returns true if the message is an error"""
 
         return self.typ == 'W'
+
+    @property
+    def is_error(self):
+        """Returns true if the message represents Error"""
+
+        return self.typ == CheckMessage.Type.ERROR
 
 
 class CheckProperties(metaclass=OrderedClassMembers):
@@ -291,7 +304,7 @@ class ActivationError(SAPCliError):
 
 
 def mass_activate(connection, references):
-    """Activates the given objects"""
+    """Activates the given objects and raise ActivationError in case of any error."""
 
     resp = _send_activate(connection, references, activation_params(pre_audit_requested=True))
 
