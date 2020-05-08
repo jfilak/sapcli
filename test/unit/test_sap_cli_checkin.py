@@ -133,6 +133,17 @@ class TestRepository(unittest.TestCase):
         self.assertEqual(pkg, self.root_package)
 
     @patch('sap.cli.checkin.os.path.isfile', return_value=True)
+    def test_repo_package_dir_parent(self, fake_isfile):
+        config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo()
+        config.STARTING_FOLDER = '/src/backend/'
+        repo = sap.cli.checkin.Repository('unittest', config)
+
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            repo.add_package_dir('./secret', None)
+
+        self.assertEqual(str(caught.exception), 'Sub-package dir ./secret not in starting folder /src/backend/')
+
+    @patch('sap.cli.checkin.os.path.isfile', return_value=True)
     def test_repo_package_dir_outside(self, fake_isfile):
         with self.assertRaises(sap.errors.SAPCliError) as caught:
             self.repo.add_package_dir('./secret', None)
