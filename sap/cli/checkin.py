@@ -75,7 +75,7 @@ class Repository:
     def packages(self):
         """List of packages"""
 
-        return self._packages.values()
+        return list(self._packages.values())
 
     @property
     def objects(self):
