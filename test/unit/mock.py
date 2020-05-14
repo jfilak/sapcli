@@ -4,6 +4,7 @@ import types
 from typing import Dict, NamedTuple
 from io import StringIO
 from argparse import ArgumentParser
+from contextlib import AbstractContextManager
 
 import unittest
 from unittest.mock import patch, MagicMock
@@ -493,3 +494,12 @@ class RetainedStringIO(StringIO):
     def close(self):
         self.finalvalue = self.getvalue()
         super().close()
+
+
+class StringIOFile(StringIO, AbstractContextManager):
+
+    def __init__(self, buf):
+        StringIO.__init__(self, buf)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
