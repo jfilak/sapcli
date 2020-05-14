@@ -13,3 +13,12 @@ class SAPCliError(FatalError):
 
     # pylint: disable=unnecessary-pass
     pass
+
+
+class InputError(FatalError):
+    """Common base exception type for runtime input errors
+    usually caused by users.
+    """
+
+    # pylint: disable=unnecessary-pass
+    pass
