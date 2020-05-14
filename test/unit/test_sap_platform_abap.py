@@ -301,6 +301,15 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
 
 class TestSAPPlatformABAPFromXML(unittest.TestCase):
 
+    def test_from_xml_invalid_xml(self):
+        struct = PLAIN_STRUCT()
+        dest = StringIO()
+
+        with self.assertRaises(sap.errors.InputError) as caught:
+            sap.platform.abap.from_xml(struct, 'foo')
+
+        self.assertRegex(str(caught.exception), 'Invalid XML for PLAIN_STRUCT: .*')
+
     def test_from_xml_stucture_with_string_table(self):
         act_struct = STRUCT_WITH_STRING_TABLE()
 
