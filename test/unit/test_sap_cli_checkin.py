@@ -12,7 +12,7 @@ import sap.cli.checkin
 from sap import get_logger
 from sap.adt.wb import CheckMessage, CheckMessageList
 
-from mock import PatcherTestCase, patch_get_print_console_with_buffer, BufferConsole, ConsoleOutputTestCase
+from mock import PatcherTestCase, patch_get_print_console_with_buffer, BufferConsole, ConsoleOutputTestCase, StringIOFile
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
 
@@ -380,7 +380,33 @@ class TestActivate(ConsoleOutputTestCase, PatcherTestCase):
 
 class TestCheckInPackage(unittest.TestCase, PatcherTestCase):
 
-    pass
+    def setUp(self):
+        self.connection = Mock()
+        self.config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo()
+        self.repo = sap.cli.checkin.Repository('checkin-test', self.config)
+        self.fake_open = self.patch('sap.cli.checkin.open')
+
+        self.repo.add_package_dir(f'.{self.config.STARTING_FOLDER}')
+
+    def test_devc_file_cannot_be_opened(self):
+        self.fake_open.side_effect = OSError()
+
+        with self.assertRaises(OSError):
+            sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0])
+
+    def test_devc_file_has_invalid_format(self):
+        self.fake_open.return_value = StringIOFile('Foo')
+
+        with self.assertRaises(sap.errors.InputError) as caught:
+            sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0])
+
+        self.assertRegex(str(caught.exception), 'Invalid XML for DEVC:.*')
+
+    def test_devc_create_raises_error(self):
+        pass
+
+    def test_devc_successful(self):
+        pass
 
 
 class TestCheckInClass(unittest.TestCase, PatcherTestCase):
