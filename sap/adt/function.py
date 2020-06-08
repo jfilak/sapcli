@@ -117,7 +117,8 @@ class FunctionModule(ADTObject):
         'FUGR/FF',
         'functions/groups/{function_group}/fmodules',
         xmlns_adtcore_ancestor('fmodule', 'http://www.sap.com/adt/functions/fmodules'),
-        'application/vnd.sap.adt.functions.fmodules.v2+xml',
+        ['application/vnd.sap.adt.functions.fmodules.v3+xml',
+         'application/vnd.sap.adt.functions.fmodules.v2+xml'],
         {'text/plain': 'source/main'},
         'abapFunctionModule',
         editor_factory=ADTObjectSourceEditorWithResponse

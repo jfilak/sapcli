@@ -67,7 +67,7 @@ class TestFunctionModuleCreate(unittest.TestCase):
         post_req = connection.execs[0]
 
         self.assertEqual(sorted(post_req.headers.keys()), ['Content-Type'])
-        self.assertEqual(post_req.headers['Content-Type'], 'application/vnd.sap.adt.functions.fmodules.v2+xml')
+        self.assertEqual(post_req.headers['Content-Type'], 'application/vnd.sap.adt.functions.fmodules.v3+xml')
 
         self.assertIsNone(post_req.params)
 
@@ -135,7 +135,7 @@ class TestFunctionModuleChattr(unittest.TestCase):
         put_req = connection.execs[2]
 
         self.assertEqual(sorted(put_req.headers.keys()), ['Content-Type'])
-        self.assertEqual(put_req.headers['Content-Type'], 'application/vnd.sap.adt.functions.fmodules.v2+xml')
+        self.assertEqual(put_req.headers['Content-Type'], 'application/vnd.sap.adt.functions.fmodules.v3+xml')
 
         self.assertEqual(sorted(put_req.params.keys()), ['lockHandle'])
         self.assertEqual(put_req.params['lockHandle'], 'win')
