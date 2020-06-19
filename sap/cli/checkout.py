@@ -46,9 +46,14 @@ def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer,
 def download_abap_source(object_name, source_object, typsfx, destdir=None):
     """Reads the text and saves it in the corresponding file"""
 
-    filename = build_filename(object_name, typsfx, 'abap', destdir=destdir)
-    with open(filename, 'w') as dest:
-        dest.write(source_object.text)
+    try:
+        text = source_object.text
+    except sap.adt.errors.ADTError as err:
+        print(err, file=sys.stderr)
+    else:
+        filename = build_filename(object_name, typsfx, 'abap', destdir=destdir)
+        with open(filename, 'w') as dest:
+            dest.write(text)
 
 
 def build_class_abap_attributes(clas):
