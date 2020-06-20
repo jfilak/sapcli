@@ -255,15 +255,23 @@ class Connection:
 
         return self.execute('GET', relativeuri, headers={'Accept': 'text/plain'}).text
 
-    def get_collection_types(self, basepath, default_mimetype):
-        """Returns the accepted object XML format - mime type"""
+    @property
+    def collection_types(self):
+        """Returns dictionary of Object type URI fragment and list of
+           supported MIME types.
+        """
 
         if self._collection_types is None:
             response = self.execute('GET', 'discovery')
             self._collection_types = _get_collection_accepts(response.text)
 
+        return self._collection_types
+
+    def get_collection_types(self, basepath, default_mimetype):
+        """Returns the accepted object XML format - mime type"""
+
         uri = f'/{self._adt_uri}/{basepath}'
         try:
-            return self._collection_types[uri]
+            return self.collection_types[uri]
         except KeyError:
             return [default_mimetype]

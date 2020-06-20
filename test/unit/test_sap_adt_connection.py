@@ -203,6 +203,28 @@ class TestADTConnection(unittest.TestCase):
         self.assertEqual(str(caught.exception),
                          'Unexpected Content-Type: text/plain with: mock')
 
+
+    @patch('sap.adt.core.Connection.execute')
+    def test_property_collection_init(self, mock_exec):
+        mock_exec.return_value = Mock()
+        mock_exec.return_value.headers = {'Content-Type': 'application/xml'}
+        mock_exec.return_value.text = DISCOVERY_ADT_XML
+
+        self.assertIsNone(self.connection._collection_types)
+
+        collection_types = self.connection.collection_types
+
+        self.assertIsNotNone(collection_types)
+        self.assertIsNotNone(self.connection._collection_types)
+
+
+    def test_property_collection_cache(self):
+        fake_value = Mock()
+        self.connection._collection_types = fake_value
+        collection_types = self.connection.collection_types
+        self.assertEqual(collection_types, fake_value)
+
+
     @patch('sap.adt.core.Connection.execute')
     def test_parse_collection_accept(self, mock_exec):
         mock_exec.return_value = Mock()
