@@ -750,6 +750,15 @@ class TestADTAnnotation(unittest.TestCase):
 
         self.assertEqual(container.the_text_list, ['1', '2', '3'])
 
+    def test_serialize_versioned_none(self):
+        obj = DummyADTObjectWithVersions()
+        marshal = Marshal()
+
+        with self.assertRaises(RuntimeError) as caught:
+            xml = marshal.serialize(obj)
+
+        self.assertEqual(str(caught.exception), 'The XML item mock:elemverfst specifies but its parent class does not')
+
     def test_serialize_versioned_ver1(self):
         obj = DummyADTObjectWithVersions()
         marshal = Marshal(object_schema_version='V1')

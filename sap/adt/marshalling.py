@@ -12,7 +12,7 @@ from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty, XmlEle
 
 def _attr_supports_version(attr, version):
     if version is None and attr.version is not None:
-        raise RuntimeError(f'Supported version not declared but XML item versioned defined')
+        raise RuntimeError(f'The XML item {attr.name} specifies but its parent class does not')
 
     if attr.version is None:
         return True
