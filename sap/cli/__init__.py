@@ -33,6 +33,7 @@ class CommandsCache:
         import sap.cli.checkout
         import sap.cli.activation
         import sap.cli.startrfc
+        import sap.cli.adt
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -49,7 +50,8 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.package.CommandGroup()),
                 (adt_connection_from_args, sap.cli.cts.CommandGroup()),
                 (adt_connection_from_args, sap.cli.checkout.CommandGroup()),
-                (adt_connection_from_args, sap.cli.activation.CommandGroup())
+                (adt_connection_from_args, sap.cli.activation.CommandGroup()),
+                (adt_connection_from_args, sap.cli.adt.CommandGroup())
             ]
 
         if CommandsCache.rfc is None:
