@@ -233,7 +233,7 @@ class XMLSerializers:
 def to_xml(abap_struct_or_table, dest, top_element=None):
     """Converts the give parameter into XML"""
 
-    dest.write(f'''<?xml version="1.0" encoding="utf-8"?>
+    dest.write('''<?xml version="1.0" encoding="utf-8"?>
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
  <asx:values>\n''')
 
