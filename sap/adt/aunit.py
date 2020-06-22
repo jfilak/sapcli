@@ -253,6 +253,7 @@ class TestClass(NamedTuple):
 
     name: str
     test_methods: List
+    alerts: List
 
 
 # pylint: disable=too-few-public-methods
@@ -260,6 +261,7 @@ class TestMethod(NamedTuple):
     """ABAP Unit Tests Framework ADT results TestMethod node"""
 
     name: str
+    duration: int
     alerts: List
 
 
@@ -320,11 +322,13 @@ class AUnitResponseHandler(ContentHandler):
             self.run_results.programs.append(self._program)
             mod_log().debug('XML: %s: %s', name, self._program.name)
         elif name == 'testClass':
-            self._test_class = TestClass(name=attrs.get('adtcore:name'), test_methods=[])
+            self._test_class = TestClass(name=attrs.get('adtcore:name'), test_methods=[], alerts=[])
             self._program.test_classes.append(self._test_class)
             mod_log().debug('XML: %s: %s', name, self._test_class.name)
         elif name == 'testMethod':
-            self._test_method = TestMethod(name=attrs.get('adtcore:name'), alerts=[])
+            self._test_method = TestMethod(name=attrs.get('adtcore:name'),
+                                           duration=int(float(attrs.get('executionTime')) * 1000),
+                                           alerts=[])
             self._test_class.test_methods.append(self._test_method)
             mod_log().debug('XML: %s: %s', name, self._test_method.name)
         elif name == 'alert':
@@ -365,6 +369,8 @@ class AUnitResponseHandler(ContentHandler):
 
             if self._test_method is not None:
                 self._test_method.alerts.append(alert)
+            elif self._test_class is not None:
+                self._test_class.alerts.append(alert)
             else:
                 self.run_results.alerts.append(alert)
 
