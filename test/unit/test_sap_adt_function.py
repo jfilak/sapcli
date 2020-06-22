@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import Mock, PropertyMock
+from unittest.mock import Mock, PropertyMock, patch
 
 from sap.errors import SAPCliError
 import sap.adt.wb
@@ -29,7 +29,7 @@ class TestFunctionGroup(unittest.TestCase):
 
         self.assertEqual(conn.execs[0][0], 'POST')
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/functions/groups')
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.groups.v2+xml'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.groups.v3+xml'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], CREATE_FUNCTION_GROUP_ADT_XML)
 
@@ -134,6 +134,30 @@ class TestFunctionModule(unittest.TestCase):
         self.assertEqual(function.description, 'You cannot stop me!')
         self.assertEqual(function.processing_type, 'normal')
         self.assertEqual(function.release_state, 'notReleased')
+
+    @patch('sap.adt.function.find_mime_version')
+    def test_function_module_mime_version_ok(self, fake_find_mime_version):
+        mime_template = 'application/vnd.sap.adt.functions.{0}.v3+xml'
+        fake_find_mime_version.return_value = (mime_template.format('groups'), 'v3')
+
+        connection = Mock()
+        function = sap.adt.FunctionModule(connection, 'Z_FN_HELLO_WORLD', 'ZFG_HELLO_WORLD')
+        xml, mime = function.serialize()
+
+        self.assertEqual(mime, mime_template.format('fmodules'))
+        fake_find_mime_version.assert_called_once_with(connection, sap.adt.FunctionGroup.OBJTYPE)
+
+    @patch('sap.adt.function.find_mime_version')
+    def test_function_module_mime_version_err(self, fake_find_mime_version):
+        mime_template = 'application/vnd.sap.adt.functions.{0}.vY+xml'
+        group_mime = mime_template.format('groups')
+        fake_find_mime_version.return_value = (group_mime, 'vY')
+
+        function = sap.adt.FunctionModule(Mock(), 'Z_FN_HELLO_WORLD', 'ZFG_HELLO_WORLD')
+        with self.assertRaises(RuntimeError) as caught:
+            function.serialize()
+
+        self.assertEqual(str(caught.exception), f'Function Groups and Function Modules out of sync for: {group_mime}')
 
 
 if __name__ == '__main__':
