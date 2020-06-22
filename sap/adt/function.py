@@ -3,7 +3,7 @@
 from copy import copy
 
 # pylint: disable=unused-import
-from sap.adt.objects import OrderedClassMembers, find_mime_version
+from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import ADTObjectType, ADTObject, ADTObjectSourceEditorWithResponse, xmlns_adtcore_ancestor
 from sap.adt.annotations import xml_attribute, xml_element
 
@@ -74,8 +74,7 @@ class FunctionGroup(ADTObject):
         'FUGR/F',
         'functions/groups',
         xmlns_adtcore_ancestor('group', 'http://www.sap.com/adt/functions/groups'),
-        ['application/vnd.sap.adt.functions.groups.v3+xml',
-         'application/vnd.sap.adt.functions.groups.v2+xml'],
+        'application/vnd.sap.adt.functions.groups.v2+xml',
         {'text/plain': 'source/main'},
         'abapFunctionGroup',
         editor_factory=ADTObjectSourceEditorWithResponse
@@ -116,7 +115,7 @@ class FunctionModule(ADTObject):
 
     OBJTYPE = ADTObjectType(
         'FUGR/FF',
-        'functions/groups/{function_group}/fmodules',
+        'functions/groups/{groupname}/fmodules',
         xmlns_adtcore_ancestor('fmodule', 'http://www.sap.com/adt/functions/fmodules'),
         ['application/vnd.sap.adt.functions.fmodules.v3+xml',
          'application/vnd.sap.adt.functions.fmodules.v2+xml'],
@@ -131,20 +130,11 @@ class FunctionModule(ADTObject):
         self._function_group_name = function_group_name
 
         self._objtype = copy(FunctionModule.OBJTYPE)
-        self._objtype.basepath = FunctionModule.OBJTYPE.basepath.format(function_group=function_group_name.lower())
+        self._objtype.basepath = FunctionModule.OBJTYPE.basepath.format(groupname=function_group_name.lower())
 
         self._processing_type = None
         self._reference = None
         self._release_state = None
-
-    def _get_mime_and_version(self):
-        group_mime, version = find_mime_version(self.connection, FunctionGroup.OBJTYPE)
-        module_mime = group_mime.replace('.groups.', '.fmodules.')
-
-        if module_mime not in self.objtype.all_mimetypes:
-            raise RuntimeError(f'Function Groups and Function Modules out of sync for: {group_mime}')
-
-        return (module_mime, version)
 
     def language(self):
         """Not supported on Function Module level but Function Group level"""

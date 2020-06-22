@@ -46,7 +46,7 @@ class TestFunctionGroupCreate(unittest.TestCase):
         post_req = connection.execs[0]
 
         self.assertEqual(sorted(post_req.headers.keys()), ['Content-Type'])
-        self.assertEqual(post_req.headers['Content-Type'], 'application/vnd.sap.adt.functions.groups.v3+xml')
+        self.assertEqual(post_req.headers['Content-Type'], 'application/vnd.sap.adt.functions.groups.v2+xml')
 
         self.assertIsNone(post_req.params)
 

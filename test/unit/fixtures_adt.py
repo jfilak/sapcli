@@ -114,6 +114,23 @@ DISCOVERY_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
     </app:collection>
   </app:workspace>
   <app:workspace>
+    <atom:title>Function Groups; Functions; Function Group Includes</atom:title>
+    <app:collection href="/sap/bc/adt/functions/validation">
+      <atom:title>Function Group Validation</atom:title>
+      <atom:category term="validation" scheme="http://www.sap.com/adt/categories/functions"/>
+      <adtcomp:templateLinks xmlns:adtcomp="http://www.sap.com/adt/compatibility"/>
+    </app:collection>
+    <app:collection href="/sap/bc/adt/functions/groups">
+      <atom:title>Function Groups</atom:title>
+      <app:accept>application/vnd.sap.adt.functions.groups.v2+xml</app:accept>
+      <atom:category term="groups" scheme="http://www.sap.com/adt/categories/functions"/>
+      <adtcomp:templateLinks xmlns:adtcomp="http://www.sap.com/adt/compatibility">
+        <adtcomp:templateLink title="Function Modules" rel="http://www.sap.com/adt/categories/functiongroups/functionmodules" template="/sap/bc/adt/functions/groups/{groupname}/fmodules" type="application/vnd.sap.adt.functions.fmodules.v3+xml"/>
+        <adtcomp:templateLink title="Function Group Includes" rel="http://www.sap.com/adt/categories/functiongroups/includes" template="/sap/bc/adt/functions/groups/{groupname}/includes" type="application/vnd.sap.adt.functions.fincludes.v2+xml"/>
+      </adtcomp:templateLinks>
+    </app:collection>
+  </app:workspace>
+  <app:workspace>
     <atom:title>ABAP DDL Sources</atom:title>
     <app:collection href="/sap/bc/adt/ddic/ddl/formatter/identifiers">
       <atom:title>DDL Case Preserving Formatter for Identifiers</atom:title>

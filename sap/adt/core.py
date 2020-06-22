@@ -34,6 +34,9 @@ class _DiscoveryHandler(ContentHandler):
             self._mimetypes = []
         elif name == 'app:accept':
             self._accept = ''
+        elif name == 'adtcomp:templateLink':
+            if 'type' in attrs:
+                self.result[attrs['template']] = [attrs['type']]
 
     def characters(self, content):
         if self._accept is None:
@@ -60,9 +63,15 @@ def _get_collection_accepts(discovery_xml):
             <app:collection href="/sap/bc/adt/...">
               <app:accept>application/vnd.sap.ap.adt.?.v?+xml<app:accept>
               <app:accept>application/vnd.sap.ap.adt.?.v?+xml<app:accept>
+              <adtcomp:templateLinks xmlns:adtcomp="http://www.sap.com/adt/compatibility">
+                <adtcomp:templateLink title="Function Modules"
+                    rel="http://www.sap.com/adt/categories/functiongroups/functionmodules"
+                    template="/sap/bc/adt/functions/groups/{groupname}/fmodules"
+                    type="application/vnd.sap.adt.functions.fmodules.v3+xml"/>
 
        To:
-         {href: [app:accept, app:accept]}
+         {href: [app:accept, app:accept],
+          template: [type]}
     """
 
     xml_handler = _DiscoveryHandler()
