@@ -42,6 +42,22 @@ def mimetype_to_version(mime):
     return '0'
 
 
+def find_mime_version(connection, objtype):
+    """Returns the supported/required MIME version of the given objtype by
+       the given connection.
+    """
+
+    mimes = connection.get_collection_types(objtype.basepath, objtype.mimetype)
+
+    seri_mime = next((mime for mime in mimes if mime in objtype.all_mimetypes), None)
+    if seri_mime is None:
+        raise SAPCliError('Not supported mimes: {} not in {}'
+                          .format(';'.join(mimes), ';'.join(objtype.all_mimetypes)))
+
+    version = mimetype_to_version(seri_mime)
+    return (seri_mime, version)
+
+
 def lock_params(access_mode):
     """Returns parameters for Action Lock"""
 
@@ -489,17 +505,18 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         return self._metadata.package_reference
 
+    def _get_mime_and_version(self):
+        """Virtual function for returning the right version
+        and MIME type. Useful for types which depend on other
+        types ADT reports required version of the master type.
+        """
+
+        return find_mime_version(self._connection, self.objtype)
+
     def serialize(self):
         """Creates a text representation"""
+        seri_mime, version = self._get_mime_and_version()
 
-        mimes = self._connection.get_collection_types(self.objtype.basepath, self.objtype.mimetype)
-
-        seri_mime = next((mime for mime in mimes if mime in self.objtype.all_mimetypes), None)
-        if seri_mime is None:
-            raise SAPCliError('Not supported mimes: {} not in {}'
-                              .format(';'.join(mimes), ';'.join(self.objtype.all_mimetypes)))
-
-        version = mimetype_to_version(seri_mime)
         marshal = sap.adt.marshalling.Marshal(object_schema_version=version)
         return (marshal.serialize(self), seri_mime)
 
