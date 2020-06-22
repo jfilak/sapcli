@@ -1,5 +1,6 @@
 """ADT proxy for ABAP Unit"""
 
+import os
 import sys
 from xml.sax.saxutils import escape
 from itertools import islice
@@ -169,6 +170,84 @@ status="{escape(status)}"',
     return critical
 
 
+def find_testclass(package, program, testclass):
+    """Find the relative path of the test-class file"""
+
+    name = f'{program.lower()}.clas.testclasses.abap'
+    for root, _, files in os.walk('.'):
+        if name in files:
+            return os.path.join(root, name)[2:]
+
+    return escape(package + '/' + program + '=>' + testclass)
+
+
+def print_sonar_alert(alert, stream):
+    """Print AUnit Alert as sonar message"""
+
+    def print_alert():
+        for line in alert.details:
+            print(escape(line), file=stream)
+
+        if alert.details and alert.stack:
+            print('', file=stream)
+
+        for frame in alert.stack:
+            print(escape(frame), file=stream)
+
+    if alert.is_error:
+        print(f'      <error message="{escape(alert.title)}">', file=stream)
+        print_alert()
+        print('      </error>', file=stream)
+    elif alert.is_warning:
+        print(f'      <skipped message="{escape(alert.title)}">', file=stream)
+        print_alert()
+        print('      </skipped>', file=stream)
+
+
+def print_sonar(run_results, args, stream):
+    """Print results to stream in the form of Sonar Generic Execution"""
+
+    print('<?xml version="1.0" encoding="UTF-8" ?>', file=stream)
+    print('<testExecutions version="1">', file=stream)
+
+    critical = 0
+    for program in run_results.programs:
+        for test_class in program.test_classes:
+            filename = find_testclass(args.name, program.name, test_class.name)
+            print(f'  <file path="{filename}">', file=stream)
+
+            for test_method in test_class.test_methods:
+                print(f'    <testCase name="{escape(test_method.name)}" duration="{test_method.duration}"',
+                      file=stream, end='')
+                if not test_method.alerts:
+                    print('/>', file=stream)
+                    continue
+
+                print('>', file=stream)
+
+                if any((alert.is_error for alert in test_method.alerts)):
+                    critical += 1
+
+                for alert in test_method.alerts:
+                    print_sonar_alert(alert, stream)
+
+                print('    </testCase>', file=stream)
+
+            if test_class.alerts:
+                print(f'    <testCase name="{escape(test_class.name)}" duration="0">', file=stream)
+
+                for alert in test_class.alerts:
+                    print_sonar_alert(alert, stream)
+
+                print('    </testCase>', file=stream)
+
+            print('  </file>', file=stream)
+
+    print('</testExecutions>', file=stream)
+
+    return critical
+
+
 def print_raw(aunit_xml, run_results):
     """Prints out raw XML results"""
 
@@ -221,7 +300,7 @@ class TransportObjectSelector:
 
 
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
-@CommandGroup.argument('--output', choices=['raw', 'human', 'junit4'], default='human')
+@CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'sonar'], default='human')
 @CommandGroup.argument('name')
 @CommandGroup.argument('type', choices=['program', 'class', 'package', 'transport'])
 @CommandGroup.command()
@@ -268,5 +347,8 @@ def run(connection, args):
 
     if args.output == 'junit4':
         return print_junit4(run_results, args, sys.stdout)
+
+    if args.output == 'sonar':
+        return print_sonar(run_results, args, sys.stdout)
 
     raise SAPCliError(f'Unsupported output type: {args.output}')
