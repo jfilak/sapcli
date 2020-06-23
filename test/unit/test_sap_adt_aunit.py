@@ -87,6 +87,7 @@ class TestAUnitParseResults(unittest.TestCase):
 
         test_class = program_the_king.test_classes[0]
         self.assertEqual([test_method.name for test_method in test_class.test_methods], ['DO_THE_FAIL', 'DO_THE_TEST'])
+        self.assertEqual([test_method.duration for test_method in test_class.test_methods], [33, 0])
 
         test_method = test_class.test_methods[0]
         self.assertEqual([(alert.kind, alert.severity, alert.title) for alert in test_method.alerts],
