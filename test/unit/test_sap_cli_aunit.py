@@ -169,6 +169,59 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
 </testsuites>
 ''')
 
+    def test_aunit_package_with_results_sonar(self):
+        connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
+
+        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(type='package', name='ypackage', output='sonar'))
+
+        self.assertEqual(exit_code, 3)
+        self.assertEqual(len(connection.execs), 1)
+        self.assertIn('packages/ypackage', connection.execs[0].body)
+
+        self.maxDiff = None
+        self.assertEqual(mock_stdout.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8" ?>
+<testExecutions version="1">
+  <file path="ypackage/ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST">
+    <testCase name="DO_THE_FAIL" duration="33">
+      <error message="Critical Assertion Error: 'I am supposed to fail'">
+True expected
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
+
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
+      </error>
+    </testCase>
+    <testCase name="DO_THE_TEST" duration="0"/>
+  </file>
+  <file path="ypackage/ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST_HARDER">
+    <testCase name="DO_THE_FAIL" duration="0">
+      <error message="Critical Assertion Error: 'I am supposed to fail'">
+True expected
+Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
+
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
+      </error>
+    </testCase>
+    <testCase name="DO_THE_TEST" duration="0"/>
+  </file>
+  <file path="ypackage/ZEXAMPLE_TESTS=&gt;LTCL_TEST">
+    <testCase name="DO_THE_FAIL" duration="0">
+      <error message="Critical Assertion Error: 'I am supposed to fail'">
+True expected
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.
+
+Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
+Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
+      </error>
+      <error message="Error&lt;LOAD_PROGRAM_CLASS_MISMATCH&gt;">
+      </error>
+    </testCase>
+    <testCase name="DO_THE_TEST" duration="0"/>
+  </file>
+</testExecutions>
+''')
+
     def test_aunit_parser_results_global_class_tests(self):
         results = sap.adt.aunit.parse_run_results(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML)
         output = StringIO()
@@ -182,6 +235,26 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>
 </testsuites>
+''')
+
+    def test_aunit_parser_results_global_class_tests_sonar(self):
+        results = sap.adt.aunit.parse_run_results(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML)
+        output = StringIO()
+        sap.cli.aunit.print_sonar(results, SimpleNamespace(name='$TMP'), output)
+
+        self.maxDiff = None
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8" ?>
+<testExecutions version="1">
+  <file path="$TMP/ZCL_TEST_CLASS=&gt;ZCL_TEST_CLASS">
+    <testCase name="DO_THE_TEST" duration="0"/>
+    <testCase name="ZCL_TEST_CLASS" duration="0">
+      <skipped message="The global test class [ZCL_TEST_CLASS] is not abstract">
+You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;
+      </skipped>
+    </testCase>
+  </file>
+</testExecutions>
 ''')
 
 

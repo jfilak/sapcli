@@ -16,7 +16,7 @@ AUNIT_RESULTS_XML = '''<?xml version="1.0" encoding="utf-8"?>
     <testClasses>
       <testClass adtcore:uri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOCL;name=LTCL_TEST" adtcore:type="CLAS/OL" adtcore:name="LTCL_TEST" uriType="semantic" navigationUri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOCL;name=LTCL_TEST" durationCategory="short" riskLevel="harmless">
         <testMethods>
-          <testMethod adtcore:uri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOLD;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_FAIL" adtcore:type="CLAS/OLI" adtcore:name="DO_THE_FAIL" executionTime="0" uriType="semantic" navigationUri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOLD;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_FAIL" unit="s">
+          <testMethod adtcore:uri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOLD;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_FAIL" adtcore:type="CLAS/OLI" adtcore:name="DO_THE_FAIL" executionTime="0.033" uriType="semantic" navigationUri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOLD;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_FAIL" unit="s">
             <alerts>
               <alert kind="failedAssertion" severity="critical">
                 <title>Critical Assertion Error: 'I am supposed to fail'</title>
