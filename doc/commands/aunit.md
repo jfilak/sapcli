@@ -75,3 +75,21 @@ The JUnit format was assembled from:
   - message: title
   - type: kind
   - text = alert/stack
+
+#### Sonar
+
+Test results are printed in the Sonar "Generic Execution" format as defined in:
+- https://docs.sonarqube.org/latest/analysis/generic-test/
+
+If the code was previously checked, an attempt is made to match up the test classes with their corresponding files:
+
+```bash
+sapcli checkout package {packagename}
+sapcli aunit run package {packagename} --output sonar
+```
+
+If the command is run without checking out the code, or if no matching test class can be found, a synthentic path
+is used with the format `PACKAGE-NAME/CLASS-NAME=>TEST-CLASS-NAME`.
+
+Alerts generated for the test class are represented as a `testCase` with the `name` property set to the name of the
+test class.
