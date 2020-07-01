@@ -531,7 +531,7 @@ class ADTObject(metaclass=OrderedClassMembers):
             self.objtype.basepath,
             headers={'Content-Type': seri_mime},
             params=create_params(corrnr),
-            body=xml)
+            body=bytes(xml, 'utf-8'))
 
     def fetch(self):
         """Retrieve data from ADT"""
@@ -666,7 +666,7 @@ class ADTObjectEditor:
             self.uri,
             headers={'Content-Type': mimetype},
             params=modify_object_params(self.lock_handle, self.corrnr),
-            body=payload)
+            body=bytes(payload, 'utf-8'))
 
 
 class ADTObjectSourceEditor(ADTObjectEditor):

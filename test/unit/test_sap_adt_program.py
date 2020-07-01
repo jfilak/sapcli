@@ -28,7 +28,7 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/programs/programs')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.programs.programs.v2+xml; charset=utf-8'})
         self.maxDiff = None
-        self.assertEqual(conn.execs[0][3], CREATE_EXECUTABLE_PROGRAM_ADT_XML)
+        self.assertEqual(conn.execs[0][3].decode('utf-8'), CREATE_EXECUTABLE_PROGRAM_ADT_XML)
 
     def test_program_write(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])

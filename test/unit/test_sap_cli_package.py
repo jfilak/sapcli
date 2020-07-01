@@ -31,7 +31,7 @@ class TestPackageCreate(unittest.TestCase):
         args = parse_args('create', '$TEST', 'description', '--super-package', '$MASTER')
         sap.cli.package.create(connection, args)
 
-        self.assertIn('<pak:superPackage adtcore:name="$MASTER"/>', connection.execs[0].body)
+        self.assertIn('<pak:superPackage adtcore:name="$MASTER"/>', connection.execs[0].body.decode('utf-8'))
 
     def test_create_package_without_super(self):
         connection = Connection([EMPTY_RESPONSE_OK])
@@ -39,7 +39,7 @@ class TestPackageCreate(unittest.TestCase):
         args = parse_args('create', '$TEST', 'description')
         sap.cli.package.create(connection, args)
 
-        self.assertIn('<pak:superPackage/>', connection.execs[0].body)
+        self.assertIn('<pak:superPackage/>', connection.execs[0].body.decode('utf-8'))
 
     def test_create_package_with_app_component(self):
         connection = Connection([EMPTY_RESPONSE_OK])
@@ -47,7 +47,7 @@ class TestPackageCreate(unittest.TestCase):
         args = parse_args('create', '$TEST', 'description', '--app-component', 'LOD')
         sap.cli.package.create(connection, args)
 
-        self.assertIn('<pak:applicationComponent pak:name="LOD"/>', connection.execs[0].body)
+        self.assertIn('<pak:applicationComponent pak:name="LOD"/>', connection.execs[0].body.decode('utf-8'))
 
     def test_create_package_with_sw_component(self):
         connection = Connection([EMPTY_RESPONSE_OK])
@@ -55,7 +55,7 @@ class TestPackageCreate(unittest.TestCase):
         args = parse_args('create', '$TEST', 'description', '--software-component', 'SAP')
         sap.cli.package.create(connection, args)
 
-        self.assertIn('<pak:softwareComponent pak:name="SAP"/>', connection.execs[0].body)
+        self.assertIn('<pak:softwareComponent pak:name="SAP"/>', connection.execs[0].body.decode('utf-8'))
 
     def test_create_package_with_transport_layer(self):
         connection = Connection([EMPTY_RESPONSE_OK])
@@ -63,7 +63,7 @@ class TestPackageCreate(unittest.TestCase):
         args = parse_args('create', '$TEST', 'description', '--transport-layer', 'SAP')
         sap.cli.package.create(connection, args)
 
-        self.assertIn('<pak:transportLayer pak:name="SAP"/>', connection.execs[0].body)
+        self.assertIn('<pak:transportLayer pak:name="SAP"/>', connection.execs[0].body.decode('utf-8'))
 
     def test_create_package_with_corrnr(self):
         connection = Connection([EMPTY_RESPONSE_OK])

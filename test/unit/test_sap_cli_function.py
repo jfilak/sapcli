@@ -51,7 +51,7 @@ class TestFunctionGroupCreate(unittest.TestCase):
         self.assertIsNone(post_req.params)
 
         self.maxDiff = None
-        self.assertEqual(post_req.body, CLI_CREATE_FUNCTION_GROUP_ADT_XML)
+        self.assertEqual(post_req.body.decode('utf-8'), CLI_CREATE_FUNCTION_GROUP_ADT_XML)
 
 
 class TestFunctionModuleCreate(unittest.TestCase):
@@ -72,7 +72,7 @@ class TestFunctionModuleCreate(unittest.TestCase):
         self.assertIsNone(post_req.params)
 
         self.maxDiff = None
-        self.assertEqual(post_req.body, CREATE_FUNCTION_MODULE_ADT_XML)
+        self.assertEqual(post_req.body.decode('utf-8'), CREATE_FUNCTION_MODULE_ADT_XML)
 
 
 class TestFunctionModuleWrite(unittest.TestCase):
@@ -141,7 +141,7 @@ class TestFunctionModuleChattr(unittest.TestCase):
         self.assertEqual(put_req.params['lockHandle'], 'win')
 
         self.maxDiff = None
-        self.assertEqual(put_req.body, PUT_FUNCITON_MODULE_ADT_XML)
+        self.assertEqual(put_req.body.decode('utf-8'), PUT_FUNCITON_MODULE_ADT_XML)
 
 
 if __name__ == '__main__':

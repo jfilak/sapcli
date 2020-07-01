@@ -182,7 +182,7 @@ class TestADTObject(unittest.TestCase):
         self.assertIsNone(connection.execs[0].params)
 
         self.maxDiff = None
-        self.assertEqual(connection.execs[0].body, '''<?xml version="1.0" encoding="UTF-8"?>
+        self.assertEqual(connection.execs[0].body.decode('utf-8'), '''<?xml version="1.0" encoding="UTF-8"?>
 <win:dummies xmlns:win="http://www.example.com/never/lose" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="DUMMY/S" adtcore:description="adt fixtures dummy object" adtcore:name="creator">
 <adtcore:packageRef/>
 </win:dummies>''' )
@@ -204,7 +204,7 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.super.cool.txt.v2+xml; charset=utf-8'})
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[0].body, '''<?xml version="1.0" encoding="UTF-8"?>
+        self.assertEqual(conn.execs[0].body.decode('utf-8'), '''<?xml version="1.0" encoding="UTF-8"?>
 <win:dummies xmlns:win="http://www.example.com/never/lose" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="DUMMY/S" adtcore:description="adt fixtures dummy object" adtcore:name="noobject">
 <adtcore:packageRef/>
 <elemv2>version2</elemv2>
@@ -291,7 +291,7 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(request.params['lockHandle'], 'win')
 
         self.maxDiff = None
-        self.assertEqual(request.body, '''<?xml version="1.0" encoding="UTF-8"?>
+        self.assertEqual(request.body.decode('utf-8'), '''<?xml version="1.0" encoding="UTF-8"?>
 <win:dummies xmlns:win="http://www.example.com/never/lose" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="DUMMY/S" adtcore:description="adt fixtures dummy object" adtcore:name="SOFTWARE_ENGINEER">
 <adtcore:packageRef/>
 </win:dummies>''')

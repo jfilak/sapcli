@@ -37,7 +37,7 @@ class TestClassCreate(unittest.TestCase):
 
         create_request = connection.execs[0]
         self.maxDiff = None
-        self.assertEqual(create_request.body, FIXTURE_ELEMENTARY_CLASS_XML)
+        self.assertEqual(create_request.body.decode('utf-8'), FIXTURE_ELEMENTARY_CLASS_XML)
 
         self.assertIsNone(create_request.params)
 

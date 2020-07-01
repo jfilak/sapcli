@@ -37,7 +37,7 @@ class TestADTIFace(unittest.TestCase):
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/oo/interfaces')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.oo.interfaces.v2+xml; charset=utf-8'})
         self.maxDiff = None
-        self.assertEqual(conn.execs[0][3], FIXTURE_ELEMENTARY_IFACE_XML)
+        self.assertEqual(conn.execs[0][3].decode('utf-8'), FIXTURE_ELEMENTARY_IFACE_XML)
 
     def test_adt_iface_write(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])

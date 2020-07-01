@@ -35,7 +35,7 @@ class TestInterfaceCreate(unittest.TestCase):
         self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/oo/interfaces')])
 
         create_request = connection.execs[0]
-        self.assertEqual(create_request.body, FIXTURE_ELEMENTARY_IFACE_XML)
+        self.assertEqual(create_request.body, bytes(FIXTURE_ELEMENTARY_IFACE_XML, 'utf-8'))
 
         self.assertIsNone(create_request.params)
 

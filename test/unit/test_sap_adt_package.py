@@ -56,7 +56,7 @@ class TestADTPackage(unittest.TestCase):
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/packages')
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v1+xml; charset=utf-8'})
         self.maxDiff = None
-        self.assertEqual(conn.execs[0][3], FIXTURE_PACKAGE_XML)
+        self.assertEqual(conn.execs[0][3].decode('utf-8'), FIXTURE_PACKAGE_XML)
 
     def test_package_serialization_v2(self):
         conn = Connection()
@@ -73,7 +73,7 @@ class TestADTPackage(unittest.TestCase):
 
         self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v2+xml; charset=utf-8'})
         self.maxDiff = None
-        self.assertEqual(conn.execs[0][3], FIXTURE_PACKAGE_XML)
+        self.assertEqual(conn.execs[0][3].decode('utf-8'), FIXTURE_PACKAGE_XML)
 
     def test_adt_package_fetch(self):
         conn = Connection([Response(text=GET_PACKAGE_ADT_XML,

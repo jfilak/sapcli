@@ -47,7 +47,7 @@ class TestADTInclude(unittest.TestCase):
         self.assertIsNone(conn.execs[0].params)
 
         self.maxDiff = None
-        self.assertEqual(conn.execs[0].body, CREATE_INCLUDE_PROGRAM_ADT_XML)
+        self.assertEqual(conn.execs[0].body.decode('utf-8'), CREATE_INCLUDE_PROGRAM_ADT_XML)
 
     def test_adt_include_write(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
