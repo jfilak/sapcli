@@ -93,6 +93,19 @@ class TestFunctionModule(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], CREATE_FUNCTION_MODULE_ADT_XML)
 
+    @patch('sap.adt.function.find_mime_version')
+    def test_function_module_correct_mime(self, fake_find_mime_version):
+        conn = Connection()
+
+        function = sap.adt.FunctionModule(conn, 'Z_FN_HELLO_WORLD', 'ZFG_HELLO_WORLD', metadata=OBJECT_METADATA)
+
+        try:
+            function._get_mime_and_version()
+        except SAPCliError:
+            pass
+
+        fake_find_mime_version.assert_called_once_with(conn, sap.adt.FunctionModule.OBJTYPE)
+
     def test_function_module_write(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 

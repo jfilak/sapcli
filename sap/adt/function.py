@@ -5,6 +5,7 @@ from copy import copy
 # pylint: disable=unused-import
 from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import ADTObjectType, ADTObject, ADTObjectSourceEditorWithResponse, xmlns_adtcore_ancestor
+from sap.adt.objects import find_mime_version
 from sap.adt.annotations import xml_attribute, xml_element
 
 
@@ -135,6 +136,11 @@ class FunctionModule(ADTObject):
         self._processing_type = None
         self._reference = None
         self._release_state = None
+
+    def _get_mime_and_version(self):
+        # because the standard _get_mime_and_version() use basepath which
+        # is modified in the __init__() method
+        return find_mime_version(self.connection, FunctionModule.OBJTYPE)
 
     def language(self):
         """Not supported on Function Module level but Function Group level"""
