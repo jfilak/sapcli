@@ -29,7 +29,7 @@ class TestFunctionGroup(unittest.TestCase):
 
         self.assertEqual(conn.execs[0][0], 'POST')
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/functions/groups')
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.groups.v2+xml'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.groups.v2+xml; charset=utf-8'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], CREATE_FUNCTION_GROUP_ADT_XML)
 
@@ -89,7 +89,7 @@ class TestFunctionModule(unittest.TestCase):
 
         self.assertEqual(conn.execs[0][0], 'POST')
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/functions/groups/zfg_hello_world/fmodules')
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.fmodules.v3+xml'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.fmodules.v3+xml; charset=utf-8'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], CREATE_FUNCTION_MODULE_ADT_XML)
 

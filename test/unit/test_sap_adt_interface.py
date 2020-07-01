@@ -35,7 +35,7 @@ class TestADTIFace(unittest.TestCase):
 
         self.assertEqual(conn.execs[0][0], 'POST')
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/oo/interfaces')
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.oo.interfaces.v2+xml'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.oo.interfaces.v2+xml; charset=utf-8'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_ELEMENTARY_IFACE_XML)
 

@@ -40,7 +40,7 @@ class TestInterfaceCreate(unittest.TestCase):
         self.assertIsNone(create_request.params)
 
         self.assertEqual(sorted(create_request.headers.keys()), ['Content-Type'])
-        self.assertEqual(create_request.headers['Content-Type'], 'application/vnd.sap.adt.oo.interfaces.v2+xml')
+        self.assertEqual(create_request.headers['Content-Type'], 'application/vnd.sap.adt.oo.interfaces.v2+xml; charset=utf-8')
 
 
 class TestInterfaceActivate(unittest.TestCase):

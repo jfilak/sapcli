@@ -518,7 +518,7 @@ class ADTObject(metaclass=OrderedClassMembers):
         seri_mime, version = self._get_mime_and_version()
 
         marshal = sap.adt.marshalling.Marshal(object_schema_version=version)
-        return (marshal.serialize(self), seri_mime)
+        return (marshal.serialize(self), seri_mime + '; charset=utf-8')
 
     def create(self, corrnr=None):
         """Creates ADT object

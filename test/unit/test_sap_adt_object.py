@@ -176,7 +176,7 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(connection.execs[0].method, 'POST')
         self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/awesome/success')
 
-        self.assertEqual(connection.execs[0].headers['Content-Type'], 'application/vnd.sap.super.cool.txt+xml')
+        self.assertEqual(connection.execs[0].headers['Content-Type'], 'application/vnd.sap.super.cool.txt+xml; charset=utf-8')
         self.assertEqual(sorted(connection.execs[0].headers.keys()), ['Content-Type'])
 
         self.assertIsNone(connection.execs[0].params)
@@ -201,7 +201,7 @@ class TestADTObject(unittest.TestCase):
         victory = DummyADTObject(connection=conn)
         victory.create()
 
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.super.cool.txt.v2+xml'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.super.cool.txt.v2+xml; charset=utf-8'})
 
         self.maxDiff = None
         self.assertEqual(conn.execs[0].body, '''<?xml version="1.0" encoding="UTF-8"?>
@@ -216,7 +216,7 @@ class TestADTObject(unittest.TestCase):
         victory = DummyADTObject(connection=conn)
         victory.create()
 
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.super.cool.txt+xml'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.super.cool.txt+xml; charset=utf-8'})
 
     def test_create_mime_not_found(self):
         conn = Connection(collections={'/sap/bc/adt/awesome/success': ['application/something.else+xml']})
@@ -285,7 +285,7 @@ class TestADTObject(unittest.TestCase):
         request = connection.execs[1]
 
         self.assertEqual(sorted(request.headers.keys()), ['Content-Type'])
-        self.assertEqual(request.headers['Content-Type'], 'application/vnd.sap.super.cool.txt+xml')
+        self.assertEqual(request.headers['Content-Type'], 'application/vnd.sap.super.cool.txt+xml; charset=utf-8')
 
         self.assertEqual(sorted(request.params.keys()), ['lockHandle'])
         self.assertEqual(request.params['lockHandle'], 'win')

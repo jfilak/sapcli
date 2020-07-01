@@ -43,7 +43,7 @@ class TestADTInclude(unittest.TestCase):
         include.create()
 
         self.assertEqual(conn.mock_methods(), [('POST', '/sap/bc/adt/programs/includes')])
-        self.assertEqual(conn.execs[0].headers, {'Content-Type': 'application/vnd.sap.adt.programs.includes.v2+xml'})
+        self.assertEqual(conn.execs[0].headers, {'Content-Type': 'application/vnd.sap.adt.programs.includes.v2+xml; charset=utf-8'})
         self.assertIsNone(conn.execs[0].params)
 
         self.maxDiff = None

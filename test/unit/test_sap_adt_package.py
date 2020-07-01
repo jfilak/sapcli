@@ -54,7 +54,7 @@ class TestADTPackage(unittest.TestCase):
 
         self.assertEqual(conn.execs[0][0], 'POST')
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/packages')
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v1+xml'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v1+xml; charset=utf-8'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_PACKAGE_XML)
 
@@ -71,7 +71,7 @@ class TestADTPackage(unittest.TestCase):
         package.super_package.name = '$MASTER'
         package.create()
 
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v2+xml'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.packages.v2+xml; charset=utf-8'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3], FIXTURE_PACKAGE_XML)
 
