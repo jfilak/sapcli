@@ -52,3 +52,8 @@ W/WRN/777: Warning message''')
 
     def test_does_not_raise(self):
         BAPIError.raise_for_error([create_bapiret_warning(self.message_w)], self.response)
+
+    def test_contains(self):
+        ex = BAPIError(self.bapirettab, self.response)
+        self.assertTrue(ex.contains('ERR', '333'))
+        self.assertFalse(ex.contains('NOP', '222'))

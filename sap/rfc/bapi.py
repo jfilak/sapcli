@@ -18,6 +18,13 @@ class BAPIError(SAPCliError):
         self.bapirettab = bapirettab
         self.response = response
 
+    def contains(self, msg_class, msg_number):
+        """"Returns True if the list of messages contains specified Message
+            Class and Message Number.
+        """
+
+        return any((msg['ID'] == msg_class and msg['NUMBER'] == msg_number for msg in self.bapirettab))
+
     @staticmethod
     def raise_for_error(bapiret: Union[RFCResponse, List[RFCResponse]], response) -> None:
         """If the given BAPI response contains error raise an exception"""
