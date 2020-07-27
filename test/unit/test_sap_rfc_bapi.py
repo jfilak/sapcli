@@ -6,16 +6,16 @@ from unittest.mock import Mock
 from sap.rfc.bapi import BAPIError
 
 
-def create_bapiret(typ:str=None, message:str=None):
-    return {'TYPE': typ, 'MESSAGE': message}
+def create_bapiret(typ:str=None, message:str=None, msg_class:str=None, msg_number:str=None):
+    return {'TYPE': typ, 'ID': msg_class, 'NUMBER': msg_number, 'MESSAGE': message}
 
 
 def create_bapiret_error(message:str):
-    return create_bapiret(typ='E', message=message)
+    return create_bapiret(typ='E', message=message, msg_class='ERR', msg_number='333')
 
 
 def create_bapiret_warning(message:str):
-    return create_bapiret(typ='W', message=message)
+    return create_bapiret(typ='W', message=message, msg_class='WRN', msg_number='777')
 
 
 class TestBAPIError(unittest.TestCase):
@@ -28,8 +28,8 @@ class TestBAPIError(unittest.TestCase):
         self.response = Mock()
 
     def assertExDataMatch(self, ex):
-        self.assertEqual(str(ex), '''E Error message
-W Warning message''')
+        self.assertEqual(str(ex), '''E/ERR/333: Error message
+W/WRN/777: Warning message''')
 
         self.assertEqual(ex.bapirettab, self.bapirettab)
         self.assertEqual(ex.response, self.response)

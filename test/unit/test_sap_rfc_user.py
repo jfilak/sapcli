@@ -224,7 +224,7 @@ class TestUserManager(unittest.TestCase):
 
         self.connection.call.assert_called_once()
 
-        self.assertEqual(str(caught.exception), 'E Error message')
+        self.assertEqual(str(caught.exception), 'E/ERR/333: Error message')
         self.assertEqual(caught.exception.response, self.response)
 
     def test_assign_roles_no_error(self):

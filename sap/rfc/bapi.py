@@ -12,7 +12,8 @@ class BAPIError(SAPCliError):
     def __init__(self, bapirettab, response):
         super(BAPIError, self).__init__(
             '\n'.join(
-                [' '.join([bapiret['TYPE'], bapiret['MESSAGE']]) for bapiret in bapirettab]))
+                ['/'.join([bapiret['TYPE'], bapiret['ID'], bapiret['NUMBER'] + ': ' + bapiret['MESSAGE']])
+                 for bapiret in bapirettab]))
 
         self.bapirettab = bapirettab
         self.response = response
