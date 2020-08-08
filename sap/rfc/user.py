@@ -36,6 +36,17 @@ def add_to_dict_if_not_present(target_dict, target_key, value):
     return True
 
 
+def copy_dict_or_new(original: dict) -> dict:
+    """Makes a copy of the original dict if not None;
+       otherwise returns an empty dict.
+    """
+
+    if original is None:
+        return dict()
+
+    return dict(original)
+
+
 def sap_date_from(the_date: datetime.date) -> str:
     """Converts Python date to string"""
 
@@ -154,14 +165,25 @@ class UserBuilder:
         params = dict()
 
         add_to_dict_if_not_none(params, 'USERNAME', self._username)
-        add_to_dict_if_not_none(params, 'ADDRESS', self._address)
-        add_to_dict_if_not_none(params, 'PASSWORD', self._password)
-        add_to_dict_if_not_none(params, 'ALIAS', self._alias)
 
-        add_to_dict_if_not_present(self._logondata_data, 'GLTGV', today_sap_date())
-        add_to_dict_if_not_present(self._logondata_data, 'GLTGB', '20991231')
+        address = copy_dict_or_new(self._address)
+        add_to_dict_if_not_present(address, 'FIRSTNAME', '')
+        add_to_dict_if_not_present(address, 'LASTNAME', '')
+        add_to_dict_if_not_present(address, 'E_MAIL', '')
+        params['ADDRESS'] = address
 
-        add_to_dict_if_not_none(params, 'LOGONDATA', self._logondata)
+        password = copy_dict_or_new(self._password)
+        add_to_dict_if_not_present(password, 'BAPIPWD', '')
+        params['PASSWORD'] = password
+
+        alias = copy_dict_or_new(self._alias)
+        add_to_dict_if_not_present(alias, 'USERALIAS', '')
+        params['ALIAS'] = alias
+
+        logondata = copy_dict_or_new(self._logondata_data)
+        add_to_dict_if_not_present(logondata, 'GLTGV', today_sap_date())
+        add_to_dict_if_not_present(logondata, 'GLTGB', '20991231')
+        params['LOGONDATA'] = logondata
 
         return params
 

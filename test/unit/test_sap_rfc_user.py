@@ -59,7 +59,21 @@ class TestUserBuilder(unittest.TestCase):
 
         date = datetime.date.today().strftime('%Y%m%d')
 
-        self.assertEqual(params, {'LOGONDATA': {'GLTGV': date, 'GLTGB': '20991231'}})
+        self.assertEqual(
+            params,
+            {'LOGONDATA': {
+                    'GLTGV': date,
+                    'GLTGB': '20991231'
+                },
+             'ADDRESS': {
+                    'FIRSTNAME': '',
+                    'LASTNAME':'',
+                    'E_MAIL': ''
+                },
+             'ALIAS': {'USERALIAS': ''},
+             'PASSWORD': {'BAPIPWD': ''}
+            }
+        )
 
     def test_valid_from_value_error(self):
         with self.assertRaises(ValueError):
