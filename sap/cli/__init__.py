@@ -14,6 +14,7 @@ class CommandsCache:
 
     adt = None
     rfc = None
+    rest = None
 
     @staticmethod
     def commands():
@@ -30,6 +31,7 @@ class CommandsCache:
         import sap.cli.datapreview
         import sap.cli.package
         import sap.cli.cts
+        import sap.cli.gcts
         import sap.cli.checkout
         import sap.cli.activation
         import sap.cli.startrfc
@@ -54,6 +56,11 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.adt.CommandGroup())
             ]
 
+        if CommandsCache.rest is None:
+            CommandsCache.rest = [
+                (gcts_connection_from_args, sap.cli.gcts.CommandGroup())
+            ]
+
         if CommandsCache.rfc is None:
             if rfc.rfc_is_available():
                 CommandsCache.rfc = [
@@ -62,7 +69,7 @@ class CommandsCache:
             else:
                 CommandsCache.rfc = list()
 
-        return CommandsCache.adt + CommandsCache.rfc
+        return CommandsCache.adt + CommandsCache.rest + CommandsCache.rfc
 
 
 def adt_connection_from_args(args):
@@ -81,6 +88,17 @@ def rfc_connection_from_args(args):
     """
 
     return rfc.connect(args.ashost, args.sysnr, args.client, args.user, args.password)
+
+
+def gcts_connection_from_args(args):
+    """Returns REST connection constructed from the passed args (Namespace)
+       and configured for gCTS calls.
+    """
+
+    import sap.rest
+
+    return sap.rest.Connection('sap/bc/cts_abapvcs', 'system', args.ashost, args.client,
+        args.user, args.password, port=args.port, ssl=args.ssl, verify=args.verify)
 
 
 def get_commands():
