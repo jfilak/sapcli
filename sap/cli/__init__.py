@@ -6,6 +6,8 @@ Dependency modules are lazy loaded to enable partial modular installation.
 """
 
 
+import os
+from collections import namedtuple
 from sap import rfc
 
 
@@ -98,7 +100,8 @@ def gcts_connection_from_args(args):
     import sap.rest
 
     return sap.rest.Connection('sap/bc/cts_abapvcs', 'system', args.ashost, args.client,
-        args.user, args.password, port=args.port, ssl=args.ssl, verify=args.verify)
+                               args.user, args.password, port=args.port, ssl=args.ssl,
+                               verify=args.verify)
 
 
 def get_commands():
@@ -108,6 +111,64 @@ def get_commands():
     """
 
     return CommandsCache.commands()
+
+
+def build_empty_connection_values():
+    """Returns empty connection settings. Particularly useful
+       when passed to the function resolve_default_connection_values
+       which will fill the object with values from Environment Variables.
+    """
+
+    return namedtuple(
+        'ConnectionValues',
+        ['ashost', 'sysnr', 'client', 'port', 'ssl', 'verify', 'user', 'password', 'corrnr']
+    )
+
+
+# pylint: disable=too-many-branches, invalid-name
+def resolve_default_connection_values(args):
+    """Add default values to connection specification. The values are loaded
+       from Environment variables.
+    """
+
+    if not args.ashost:
+        args.ashost = os.getenv('SAP_ASHOST')
+
+    if not args.sysnr:
+        args.sysnr = os.getenv('SAP_SYSNR', '00')
+
+    if not args.client:
+        args.client = os.getenv('SAP_CLIENT')
+
+    if not args.port:
+        port = os.getenv('SAP_PORT')
+        if port:
+            args.port = int(port)
+        else:
+            args.port = 443
+
+    if args.ssl is None:
+        ssl = os.getenv('SAP_SSL')
+        if ssl is not None:
+            args.ssl = ssl.lower() not in ('n', 'no', 'false', 'off')
+        else:
+            args.ssl = True
+
+    if args.verify is None:
+        verify = os.getenv('SAP_SSL_VERIFY')
+        if verify is not None:
+            args.verify = verify.lower() not in ('n', 'no', 'false', 'off')
+        else:
+            args.verify = True
+
+    if not args.user:
+        args.user = os.getenv('SAP_USER')
+
+    if not args.password:
+        args.password = os.getenv('SAP_PASSWORD')
+
+    if hasattr(args, 'corrnr') and args.corrnr is None:
+        args.corrnr = os.getenv('SAP_CORRNR')
 
 
 __all__ = [
