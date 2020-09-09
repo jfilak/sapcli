@@ -1,5 +1,6 @@
 """ATC proxy for ABAP Unit"""
-
+import json
+import os
 import sys
 
 from sap import get_logger
@@ -41,6 +42,65 @@ def print_worklist_to_stream(run_results, stream, error_level=99):
     return 0 if ret < 1 else 1
 
 
+def print_worklist_as_html_to_stream(run_results, stream, error_level=99):
+    """Print results as html table to stream"""
+
+    ret = 0
+    stream.write('<table>\n')
+    for obj in run_results.objects:
+        stream.write('<tr><th>Object type ID</th>\n'
+                     '<th>Name</th></tr>\n')
+        stream.write(f'<tr><td>{obj.object_type_id}</td>\n'
+                     f'<td>{obj.name}</td></tr>\n')
+        stream.write('<tr><th>Priority</th>\n'
+                     '<th>Check title</th>\n'
+                     '<th>Message title</th></tr>\n')
+        for finding in obj.findings:
+            if int(finding.priority) <= error_level:
+                ret += 1
+            stream.write(f'<tr><td>{finding.priority}</td>\n'
+                         f'<td>{finding.check_title}</td>\n'
+                         f'<td>{finding.message_title}</td></tr>\n')
+
+    stream.write('</table>\n')
+    return 0 if ret < 1 else 1
+
+
+def print_worklist_as_checkstyle_xml_to_stream(run_results, stream, error_level=99, severity_mapping=None):
+    """Print results as checkstyle xml to stream"""
+
+    CHECKSTYLE_VERSION = '8.36'
+    ERROR = 'error'
+    WARNING = 'warning'
+    INFO = 'info'
+    SEVERITY_MAPPING = {
+        '1': ERROR,
+        '2': ERROR,
+        '3': WARNING,
+        '4': WARNING,
+        '5': INFO
+    }
+
+    if not severity_mapping:
+        severity_mapping = SEVERITY_MAPPING
+
+    ret = 0
+    stream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+    stream.write(f'<checkstyle version="{CHECKSTYLE_VERSION}">\n')
+    for obj in run_results.objects:
+        stream.write(f'<file name="{obj.object_type_id}/{obj.name}">\n')
+        for finding in obj.findings:
+            if int(finding.priority) <= error_level:
+                ret += 1
+            stream.write(f'<error severity="{severity_mapping.get(str(finding.priority), INFO)}" '
+                         f'message="{finding.message_title}" '
+                         f'source="{finding.check_title}"/>\n')
+        stream.write('</file>\n')
+
+    stream.write('</checkstyle>\n')
+    return 0 if ret < 1 else 1
+
+
 @CommandGroup.command()
 def customizing(connection, _):
     """Retrieves ATC customizing"""
@@ -58,6 +118,10 @@ def customizing(connection, _):
                        help='Exit with non zero if a finding with this or higher prio returned')
 @CommandGroup.argument('name')
 @CommandGroup.argument('type', choices=['program', 'class', 'package'])
+@CommandGroup.argument('-o', '--output', default='human', choices=['human', 'html', 'checkstyle'],
+                       help='Output format in which checks will be printed')
+@CommandGroup.argument('-s', '--severity_mapping', default=None, type=str,
+                       help='Severity mapping between error levels and Checkstyle severities')
 @CommandGroup.command()
 def run(connection, args):
     """Prints it out based on command line configuration.
@@ -65,6 +129,7 @@ def run(connection, args):
        Exceptions:
          - SAPCliError:
            - when the given type does not belong to the type white list
+           - when severity_maping argument has invalid format
     """
 
     types = {'program': sap.adt.Program, 'class': sap.adt.Class, 'package': sap.adt.Package}
@@ -72,6 +137,25 @@ def run(connection, args):
         typ = types[args.type]
     except KeyError:
         raise SAPCliError(f'Unknown type: {args.type}')
+
+    printer_format_mapping = {
+        'human': print_worklist_to_stream,
+        'html': print_worklist_as_html_to_stream,
+        'checkstyle': print_worklist_as_checkstyle_xml_to_stream
+    }
+    try:
+        printer = printer_format_mapping[args.output]
+    except KeyError:
+        raise SAPCliError(f'Unknown format: {args.output}')
+
+    severity_mapping = None
+    if args.output == 'checkstyle':
+        severity_mapping = args.severity_mapping or os.environ.get('SEVERITY_MAPPING')
+        if severity_mapping:
+            try:
+                severity_mapping = dict(json.loads(severity_mapping))
+            except (json.decoder.JSONDecodeError, TypeError):
+                raise SAPCliError('Severity mapping has incorrect format')
 
     objects = sap.adt.objects.ADTObjectSets()
     objects.include_object(typ(connection, args.name))
@@ -85,4 +169,12 @@ def run(connection, args):
     checks = sap.adt.atc.ChecksRunner(connection, args.variant)
     results = checks.run_for(objects, max_verdicts=args.max_verdicts)
 
-    return print_worklist_to_stream(results.worklist, sys.stdout, error_level=args.error_level)
+    if args.output == 'checkstyle':
+        result = printer(
+            results.worklist, sys.stdout,
+            error_level=args.error_level, severity_mapping=severity_mapping
+        )
+    else:
+        result = printer(results.worklist, sys.stdout, error_level=args.error_level)
+
+    return result
