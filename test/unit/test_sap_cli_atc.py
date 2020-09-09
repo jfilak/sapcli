@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import os
 import sys
 import unittest
 from unittest.mock import patch, Mock, call
@@ -23,7 +23,7 @@ def parse_args(*argv):
     return parser.parse_args(argv)
 
 
-class TetsConfiguration(unittest.TestCase):
+class TestConfiguration(unittest.TestCase):
 
     @patch('sap.adt.atc.fetch_customizing')
     def test_default(self, fake_fetch_customizing):
@@ -40,7 +40,7 @@ class TetsConfiguration(unittest.TestCase):
         fake_printout.assert_called_once_with('System Check Variant:', 'THE_VARIANT')
 
 
-class TetsRun(unittest.TestCase):
+class TestRun(unittest.TestCase):
 
     def setUp(self):
         self.connection = Connection()
@@ -87,6 +87,24 @@ class TetsRun(unittest.TestCase):
             sap.cli.atc.run(connection, SimpleNamespace(type='foo', name='bar'))
 
         self.assertEqual('Unknown type: foo', str(caught.exception))
+
+    def test_invalid_format(self):
+        connection = Mock()
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.cli.atc.run(connection, SimpleNamespace(type='program', name='bar', output='foo'))
+
+        self.assertEqual('Unknown format: foo', str(caught.exception))
+
+    def test_invalid_severity_mapping(self):
+        connection = Mock()
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.cli.atc.run(connection, SimpleNamespace(
+                type='program', name='bar', output='checkstyle', severity_mapping='[1,2,3]'
+            ))
+
+        self.assertEqual('Severity mapping has incorrect format', str(caught.exception))
 
     @patch('sap.cli.atc.print_worklist_to_stream')
     @patch('sap.adt.objects.ADTObjectSets')
@@ -173,8 +191,81 @@ class TetsRun(unittest.TestCase):
 
         fake_print.assert_called_once_with('WORKLIST', sys.stdout, error_level=100)
 
+    @patch('sap.cli.atc.print_worklist_to_stream')
+    @patch('sap.adt.objects.ADTObjectSets')
+    @patch('sap.adt.atc.ChecksRunner')
+    @patch('sap.adt.atc.fetch_customizing')
+    @patch('sap.adt.Package')
+    def test_with_text_format(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
 
-class TetsPrintWorklistToStream(unittest.TestCase):
+        args = parse_args('run', 'package', fake_object.name, '-o', 'human')
+        args.execute(self.connection, args)
+
+        fake_print.assert_called_once_with('WORKLIST', sys.stdout, error_level=2)
+
+    @patch('sap.cli.atc.print_worklist_as_html_to_stream')
+    @patch('sap.adt.objects.ADTObjectSets')
+    @patch('sap.adt.atc.ChecksRunner')
+    @patch('sap.adt.atc.fetch_customizing')
+    @patch('sap.adt.Package')
+    def test_with_html_format(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
+
+        args = parse_args('run', 'package', fake_object.name, '-o', 'html')
+        args.execute(self.connection, args)
+
+        fake_print.assert_called_once_with('WORKLIST', sys.stdout, error_level=2)
+
+    @patch('sap.cli.atc.print_worklist_as_checkstyle_xml_to_stream')
+    @patch('sap.adt.objects.ADTObjectSets')
+    @patch('sap.adt.atc.ChecksRunner')
+    @patch('sap.adt.atc.fetch_customizing')
+    @patch('sap.adt.Package')
+    def test_with_xml_format(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
+
+        args = parse_args('run', 'package', fake_object.name, '-o', 'checkstyle')
+        args.execute(self.connection, args)
+
+        fake_print.assert_called_once_with('WORKLIST', sys.stdout, error_level=2, severity_mapping=None)
+
+
+    @patch('sap.cli.atc.print_worklist_as_checkstyle_xml_to_stream')
+    @patch('sap.adt.objects.ADTObjectSets')
+    @patch('sap.adt.atc.ChecksRunner')
+    @patch('sap.adt.atc.fetch_customizing')
+    @patch('sap.adt.Package')
+    def test_with_xml_format_with_mapping_from_arg(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
+
+        severity_mapping_str = '{"1":"error"}'
+        args = parse_args(
+            'run', 'package', fake_object.name, '-o', 'checkstyle', '-s', severity_mapping_str
+        )
+        args.execute(self.connection, args)
+
+        fake_print.assert_called_once_with('WORKLIST', sys.stdout, error_level=2, severity_mapping={'1': 'error'})
+
+    @patch('sap.cli.atc.print_worklist_as_checkstyle_xml_to_stream')
+    @patch('sap.adt.objects.ADTObjectSets')
+    @patch('sap.adt.atc.ChecksRunner')
+    @patch('sap.adt.atc.fetch_customizing')
+    @patch('sap.adt.Package')
+    def test_with_xml_format_with_mapping_from_env(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
+
+        severity_mapping_str = '{"1":"error"}'
+        args = parse_args(
+            'run', 'package', fake_object.name, '-o', 'checkstyle'
+        )
+        with patch.dict(os.environ, {'SEVERITY_MAPPING': severity_mapping_str}):
+            args.execute(self.connection, args)
+
+        fake_print.assert_called_once_with('WORKLIST', sys.stdout, error_level=2, severity_mapping={'1': 'error'})
+
+
+class TestPrintWorklistMixin:
 
     def setUp(self):
         atcobject = sap.adt.atc.ATCObject()
@@ -209,6 +300,9 @@ class TetsPrintWorklistToStream(unittest.TestCase):
         self.worklist = sap.adt.atc.WorkList()
         self.worklist.objects = sap.adt.atc.ATCObjectList()
         self.worklist.objects.append(atcobject)
+
+
+class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
 
     def test_all_loops(self):
         output = StringIO()
@@ -246,6 +340,163 @@ class TetsPrintWorklistToStream(unittest.TestCase):
 ''')
         self.assertEqual(0, ret)
 
+
+class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase):
+
+    def test_all_loops(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklist_as_html_to_stream(self.worklist, output)
+        self.assertEqual(output.getvalue(),
+'''<table>
+<tr><th>Object type ID</th>
+<th>Name</th></tr>
+<tr><td>FAKE/TEST</td>
+<td>MADE_UP_OBJECT</td></tr>
+<tr><th>Priority</th>
+<th>Check title</th>
+<th>Message title</th></tr>
+<tr><td>1</td>
+<td>UNIT_TEST</td>
+<td>Unit tests for ATC module of sapcli</td></tr>
+<tr><td>2</td>
+<td>PRIO_2</td>
+<td>Prio 2</td></tr>
+<tr><td>3</td>
+<td>PRIO_3</td>
+<td>Prio 3</td></tr>
+<tr><td>4</td>
+<td>PRIO_4</td>
+<td>Prio 4</td></tr>
+</table>
+''')
+        self.assertEqual(1, ret)
+
+    def test_error_level_2(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklist_as_html_to_stream(self.worklist, output, error_level=2)
+        self.assertEqual(output.getvalue(),
+'''<table>
+<tr><th>Object type ID</th>
+<th>Name</th></tr>
+<tr><td>FAKE/TEST</td>
+<td>MADE_UP_OBJECT</td></tr>
+<tr><th>Priority</th>
+<th>Check title</th>
+<th>Message title</th></tr>
+<tr><td>1</td>
+<td>UNIT_TEST</td>
+<td>Unit tests for ATC module of sapcli</td></tr>
+<tr><td>2</td>
+<td>PRIO_2</td>
+<td>Prio 2</td></tr>
+<tr><td>3</td>
+<td>PRIO_3</td>
+<td>Prio 3</td></tr>
+<tr><td>4</td>
+<td>PRIO_4</td>
+<td>Prio 4</td></tr>
+</table>
+''')
+        self.assertEqual(1, ret)
+
+    def test_error_level_0(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklist_as_html_to_stream(self.worklist, output, error_level=0)
+        self.assertEqual(output.getvalue(),
+'''<table>
+<tr><th>Object type ID</th>
+<th>Name</th></tr>
+<tr><td>FAKE/TEST</td>
+<td>MADE_UP_OBJECT</td></tr>
+<tr><th>Priority</th>
+<th>Check title</th>
+<th>Message title</th></tr>
+<tr><td>1</td>
+<td>UNIT_TEST</td>
+<td>Unit tests for ATC module of sapcli</td></tr>
+<tr><td>2</td>
+<td>PRIO_2</td>
+<td>Prio 2</td></tr>
+<tr><td>3</td>
+<td>PRIO_3</td>
+<td>Prio 3</td></tr>
+<tr><td>4</td>
+<td>PRIO_4</td>
+<td>Prio 4</td></tr>
+</table>
+''')
+        self.assertEqual(0, ret)
+
+class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
+
+    def test_all_loops(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklist_as_checkstyle_xml_to_stream(self.worklist, output)
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="8.36">
+<file name="FAKE/TEST/MADE_UP_OBJECT">
+<error severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error severity="error" message="Prio 2" source="PRIO_2"/>
+<error severity="warning" message="Prio 3" source="PRIO_3"/>
+<error severity="warning" message="Prio 4" source="PRIO_4"/>
+</file>
+</checkstyle>
+''')
+        self.assertEqual(1, ret)
+
+    def test_error_level_2(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklist_as_checkstyle_xml_to_stream(self.worklist, output, error_level=2)
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="8.36">
+<file name="FAKE/TEST/MADE_UP_OBJECT">
+<error severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error severity="error" message="Prio 2" source="PRIO_2"/>
+<error severity="warning" message="Prio 3" source="PRIO_3"/>
+<error severity="warning" message="Prio 4" source="PRIO_4"/>
+</file>
+</checkstyle>
+''')
+        self.assertEqual(1, ret)
+
+    def test_error_level_0(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklist_as_checkstyle_xml_to_stream(self.worklist, output, error_level=0)
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="8.36">
+<file name="FAKE/TEST/MADE_UP_OBJECT">
+<error severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error severity="error" message="Prio 2" source="PRIO_2"/>
+<error severity="warning" message="Prio 3" source="PRIO_3"/>
+<error severity="warning" message="Prio 4" source="PRIO_4"/>
+</file>
+</checkstyle>
+''')
+        self.assertEqual(0, ret)
+
+    def test_severity_mapping(self):
+        output = StringIO()
+        severity_mapping = {
+            '1': 'info',
+            '2': 'warning',
+            '3': 'error'
+        }
+        ret = sap.cli.atc.print_worklist_as_checkstyle_xml_to_stream(self.worklist, output, severity_mapping=severity_mapping)
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="8.36">
+<file name="FAKE/TEST/MADE_UP_OBJECT">
+<error severity="info" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error severity="warning" message="Prio 2" source="PRIO_2"/>
+<error severity="error" message="Prio 3" source="PRIO_3"/>
+<error severity="info" message="Prio 4" source="PRIO_4"/>
+</file>
+</checkstyle>
+''')
+        self.assertEqual(1, ret)
 
 if __name__ == '__main__':
     unittest.main()
