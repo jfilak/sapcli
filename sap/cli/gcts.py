@@ -33,8 +33,7 @@ def clone(connection, args):
 
     package = args.package
     if not package:
-        url_repo_part = args.url.split('/')[-1]
-        package = url_repo_part.split('.')[0]
+        package = sap.rest.gcts.package_name_from_url(args.url)
 
     response = sap.rest.gcts.simple_clone(connection, args.url, package,
                                           start_dir=args.starting_folder,

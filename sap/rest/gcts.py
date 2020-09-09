@@ -1,6 +1,17 @@
 """gCTS REST calls"""
 
 
+def package_name_from_url(url):
+    """Parse out Package name from a repo git url"""
+
+    url_repo_part = url.split('/')[-1]
+
+    if url_repo_part.endswith('.git'):
+        return url_repo_part[:-4]
+
+    return url_repo_part
+
+
 def simple_fetch_repos(connection):
     return connection.get_json('repository')['result']
 
