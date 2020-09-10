@@ -28,6 +28,9 @@ class TestADT(ConsoleOutputTestCase, PatcherTestCase):
         self.adt_connection = MagicMock()
         self.adt_connection.collection_types = self.collection_types
 
+    def tearDown(self):
+        self.unpatch_all()
+
     def parse_collections(self):
         return parse_args('collections')
 

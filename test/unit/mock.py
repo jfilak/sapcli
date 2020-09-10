@@ -189,7 +189,7 @@ class PatcherTestCase:
 
         return self.patch('sap.cli.core.get_console', return_value=console)
 
-    def tearDown(self):
+    def unpatch_all(self):
         print('Patcher tear down')
 
         if not hasattr(self, '_patchers'):

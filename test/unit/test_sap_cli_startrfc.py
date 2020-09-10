@@ -38,6 +38,9 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
         self.rfc_connection = MagicMock()
         self.rfc_connection.call.return_value = self.response
 
+    def tearDown(self):
+        self.unpatch_all()
+
     def execute_cmd(self, json_args_obj=None, exp_stdout=None, params=[]):
 
         if json_args_obj is None:

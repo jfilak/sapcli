@@ -21,6 +21,9 @@ class TestgCTSClone(ConsoleOutputTestCase, PatcherTestCase):
         self.patch_console(console=self.console)
         self.fake_simple_clone = self.patch('sap.rest.gcts.simple_clone')
 
+    def tearDown(self):
+        self.unpatch_all()
+
     def clone(self, *args, **kwargs):
         return parse_args('clone', *args, **kwargs)
 
