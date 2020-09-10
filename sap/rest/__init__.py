@@ -7,7 +7,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger
-from sap.adt.errors import HTTPRequestError, UnexpectedResponseContent
+from sap.rest.errors import HTTPRequestError, UnexpectedResponseContent
 
 
 def mod_log():

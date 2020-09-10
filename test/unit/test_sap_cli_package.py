@@ -7,7 +7,8 @@ from argparse import ArgumentParser
 from io import StringIO
 
 from sap.errors import SAPCliError
-from sap.adt.errors import ExceptionResourceAlreadyExists, HTTPRequestError
+from sap.rest.errors import HTTPRequestError
+from sap.adt.errors import ExceptionResourceAlreadyExists
 import sap.cli.package
 
 from mock import Connection, Response

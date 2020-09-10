@@ -116,7 +116,7 @@ def _run_reporters_for_objects(connection, reporters, package_objects):
         try:
             reports = sap.adt.checks.run(connection, reporter, check_objects)
             checks += 1
-        except sap.adt.errors.HTTPRequestError as ex:
+        except sap.rest.errors.HTTPRequestError as ex:
             mod_log().info('Reporter %s\n%s', reporter.name, str(ex))
         else:
             results.extend(reports)

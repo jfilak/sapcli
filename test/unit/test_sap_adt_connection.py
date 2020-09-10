@@ -54,7 +54,7 @@ class TestADTConnection(unittest.TestCase):
         res.headers = {'content-type': 'application/xml'}
         res.text = '<?xml version="1.0" encoding="utf-8"><error>random failure</error>'
 
-        with self.assertRaises(sap.adt.errors.HTTPRequestError):
+        with self.assertRaises(sap.rest.errors.HTTPRequestError):
             sap.adt.Connection._handle_http_error(req, res)
 
     def test_handle_http_error_plain_text(self):
@@ -64,7 +64,7 @@ class TestADTConnection(unittest.TestCase):
         res.headers = {'content-type': 'plain/text'}
         res.text = 'arbitrary crash'
 
-        with self.assertRaises(sap.adt.errors.HTTPRequestError):
+        with self.assertRaises(sap.rest.errors.HTTPRequestError):
             sap.adt.Connection._handle_http_error(req, res)
 
     @patch('sap.adt.core.Connection._build_adt_url', return_value='url')
@@ -181,7 +181,7 @@ class TestADTConnection(unittest.TestCase):
         mock_exec.return_value.headers = {'Content-Type': 'application/json'}
         mock_exec.return_value.text = 'mock'
 
-        with self.assertRaises(sap.adt.errors.UnexpectedResponseContent) as caught:
+        with self.assertRaises(sap.rest.errors.UnexpectedResponseContent) as caught:
             self.connection.execute('GET', 'example',
                                     accept='application/xml')
 
@@ -196,7 +196,7 @@ class TestADTConnection(unittest.TestCase):
         mock_exec.return_value.headers = {'Content-Type': 'text/plain'}
         mock_exec.return_value.text = 'mock'
 
-        with self.assertRaises(sap.adt.errors.UnexpectedResponseContent) as caught:
+        with self.assertRaises(sap.rest.errors.UnexpectedResponseContent) as caught:
             self.connection.execute('GET', 'example',
                                     accept=['application/xml', 'application/json'])
 
