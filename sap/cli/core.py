@@ -69,8 +69,8 @@ class CommandsList:
 
         try:
             return self.declarations[handler.__name__]
-        except KeyError:
-            raise SAPCliError(f'No such Command Declaration: {handler.__name__}')
+        except KeyError as ex:
+            raise SAPCliError(f'No such Command Declaration: {handler.__name__}') from ex
 
     def values(self):
         """Returns the list of declared values"""

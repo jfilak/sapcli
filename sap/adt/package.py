@@ -101,7 +101,7 @@ class Package(ADTObject):
             self._layer = value
 
     def __init__(self, connection, name, metadata=None):
-        super(Package, self).__init__(connection, name, metadata)
+        super().__init__(connection, name, metadata)
 
         self._superpkg = ADTCoreData.Reference()
         self._transport = Package.Transport()

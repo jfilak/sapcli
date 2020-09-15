@@ -704,7 +704,7 @@ class ADTObjectSourceEditorWithResponse(ADTObjectSourceEditor):
     def get_headers(self):
         """Enrich Super's Headers with Accept"""
 
-        headers = super(ADTObjectSourceEditorWithResponse, self).get_headers()
+        headers = super().get_headers()
         headers['Accept'] = 'text/plain'
         return headers
 
@@ -939,7 +939,7 @@ class OOADTObjectBase(ADTObject):
     """Base class for Object Oriented ABAP Sources"""
 
     def __init__(self, connection, name, metadata):
-        super(OOADTObjectBase, self).__init__(connection, name, metadata)
+        super().__init__(connection, name, metadata)
 
         self._modeled = None
 
@@ -971,7 +971,7 @@ class Interface(OOADTObjectBase):
     )
 
     def __init__(self, connection, name, package=None, metadata=None):
-        super(Interface, self).__init__(connection, name, metadata)
+        super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
 
@@ -1119,7 +1119,7 @@ class Class(OOADTObjectBase):
             return self._clas.objtype.open_editor(self, lock_handle=lock_handle, corrnr=corrnr)
 
     def __init__(self, connection, name, package=None, metadata=None):
-        super(Class, self).__init__(connection, name, metadata)
+        super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
         self._superclass = ADTCoreData.Reference()
@@ -1221,6 +1221,6 @@ class DataDefinition(ADTObject):
     )
 
     def __init__(self, connection, name, package=None, metadata=None):
-        super(DataDefinition, self).__init__(connection, name, metadata)
+        super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package

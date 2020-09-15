@@ -17,7 +17,7 @@ class NodeStructureXMLHandler(ContentHandler):
     """Node Structure XML parser"""
 
     def __init__(self):
-        super(NodeStructureXMLHandler, self).__init__()
+        super().__init__()
 
         self.tree_content = list()
         self.categories = list()

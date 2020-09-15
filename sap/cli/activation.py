@@ -10,7 +10,7 @@ class InactiveObjectsGroup(sap.cli.core.CommandGroup):
     """Container for inactive objects commands."""
 
     def __init__(self):
-        super(InactiveObjectsGroup, self).__init__('inactiveobjects')
+        super().__init__('inactiveobjects')
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -19,12 +19,12 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('activation')
+        super().__init__('activation')
 
         self.inactive_objects_grp = InactiveObjectsGroup()
 
     def install_parser(self, arg_parser):
-        activation_group = super(CommandGroup, self).install_parser(arg_parser)
+        activation_group = super().install_parser(arg_parser)
 
         inobj_parser = activation_group.add_parser(self.inactive_objects_grp.name)
 

@@ -301,7 +301,7 @@ class AUnitResponseHandler(ContentHandler):
     """ABAP Unit Test Framework ADT results XML parser"""
 
     def __init__(self):
-        super(AUnitResponseHandler, self).__init__()
+        super().__init__()
 
         self.run_results = RunResults(list(), list())
         self._program = None

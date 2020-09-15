@@ -43,7 +43,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
     """Commands for Class"""
 
     def __init__(self):
-        super(CommandGroup, self).__init__('class')
+        super().__init__('class')
 
         self.define()
 
@@ -59,19 +59,19 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
 
         try:
             typ = FILE_NAME_SUFFIX_TYPES[suffix]
-        except KeyError:
-            raise sap.cli.core.InvalidCommandLineError(f'Unknown class file name suffix: "{suffix}"')
+        except KeyError as ex:
+            raise sap.cli.core.InvalidCommandLineError(f'Unknown class file name suffix: "{suffix}"') from ex
 
         return instance_from_args(connection, name, typ, args, metadata)
 
     def define_read(self, commands):
-        read_cmd = super(CommandGroup, self).define_read(commands)
+        read_cmd = super().define_read(commands)
         read_cmd.insert_argument(1, '--type', default=SOURCE_TYPES[0], choices=SOURCE_TYPES)
 
         return read_cmd
 
     def define_write(self, commands):
-        write_cmd = super(CommandGroup, self).define_write(commands)
+        write_cmd = super().define_write(commands)
         write_cmd.insert_argument(1, '--type', default=SOURCE_TYPES[0], choices=SOURCE_TYPES)
 
         return write_cmd

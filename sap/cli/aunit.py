@@ -27,7 +27,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('aunit')
+        super().__init__('aunit')
 
 
 def print_results_to_stream(run_results, stream):
@@ -317,8 +317,8 @@ def run(connection, args):
 
     try:
         typ = types[args.type]
-    except KeyError:
-        raise SAPCliError(f'Unknown type: {args.type}')
+    except KeyError as ex:
+        raise SAPCliError(f'Unknown type: {args.type}') from ex
 
     obj = typ(connection, args.name)
     sets = sap.adt.objects.ADTObjectSets()

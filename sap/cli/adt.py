@@ -8,7 +8,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """Commands for discovering ADT configuration"""
 
     def __init__(self):
-        super(CommandGroup, self).__init__('adt')
+        super().__init__('adt')
 
 
 @CommandGroup.command('collections')

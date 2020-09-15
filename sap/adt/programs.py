@@ -12,7 +12,7 @@ class BaseProgram(ADTObject):
     """Base class for object ins the Program ADT namespace"""
 
     def __init__(self, connection, name, package=None, metadata=None):
-        super(BaseProgram, self).__init__(connection, name, metadata, active_status='active')
+        super().__init__(connection, name, metadata, active_status='active')
 
         self._metadata.package_reference.name = package
         self._fixpntar = None
@@ -57,7 +57,7 @@ class Program(BaseProgram):
             return self._ref
 
     def __init__(self, connection, name, package=None, metadata=None):
-        super(Program, self).__init__(connection, name, package=package, metadata=metadata)
+        super().__init__(connection, name, package=package, metadata=metadata)
 
         self._program_type = None
         self._logical_dabase = Program.LogicalDatabase()
@@ -114,7 +114,7 @@ class Include(BaseProgram):
     )
 
     def __init__(self, connection, name, package=None, metadata=None, master=None):
-        super(Include, self).__init__(connection, name, package=package, metadata=metadata)
+        super().__init__(connection, name, package=package, metadata=metadata)
 
         self._master = master
 
@@ -122,7 +122,7 @@ class Include(BaseProgram):
     def uri(self):
         """Own version of URI which adds context with the master program"""
 
-        uri = super(Include, self).uri
+        uri = super().uri
 
         if self.master is not None:
             master_uri = Program(self.connection, self.master).full_adt_uri

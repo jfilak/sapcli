@@ -32,7 +32,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """Commands for exporting ADT objects"""
 
     def __init__(self):
-        super(CommandGroup, self).__init__('startrfc')
+        super().__init__('startrfc')
 
     def install_parser(self, arg_parser):
         """Just use the command group"""

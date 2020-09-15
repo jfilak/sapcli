@@ -13,7 +13,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('datapreview')
+        super().__init__('datapreview')
 
 
 @CommandGroup.argument('-n', '--noheadings', action='store_true', default=False)

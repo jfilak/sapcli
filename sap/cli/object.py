@@ -303,7 +303,7 @@ class CommandGroupObjectMaster(CommandGroupObjectTemplate):
            right behind the parameter description
         """
 
-        create_cmd = super(CommandGroupObjectMaster, self).define_create(commands)
+        create_cmd = super().define_create(commands)
 
         create_cmd.insert_argument(2, 'package')
 

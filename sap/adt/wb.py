@@ -188,13 +188,13 @@ class CheckMessageText(metaclass=OrderedClassMembers):
         if isinstance(other, str):
             return self.value == other
 
-        return super(CheckMessageText, self).__eq__(other)
+        return super().__eq__(other)
 
     def __ne__(self, other):
         if isinstance(other, str):
             return self.value != other
 
-        return super(CheckMessageText, self).__ne__(other)
+        return super().__ne__(other)
 
 
 # pylint: disable=too-few-public-methods
@@ -274,7 +274,7 @@ class ActivationError(SAPCliError):
     """
 
     def __init__(self, message, response, results):
-        super(ActivationError, self).__init__(message)
+        super().__init__(message)
 
         self.response = response
         self.results = results

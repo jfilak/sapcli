@@ -70,7 +70,7 @@ class XmlAttributeProperty(property):
     """XML Annotation"""
 
     def __init__(self, name, fget, fset=None, deserialize=True, version=None):
-        super(XmlAttributeProperty, self).__init__(fget, fset)
+        super().__init__(fget, fset)
 
         self.name = name
         self.deserialize = deserialize
@@ -88,7 +88,7 @@ class XmlElementProperty(property):
 
     def __init__(self, name, fget, fset=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT,
                  version=None):
-        super(XmlElementProperty, self).__init__(fget, fset)
+        super().__init__(fget, fset)
 
         self.name = name
         self.deserialize = deserialize
@@ -132,8 +132,8 @@ class XmlNodeProperty(XmlElementProperty, XmlPropertyImpl):
     """
 
     def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
-        super(XmlNodeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize, factory=factory,
-                                              kind=kind, version=version)
+        super().__init__(name, self.get, fset=self.set, deserialize=deserialize, factory=factory,
+                         kind=kind, version=version)
         XmlPropertyImpl.__init__(self, name, default_value=value, version=version)
 
     def setter(self, fset):
@@ -149,8 +149,8 @@ class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
     """
 
     def __init__(self, name, value=None, deserialize=True, version=None):
-        super(XmlNodeAttributeProperty, self).__init__(name, self.get, fset=self.set, deserialize=deserialize,
-                                                       version=version)
+        super().__init__(name, self.get, fset=self.set, deserialize=deserialize,
+                         version=version)
         XmlPropertyImpl.__init__(self, name, default_value=value, version=version)
 
     def setter(self, fset):
@@ -164,8 +164,8 @@ class XmlListNodeProperty(XmlElementProperty):
     """Many repetitions of the same tag"""
 
     def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
-        super(XmlListNodeProperty, self).__init__(name, self.get, fset=self.append, deserialize=deserialize,
-                                                  factory=factory, kind=kind, version=version)
+        super().__init__(name, self.get, fset=self.append, deserialize=deserialize,
+                         factory=factory, kind=kind, version=version)
 
         if value is not None and not isinstance(value, list):
             raise RuntimeError()

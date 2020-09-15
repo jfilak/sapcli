@@ -10,7 +10,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('include')
+        super().__init__('include')
 
         self.define()
 
@@ -26,7 +26,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         return sap.adt.Include(connection, name, master=master, package=package, metadata=metadata)
 
     def define_activate(self, commands):
-        activate_cmd = super(CommandGroup, self).define_activate(commands)
+        activate_cmd = super().define_activate(commands)
         activate_cmd.append_argument('-m', '--master', nargs='?', default=None, help='Master program')
 
         return activate_cmd

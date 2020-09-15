@@ -10,7 +10,7 @@ class CommandGroupFunctionGroup(sap.cli.object.CommandGroupObjectMaster):
     """Commands for Function Groups"""
 
     def __init__(self):
-        super(CommandGroupFunctionGroup, self).__init__('functiongroup')
+        super().__init__('functiongroup')
 
         self.define()
 
@@ -25,7 +25,7 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
     """Commands for Function Modules"""
 
     def __init__(self):
-        super(CommandGroupFunctionModule, self).__init__('functionmodule')
+        super().__init__('functionmodule')
 
         self.define()
 
@@ -49,7 +49,7 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
         return sap.adt.FunctionModule(connection, name, group, metadata=metadata)
 
     def define_create(self, commands):
-        create_cmd = super(CommandGroupFunctionModule, self).define_create(commands)
+        create_cmd = super().define_create(commands)
 
         # Function Modules belong to a function group and not into a package!
         create_cmd.insert_argument(0, 'group')
@@ -57,7 +57,7 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
         return create_cmd
 
     def define_read(self, commands):
-        read_cmd = super(CommandGroupFunctionModule, self).define_read(commands)
+        read_cmd = super().define_read(commands)
 
         # Function Modules belong to a function group and not into a package!
         read_cmd.insert_argument(0, 'group')
@@ -65,7 +65,7 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
         return read_cmd
 
     def define_write(self, commands):
-        write_cmd = super(CommandGroupFunctionModule, self).define_write(commands)
+        write_cmd = super().define_write(commands)
 
         # Function Modules belong to a function group and not into a package!
         write_cmd.insert_argument(0, 'group')
@@ -73,7 +73,7 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
         return write_cmd
 
     def define_activate(self, commands):
-        activate_cmd = super(CommandGroupFunctionModule, self).define_activate(commands)
+        activate_cmd = super().define_activate(commands)
 
         # Function Modules belong to a function group and not into a package!
         activate_cmd.insert_argument(0, 'group')

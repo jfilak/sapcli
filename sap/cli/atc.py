@@ -35,7 +35,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('atc')
+        super().__init__('atc')
 
 
 def print_worklist_to_stream(run_results, stream, error_level=99):
@@ -138,8 +138,8 @@ def run(connection, args):
     types = {'program': sap.adt.Program, 'class': sap.adt.Class, 'package': sap.adt.Package}
     try:
         typ = types[args.type]
-    except KeyError:
-        raise SAPCliError(f'Unknown type: {args.type}')
+    except KeyError as ex:
+        raise SAPCliError(f'Unknown type: {args.type}') from ex
 
     printer_format_mapping = {
         'human': print_worklist_to_stream,
@@ -148,8 +148,8 @@ def run(connection, args):
     }
     try:
         printer = printer_format_mapping[args.output]
-    except KeyError:
-        raise SAPCliError(f'Unknown format: {args.output}')
+    except KeyError as ex:
+        raise SAPCliError(f'Unknown format: {args.output}') from ex
 
     severity_mapping = None
     if args.output == 'checkstyle':
@@ -157,8 +157,8 @@ def run(connection, args):
         if severity_mapping:
             try:
                 severity_mapping = dict(json.loads(severity_mapping))
-            except (json.decoder.JSONDecodeError, TypeError):
-                raise SAPCliError('Severity mapping has incorrect format')
+            except (json.decoder.JSONDecodeError, TypeError) as ex:
+                raise SAPCliError('Severity mapping has incorrect format') from ex
 
     objects = sap.adt.objects.ADTObjectSets()
     objects.include_object(typ(connection, args.name))

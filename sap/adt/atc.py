@@ -32,7 +32,7 @@ class ATCCustomizingXMLHandler(ContentHandler):
 
     def __init__(self, customizing):
         """:param customizing: A object with the target attributes"""
-        super(ATCCustomizingXMLHandler, self).__init__()
+        super().__init__()
 
         self.customizing = customizing
 

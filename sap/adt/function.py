@@ -82,7 +82,7 @@ class FunctionGroup(ADTObject):
     )
 
     def __init__(self, connection, name, package=None, metadata=None, active_status=None):
-        super(FunctionGroup, self).__init__(connection, name, metadata=metadata, active_status=active_status)
+        super().__init__(connection, name, metadata=metadata, active_status=active_status)
 
         self._metadata.package_reference.name = package
 
@@ -126,7 +126,7 @@ class FunctionModule(ADTObject):
     )
 
     def __init__(self, connection, name, function_group_name, metadata=None, active_status=None):
-        super(FunctionModule, self).__init__(connection, name, metadata=metadata, active_status=active_status)
+        super().__init__(connection, name, metadata=metadata, active_status=active_status)
 
         self._function_group_name = function_group_name
 

@@ -22,7 +22,7 @@ class WorkbenchResponseHandler(ContentHandler):
     """
 
     def __init__(self, builder):
-        super(WorkbenchResponseHandler, self).__init__()
+        super().__init__()
 
         self._builder = builder
 
@@ -106,7 +106,7 @@ class WorkbenchTransport(AbstractWorkbenchRequest):
     """Transport Manager Request"""
 
     def __init__(self, tasks, *params, **kwargs):
-        super(WorkbenchTransport, self).__init__(*params, **kwargs)
+        super().__init__(*params, **kwargs)
 
         self._tasks = tasks
 
@@ -137,7 +137,7 @@ class WorkbenchTask(AbstractWorkbenchRequest):
     """Transport Manager Task"""
 
     def __init__(self, transport, objects, *params, **kwargs):
-        super(WorkbenchTask, self).__init__(*params, **kwargs)
+        super().__init__(*params, **kwargs)
 
         self._transport = transport
         self._objects = objects

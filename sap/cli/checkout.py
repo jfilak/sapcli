@@ -16,7 +16,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """Commands for exporting ADT objects"""
 
     def __init__(self):
-        super(CommandGroup, self).__init__('checkout')
+        super().__init__('checkout')
 
 
 def build_filename(object_name, typsfx, fileext, destdir=None):

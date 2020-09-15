@@ -19,7 +19,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('cts')
+        super().__init__('cts')
 
 
 @CommandGroup.argument('number')
@@ -31,8 +31,8 @@ def release(connection, args):
     try:
         factory = {'transport': partial(WorkbenchTransport, None),
                    'task': partial(WorkbenchTask, None, None)}[args.type]
-    except KeyError:
-        raise SAPCliError(f'Internal error: unknown request type: {args.type}')
+    except KeyError as ex:
+        raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
     else:
         request = factory(connection, args.number)
         request.release()

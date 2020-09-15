@@ -21,7 +21,7 @@ class StopObjectActivation(SAPCliError):
     """Represents a stopped sequential mass activation"""
 
     def __init__(self, message, stats, name, obj):
-        super(StopObjectActivation, self).__init__(message)
+        super().__init__(message)
 
         self.stats = stats
         self.name = name

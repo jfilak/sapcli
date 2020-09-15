@@ -10,7 +10,7 @@ class BAPIError(SAPCliError):
     """RFC BAPI error"""
 
     def __init__(self, bapirettab, response):
-        super(BAPIError, self).__init__(
+        super().__init__(
             '\n'.join(
                 ['/'.join([bapiret['TYPE'], bapiret['ID'], bapiret['NUMBER'] + ': ' + bapiret['MESSAGE']])
                  for bapiret in bapirettab]))

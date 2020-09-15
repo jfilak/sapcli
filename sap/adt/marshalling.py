@@ -237,7 +237,7 @@ class ADTObjectSAXHandler(ContentHandler):
     """ADT Object XML parser"""
 
     def __init__(self, elements):
-        super(ADTObjectSAXHandler, self).__init__()
+        super().__init__()
 
         self.stack = list()
         self.current = ''

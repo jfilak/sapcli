@@ -10,7 +10,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('program')
+        super().__init__('program')
 
         self.define()
 

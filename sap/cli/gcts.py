@@ -10,7 +10,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('gcts')
+        super().__init__('gcts')
 
 
 @CommandGroup.command()

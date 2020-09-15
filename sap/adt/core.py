@@ -21,7 +21,7 @@ def mod_log():
 class _DiscoveryHandler(ContentHandler):
 
     def __init__(self):
-        super(_DiscoveryHandler, self).__init__()
+        super().__init__()
 
         self.result = {}
         self._collection = None

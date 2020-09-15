@@ -17,7 +17,7 @@ class FreeStyleTableXMLHandler(ContentHandler):
     """ABAP Unit Test Framework ADT results XML parser"""
 
     def __init__(self, rows):
-        super(FreeStyleTableXMLHandler, self).__init__()
+        super().__init__()
 
         self.table = None
         self._column = None

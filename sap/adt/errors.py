@@ -13,7 +13,7 @@ class UnexpectedResponseContent(SAPCliError):
     """Exception for unexpected responses content"""
 
     def __init__(self, expected, received, content):
-        super(UnexpectedResponseContent, self).__init__()
+        super().__init__()
 
         self.expected = expected
         self.received = received
@@ -27,7 +27,7 @@ class HTTPRequestError(SAPCliError):
     """Exception for unexpected HTTP responses"""
 
     def __init__(self, request, response):
-        super(HTTPRequestError, self).__init__()
+        super().__init__()
 
         self.request = request
         self.response = response
@@ -44,7 +44,7 @@ class ADTError(SAPCliError):
     """Errors reported by ADT tools"""
 
     def __init__(self, namespace, typ, message):
-        super(ADTError, self).__init__()
+        super().__init__()
 
         self.namespace = namespace
         self.type = typ
@@ -61,7 +61,7 @@ class ExceptionResourceAlreadyExists(ADTError):
     """Thin wrapper for the class type of ADTErrors"""
 
     def __init__(self, message):
-        super(ExceptionResourceAlreadyExists, self).__init__('com.sap.adt', self.__class__.__name__, message)
+        super().__init__('com.sap.adt', self.__class__.__name__, message)
 
     def __str__(self):
         return f'{self.message}'

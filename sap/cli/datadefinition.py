@@ -12,7 +12,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('ddl')
+        super().__init__('ddl')
 
 
 @CommandGroup.argument('name')

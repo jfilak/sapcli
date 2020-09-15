@@ -23,7 +23,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(CommandGroup, self).__init__('package')
+        super().__init__('package')
 
 
 @CommandGroup.argument_corrnr()
