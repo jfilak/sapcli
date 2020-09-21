@@ -6,6 +6,7 @@ sapcli's implementation forces use of packages as git repositories.
 2. [clone](#clone)
 3. [checkout](#checkout)
 4. [delete](#delete)
+5. [config](#config)
 
 ## repolist
 
@@ -38,4 +39,12 @@ Removes the repository not the package
 
 ```bash
 sapcli gcts delete PACKAGE
+```
+
+## config
+
+Configure the given repository
+
+```bash
+sapcli gcts config [-l|--list] PACKAGE
 ```

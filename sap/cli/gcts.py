@@ -14,15 +14,19 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 
 @CommandGroup.command()
+# pylint: disable=unused-argument
 def repolist(connection, args):
     """ls"""
 
+    console = sap.cli.core.get_console()
+
     response = sap.rest.gcts.simple_fetch_repos(connection)
     for repo in response:
-        print(repo['name'], repo['branch'], repo['url'])
+        console.printout(repo.name, repo.branch, repo.url)
 
 
-@CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src')
+@CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
+@CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
 @CommandGroup.argument('--vcs-token', type=str, nargs='?')
 @CommandGroup.argument('package', nargs='?')
 @CommandGroup.argument('url')
@@ -35,10 +39,29 @@ def clone(connection, args):
     if not package:
         package = sap.rest.gcts.package_name_from_url(args.url)
 
-    response = sap.rest.gcts.simple_clone(connection, args.url, package,
-                                          start_dir=args.starting_folder,
-                                          vcs_token=args.vcs_token)
-    print(response)
+    sap.rest.gcts.simple_clone(connection, args.url, package,
+                               start_dir=args.starting_folder,
+                               vcs_token=args.vcs_token)
+
+
+@CommandGroup.argument('package')
+@CommandGroup.argument('-l', '--list', default=False, action='store_true')
+@CommandGroup.command()
+def config(connection, args):
+    """git config [-l] [<package>]
+    """
+
+    console = sap.cli.core.get_console()
+
+    if args.list:
+        repo = sap.rest.gcts.Repository(connection, args.package)
+        for key, value in repo.configuration.items():
+            console.printout(f'{key}={value}')
+
+        return 0
+
+    console.printerr('Invalid command line options\nRun: sapcli gcts config --help')
+    return 1
 
 
 @CommandGroup.argument('package')
@@ -47,8 +70,8 @@ def delete(connection, args):
     """rm
     """
 
-    response = sap.rest.gcts.simple_delete(connection, args.package)
-    print(response)
+    sap.rest.gcts.simple_delete(connection, args.package)
+    sap.cli.core.printout(f'The repository "{args.package}" has been deleted')
 
 
 @CommandGroup.argument('branch')
@@ -58,26 +81,5 @@ def checkout(connection, args):
     """git checkout <branch>
     """
 
-    response = sap.rest.gcts.simple_checkout(connection, args.package, args.branch)
-    print(response)
-
-
-@CommandGroup.argument('url')
-@CommandGroup.argument('package')
-@CommandGroup.command()
-def init(connection, args):
-    """git init <package>
-       git remote add origin <url>
-    """
-
-    pass
-
-
-@CommandGroup.argument('pathspec', nargs='+')
-@CommandGroup.argument('package')
-@CommandGroup.command()
-def add(connection, args):
-    """git add <pathspec>
-    """
-
-    pass
+    sap.rest.gcts.simple_checkout(connection, args.package, args.branch)
+    sap.cli.core.printout(f'The repository "{args.package}" has been set to the branch "{args.branch}"')

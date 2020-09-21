@@ -1,4 +1,5 @@
 import copy
+import json
 from typing import Dict, NamedTuple
 from io import StringIO
 from argparse import ArgumentParser
@@ -12,16 +13,31 @@ import sap.cli.core
 
 class Response:
 
-    def __init__(self, text=None, status_code=None, headers=None, content_type=None):
+    def __init__(self, text=None, status_code=None, headers=None, content_type=None, json=None):
         self.text = text
         self.status_code = status_code if status_code is not None else 200
         self.headers = headers
+        self._json = json
 
         if content_type is not None:
             if self.headers is None:
                 self.headers = {}
 
             self.headers['Content-Type'] = content_type
+
+    def json(self):
+        if self._json is None:
+            raise ValueError()
+
+        return self._json
+
+    @staticmethod
+    def with_json(json=None, status_code=None, headers=None):
+        return Response(json=json, content_type='application/json', headers=headers, status_code=status_code)
+
+    @staticmethod
+    def ok():
+        return Response(status_code=200)
 
 
 class Request(NamedTuple):
@@ -47,16 +63,40 @@ class Request(NamedTuple):
         if self.body:
             str_request += '\n' + self.body
 
-    def assertEqual(self, other, asserter):
+    def assertEqual(self, other, asserter, json_body=False):
         asserter.assertEqual(self.to_short_str(), other.to_short_str())
-        asserter.assertEqual(self.body, other.body, f'Not matching bodies for {self.to_short_str()}')
+
+        if json_body:
+            asserter.assertEqual(json.loads(self.body), json.loads(other.body), f'Not matching JSON bodies for {self.to_short_str()}')
+        else:
+            asserter.assertEqual(self.body, other.body, f'Not matching bodies for {self.to_short_str()}')
+
         asserter.assertEqual(self.params, other.params, f'Not matching parameters for {self.to_short_str()}')
         asserter.assertEqual(self.headers, other.headers, f'Not matching parameters for {self.to_short_str()}')
 
     @staticmethod
-    def get(adt_uri=None, headers=None, body=None, params=None):
-        return Request(method='GET', adt_uri=adt_uri, headers=headers, body=body, params=params)
+    def get(adt_uri=None, headers=None, params=None, accept=None):
+        if accept:
+            headers = dict(headers or {})
+            headers['Accept'] = accept
 
+        return Request(method='GET', adt_uri=adt_uri, headers=headers, body=None, params=params)
+
+    @staticmethod
+    def get_json(uri=None, headers=None, params=None):
+        return Request.get(adt_uri=uri, headers=headers, params=params, accept='application/json')
+
+    @staticmethod
+    def post(uri=None, headers=None, body=None, params=None):
+        return Request(method='POST', adt_uri=uri, headers=headers, body=body, params=params)
+
+    @staticmethod
+    def post_json(uri=None, headers=None, body=None, params=None):
+        headers = headers or {}
+        headers.update({'Content-Type': 'application/json'})
+
+        json_body = json.dumps(body)
+        return Request(method='POST', adt_uri=uri, headers=headers, body=json_body, params=params)
 
     def clone_with_uri(self, uri):
         return Request(
@@ -68,13 +108,67 @@ class Request(NamedTuple):
 
 def ok_responses():
 
-    yield Response(text='', status_code=200, headers={})
+    while True:
+        yield Response(text='', status_code=200, headers={})
 
 
 class SimpleAsserter:
 
     def assertEqual(self, lhs, rhs, message=None):
         assert lhs == rhs, message
+
+
+class RESTConnection(sap.rest.Connection):
+
+    def __init__(self, responses=None, user='ANZEIGER', asserter=None):
+        """
+        Args:
+            response: A list of Response instances or tuples (Response, Request)
+                      if you want to automatically check the request. Ins such
+                      case, you should also pass the argument asserter.
+        """
+        super().__init__('/icf/path', 'login/url', 'host', '100', user, 'mockpass')
+
+        self.execs = list()
+        self.asserter = asserter if asserter is not None else SimpleAsserter()
+        self.set_responses_iter(ok_responses() if responses is None else iter(responses))
+
+    def set_responses(self, *responses):
+        if responses and isinstance(responses[0], list):
+            responses = responses[0]
+
+        self.set_responses_iter(iter(responses))
+
+    def set_responses_iter(self, responses_iter):
+        self._resp_iter = responses_iter
+
+    def _get_session(self):
+        return 'bogus session'
+
+    def _build_url(self, uri_path):
+        return uri_path
+
+    def _retrieve(self, session, method, url, params=None, headers=None, body=None):
+        req = Request(method, url, headers, body, params)
+        self.execs.append(req)
+
+        res = next(self._resp_iter)
+        if res is None:
+            res = next(ok_responses())
+
+        if isinstance(res, tuple):
+            exp_request = res[1]
+            res = res[0]
+
+            full_uri = self._build_url(exp_request.adt_uri)
+            exp_request = exp_request.clone_with_uri(full_uri)
+
+            exp_request.assertEqual(req, self.asserter)
+
+        return (req, res)
+
+    def mock_methods(self):
+        return  [(e.method, e.adt_uri) for e in self.execs]
 
 
 class Connection(sap.adt.Connection):
@@ -173,6 +267,8 @@ class GroupArgumentParser:
 class PatcherTestCase:
 
     def patch(self, spec, **kwargs):
+        print('Patching', spec)
+
         if not hasattr(self, '_patchers'):
             self._patchers = {}
 
@@ -188,6 +284,9 @@ class PatcherTestCase:
             console = BufferConsole()
 
         return self.patch('sap.cli.core.get_console', return_value=console)
+
+    def tearDown(self):
+        self.unpatch_all()
 
     def unpatch_all(self):
         print('Patcher tear down')
