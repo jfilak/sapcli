@@ -59,6 +59,7 @@ def sap_code_to_iso_code(sap_code: str) -> str:
     try:
         return next((entry[0] for entry in CODE_LIST if entry[1] == sap_code))
     except StopIteration:
+        # pylint: disable=raise-missing-from
         raise SAPCliError(f'Not found SAP Language Code: {sap_code}')
 
 
@@ -68,4 +69,5 @@ def iso_code_to_sap_code(iso_code: str) -> str:
     try:
         return next((entry[1] for entry in CODE_LIST if entry[0] == iso_code))
     except StopIteration:
+        # pylint: disable=raise-missing-from
         raise SAPCliError(f'Not found ISO Code: {iso_code}')

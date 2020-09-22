@@ -16,7 +16,7 @@ class GCTSRequestError(SAPCliError):
     """Base gCTS error type"""
 
     def __init__(self, messages):
-        super(GCTSRequestError, self).__init__()
+        super().__init__()
 
         self.messages = messages
 
@@ -76,7 +76,7 @@ class Repository:
         try:
             response = self._connection.get_json(f'repository/{self._name}')
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json())
+            raise GCTSRequestError(ex.response.json()) from ex
 
         return response['result']
 
@@ -168,9 +168,9 @@ class Repository:
 
             log = messages.get('log', None)
             if log and log[0].get('message', '').startswith('Error action CREATE_REPOSITORY Repository already exists'):
-                raise GCTSRepoAlreadyExistsError(messages)
+                raise GCTSRepoAlreadyExistsError(messages) from ex
 
-            raise GCTSRequestError(messages)
+            raise GCTSRequestError(messages) from ex
 
     def set_config(self, key, value):
         """Sets configuration value
@@ -186,7 +186,7 @@ class Repository:
                 'value': value
             })
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json())
+            raise GCTSRequestError(ex.response.json()) from ex
 
         self._update_configuration(key, value)
 
@@ -208,7 +208,7 @@ class Repository:
                                                 f'repository/{self.name}/config/{key}',
                                                 accept='application/json')
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json())
+            raise GCTSRequestError(ex.response.json()) from ex
 
         value = response.json()['result']['value']
         config = self._update_configuration(key, value)
@@ -225,7 +225,7 @@ class Repository:
         try:
             response = self._connection.execute('POST', f'repository/{self._name}/clone')
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json())
+            raise GCTSRequestError(ex.response.json()) from ex
 
         self.wipe_data()
         return response
@@ -238,7 +238,7 @@ class Repository:
         try:
             response = self._connection.execute('GET', url, params={'branch': branch})
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json())
+            raise GCTSRequestError(ex.response.json()) from ex
 
         self.wipe_data()
         return response
@@ -249,7 +249,7 @@ class Repository:
         try:
             response = self._connection.execute('DELETE', f'repository/{self.name}')
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json())
+            raise GCTSRequestError(ex.response.json()) from ex
 
         self.wipe_data()
         return response
@@ -263,7 +263,7 @@ def simple_fetch_repos(connection):
     try:
         response = connection.get_json('repository')
     except HTTPRequestError as ex:
-        raise GCTSRequestError(ex.response.json())
+        raise GCTSRequestError(ex.response.json()) from ex
 
     return [Repository(connection, repo['name'], data=repo) for repo in response['result']]
 

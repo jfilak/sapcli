@@ -226,6 +226,7 @@ class ADTObjectType:
         try:
             return '/' + self._typeuris[mimetype]
         except KeyError:
+            # pylint: disable=raise-missing-from
             raise SAPCliError('Object {type} does not support plain \'text\' format')
 
 
