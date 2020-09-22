@@ -147,6 +147,15 @@ class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
     def config(self, *args, **kwargs):
         return parse_args('config', *args, **kwargs)
 
+    def test_config_no_params_error(self):
+        args = self.config('the_repo')
+        args.execute(None, args)
+
+        self.assertConsoleContents(self.console, stderr=
+'''Invalid command line options
+Run: sapcli gcts config --help
+''')
+
     def test_config_params(self):
         conn = Mock()
         self.fake_instance.configuration = {

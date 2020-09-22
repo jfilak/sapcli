@@ -228,6 +228,14 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(self.conn.execs), 1)
         self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository/{self.repo_name}/config', body={'key': 'THE_KEY', 'value': 'the value'}), self, json_body=True)
 
+    def test_set_config_success_overwrite(self):
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo.set_config('VCS_CONNECTION', 'git')
+        self.assertEqual(repo.get_config('VCS_CONNECTION'), 'git')
+
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository/{self.repo_name}/config', body={'key': 'VCS_CONNECTION', 'value': 'git'}), self, json_body=True)
+
     def test_set_config_error(self):
         messages = LogBuilder(exception='Set Config Error').get_contents()
 
