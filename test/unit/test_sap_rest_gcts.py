@@ -7,58 +7,8 @@ from sap.rest.errors import HTTPRequestError
 
 import sap.rest.gcts
 
-from mock import Request, Response, RESTConnection
-
-
-def make_gcts_log_entry(severity, message, time=None, user=None, section=None, action=None, code=None):
-    entry = {'severity': severity, 'message': message}
-
-    if time is not None:
-        entry['time'] = time
-
-    if user is not None:
-        entry['user'] = user
-
-    if section is not None:
-        entry['section'] = section
-
-    if action is not None:
-        entry['action'] = action
-
-    if code is not None:
-        entry['code'] = code
-
-    return entry
-
-
-def make_gcts_log_error(message, time=None, user=None, section=None, action=None, code=None):
-    return make_gcts_log_entry('ERROR', message, time=time, user=user, section=section, action=action, code=code)
-
-
-class LogBuilder:
-
-    def __init__(self, errorLog=None, log=None, exception=None):
-        self.errorLog = errorLog or list()
-        self.log = log or list()
-        self.exception = exception
-
-    def get_contents(self):
-        contents = {}
-        contents['errorLog'] = self.errorLog or list()
-        contents['log'] = self.log or list()
-        contents['exception'] = self.exception or 'Server Side Exception'
-
-        return contents
-
-    def log_error(self, entry):
-        self.log.append(entry)
-        self.errorLog.append(entry)
-        return self
-
-    def log_exception(self, message, code):
-        self.exception = message
-        self.errorLog.append(make_gcts_log_error(message=message, code=code))
-        return self
+from mock import Request, Response, RESTConnection, make_gcts_log_error
+from mock import GCTSLogBuilder as LogBuilder
 
 
 class TestgCTSUtils(unittest.TestCase):

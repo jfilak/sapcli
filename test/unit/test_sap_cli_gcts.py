@@ -1,14 +1,41 @@
 #!/usr/bin/env python3
 
-from unittest.mock import MagicMock, patch, Mock
+import unittest
+from unittest.mock import MagicMock, patch, Mock, PropertyMock
 
 import sap.cli.gcts
 
-from mock import ConsoleOutputTestCase, PatcherTestCase
+from mock import ConsoleOutputTestCase, PatcherTestCase, GCTSLogBuilder, make_gcts_log_error
 from infra import generate_parse_args
 
 
 parse_args = generate_parse_args(sap.cli.gcts.CommandGroup())
+
+
+def dummy_gcts_error_log():
+        log_builder = GCTSLogBuilder()
+        log_builder.log_error(make_gcts_log_error('Line 1'))
+        log_builder.log_error(make_gcts_log_error('Line 2'))
+        log_builder.log_exception('Message', 'ERROR')
+        return log_builder.get_contents()
+
+
+class TestgCTSDumpError(ConsoleOutputTestCase, unittest.TestCase):
+
+    def test_dump_first_level(self):
+        messages = dummy_gcts_error_log()
+        sap.cli.gcts.dump_gcts_messages(self.console, messages)
+        self.assertConsoleContents(self.console, stderr='''Error Log:
+  Line 1
+  Line 2
+  Message
+Log:
+  Line 1
+  Line 2
+Exception:
+  Message
+'''
+)
 
 
 class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
@@ -30,7 +57,8 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_simple_clone.return_value = None
 
         conn = Mock()
-        args.execute(conn, args)
+        exit_code = args.execute(conn, args)
+        self.assertEqual(exit_code, 0)
 
         self.fake_simple_clone.assert_called_once_with(
             conn,
@@ -56,6 +84,17 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token=None,
             error_exists=False
         )
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_clone_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_clone.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+
+        args = self.clone('url')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
 
 class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
@@ -95,6 +134,17 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
 two two_branch two_url
 ''')
 
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_repolist_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_fetch_repos.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+
+        args = self.repolist()
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
 
 class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -121,6 +171,17 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
 '''The repository "the_repo" has been deleted
 ''')
 
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_delete_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_delete.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+
+        args = self.delete('a_repo')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
 
 class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -146,6 +207,17 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         self.assertConsoleContents(self.console, stdout=
 '''The repository "the_repo" has been set to the branch "the_branch"
 ''')
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_checkout_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_checkout.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+
+        args = self.checkout('a_repo', 'a_branch')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
 
 class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
@@ -188,3 +260,14 @@ Run: sapcli gcts config --help
 '''the_key_one=one
 the_key_two=two
 ''')
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_config_list_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        type(self.fake_instance).configuration = PropertyMock(side_effect=sap.rest.gcts.GCTSRequestError(messages))
+
+        args = self.config('a_repo', '-l')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)

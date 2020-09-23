@@ -4,6 +4,20 @@ import sap.cli.core
 import sap.rest.gcts
 
 
+def dump_gcts_messages(console, messages):
+    """Dumps gCTS exception to console"""
+
+    console.printerr('Error Log:')
+    for errmsg in messages['errorLog']:
+        console.printerr(' ', errmsg['message'])
+
+    console.printerr('Log:')
+    for logmsg in messages['log']:
+        console.printerr(' ', logmsg['message'])
+
+    console.printerr('Exception:\n ', messages['exception'])
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Adapter converting command line parameters to sap.rest.gcts
        methods calls.
@@ -20,9 +34,16 @@ def repolist(connection, args):
 
     console = sap.cli.core.get_console()
 
-    response = sap.rest.gcts.simple_fetch_repos(connection)
+    try:
+        response = sap.rest.gcts.simple_fetch_repos(connection)
+    except sap.rest.gcts.GCTSRequestError as ex:
+        dump_gcts_messages(console, ex.messages)
+        return 1
+
     for repo in response:
         console.printout(repo.name, repo.branch, repo.url)
+
+    return 0
 
 
 @CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
@@ -39,10 +60,16 @@ def clone(connection, args):
     if not package:
         package = sap.rest.gcts.package_name_from_url(args.url)
 
-    sap.rest.gcts.simple_clone(connection, args.url, package,
-                               start_dir=args.starting_folder,
-                               vcs_token=args.vcs_token,
-                               error_exists=not args.no_fail_exists)
+    try:
+        sap.rest.gcts.simple_clone(connection, args.url, package,
+                                   start_dir=args.starting_folder,
+                                   vcs_token=args.vcs_token,
+                                   error_exists=not args.no_fail_exists)
+    except sap.rest.gcts.GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+
+    return 0
 
 
 @CommandGroup.argument('package')
@@ -56,7 +83,14 @@ def config(connection, args):
 
     if args.list:
         repo = sap.rest.gcts.Repository(connection, args.package)
-        for key, value in repo.configuration.items():
+
+        try:
+            configuration = repo.configuration
+        except sap.rest.gcts.GCTSRequestError as ex:
+            dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+            return 1
+
+        for key, value in configuration.items():
             console.printout(f'{key}={value}')
 
         return 0
@@ -71,8 +105,14 @@ def delete(connection, args):
     """rm
     """
 
-    sap.rest.gcts.simple_delete(connection, args.package)
+    try:
+        sap.rest.gcts.simple_delete(connection, args.package)
+    except sap.rest.gcts.GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+
     sap.cli.core.printout(f'The repository "{args.package}" has been deleted')
+    return 0
 
 
 @CommandGroup.argument('branch')
@@ -82,5 +122,11 @@ def checkout(connection, args):
     """git checkout <branch>
     """
 
-    sap.rest.gcts.simple_checkout(connection, args.package, args.branch)
+    try:
+        sap.rest.gcts.simple_checkout(connection, args.package, args.branch)
+    except sap.rest.gcts.GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+
     sap.cli.core.printout(f'The repository "{args.package}" has been set to the branch "{args.branch}"')
+    return 0
