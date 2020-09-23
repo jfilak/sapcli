@@ -407,7 +407,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
     def test_simple_clone_without_params_create_exists(self):
         log_builder = LogBuilder()
-        log_builder.log_error(make_gcts_log_error('Error action CREATE_REPOSITORY Repository already exists'))
+        log_builder.log_error(make_gcts_log_error('20200923111743: Error action CREATE_REPOSITORY Repository already exists'))
         log_builder.log_exception('Cannot create', 'EEXIST').get_contents()
         messages = log_builder.get_contents()
 
@@ -420,7 +420,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
     def test_simple_clone_without_params_create_exists_continue(self):
         log_builder = LogBuilder()
-        log_builder.log_error(make_gcts_log_error('Error action CREATE_REPOSITORY Repository already exists'))
+        log_builder.log_error(make_gcts_log_error('20200923111743: Error action CREATE_REPOSITORY Repository already exists'))
         log_builder.log_exception('Cannot create', 'EEXIST').get_contents()
         messages = log_builder.get_contents()
 

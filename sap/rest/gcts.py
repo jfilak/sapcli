@@ -167,7 +167,7 @@ class Repository:
             messages = ex.response.json()
 
             log = messages.get('log', None)
-            if log and log[0].get('message', '').startswith('Error action CREATE_REPOSITORY Repository already exists'):
+            if log and log[0].get('message', '').endswith('Error action CREATE_REPOSITORY Repository already exists'):
                 raise GCTSRepoAlreadyExistsError(messages) from ex
 
             raise GCTSRequestError(messages) from ex
