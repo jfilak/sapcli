@@ -432,6 +432,14 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         repo = sap.rest.gcts.simple_clone(self.conn, self.repo_url, self.repo_name, error_exists=False)
         self.assertIsNotNone(repo)
 
+    def test_simple_fetch_no_repo(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+
+        repos = sap.rest.gcts.simple_fetch_repos(self.conn)
+        self.assertEqual(len(repos), 0)
+
     def test_simple_fetch_ok(self):
         REPO_ONE_ID=0
         repo_one = dict(self.repo_server_data)

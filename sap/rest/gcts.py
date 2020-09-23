@@ -265,7 +265,8 @@ def simple_fetch_repos(connection):
     except HTTPRequestError as ex:
         raise GCTSRequestError(ex.response.json()) from ex
 
-    return [Repository(connection, repo['name'], data=repo) for repo in response['result']]
+    result = response.get('result', [])
+    return [Repository(connection, repo['name'], data=repo) for repo in result]
 
 
 def simple_clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True):
