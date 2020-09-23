@@ -37,7 +37,24 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             'https://example.org/repo/git/sample.git',
             'sample',
             start_dir='src/',
-            vcs_token=None
+            vcs_token=None,
+            error_exists=True
+        )
+
+    def test_clone_existing(self):
+        args = self.clone('https://example.org/repo/git/sample.git', '--no-fail-exists')
+        self.fake_simple_clone.return_value = None
+
+        conn = Mock()
+        args.execute(conn, args)
+
+        self.fake_simple_clone.assert_called_once_with(
+            conn,
+            'https://example.org/repo/git/sample.git',
+            'sample',
+            start_dir='src/',
+            vcs_token=None,
+            error_exists=False
         )
 
 

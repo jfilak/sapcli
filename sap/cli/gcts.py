@@ -41,7 +41,8 @@ def clone(connection, args):
 
     sap.rest.gcts.simple_clone(connection, args.url, package,
                                start_dir=args.starting_folder,
-                               vcs_token=args.vcs_token)
+                               vcs_token=args.vcs_token,
+                               error_exists=not args.no_fail_exists)
 
 
 @CommandGroup.argument('package')
