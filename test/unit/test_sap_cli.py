@@ -76,6 +76,36 @@ class TestConnection(unittest.TestCase):
         self.assertEqual(args.password, None)
         self.assertEqual(args.corrnr, None)
 
+    def test_edit_instance(self):
+        args = sap.cli.build_empty_connection_values()
+
+        args.ashost = 'args.ashost'
+        self.assertEqual(args.ashost, 'args.ashost')
+
+        args.sysnr = 'args.sysnr'
+        self.assertEqual(args.sysnr, 'args.sysnr')
+
+        args.client = 'args.client'
+        self.assertEqual(args.client, 'args.client')
+
+        args.port = 'args.port'
+        self.assertEqual(args.port, 'args.port')
+
+        args.ssl = 'args.ssl'
+        self.assertEqual(args.ssl, 'args.ssl')
+
+        args.verify = 'args.verify'
+        self.assertEqual(args.verify, 'args.verify')
+
+        args.user = 'args.user'
+        self.assertEqual(args.user, 'args.user')
+
+        args.password = 'args.password'
+        self.assertEqual(args.password, 'args.password')
+
+        args.corrnr = 'args.corrnr'
+        self.assertEqual(args.corrnr, 'args.corrnr')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -7,7 +7,7 @@ Dependency modules are lazy loaded to enable partial modular installation.
 
 
 import os
-from collections import namedtuple
+from types import SimpleNamespace
 from sap import rfc
 
 
@@ -119,12 +119,7 @@ def build_empty_connection_values():
        which will fill the object with values from Environment Variables.
     """
 
-    thetype = namedtuple(
-        'ConnectionValues',
-        ['ashost', 'sysnr', 'client', 'port', 'ssl', 'verify', 'user', 'password', 'corrnr']
-    )
-
-    return thetype(
+    return SimpleNamespace(
         ashost=None,
         sysnr=None,
         client=None,
