@@ -119,9 +119,21 @@ def build_empty_connection_values():
        which will fill the object with values from Environment Variables.
     """
 
-    return namedtuple(
+    thetype = namedtuple(
         'ConnectionValues',
         ['ashost', 'sysnr', 'client', 'port', 'ssl', 'verify', 'user', 'password', 'corrnr']
+    )
+
+    return thetype(
+        ashost=None,
+        sysnr=None,
+        client=None,
+        port=None,
+        ssl=None,
+        verify=None,
+        user=None,
+        password=None,
+        corrnr=None
     )
 
 

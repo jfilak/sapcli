@@ -62,5 +62,20 @@ class TestPrinting(unittest.TestCase):
         fake_print.assert_called_once_with('a', 'b', sep=':', end='$', file=sys.stderr)
 
 
+class TestConnection(unittest.TestCase):
+
+    def test_empty_instance(self):
+        args = sap.cli.build_empty_connection_values()
+        self.assertEqual(args.ashost, None)
+        self.assertEqual(args.sysnr, None)
+        self.assertEqual(args.client, None)
+        self.assertEqual(args.port, None)
+        self.assertEqual(args.ssl, None)
+        self.assertEqual(args.verify, None)
+        self.assertEqual(args.user, None)
+        self.assertEqual(args.password, None)
+        self.assertEqual(args.corrnr, None)
+
+
 if __name__ == '__main__':
     unittest.main()
