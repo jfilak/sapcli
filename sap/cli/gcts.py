@@ -46,6 +46,7 @@ def repolist(connection, args):
     return 0
 
 
+@CommandGroup.argument('--vsid', type=str, nargs='?', default='61T')
 @CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
 @CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
 @CommandGroup.argument('--vcs-token', type=str, nargs='?')
@@ -64,6 +65,7 @@ def clone(connection, args):
         sap.rest.gcts.simple_clone(connection, args.url, package,
                                    start_dir=args.starting_folder,
                                    vcs_token=args.vcs_token,
+                                   vsid=args.vsid,
                                    error_exists=not args.no_fail_exists)
     except sap.rest.gcts.GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)

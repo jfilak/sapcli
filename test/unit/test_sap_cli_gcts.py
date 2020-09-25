@@ -65,8 +65,33 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             'https://example.org/repo/git/sample.git',
             'sample',
             start_dir='src/',
+            vsid='61T',
             vcs_token=None,
             error_exists=True
+        )
+
+    def test_clone_with_all_params(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vsid', 'GIT',
+            '--vcs-token', '12345',
+            '--starting-folder', 'backend/src/',
+            '--no-fail-exists'
+        )
+        self.fake_simple_clone.return_value = None
+
+        conn = Mock()
+        exit_code = args.execute(conn, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_simple_clone.assert_called_once_with(
+            conn,
+            'https://example.org/repo/git/sample.git',
+            'sample',
+            start_dir='backend/src/',
+            vsid='GIT',
+            vcs_token='12345',
+            error_exists=False
         )
 
     def test_clone_existing(self):
@@ -81,6 +106,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             'https://example.org/repo/git/sample.git',
             'sample',
             start_dir='src/',
+            vsid='61T',
             vcs_token=None,
             error_exists=False
         )
