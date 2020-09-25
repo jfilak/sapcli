@@ -5,7 +5,15 @@ from unittest.mock import MagicMock, patch, Mock, PropertyMock
 
 import sap.cli.gcts
 
-from mock import ConsoleOutputTestCase, PatcherTestCase, GCTSLogBuilder, make_gcts_log_error
+from mock import (
+    ConsoleOutputTestCase,
+    PatcherTestCase,
+    GCTSLogBuilder,
+    GCTSLogMessages,
+    GCTSLogProtocol,
+    make_gcts_log_error
+)
+
 from infra import generate_parse_args
 
 
@@ -14,7 +22,14 @@ parse_args = generate_parse_args(sap.cli.gcts.CommandGroup())
 
 def dummy_gcts_error_log():
         log_builder = GCTSLogBuilder()
-        log_builder.log_error(make_gcts_log_error('Line 1'))
+
+        log_builder.log_error(
+            make_gcts_log_error(
+                'Line 1',
+                protocol=GCTSLogProtocol('Program',
+                                         GCTSLogMessages('protocol 1',
+                                                         'protocol 2'))))
+
         log_builder.log_error(make_gcts_log_error('Line 2'))
         log_builder.log_exception('Message', 'ERROR')
         return log_builder.get_contents()
@@ -27,10 +42,14 @@ class TestgCTSDumpError(ConsoleOutputTestCase, unittest.TestCase):
         sap.cli.gcts.dump_gcts_messages(self.console, messages)
         self.assertConsoleContents(self.console, stderr='''Error Log:
   Line 1
+    protocol 1
+    protocol 2
   Line 2
   Message
 Log:
   Line 1
+    protocol 1
+    protocol 2
   Line 2
 Exception:
   Message

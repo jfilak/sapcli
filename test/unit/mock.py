@@ -312,7 +312,22 @@ class ConsoleOutputTestCase(unittest.TestCase):
         self.assertEqual(console.caperr, stderr)
 
 
-def make_gcts_log_entry(severity, message, time=None, user=None, section=None, action=None, code=None):
+class GCTSLogMessages:
+
+    def __init__(self, *messages):
+        self.data = messages
+
+
+class GCTSLogProtocol:
+
+    def __init__(self, typ, protocol):
+        self.data = {
+            'type': typ,
+            'protocol': protocol.data
+        }
+
+
+def make_gcts_log_entry(severity, message, time=None, user=None, section=None, action=None, code=None, protocol=None):
     entry = {'severity': severity, 'message': message}
 
     if time is not None:
@@ -330,11 +345,23 @@ def make_gcts_log_entry(severity, message, time=None, user=None, section=None, a
     if code is not None:
         entry['code'] = code
 
+    if protocol is not None:
+        entry['protocol'] = protocol.data
+
     return entry
 
 
-def make_gcts_log_error(message, time=None, user=None, section=None, action=None, code=None):
-    return make_gcts_log_entry('ERROR', message, time=time, user=user, section=section, action=action, code=code)
+def make_gcts_log_error(message, time=None, user=None, section=None, action=None, code=None, protocol=None):
+    return make_gcts_log_entry(
+        'ERROR',
+        message,
+        time=time,
+        user=user,
+        section=section,
+        action=action,
+        code=code,
+        protocol=protocol
+    )
 
 
 class GCTSLogBuilder:
@@ -361,5 +388,3 @@ class GCTSLogBuilder:
         self.exception = message
         self.errorLog.append(make_gcts_log_error(message=message, code=code))
         return self
-
-

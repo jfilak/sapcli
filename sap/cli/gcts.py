@@ -4,16 +4,43 @@ import sap.cli.core
 import sap.rest.gcts
 
 
+def print_gcts_message(console, log, prefix=' '):
+    """Print out the message with its protocol if it exists."""
+
+    if isinstance(log, str):
+        message = log
+    else:
+        message = log.get('message', None)
+
+    if message:
+        console.printerr(prefix, message)
+        prefix = prefix + '  '
+
+    if not isinstance(log, dict):
+        return
+
+    try:
+        protocol = log['protocol']
+    except KeyError:
+        return
+
+    if isinstance(protocol, dict):
+        protocol = [protocol]
+
+    for protocol_item in protocol:
+        print_gcts_message(console, protocol_item, prefix=prefix)
+
+
 def dump_gcts_messages(console, messages):
     """Dumps gCTS exception to console"""
 
     console.printerr('Error Log:')
     for errmsg in messages['errorLog']:
-        console.printerr(' ', errmsg['message'])
+        print_gcts_message(console, errmsg)
 
     console.printerr('Log:')
     for logmsg in messages['log']:
-        console.printerr(' ', logmsg['message'])
+        print_gcts_message(console, logmsg)
 
     console.printerr('Exception:\n ', messages['exception'])
 
