@@ -84,7 +84,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             'https://example.org/repo/git/sample.git',
             'sample',
             start_dir='src/',
-            vsid='61T',
+            vsid='6IT',
             vcs_token=None,
             error_exists=True
         )
@@ -125,7 +125,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             'https://example.org/repo/git/sample.git',
             'sample',
             start_dir='src/',
-            vsid='61T',
+            vsid='6IT',
             vcs_token=None,
             error_exists=False
         )

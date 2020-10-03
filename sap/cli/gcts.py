@@ -73,7 +73,7 @@ def repolist(connection, args):
     return 0
 
 
-@CommandGroup.argument('--vsid', type=str, nargs='?', default='61T')
+@CommandGroup.argument('--vsid', type=str, nargs='?', default='6IT')
 @CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
 @CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
 @CommandGroup.argument('--vcs-token', type=str, nargs='?')
