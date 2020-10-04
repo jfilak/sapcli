@@ -266,7 +266,8 @@ class Repository:
             raise GCTSRequestError(ex.response.json()) from ex
 
         self.wipe_data()
-        return response
+
+        return response.json()['result']
 
     def delete(self):
         """Deletes the repo from the configured system"""
@@ -326,10 +327,13 @@ def simple_clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=
     return repo
 
 
-def simple_checkout(connection, name, branch):
+def simple_checkout(connection, branch, name=None, repo=None):
     """Checks out the given branch in the given repository on the give system"""
 
-    return Repository(connection, name).checkout(branch)
+    if repo is None:
+        repo = Repository(connection, name)
+
+    return repo.checkout(branch)
 
 
 def simple_delete(connection, name):

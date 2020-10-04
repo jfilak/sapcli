@@ -157,11 +157,15 @@ def checkout(connection, args):
     """git checkout <branch>
     """
 
+    repo = sap.rest.gcts.Repository(connection, args.package)
+    old_branch = repo.branch
+
     try:
-        sap.rest.gcts.simple_checkout(connection, args.package, args.branch)
+        response = sap.rest.gcts.simple_checkout(connection, args.branch, repo=repo)
     except sap.rest.gcts.GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
     sap.cli.core.printout(f'The repository "{args.package}" has been set to the branch "{args.branch}"')
+    sap.cli.core.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
     return 0

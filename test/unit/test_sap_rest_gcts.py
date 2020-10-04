@@ -292,6 +292,11 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(str(caught.exception), 'gCTS exception: Clone Error')
 
     def test_checkout_ok(self):
+        self.conn.set_responses(Response.with_json(status_code=200, json={'result': {
+            'fromCommit': '123',
+            'toCommit': '456'
+        }}))
+
         repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         repo.checkout('the_other_branch')
 
@@ -485,7 +490,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         fake_instance.checkout = Mock()
         fake_instance.checkout.return_value = 'probe'
 
-        response = sap.rest.gcts.simple_checkout(self.conn, self.repo_name, 'the_new_branch')
+        response = sap.rest.gcts.simple_checkout(self.conn, 'the_new_branch', name=self.repo_name)
         fake_repository.assert_called_once_with(self.conn, self.repo_name)
         fake_instance.checkout.assert_called_once_with('the_new_branch')
         self.assertEqual(response, 'probe')

@@ -250,19 +250,25 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
 
         self.patch_console(console=self.console)
         self.fake_simple_checkout = self.patch('sap.rest.gcts.simple_checkout')
+        self.fake_repository = self.patch('sap.rest.gcts.Repository')
+        self.repo = Mock()
+        self.fake_repository.return_value = self.repo
 
     def checkout(self, *args, **kwargs):
         return parse_args('checkout', *args, **kwargs)
 
     def test_checkout_no_params(self):
         conn = Mock()
+        self.repo.branch = 'old_branch'
+        self.fake_simple_checkout.return_value = {'fromCommit': '123', 'toCommit': '456'}
 
         args = self.checkout('the_repo', 'the_branch')
         args.execute(conn, args)
 
-        self.fake_simple_checkout.assert_called_once_with(conn, 'the_repo', 'the_branch')
+        self.fake_simple_checkout.assert_called_once_with(conn, 'the_branch', repo=self.repo)
         self.assertConsoleContents(self.console, stdout=
 '''The repository "the_repo" has been set to the branch "the_branch"
+(old_branch:123) -> (the_branch:456)
 ''')
 
     @patch('sap.cli.gcts.dump_gcts_messages')
