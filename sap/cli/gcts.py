@@ -68,7 +68,7 @@ def repolist(connection, args):
         return 1
 
     for repo in response:
-        console.printout(repo.name, repo.branch, repo.url)
+        console.printout(repo.name, repo.branch, repo.head, repo.url)
 
     return 0
 
