@@ -63,6 +63,8 @@ class GCTSTestSetUp:
 
         self.repo_server_data = dict(self.repo_data)
         self.repo_server_data['branch'] = 'the_branch'
+        self.repo_server_data['currentCommit'] = 'FEDCBA9876543210'
+        self.repo_server_data['status'] = 'READY'
         self.repo_server_data['config'] = [{'key': 'VCS_CONNECTION', 'value': 'SSL', 'category': 'Connection'}]
 
         self.conn = RESTConnection()
@@ -123,13 +125,22 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(str(caught.exception), 'gCTS exception: Get Repo Error')
 
     def test_create_no_self_data_no_config(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=201, json={'repository': self.repo_server_data})
+        )
+
         repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
         repo.create(self.repo_url, self.repo_vsid)
 
         self.assertEqual(len(self.conn.execs), 1)
-        self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository', body=self.repo_request), self, json_body=True)
+        self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository', body=self.repo_request, accept='application/json'),
+                                       self, json_body=True)
 
     def test_create_with_config_instance_none(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=201, json={'repository': self.repo_server_data})
+        )
+
         repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
         repo.create(self.repo_url, self.repo_vsid, config={'THE_KEY': 'THE_VALUE'})
 
@@ -139,9 +150,14 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         }]
 
         self.assertEqual(len(self.conn.execs), 1)
-        self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository', body=repo_request), self, json_body=True)
+        self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository', body=repo_request, accept='application/json'),
+                                       self, json_body=True)
 
     def test_create_with_config_update_instance(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=201, json={'repository': self.repo_server_data})
+        )
+
         repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data={
             'config': [
                 {'key': 'first_key', 'value': 'first_value'},
@@ -160,7 +176,8 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(len(self.conn.execs), 1)
-        self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository', body=repo_request), self, json_body=True)
+        self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository', body=repo_request, accept='application/json'),
+                                       self, json_body=True)
 
     # Covered by TestgCTSSimpleClone
     #def test_create_generic_error(self):
@@ -321,6 +338,14 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         CALL_ID_CREATE = 0
         CALL_ID_CLONE = 1
 
+        repository = dict(self.repo_server_data)
+        repository['status'] = 'CREATED'
+
+        self.conn.set_responses(
+            Response.with_json(status_code=201, json={'repository': repository}),
+            Response.ok()
+        )
+
         sap.rest.gcts.simple_clone(
             self.conn,
             self.repo_url,
@@ -341,7 +366,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(len(self.conn.execs), 2)
 
-        self.conn.execs[CALL_ID_CREATE].assertEqual(Request.post_json(uri='repository', body=request_load), self, json_body=True)
+        self.conn.execs[CALL_ID_CREATE].assertEqual(Request.post_json(uri='repository', body=request_load, accept='application/json'), self, json_body=True)
         self.conn.execs[CALL_ID_CLONE].assertEqual(Request.post(uri=f'repository/{self.repo_name}/clone'), self)
 
     def test_simple_clone_without_params_create_fail(self):
@@ -369,18 +394,47 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(str(caught.exception), 'gCTS exception: Cannot create')
 
     def test_simple_clone_without_params_create_exists_continue(self):
+        CALL_ID_FETCH_REPO_DATA = 1
+
         log_builder = LogBuilder()
         log_builder.log_error(make_gcts_log_error('20200923111743: Error action CREATE_REPOSITORY Repository already exists'))
         log_builder.log_exception('Cannot create', 'EEXIST').get_contents()
         messages = log_builder.get_contents()
 
+        new_repo_data = dict(self.repo_server_data)
+        new_repo_data['status'] = 'CREATED'
+
         self.conn.set_responses([
             Response.with_json(status_code=500, json=messages),
-            Response.ok(),
+            Response.with_json(status_code=200, json={'result': new_repo_data}),
+            Response.ok()
         ])
 
         repo = sap.rest.gcts.simple_clone(self.conn, self.repo_url, self.repo_name, error_exists=False)
         self.assertIsNotNone(repo)
+        self.assertEqual(len(self.conn.execs), 3)
+        self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}'), self)
+
+    def test_simple_clone_without_params_create_exists_continue_cloned(self):
+        CALL_ID_FETCH_REPO_DATA = 1
+
+        log_builder = LogBuilder()
+        log_builder.log_error(make_gcts_log_error('20200923111743: Error action CREATE_REPOSITORY Repository already exists'))
+        log_builder.log_exception('Cannot create', 'EEXIST').get_contents()
+        messages = log_builder.get_contents()
+
+        self.assertEqual(self.repo_server_data['status'], 'READY')
+
+        self.conn.set_responses([
+            Response.with_json(status_code=500, json=messages),
+            Response.with_json(status_code=200, json={'result': self.repo_server_data}),
+        ])
+
+        repo = sap.rest.gcts.simple_clone(self.conn, self.repo_url, self.repo_name, error_exists=False)
+        self.assertIsNotNone(repo)
+
+        self.assertEqual(len(self.conn.execs), 2)
+        self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}'), self)
 
     def test_simple_fetch_no_repo(self):
         self.conn.set_responses(

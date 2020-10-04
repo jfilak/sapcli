@@ -181,9 +181,9 @@ class Connection:
 
         return self.execute('GET', uri_path, accept='application/json').json()
 
-    def post_obj_as_json(self, uri_path, obj):
+    def post_obj_as_json(self, uri_path, obj, accept=None):
         """Executes a POST HTTP request with the headers Content-Type = application/json.
         """
 
         body = json.dumps(obj)
-        return self.execute('POST', uri_path, content_type='application/json', body=body)
+        return self.execute('POST', uri_path, content_type='application/json', body=body, accept=accept)

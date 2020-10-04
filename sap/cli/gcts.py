@@ -89,14 +89,20 @@ def clone(connection, args):
         package = sap.rest.gcts.package_name_from_url(args.url)
 
     try:
-        sap.rest.gcts.simple_clone(connection, args.url, package,
-                                   start_dir=args.starting_folder,
-                                   vcs_token=args.vcs_token,
-                                   vsid=args.vsid,
-                                   error_exists=not args.no_fail_exists)
+        repo = sap.rest.gcts.simple_clone(connection, args.url, package,
+                                          start_dir=args.starting_folder,
+                                          vcs_token=args.vcs_token,
+                                          vsid=args.vsid,
+                                          error_exists=not args.no_fail_exists)
     except sap.rest.gcts.GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
+
+    console = sap.cli.core.get_console()
+    console.printout('Cloned repository:')
+    console.printout(' URL   :', repo.url)
+    console.printout(' branch:', repo.branch)
+    console.printout(' HEAD  :', repo.head)
 
     return 0
 

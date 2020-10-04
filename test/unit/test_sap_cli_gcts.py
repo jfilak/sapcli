@@ -68,19 +68,24 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         self.patch_console(console=self.console)
         self.fake_simple_clone = self.patch('sap.rest.gcts.simple_clone')
 
+        self.conn = Mock()
+        self.fake_simple_clone.return_value = sap.rest.gcts.Repository(self.conn, 'sample', data={
+            'url': 'https://example.org/repo/git/sample.git',
+            'branch': 'main',
+            'currentCommit': 'FEDBCA9876543210'
+        })
+
     def clone(self, *args, **kwargs):
         return parse_args('clone', *args, **kwargs)
 
     def test_clone_with_url_only(self):
         args = self.clone('https://example.org/repo/git/sample.git')
-        self.fake_simple_clone.return_value = None
 
-        conn = Mock()
-        exit_code = args.execute(conn, args)
+        exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
 
         self.fake_simple_clone.assert_called_once_with(
-            conn,
+            self.conn,
             'https://example.org/repo/git/sample.git',
             'sample',
             start_dir='src/',
@@ -88,6 +93,13 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token=None,
             error_exists=True
         )
+
+        self.assertConsoleContents(console=self.console, stdout='''Cloned repository:
+ URL   : https://example.org/repo/git/sample.git
+ branch: main
+ HEAD  : FEDBCA9876543210
+''')
+
 
     def test_clone_with_all_params(self):
         args = self.clone(
@@ -97,14 +109,12 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             '--starting-folder', 'backend/src/',
             '--no-fail-exists'
         )
-        self.fake_simple_clone.return_value = None
 
-        conn = Mock()
-        exit_code = args.execute(conn, args)
+        exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
 
         self.fake_simple_clone.assert_called_once_with(
-            conn,
+            self.conn,
             'https://example.org/repo/git/sample.git',
             'sample',
             start_dir='backend/src/',
@@ -114,14 +124,13 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         )
 
     def test_clone_existing(self):
-        args = self.clone('https://example.org/repo/git/sample.git', '--no-fail-exists')
-        self.fake_simple_clone.return_value = None
+        repo_url = 'https://example.org/repo/git/sample.git'
+        args = self.clone(repo_url, '--no-fail-exists')
 
-        conn = Mock()
-        args.execute(conn, args)
+        args.execute(self.conn, args)
 
         self.fake_simple_clone.assert_called_once_with(
-            conn,
+            self.conn,
             'https://example.org/repo/git/sample.git',
             'sample',
             start_dir='src/',
@@ -133,6 +142,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_clone_error(self, fake_dumper):
         messages = {'exception': 'test'}
+        self.fake_simple_clone.return_value = None
         self.fake_simple_clone.side_effect = sap.rest.gcts.GCTSRequestError(messages)
 
         args = self.clone('url')

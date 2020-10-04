@@ -73,12 +73,18 @@ class Repository:
         self._data = data
 
     def _fetch_data(self):
+        mod_log().debug('Fetching data of the repository "%s"', self._name)
+
         try:
             response = self._connection.get_json(f'repository/{self._name}')
         except HTTPRequestError as ex:
             raise GCTSRequestError(ex.response.json()) from ex
 
-        return response['result']
+        result = response['result']
+
+        mod_log().debug('Fetched data of the repository "%s": %s', self._name, result)
+
+        return result
 
     def _update_configuration(self, key, value):
         if self._data is None:
@@ -113,6 +119,13 @@ class Repository:
         return self._get_item('rid')
 
     @property
+    def is_cloned(self):
+        """Returns the repository's RID"""
+
+        status = self._get_item('status')
+        return status == 'READY'
+
+    @property
     def url(self):
         """Returns the repository's URL"""
 
@@ -123,6 +136,12 @@ class Repository:
         """Returns the repository's current URL"""
 
         return self._get_item('branch')
+
+    @property
+    def head(self):
+        """Returns the repository's RID"""
+
+        return self._get_item('currentCommit')
 
     @property
     def configuration(self):
@@ -162,7 +181,7 @@ class Repository:
         }
 
         try:
-            return self._connection.post_obj_as_json('repository', create_request)
+            response = self._connection.post_obj_as_json('repository', create_request, accept='application/json')
         except HTTPRequestError as ex:
             messages = ex.response.json()
 
@@ -171,6 +190,12 @@ class Repository:
                 raise GCTSRepoAlreadyExistsError(messages) from ex
 
             raise GCTSRequestError(messages) from ex
+
+        result = response.json()['repository']
+        if self._data:
+            self._data.update(result)
+        else:
+            self._data = result
 
     def set_config(self, key, value):
         """Sets configuration value
@@ -291,7 +316,13 @@ def simple_clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=
         mod_log().debug(ex)
         mod_log().info(str(ex))
 
-    repo.clone()
+        repo.wipe_data()
+
+    if not repo.is_cloned:
+        repo.clone()
+    else:
+        mod_log().info('Not cloning the repository "%s": already performed')
+
     return repo
 
 
