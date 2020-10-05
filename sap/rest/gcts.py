@@ -279,9 +279,26 @@ class Repository:
         except HTTPRequestError as ex:
             raise GCTSRequestError(ex.response.json()) from ex
 
+        return json_body['commits']
+
+    def pull(self):
+        """Pulls the repo on the configured system"""
+
+        url = f'repository/{self.rid}/pullByCommit'
+
+        params = None
+        commits = self.log()
+        if commits:
+            params = {'request': commits[0]['id']}
+
+        try:
+            json_body = self._connection.get_json(url, params=params)
+        except HTTPRequestError as ex:
+            raise GCTSRequestError(ex.response.json()) from ex
+
         self.wipe_data()
 
-        return json_body['commits']
+        return json_body
 
     def delete(self):
         """Deletes the repo from the configured system"""
@@ -357,6 +374,15 @@ def simple_log(connection, name=None, repo=None):
         repo = Repository(connection, name)
 
     return repo.log()
+
+
+def simple_pull(connection, name=None, repo=None):
+    """Pulls the given repository on the give system"""
+
+    if repo is None:
+        repo = Repository(connection, name)
+
+    return repo.pull()
 
 
 def simple_delete(connection, name):

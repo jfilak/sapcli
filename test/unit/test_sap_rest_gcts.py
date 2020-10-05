@@ -348,7 +348,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         act_commits = repo.log()
 
-        self.assertIsNone(repo._data)
+        self.assertIsNotNone(repo._data)
         self.assertEqual(act_commits, exp_commits)
 
         self.assertEqual(len(self.conn.execs), 1)
@@ -364,6 +364,64 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertIsNotNone(repo._data)
         self.assertEqual(str(caught.exception), 'gCTS exception: Log Error')
+
+    def test_pull_no_log_commits(self):
+        exp_log = {
+            'fromCommit': '123',
+            'toCommit': '456'
+        }
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={
+                'commits': []
+            }),
+            Response.with_json(status_code=200, json=exp_log )
+        )
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        act_log = repo.pull()
+
+        self.assertIsNone(repo._data)
+        self.assertEqual(act_log, exp_log)
+
+        self.assertEqual(len(self.conn.execs), 2)
+        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/pullByCommit'), self)
+
+    def test_pull_log_commits(self):
+        exp_log = {
+            'fromCommit': '123',
+            'toCommit': '456'
+        }
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={
+                'commits': [{'id': '123'}]
+            }),
+            Response.with_json(status_code=200, json=exp_log)
+        )
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        act_log = repo.pull()
+
+        self.assertIsNone(repo._data)
+        self.assertEqual(act_log, exp_log)
+
+        self.assertEqual(len(self.conn.execs), 2)
+        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/pullByCommit', params={'request': '123'}), self)
+
+    def test_pull_error(self):
+        messages = LogBuilder(exception='Pull Error').get_contents()
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'commits': []}),
+            Response.with_json(status_code=500, json=messages)
+        )
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+            repo.pull()
+
+        self.assertIsNotNone(repo._data)
+        self.assertEqual(str(caught.exception), 'gCTS exception: Pull Error')
 
 
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
@@ -554,4 +612,24 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         fake_instance.log.return_value = 'probe'
 
         response = sap.rest.gcts.simple_log(None, repo=fake_instance)
+        self.assertEqual(response, 'probe')
+
+    @patch('sap.rest.gcts.Repository')
+    def test_simple_pull_name(self, fake_repository):
+        fake_instance = Mock()
+        fake_repository.return_value = fake_instance
+        fake_instance.pull = Mock()
+        fake_instance.pull.return_value = 'probe'
+
+        response = sap.rest.gcts.simple_pull(self.conn, name=self.repo_name)
+        fake_repository.assert_called_once_with(self.conn, self.repo_name)
+        fake_instance.pull.assert_called_once_with()
+        self.assertEqual(response, 'probe')
+
+    def test_simple_pull_repo(self):
+        fake_instance = Mock()
+        fake_instance.pull = Mock()
+        fake_instance.pull.return_value = 'probe'
+
+        response = sap.rest.gcts.simple_pull(None, repo=fake_instance)
         self.assertEqual(response, 'probe')

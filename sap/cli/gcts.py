@@ -206,3 +206,20 @@ def gcts_log(connection, args):
         print_gcts_commit(console, commit)
 
     return 0
+
+
+@CommandGroup.argument('package')
+@CommandGroup.command()
+def pull(connection, args):
+    """git pull
+    """
+
+    try:
+        response = sap.rest.gcts.simple_pull(connection, name=args.package)
+    except sap.rest.gcts.GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+
+    sap.cli.core.printout(f'The repository "{args.package}" has been pulled')
+    sap.cli.core.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
+    return 0

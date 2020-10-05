@@ -354,6 +354,48 @@ Date:   2020-10-02
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
 
+class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_simple_pull = self.patch('sap.rest.gcts.simple_pull')
+
+    def pull(self, *args, **kwargs):
+        return parse_args('pull', *args, **kwargs)
+
+    def test_pull_no_params(self):
+        conn = Mock()
+        self.fake_simple_pull.return_value = {
+            'fromCommit': '123',
+            'toCommit': '456'
+        }
+
+        args = self.pull('the_repo')
+        args.execute(conn, args)
+
+        self.fake_simple_pull.assert_called_once_with(conn, name='the_repo')
+        self.assertConsoleContents(self.console, stdout=
+'''The repository "the_repo" has been pulled
+123 -> 456
+''')
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_pull_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_pull.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+
+        args = self.pull('a_repo')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+
 class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
 
     def setUp(self):
