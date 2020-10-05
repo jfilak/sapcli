@@ -45,6 +45,15 @@ def dump_gcts_messages(console, messages):
     console.printerr('Exception:\n ', messages['exception'])
 
 
+def print_gcts_commit(console, commit):
+    """Prints out gCTS commit description"""
+
+    console.printout('commit', commit['id'])
+    console.printout('Author:', commit['author'], f'<{commit["authorMail"]}>')
+    console.printout('Date:  ', commit['date'])
+    console.printout('\n   ', commit['message'])
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Adapter converting command line parameters to sap.rest.gcts
        methods calls.
@@ -168,4 +177,32 @@ def checkout(connection, args):
 
     sap.cli.core.printout(f'The repository "{args.package}" has been set to the branch "{args.branch}"')
     sap.cli.core.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
+    return 0
+
+
+@CommandGroup.argument('package')
+@CommandGroup.command('log')
+def gcts_log(connection, args):
+    """git log
+    """
+
+    console = sap.cli.core.get_console()
+    try:
+        commits = sap.rest.gcts.simple_log(connection, name=args.package)
+    except sap.rest.gcts.GCTSRequestError as ex:
+        dump_gcts_messages(console, ex.messages)
+        return 1
+
+    if not commits:
+        return 0
+
+    commit_iter = iter(commits)
+
+    commit = next(commit_iter)
+    print_gcts_commit(console, commit)
+
+    for commit in commit_iter:
+        console.printout('')
+        print_gcts_commit(console, commit)
+
     return 0

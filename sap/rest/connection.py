@@ -175,11 +175,12 @@ class Connection:
 
         return resp
 
-    def get_json(self, uri_path):
+    def get_json(self, uri_path, params=None):
         """Executes a GET HTTP request with the headers Accept = application/json.
         """
 
-        return self.execute('GET', uri_path, accept='application/json').json()
+        response = self.execute('GET', uri_path, accept='application/json', params=params)
+        return response.json()
 
     def post_obj_as_json(self, uri_path, obj, accept=None):
         """Executes a POST HTTP request with the headers Content-Type = application/json.

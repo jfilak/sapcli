@@ -283,6 +283,77 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
 
+class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_simple_log = self.patch('sap.rest.gcts.simple_log')
+
+    def log(self, *args, **kwargs):
+        return parse_args('log', *args, **kwargs)
+
+    def test_log_no_params(self):
+        conn = Mock()
+        self.fake_simple_log.return_value = [
+            { 'id': '456',
+              'author': 'Billy Lander',
+              'authorMail': 'billy.lander@example.com',
+              'date': '2020-10-09',
+              'message': 'Finall commit'
+            },
+            { 'id': '123',
+              'author': 'Hugh Star',
+              'authorMail': 'hugh.star@example.com',
+              'date': '2020-10-02',
+              'message': 'Popping commit'
+            },
+        ]
+
+        args = self.log('the_repo')
+        args.execute(conn, args)
+
+        self.fake_simple_log.assert_called_once_with(conn, name='the_repo')
+        self.assertConsoleContents(self.console, stdout=
+'''commit 456
+Author: Billy Lander <billy.lander@example.com>
+Date:   2020-10-09
+
+    Finall commit
+
+commit 123
+Author: Hugh Star <hugh.star@example.com>
+Date:   2020-10-02
+
+    Popping commit
+''')
+
+    def test_log_no_params_no_commits(self):
+        conn = Mock()
+        self.fake_simple_log.return_value = []
+
+        args = self.log('the_repo')
+        args.execute(conn, args)
+
+        self.fake_simple_log.assert_called_once_with(conn, name='the_repo')
+        self.assertConsoleContents(self.console)
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_log_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_log.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+
+        args = self.log('a_repo')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+
 class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
 
     def setUp(self):

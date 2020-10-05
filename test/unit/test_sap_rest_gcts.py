@@ -336,6 +336,35 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertIsNotNone(repo._data)
         self.assertEqual(str(caught.exception), 'gCTS exception: Delete Error')
 
+    def test_log_ok(self):
+        exp_commits = [{'id': '123'}]
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={
+                'commits': exp_commits
+            })
+        )
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        act_commits = repo.log()
+
+        self.assertIsNone(repo._data)
+        self.assertEqual(act_commits, exp_commits)
+
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/getCommit'), self)
+
+    def test_log_error(self):
+        messages = LogBuilder(exception='Log Error').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+            repo.log()
+
+        self.assertIsNotNone(repo._data)
+        self.assertEqual(str(caught.exception), 'gCTS exception: Log Error')
+
 
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
@@ -505,4 +534,24 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         response = sap.rest.gcts.simple_delete(self.conn, self.repo_name)
         fake_repository.assert_called_once_with(self.conn, self.repo_name)
         fake_instance.delete.assert_called_once_with()
+        self.assertEqual(response, 'probe')
+
+    @patch('sap.rest.gcts.Repository')
+    def test_simple_log_name(self, fake_repository):
+        fake_instance = Mock()
+        fake_repository.return_value = fake_instance
+        fake_instance.log = Mock()
+        fake_instance.log.return_value = 'probe'
+
+        response = sap.rest.gcts.simple_log(self.conn, name=self.repo_name)
+        fake_repository.assert_called_once_with(self.conn, self.repo_name)
+        fake_instance.log.assert_called_once_with()
+        self.assertEqual(response, 'probe')
+
+    def test_simple_log_repo(self):
+        fake_instance = Mock()
+        fake_instance.log = Mock()
+        fake_instance.log.return_value = 'probe'
+
+        response = sap.rest.gcts.simple_log(None, repo=fake_instance)
         self.assertEqual(response, 'probe')

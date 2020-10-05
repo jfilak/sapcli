@@ -5,8 +5,9 @@ sapcli's implementation forces use of packages as git repositories.
 1. [repolist](#repolist)
 2. [clone](#clone)
 3. [checkout](#checkout)
-4. [delete](#delete)
-5. [config](#config)
+4. [log](#log)
+5. [delete](#delete)
+6. [config](#config)
 
 ## repolist
 
@@ -31,6 +32,14 @@ Checkout branch
 
 ```bash
 sapcli gcts checkout PACKAGE BRANCH
+```
+
+## log
+
+Print out repository history log
+
+```bash
+sapcli gcts log PACKAGE
 ```
 
 ## delete

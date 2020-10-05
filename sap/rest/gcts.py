@@ -269,6 +269,20 @@ class Repository:
 
         return response.json()['result']
 
+    def log(self):
+        """Pulls the repo on the configured system"""
+
+        url = f'repository/{self.rid}/getCommit'
+
+        try:
+            json_body = self._connection.get_json(url)
+        except HTTPRequestError as ex:
+            raise GCTSRequestError(ex.response.json()) from ex
+
+        self.wipe_data()
+
+        return json_body['commits']
+
     def delete(self):
         """Deletes the repo from the configured system"""
 
@@ -334,6 +348,15 @@ def simple_checkout(connection, branch, name=None, repo=None):
         repo = Repository(connection, name)
 
     return repo.checkout(branch)
+
+
+def simple_log(connection, name=None, repo=None):
+    """Returns log history of the given repository on the give system"""
+
+    if repo is None:
+        repo = Repository(connection, name)
+
+    return repo.log()
 
 
 def simple_delete(connection, name):
