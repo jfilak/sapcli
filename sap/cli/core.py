@@ -189,6 +189,12 @@ class PrintConsole:
 
         self._do_print(objects, sep=sep, end=end, file=self._err)
 
+    def flush(self):
+        """Flushes all streams"""
+
+        self._out.flush()
+        self._err.flush()
+
 
 _CONSOLE = None
 
