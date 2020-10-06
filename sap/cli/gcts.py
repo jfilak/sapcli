@@ -1,6 +1,7 @@
 """gCTS methods"""
 
 import sap.cli.core
+import sap.cli.helpers
 import sap.rest.gcts
 
 
@@ -82,6 +83,7 @@ def repolist(connection, args):
     return 0
 
 
+@CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--vsid', type=str, nargs='?', default='6IT')
 @CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
 @CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
@@ -97,17 +99,19 @@ def clone(connection, args):
     if not package:
         package = sap.rest.gcts.package_name_from_url(args.url)
 
+    console = sap.cli.core.get_console()
+
     try:
-        repo = sap.rest.gcts.simple_clone(connection, args.url, package,
-                                          start_dir=args.starting_folder,
-                                          vcs_token=args.vcs_token,
-                                          vsid=args.vsid,
-                                          error_exists=not args.no_fail_exists)
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            repo = sap.rest.gcts.simple_clone(connection, args.url, package,
+                                              start_dir=args.starting_folder,
+                                              vcs_token=args.vcs_token,
+                                              vsid=args.vsid,
+                                              error_exists=not args.no_fail_exists)
     except sap.rest.gcts.GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
-    console = sap.cli.core.get_console()
     console.printout('Cloned repository:')
     console.printout(' URL   :', repo.url)
     console.printout(' branch:', repo.branch)
@@ -159,6 +163,7 @@ def delete(connection, args):
     return 0
 
 
+@CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('branch')
 @CommandGroup.argument('package')
 @CommandGroup.command()
@@ -169,14 +174,17 @@ def checkout(connection, args):
     repo = sap.rest.gcts.Repository(connection, args.package)
     old_branch = repo.branch
 
+    console = sap.cli.core.get_console()
+
     try:
-        response = sap.rest.gcts.simple_checkout(connection, args.branch, repo=repo)
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            response = sap.rest.gcts.simple_checkout(connection, args.branch, repo=repo)
     except sap.rest.gcts.GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
-    sap.cli.core.printout(f'The repository "{args.package}" has been set to the branch "{args.branch}"')
-    sap.cli.core.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
+    console.printout(f'The repository "{args.package}" has been set to the branch "{args.branch}"')
+    console.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
     return 0
 
 
@@ -208,18 +216,22 @@ def gcts_log(connection, args):
     return 0
 
 
+@CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('package')
 @CommandGroup.command()
 def pull(connection, args):
     """git pull
     """
 
+    console = sap.cli.core.get_console()
+
     try:
-        response = sap.rest.gcts.simple_pull(connection, name=args.package)
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            response = sap.rest.gcts.simple_pull(connection, name=args.package)
     except sap.rest.gcts.GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
-    sap.cli.core.printout(f'The repository "{args.package}" has been pulled')
-    sap.cli.core.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
+    console.printout(f'The repository "{args.package}" has been pulled')
+    console.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
     return 0
