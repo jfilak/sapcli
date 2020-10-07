@@ -123,7 +123,7 @@ class Repository:
         """Returns the repository's RID"""
 
         status = self._get_item('status')
-        return status == 'READY'
+        return status != 'CREATED'
 
     @property
     def url(self):
