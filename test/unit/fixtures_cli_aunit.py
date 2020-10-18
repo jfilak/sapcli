@@ -22,4 +22,4 @@ AUNIT_NO_TEST_RESULTS_JUNIT = '''<?xml version="0.0" encoding="utf-8"?>
         </testcase>
     </testsuite>
 </testsuites>
-
+'''

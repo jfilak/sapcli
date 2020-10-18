@@ -7,14 +7,16 @@
 Execute `sapcli` with the parameters `aunit run {package|class|program|transport} $OBJECT_NAME`.
 
 The exit code will be determined based on test results where exit code is the
-number of failed and erroed tests.
+number of failed and erroed tests if _unit_ included in the result.
 
 ```bash
-sapcli aunit run {package,class,program,transport} NAME [--output {raw,human,junit4}] [--as4user NAME]
+sapcli aunit run {package,class,program,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH]
 ```
 
 - _transport_ : if you use transport, NAME is Transport Number
 - _--as4user_ : used only for transports to be able to select the transport
+- _--result_: desired result to be displayed
+- _--coverage-filepath_: path where coverage output will be stored if one of _coverage_ or _all_ is selected as _result_
 
 If you struggle to get Transport User, you can use [datapreview](datapreview.md):
 
@@ -93,3 +95,26 @@ is used with the format `PACKAGE-NAME/CLASS-NAME=>TEST-CLASS-NAME`.
 
 Alerts generated for the test class are represented as a `testCase` with the `name` property set to the name of the
 test class.
+
+### Coverage output format
+
+#### Raw
+
+Coverage results are printed in the form as they were returned from ADT.
+
+#### Human
+
+This format attempts to provide nice human readable form of the coverage results.
+
+```
+PACKAGE FOO : 31.19%
+  CLASS BAR : 95.52%
+    METHOD A : 100.00%
+    METHOD B : 75.00%
+    METHOD C : 100.00%
+```
+
+#### JaCoCo
+
+Coverage results are printed in the JaCoCo format as defined in:
+- https://www.jacoco.org/jacoco/trunk/coverage/report.dtd

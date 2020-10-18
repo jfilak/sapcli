@@ -2,6 +2,7 @@
 
 import os
 import sys
+from enum import Enum
 from xml.sax.saxutils import escape
 from itertools import islice
 
@@ -12,6 +13,7 @@ import sap.adt.aunit
 import sap.adt.objects
 import sap.adt.cts
 import sap.cli.core
+import sap.adt.acoverage
 from sap.errors import SAPCliError
 
 
@@ -30,8 +32,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('aunit')
 
 
-def print_results_to_stream(run_results, stream):
-    """Print results to stream"""
+def print_aunit_human(run_results, stream):
+    """Print AUnit results in the human readable format"""
 
     for alert in run_results.alerts:
         print(f'* [{alert.severity}] [{alert.kind}] - {alert.title}', file=stream)
@@ -76,6 +78,25 @@ def print_results_to_stream(run_results, stream):
     return len(critical)
 
 
+def print_acoverage_human(node, stream, _indent_level=0):
+    """Print ACoverage results in the human readable format"""
+
+    ident = '  ' * _indent_level
+
+    # pylint: disable=redefined-argument-from-local
+    for node in node.nodes:
+        statement_coverage = None
+        for coverage in node.coverages:
+            if coverage.type == 'statement':
+                statement_coverage = (
+                    coverage.executed / coverage.total * 100 if coverage.total else 0
+                )
+
+        print(f'{ident}{node.name} : {statement_coverage:.2f}%', file=stream)
+
+        print_acoverage_human(node, stream, _indent_level + 1)
+
+
 def print_junit4_system_err(stream, details, elem_pad):
     """Print AUnit Alert.Details in testcase/system-err"""
 
@@ -112,7 +133,7 @@ def print_junit4_testcase_error(stream, alert, elem_pad):
     print('</error>', file=stream)
 
 
-def print_junit4(run_results, args, stream):
+def print_aunit_junit4(run_results, args, stream):
     """Print results to stream in the form of JUnit"""
 
     print('<?xml version="1.0" encoding="UTF-8" ?>', file=stream)
@@ -204,7 +225,7 @@ def print_sonar_alert(alert, stream):
         print('      </skipped>', file=stream)
 
 
-def print_sonar(run_results, args, stream):
+def print_aunit_sonar(run_results, args, stream):
     """Print results to stream in the form of Sonar Generic Execution"""
 
     print('<?xml version="1.0" encoding="UTF-8" ?>', file=stream)
@@ -248,10 +269,10 @@ def print_sonar(run_results, args, stream):
     return critical
 
 
-def print_raw(aunit_xml, run_results):
-    """Prints out raw XML results"""
+def print_aunit_raw(aunit_xml, run_results, stream):
+    """Prints out raw AUnit XML results"""
 
-    print(aunit_xml)
+    print(aunit_xml, file=stream)
 
     critical = 0
     for program in run_results.programs:
@@ -261,6 +282,71 @@ def print_raw(aunit_xml, run_results):
                     critical += 1
 
     return critical
+
+
+def print_acoverage_raw(acoverage_xml, stream):
+    """Prints out raw ACoverage XML results"""
+
+    print(acoverage_xml, file=stream)
+
+
+def _print_counters_jacoco(node, stream, indent, indent_level):
+    # pylint: disable=invalid-name
+    COVERAGE_COUNTER_TYPE_MAPPING = {
+        'branch': 'BRANCH',
+        'procedure': 'METHOD',
+        'statement': 'INSTRUCTION',
+    }
+
+    for coverage in node.coverages:
+        coverage_type = COVERAGE_COUNTER_TYPE_MAPPING[coverage.type]
+        missed = coverage.total - coverage.executed
+        print(f'{indent * indent_level}<counter type="{coverage_type}" missed="{missed}" '
+              f'covered="{coverage.executed}"/>', file=stream)
+
+
+def _print_class_jacoco(node, stream, indent, indent_level):
+    if len(node.name) == 32:
+        print(f'{indent * 2}<class name="{node.name}">', file=stream)
+        _print_counters_jacoco(node, stream, indent, indent_level + 1)
+        print(f'{indent * 2}</class>', file=stream)
+        if node.nodes:
+            node = node.nodes[0]
+        else:
+            return
+
+    print(f'{indent * 2}<class name="{node.name}">', file=stream)
+    for method in node.nodes:
+        print(f'{indent * 3}<method name="{method.name}">', file=stream)
+        _print_counters_jacoco(method, stream, indent, indent_level + 2)
+        print(f'{indent * 3}</method>', file=stream)
+
+    _print_counters_jacoco(node, stream, indent, indent_level + 1)
+    print(f'{indent * 2}</class>', file=stream)
+
+
+def _print_package_jacoco(node, stream, indent, indent_level):
+    for package in node.nodes:
+        print(f'{indent}<package name="{package.name}">', file=stream)
+        for class_node in package.nodes:
+            _print_class_jacoco(class_node, stream, indent, indent_level + 1)
+        _print_counters_jacoco(package, stream, indent, indent_level + 1)
+        print(f'{indent}</package>', file=stream)
+
+    _print_counters_jacoco(node, stream, indent, indent_level)
+
+
+def print_acoverage_jacoco(root_node, args, stream):
+    """Print results of ACoverage to stream in the form of JaCoCo"""
+
+    # pylint: disable=invalid-name
+    INDENT = '   '
+    print('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', file=stream)
+    print('<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">', file=stream)
+
+    print(f'<report name="{escape(args.name)}">', file=stream)
+    _print_package_jacoco(root_node, stream, INDENT, 1)
+    print('</report>', file=stream)
 
 
 class TransportObjectSelector:
@@ -299,10 +385,70 @@ class TransportObjectSelector:
         return result
 
 
+def print_aunit_output(args, aunit_response, aunit_parsed_response):
+    """Prints AUnit output in selected format and stream"""
+
+    result = None
+
+    run_results = aunit_parsed_response.run_results
+
+    if args.output == 'human':
+        result = print_aunit_human(run_results, sys.stdout)
+
+    elif args.output == 'raw':
+        result = print_aunit_raw(aunit_response.text, run_results, sys.stdout)
+
+    elif args.output == 'junit4':
+        result = print_aunit_junit4(run_results, args, sys.stdout)
+
+    elif args.output == 'sonar':
+        result = print_aunit_sonar(run_results, args, sys.stdout)
+    else:
+        raise SAPCliError(f'Unsupported output type: {args.output}')
+
+    return result
+
+
+def print_acoverage_output(args, acoverage_response, root_node):
+    """Prints ACoverage output in selected format and stream"""
+
+    if args.coverage_output not in ('raw', 'human', 'jacoco'):
+        raise SAPCliError(f'Unsupported output type: {args.output}')
+
+    stream = open(args.coverage_filepath, 'w+') if args.coverage_filepath else sys.stdout
+
+    if args.coverage_output == 'raw':
+        print_acoverage_raw(acoverage_response.text, stream)
+    elif args.coverage_output == 'human':
+        print_acoverage_human(root_node, stream)
+    elif args.coverage_output == 'jacoco':
+        print_acoverage_jacoco(root_node, args, stream)
+
+    if args.coverage_filepath:
+        stream.close()
+
+
+class ResultOptions(Enum):
+    """Options of run method results displaying"""
+
+    ONLY_UNIT = 'unit'
+    ONLY_COVERAGE = 'coverage'
+    ALL = 'all'
+
+
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
 @CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'sonar'], default='human')
 @CommandGroup.argument('name')
 @CommandGroup.argument('type', choices=['program', 'class', 'package', 'transport'])
+@CommandGroup.argument('--result',
+                       choices=[
+                           ResultOptions.ONLY_UNIT.value,
+                           ResultOptions.ONLY_COVERAGE.value,
+                           ResultOptions.ALL.value],
+                       default=ResultOptions.ONLY_UNIT.value
+                       )
+@CommandGroup.argument('--coverage-output', choices=['raw', 'human', 'jacoco'], default='human')
+@CommandGroup.argument('--coverage-filepath', default=None, type=str)
 @CommandGroup.command()
 def run(connection, args):
     """Prints it out based on command line configuration.
@@ -310,10 +456,19 @@ def run(connection, args):
        Exceptions:
          - SAPCliError:
            - when the given type does not belong to the type white list
+           - when the givent output and coverage-output do not belong to
+           the output format whitelist
     """
+    # pylint: disable=too-many-locals
 
-    types = {'program': sap.adt.Program, 'class': sap.adt.Class, 'package': sap.adt.Package,
-             'transport': TransportObjectSelector}
+    result = None
+
+    types = {
+        'program': sap.adt.Program,
+        'class': sap.adt.Class,
+        'package': sap.adt.Package,
+        'transport': TransportObjectSelector
+    }
 
     try:
         typ = types[args.type]
@@ -336,19 +491,18 @@ def run(connection, args):
         sets.include_object(obj)
 
     aunit = sap.adt.AUnit(connection)
-    response = aunit.execute(sets)
-    run_results = sap.adt.aunit.parse_run_results(response.text)
+    activate_coverage = args.result in (ResultOptions.ONLY_COVERAGE.value, ResultOptions.ALL.value)
+    aunit_response = aunit.execute(sets, activate_coverage=activate_coverage)
+    aunit_parsed_response = sap.adt.aunit.parse_aunit_response(aunit_response.text)
 
-    if args.output == 'human':
-        return print_results_to_stream(run_results, sys.stdout)
+    if args.result in (ResultOptions.ONLY_UNIT.value, ResultOptions.ALL.value):
+        result = print_aunit_output(args, aunit_response, aunit_parsed_response)
 
-    if args.output == 'raw':
-        return print_raw(response.text, run_results)
+    if activate_coverage:
+        acoverage = sap.adt.ACoverage(connection)
+        acoverage_response = acoverage.execute(aunit_parsed_response.coverage_identifier, sets)
+        root_node = sap.adt.acoverage.parse_acoverage_response(acoverage_response.text).root_node
 
-    if args.output == 'junit4':
-        return print_junit4(run_results, args, sys.stdout)
+        print_acoverage_output(args, acoverage_response, root_node)
 
-    if args.output == 'sonar':
-        return print_sonar(run_results, args, sys.stdout)
-
-    raise SAPCliError(f'Unsupported output type: {args.output}')
+    return result
