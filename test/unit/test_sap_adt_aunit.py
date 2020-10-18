@@ -52,6 +52,42 @@ class TestAUnit(unittest.TestCase):
 
         self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/abapunit/testruns')
 
+    def test_run_configuration_with_coverage(self):
+        connection = Connection()
+
+        victory = DummyADTObject(connection=connection)
+
+        tested_objects = ADTObjectSets()
+        tested_objects.include_object(victory)
+
+        runner = sap.adt.aunit.AUnit(connection)
+        response = runner.execute(tested_objects, activate_coverage=True)
+
+        self.maxDiff = None
+
+        self.assertEqual(connection.execs[0].body,
+'''<?xml version="1.0" encoding="UTF-8"?>
+<aunit:runConfiguration xmlns:aunit="http://www.sap.com/adt/aunit">
+<external>
+<coverage active="true"/>
+</external>
+<options>
+<uriType value="semantic"/>
+<testDeterminationStrategy sameProgram="true" assignedTests="false" appendAssignedTestsPreview="true"/>
+<testRiskLevels harmless="true" dangerous="true" critical="true"/>
+<testDurations short="true" medium="true" long="true"/>
+<withNavigationUri enabled="false"/>
+</options>
+<adtcore:objectSets xmlns:adtcore="http://www.sap.com/adt/core">
+<objectSet kind="inclusive">
+<adtcore:objectReferences>
+<adtcore:objectReference adtcore:uri="/sap/bc/adt/awesome/success/noobject" adtcore:name="NOOBJECT"/>
+</adtcore:objectReferences>
+</objectSet>
+</adtcore:objectSets>
+</aunit:runConfiguration>''')
+
+
 class TestAlert(unittest.TestCase):
 
     def test_error_as_severity_fatal(self):
@@ -78,7 +114,11 @@ class TestAlert(unittest.TestCase):
 class TestAUnitParseResults(unittest.TestCase):
 
     def test_parse_full(self):
-        run_results = sap.adt.aunit.parse_run_results(AUNIT_RESULTS_XML)
+        aunit_response = sap.adt.aunit.parse_aunit_response(AUNIT_RESULTS_XML)
+
+        self.assertEqual(aunit_response.coverage_identifier, 'FOOBAR')
+
+        run_results = aunit_response.run_results
 
         self.assertEqual([program.name for program in run_results.programs], ['ZCL_THEKING_MANUAL_HARDCORE', 'ZEXAMPLE_TESTS'])
 
@@ -97,7 +137,7 @@ class TestAUnitParseResults(unittest.TestCase):
         self.assertEqual([test_class.name for test_class in program_example.test_classes], ['LTCL_TEST'])
 
     def test_parse_no_tests(self):
-        run_results = sap.adt.aunit.parse_run_results(AUNIT_NO_TEST_RESULTS_XML)
+        run_results = sap.adt.aunit.parse_aunit_response(AUNIT_NO_TEST_RESULTS_XML).run_results
 
         self.assertEqual([(alert.kind, alert.severity, alert.title) for alert in run_results.alerts],
                          [('noTestClasses', 'tolerable', 'The task definition does not refer to any test')])

@@ -218,10 +218,11 @@ class AUnit:
     def __init__(self, connection):
         self._connection = connection
 
-    def execute(self, adt_object_sets):
+    def execute(self, adt_object_sets, activate_coverage=False):
         """Executes ABAP Unit tests on the given ADT object set"""
 
         run_configuration = RunConfiguration(adt_object_sets)
+        run_configuration.external.coverage.active = str(activate_coverage).lower()
         test_config = Marshal().serialize(run_configuration)
 
         return self._connection.execute(
@@ -304,6 +305,7 @@ class AUnitResponseHandler(ContentHandler):
         super().__init__()
 
         self.run_results = RunResults(list(), list())
+        self.coverage_identifier = None
         self._program = None
         self._test_class = None
         self._test_method = None
@@ -345,6 +347,9 @@ class AUnitResponseHandler(ContentHandler):
         elif name == 'stackEntry':
             self._alert_stack.append(attrs.get('adtcore:description'))
             mod_log().debug('XML: %s: %s', name, self._alert_stack[-1])
+        elif name == 'coverage':
+            self.coverage_identifier = attrs.get('adtcore:uri').rsplit('/', 1)[1]
+            mod_log().debug('XML: %s', name)
 
     def characters(self, content):
         if self._alert_title_part is not None:
@@ -381,10 +386,10 @@ class AUnitResponseHandler(ContentHandler):
             self._alert_stack = None
 
 
-def parse_run_results(aunit_results_xml):
+def parse_aunit_response(aunit_results_xml):
     """Converts XML results into Python representation"""
 
     xml_handler = AUnitResponseHandler()
     xml.sax.parseString(aunit_results_xml, xml_handler)
 
-    return xml_handler.run_results
+    return xml_handler
