@@ -56,7 +56,7 @@ def _set_configuration_key(config, key, value):
 
 def _config_list_to_dict(config):
 
-    return dict(((cfg['key'], cfg['value']) for cfg in config))
+    return dict(((cfg['key'], cfg.get('value', '')) for cfg in config))
 
 
 def _config_dict_to_list(config):

@@ -65,7 +65,10 @@ class GCTSTestSetUp:
         self.repo_server_data['branch'] = 'the_branch'
         self.repo_server_data['currentCommit'] = 'FEDCBA9876543210'
         self.repo_server_data['status'] = 'READY'
-        self.repo_server_data['config'] = [{'key': 'VCS_CONNECTION', 'value': 'SSL', 'category': 'Connection'}]
+        self.repo_server_data['config'] = [
+            {'key': 'VCS_CONNECTION', 'value': 'SSL', 'category': 'Connection'},
+            {'key': 'CLIENT_VCS_URI', 'category': 'Repository'}
+        ]
 
         self.conn = RESTConnection()
 
@@ -98,7 +101,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(repo.rid, self.repo_server_data['rid'])
         self.assertEqual(repo.url, self.repo_server_data['url'])
         self.assertEqual(repo.branch, self.repo_server_data['branch'])
-        self.assertEqual(repo.configuration, {'VCS_CONNECTION': 'SSL'})
+        self.assertEqual(repo.configuration, {'VCS_CONNECTION': 'SSL', 'CLIENT_VCS_URI': ''})
 
     def test_properties_fetch(self):
         response = {'result': self.repo_server_data}
