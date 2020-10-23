@@ -53,3 +53,21 @@ class UnauthorizedError(SAPCliError):
 
     def __str__(self):
         return repr(self)
+
+
+class TimedOutRequestError(SAPCliError):
+    """Exception for timeout requests"""
+
+    def __init__(self, request, timeout):
+        super().__init__()
+
+        self.request = request
+        self.method = request.method
+        self.url = request.url
+        self.timeout = timeout
+
+    def __repr__(self):
+        return f'The request {self.method} {self.url} took more than {self.timeout}s'
+
+    def __str__(self):
+        return repr(self)

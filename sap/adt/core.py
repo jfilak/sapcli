@@ -8,9 +8,15 @@ from xml.sax.handler import ContentHandler
 import requests
 from requests.auth import HTTPBasicAuth
 
-from sap import get_logger
-from sap.rest.errors import HTTPRequestError, UnexpectedResponseContent, UnauthorizedError
+from sap import get_logger, config_get
+from sap.rest.connection import setup_keepalive
 from sap.adt.errors import new_adt_error_from_xml
+from sap.rest.errors import (
+    HTTPRequestError,
+    UnexpectedResponseContent,
+    UnauthorizedError,
+    TimedOutRequestError
+)
 
 
 def mod_log():
@@ -99,6 +105,8 @@ class Connection:
             - verify: boolean to switch SSL validation on/off
         """
 
+        setup_keepalive()
+
         if ssl:
             protocol = 'https'
             if port is None:
@@ -118,6 +126,7 @@ class Connection:
         self._auth = HTTPBasicAuth(user, password)
         self._session = None
         self._collection_types = None
+        self._timeout = config_get('http_timeout')
 
     @property
     def user(self):
@@ -163,7 +172,11 @@ class Connection:
         req = session.prepare_request(req)
 
         mod_log().info('Executing %s %s', method, url)
-        res = session.send(req)
+
+        try:
+            res = session.send(req, timeout=self._timeout)
+        except requests.exceptions.ConnectTimeout as ex:
+            raise TimedOutRequestError(req, self._timeout) from ex
 
         mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
 
