@@ -16,7 +16,7 @@ class Response:
     def __init__(self, text=None, status_code=None, headers=None, content_type=None, json=None):
         self.text = text
         self.status_code = status_code if status_code is not None else 200
-        self.headers = headers
+        self.headers = headers or {}
         self._json = json
 
         if content_type is not None:
@@ -47,6 +47,10 @@ class Request(NamedTuple):
     headers: Dict
     body: str
     params: Dict
+
+    @property
+    def url(self):
+        return self.adt_uri
 
     def to_short_str(self):
         return f'{self.method} {self.adt_uri}'

@@ -33,3 +33,23 @@ class HTTPRequestError(SAPCliError):
 
     def __str__(self):
         return repr(self)
+
+
+class UnauthorizedError(SAPCliError):
+    """Exception for unauthorized """
+
+    def __init__(self, request, response, user):
+        super().__init__()
+
+        self.request = request
+        self.response = response
+        self.status_code = response.status_code
+        self.method = request.method
+        self.url = request.url
+        self.user = user
+
+    def __repr__(self):
+        return f'Authorization for the user "{self.user}" has failed: {self.method} {self.url}'
+
+    def __str__(self):
+        return repr(self)
