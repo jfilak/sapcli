@@ -3,17 +3,42 @@
 import os
 import json
 
+import socket
+from urllib3.connection import HTTPConnection
 import requests
 from requests.auth import HTTPBasicAuth
 
-from sap import get_logger
-from sap.rest.errors import HTTPRequestError, UnexpectedResponseContent, UnauthorizedError
+from sap import get_logger, config_get
+from sap.rest.errors import HTTPRequestError, UnexpectedResponseContent, UnauthorizedError, TimedOutRequestError
 
+
+KEEPALIVE_CONFIGURED = False
 
 def mod_log():
     """ADT Module logger"""
 
     return get_logger()
+
+
+def setup_keepalive():
+    """Make sure we send keepalive TCP packets"""
+
+    global KEEPALIVE_CONFIGURED
+
+    if KEEPALIVE_CONFIGURED:
+        mod_log().debug("KeepAlive already configured")
+        return
+
+    KEEPALIVE_CONFIGURED = True
+
+    mod_log().debug("Updating urllib3.connection.HTTPConnection.default_socket_options with KeepAlive packets")
+
+    # Special thanks to: https://www.finbourne.com/blog/the-mysterious-hanging-client-tcp-keep-alives
+    # This may cause problems in Windows!
+    HTTPConnection.default_socket_options = HTTPConnection.default_socket_options + [
+        (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+        (socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+    ]
 
 
 # pylint: disable=too-many-instance-attributes
@@ -33,6 +58,8 @@ class Connection:
             - ssl: boolean to switch between http and https
             - verify: boolean to switch SSL validation on/off
         """
+
+        setup_keepalive()
 
         if ssl:
             protocol = 'https'
@@ -55,6 +82,7 @@ class Connection:
         self._auth = HTTPBasicAuth(user, password)
         self._session = None
         self._login_path = login_path
+        self._timeout = config_get('http_timeout')
 
     @property
     def user(self):
@@ -86,7 +114,11 @@ class Connection:
         req = session.prepare_request(req)
 
         mod_log().info('Executing %s %s', method, url)
-        res = session.send(req)
+
+        try:
+            res = session.send(req, timeout=self._timeout)
+        except requests.exceptions.ConnectTimeout as ex:
+            raise TimedOutRequestError(req, self._timeout) from ex
 
         mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
 

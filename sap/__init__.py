@@ -10,6 +10,8 @@ This module provides cli neutral functionality.
 import os
 import logging
 
+from sap.config import config_get
+
 
 def get_logger():
     """Returns the common logger object. Don't use for standard output"""
