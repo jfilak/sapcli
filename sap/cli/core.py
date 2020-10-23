@@ -89,6 +89,12 @@ class CommandGroup:
     def __init__(self, name):
         self.name = name
 
+    # pylint: disable=no-self-use
+    def decorate_command_parser(self, parser, command):
+        """Enable children adding custom common parameters and so on"""
+
+        return None
+
     def install_parser(self, arg_parser):
         """Add own commands as sub-parser of the given ArgParser.
         """
@@ -98,6 +104,7 @@ class CommandGroup:
         for command in self.__class__.get_commands().values():
             get_args = command_args.add_parser(command.name)
             get_args.set_defaults(execute=command.handler)
+            self.decorate_command_parser(get_args, command)
             command.install_arguments(get_args)
 
         return command_args

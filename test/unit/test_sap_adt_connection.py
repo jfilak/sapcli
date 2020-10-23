@@ -41,31 +41,45 @@ class TestADTConnection(unittest.TestCase):
         req = Mock()
 
         res = Mock()
+        res.status_code = 500
         res.headers = {'content-type': 'application/xml'}
         res.text = ERROR_XML_PACKAGE_ALREADY_EXISTS
 
         with self.assertRaises(sap.adt.errors.ADTError):
-            sap.adt.Connection._handle_http_error(req, res)
+            self.connection._handle_http_error(req, res)
 
     def test_handle_http_error_random_xml(self):
         req = Mock()
 
         res = Mock()
+        res.status_code = 500
         res.headers = {'content-type': 'application/xml'}
         res.text = '<?xml version="1.0" encoding="utf-8"><error>random failure</error>'
 
         with self.assertRaises(sap.rest.errors.HTTPRequestError):
-            sap.adt.Connection._handle_http_error(req, res)
+            self.connection._handle_http_error(req, res)
 
     def test_handle_http_error_plain_text(self):
         req = Mock()
 
         res = Mock()
+        res.status_code = 500
         res.headers = {'content-type': 'plain/text'}
         res.text = 'arbitrary crash'
 
         with self.assertRaises(sap.rest.errors.HTTPRequestError):
-            sap.adt.Connection._handle_http_error(req, res)
+            self.connection._handle_http_error(req, res)
+
+    def test_handle_http_error_unauthorized(self):
+        req = Mock()
+
+        res = Mock()
+        res.status_code = 401
+        res.headers = {'content-type': 'plain/text'}
+        res.text = 'arbitrary crash'
+
+        with self.assertRaises(sap.rest.errors.UnauthorizedError):
+            self.connection._handle_http_error(req, res)
 
     @patch('sap.adt.core.Connection._build_adt_url', return_value='url')
     @patch('sap.adt.core.Connection._get_session', return_value='session')

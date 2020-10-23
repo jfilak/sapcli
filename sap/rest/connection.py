@@ -7,7 +7,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger
-from sap.rest.errors import HTTPRequestError, UnexpectedResponseContent
+from sap.rest.errors import HTTPRequestError, UnexpectedResponseContent, UnauthorizedError
 
 
 def mod_log():
@@ -70,9 +70,11 @@ class Connection:
             base_url=self._base_url, uri_path=uri_path,
             query_args=self._query_args)
 
-    @staticmethod
-    def _handle_http_error(req, res):
+    def _handle_http_error(self, req, res):
         """Raise the correct exception based on response content."""
+
+        if res.status_code == 401:
+            raise UnauthorizedError(req, res, self._user)
 
         raise HTTPRequestError(req, res)
 
@@ -98,7 +100,7 @@ class Connection:
         req, res = self._retrieve(session, method, url, params=params, headers=headers, body=body)
 
         if res.status_code >= 400:
-            Connection._handle_http_error(req, res)
+            self._handle_http_error(req, res)
 
         return res
 
