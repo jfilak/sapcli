@@ -35,15 +35,28 @@ def print_gcts_message(console, log, prefix=' '):
 def dump_gcts_messages(console, messages):
     """Dumps gCTS exception to console"""
 
-    console.printerr('Error Log:')
-    for errmsg in messages['errorLog']:
-        print_gcts_message(console, errmsg)
+    output = False
+    errlog = messages.get('errorLog', None)
+    if errlog:
+        output = True
+        console.printerr('Error Log:')
+        for errmsg in errlog:
+            print_gcts_message(console, errmsg)
 
-    console.printerr('Log:')
-    for logmsg in messages['log']:
-        print_gcts_message(console, logmsg)
+    msglog = messages.get('log', None)
+    if msglog:
+        output = True
+        console.printerr('Log:')
+        for logmsg in msglog:
+            print_gcts_message(console, logmsg)
 
-    console.printerr('Exception:\n ', messages['exception'])
+    exception = messages.get('exception', None)
+    if exception:
+        output = True
+        console.printerr('Exception:\n ', messages['exception'])
+
+    if not output:
+        console.printerr(str(messages))
 
 
 def print_gcts_commit(console, commit):

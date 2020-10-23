@@ -56,6 +56,30 @@ Exception:
 '''
 )
 
+    def test_dump_uknown_messages(self):
+        sap.cli.gcts.dump_gcts_messages(self.console, {'random': 'error'})
+        self.assertConsoleContents(self.console, stderr='''{'random': 'error'}
+''')
+
+    def test_dump_only_error_log(self):
+        sap.cli.gcts.dump_gcts_messages(self.console, {'errorLog': ['error']})
+        self.assertConsoleContents(self.console, stderr='''Error Log:
+  error
+''')
+
+    def test_dump_only_log(self):
+        sap.cli.gcts.dump_gcts_messages(self.console, {'log': ['error']})
+        self.assertConsoleContents(self.console, stderr='''Log:
+  error
+''')
+
+    def test_dump_only_exception(self):
+        sap.cli.gcts.dump_gcts_messages(self.console, {'exception': 'error'})
+        self.assertConsoleContents(self.console, stderr='''Exception:
+  error
+''')
+
+
 
 class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
 
