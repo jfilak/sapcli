@@ -10,8 +10,13 @@ from requests.auth import HTTPBasicAuth
 
 from sap import get_logger, config_get
 from sap.rest.connection import setup_keepalive
-from sap.rest.errors import HTTPRequestError, UnexpectedResponseContent, UnauthorizedError
 from sap.adt.errors import new_adt_error_from_xml
+from sap.rest.errors import (
+    HTTPRequestError,
+    UnexpectedResponseContent,
+    UnauthorizedError,
+    TimedOutRequestError
+)
 
 
 def mod_log():
