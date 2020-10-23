@@ -37,8 +37,9 @@ class GCTSRepoAlreadyExistsError(GCTSRequestError):
 class GCTSRepoNotExistsError(GCTSRequestError):
     """A repository does not exist"""
 
-    # pylint: disable=unnecessary-pass
-    pass
+    def __init__(self, messages):
+        super().__init__(messages)
+        self.messages['exception'] = 'Repository does not exist'
 
 
 def exception_from_http_error(http_error):
