@@ -3,7 +3,7 @@
 import unittest
 from unittest.mock import Mock, call, patch
 
-from sap.rest.errors import HTTPRequestError
+from sap.rest.errors import HTTPRequestError, UnauthorizedError
 
 import sap.rest.gcts
 
@@ -31,6 +31,31 @@ class TestGCSTRequestError(unittest.TestCase):
 
         self.assertEqual(str(ex), 'gCTS exception: Message')
         self.assertEqual(repr(ex), 'gCTS exception: Message')
+
+
+class TestGCTSExceptionFactory(unittest.TestCase):
+
+    def test_not_json_response(self):
+        req = Request(method='GET', adt_uri='/epic/success', headers=None, body=None, params=None)
+        res = Response(status_code=401, text='Not JSON')
+
+        orig_error = UnauthorizedError(req, res, 'foo')
+        new_error = sap.rest.gcts.exception_from_http_error(orig_error)
+
+        self.assertEqual(new_error, orig_error)
+
+    def test_repository_does_not_exist(self):
+        messages = {'exception': 'No relation between system and repository'}
+        req = Request(method='GET', adt_uri='/epic/success', headers=None, body=None, params=None)
+        res = Response.with_json(status_code=500, json=messages)
+
+        orig_error = HTTPRequestError(req, res)
+        new_error = sap.rest.gcts.exception_from_http_error(orig_error)
+
+        expected_error = sap.rest.gcts.GCTSRepoNotExistsError(messages)
+
+        self.assertEqual(str(new_error), str(expected_error))
+
 
 class GCTSTestSetUp:
 

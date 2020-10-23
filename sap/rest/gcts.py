@@ -34,6 +34,32 @@ class GCTSRepoAlreadyExistsError(GCTSRequestError):
     pass
 
 
+class GCTSRepoNotExistsError(GCTSRequestError):
+    """A repository does not exist"""
+
+    # pylint: disable=unnecessary-pass
+    pass
+
+
+def exception_from_http_error(http_error):
+    """Converts HTTPRequestError to proper instance"""
+
+    if 'application/json' not in http_error.response.headers.get('Content-Type', ''):
+        return http_error
+
+    messages = http_error.response.json()
+
+    log = messages.get('log', None)
+    if log and log[0].get('message', '').endswith('Error action CREATE_REPOSITORY Repository already exists'):
+        return GCTSRepoAlreadyExistsError(messages)
+
+    exception = messages.get('exception', None)
+    if exception == 'No relation between system and repository':
+            return GCTSRepoNotExistsError(messages)
+
+    return GCTSRequestError(messages)
+
+
 def package_name_from_url(url):
     """Parse out Package name from a repo git url"""
 
@@ -78,7 +104,7 @@ class Repository:
         try:
             response = self._connection.get_json(f'repository/{self._name}')
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json()) from ex
+            raise exception_from_http_error(ex) from ex
 
         result = response['result']
 
@@ -183,13 +209,7 @@ class Repository:
         try:
             response = self._connection.post_obj_as_json('repository', create_request, accept='application/json')
         except HTTPRequestError as ex:
-            messages = ex.response.json()
-
-            log = messages.get('log', None)
-            if log and log[0].get('message', '').endswith('Error action CREATE_REPOSITORY Repository already exists'):
-                raise GCTSRepoAlreadyExistsError(messages) from ex
-
-            raise GCTSRequestError(messages) from ex
+            raise exception_from_http_error(ex) from ex
 
         result = response.json()['repository']
         if self._data:
@@ -211,7 +231,7 @@ class Repository:
                 'value': value
             })
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json()) from ex
+            raise exception_from_http_error(ex) from ex
 
         self._update_configuration(key, value)
 
@@ -233,7 +253,7 @@ class Repository:
                                                 f'repository/{self.name}/config/{key}',
                                                 accept='application/json')
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json()) from ex
+            raise exception_from_http_error(ex) from ex
 
         value = response.json()['result']['value']
         config = self._update_configuration(key, value)
@@ -250,7 +270,7 @@ class Repository:
         try:
             response = self._connection.execute('POST', f'repository/{self._name}/clone')
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json()) from ex
+            raise exception_from_http_error(ex) from ex
 
         self.wipe_data()
         return response
@@ -263,7 +283,7 @@ class Repository:
         try:
             response = self._connection.execute('GET', url, params={'branch': branch})
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json()) from ex
+            raise exception_from_http_error(ex) from ex
 
         self.wipe_data()
 
@@ -277,7 +297,7 @@ class Repository:
         try:
             json_body = self._connection.get_json(url)
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json()) from ex
+            raise exception_from_http_error(ex) from ex
 
         return json_body['commits']
 
@@ -294,7 +314,7 @@ class Repository:
         try:
             json_body = self._connection.get_json(url, params=params)
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json()) from ex
+            raise exception_from_http_error(ex) from ex
 
         self.wipe_data()
 
@@ -306,7 +326,7 @@ class Repository:
         try:
             response = self._connection.execute('DELETE', f'repository/{self.name}')
         except HTTPRequestError as ex:
-            raise GCTSRequestError(ex.response.json()) from ex
+            raise exception_from_http_error(ex) from ex
 
         self.wipe_data()
         return response
@@ -320,7 +340,7 @@ def simple_fetch_repos(connection):
     try:
         response = connection.get_json('repository')
     except HTTPRequestError as ex:
-        raise GCTSRequestError(ex.response.json()) from ex
+        raise exception_from_http_error(ex) from ex
 
     result = response.get('result', [])
     return [Repository(connection, repo['name'], data=repo) for repo in result]
