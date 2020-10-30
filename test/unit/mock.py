@@ -91,7 +91,11 @@ class Request(NamedTuple):
         return Request.get(adt_uri=uri, headers=headers, params=params, accept='application/json')
 
     @staticmethod
-    def post(uri=None, headers=None, body=None, params=None):
+    def post(uri=None, headers=None, body=None, params=None, accept=None):
+        if accept:
+            headers = headers or {}
+            headers['Accept'] = accept
+
         return Request(method='POST', adt_uri=uri, headers=headers, body=body, params=params)
 
     @staticmethod
@@ -103,6 +107,23 @@ class Request(NamedTuple):
 
         json_body = json.dumps(body)
         return Request(method='POST', adt_uri=uri, headers=headers, body=json_body, params=params)
+
+    @staticmethod
+    def post_text(uri=None, headers=None, body=None, params=None, accept=None):
+        headers = headers or {}
+        headers.update({'Content-Type': 'text/plain'})
+        if accept:
+            headers['Accept'] = accept
+
+        return Request(method='POST', adt_uri=uri, headers=headers, body=body, params=params)
+
+    @staticmethod
+    def delete(uri=None, headers=None, body=None, params=None):
+        return Request(method='DELETE', adt_uri=uri, headers=headers, body=body, params=params)
+
+    @staticmethod
+    def put(uri=None, headers=None, body=None, params=None):
+        return Request(method='PUT', adt_uri=uri, headers=headers, body=body, params=params)
 
     def clone_with_uri(self, uri):
         return Request(
@@ -190,8 +211,17 @@ class Connection(sap.adt.Connection):
 
         self.collections = collections
         self.execs = list()
-        self._resp_iter = ok_responses() if responses is None else iter(responses)
         self.asserter = asserter if asserter is not None else SimpleAsserter()
+        self.set_responses_iter(ok_responses() if responses is None else iter(responses))
+
+    def set_responses(self, *responses):
+        if responses and isinstance(responses[0], list):
+            responses = responses[0]
+
+        self.set_responses_iter(iter(responses))
+
+    def set_responses_iter(self, responses_iter):
+        self._resp_iter = responses_iter
 
     def _get_session(self):
         return 'bogus session'

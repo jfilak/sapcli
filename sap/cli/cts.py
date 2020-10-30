@@ -22,6 +22,29 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('cts')
 
 
+@CommandGroup.argument('-t', '--target', type=str, default='LOCAL', help='Request description')
+@CommandGroup.argument('-d', '--description', type=str, help='Request description')
+@CommandGroup.argument('type', choices=REQUEST_TYPES)
+@CommandGroup.command()
+def create(connection, args):
+    """Create CTS request"""
+
+    try:
+        factory = {'transport': partial(WorkbenchTransport, None),
+                   'task': partial(WorkbenchTask, None, None)}[args.type]
+    except KeyError as ex:
+        raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
+    else:
+        request = factory(connection, None, owner=connection.user,
+                          description=args.description, target=args.target)
+
+        response = request.create()
+        sap.cli.core.printout(response.number)
+
+    return 0
+
+
+@CommandGroup.argument('--recursive', action='store_true', default=False)
 @CommandGroup.argument('number')
 @CommandGroup.argument('type', choices=REQUEST_TYPES)
 @CommandGroup.command()
@@ -35,7 +58,67 @@ def release(connection, args):
         raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
     else:
         request = factory(connection, args.number)
-        request.release()
+
+        if args.recursive:
+            sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
+            request.fetch()
+
+        sap.cli.core.printout(f'Releasing {args.number}')
+        report = request.release(recursive=args.recursive)
+        sap.cli.core.printout(str(report))
+
+    return 0
+
+
+@CommandGroup.argument('--recursive', action='store_true', default=False)
+@CommandGroup.argument('number')
+@CommandGroup.argument('type', choices=REQUEST_TYPES)
+@CommandGroup.command()
+def delete(connection, args):
+    """Deletes the CTS request of the passed type and number."""
+
+    try:
+        factory = {'transport': partial(WorkbenchTransport, None),
+                   'task': partial(WorkbenchTask, None, None)}[args.type]
+    except KeyError as ex:
+        raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
+    else:
+        request = factory(connection, args.number)
+
+        if args.recursive:
+            sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
+            request.fetch()
+
+        sap.cli.core.printout(f'Deleting {args.number}')
+        request.delete(recursive=args.recursive)
+        sap.cli.core.printout(f'Deleted {args.number}')
+
+
+@CommandGroup.argument('--recursive', action='store_true', default=False)
+@CommandGroup.argument('owner')
+@CommandGroup.argument('number')
+@CommandGroup.argument('type', choices=REQUEST_TYPES)
+@CommandGroup.command()
+def reassign(connection, args):
+    """Changes owner of the CTS request of the passed type and number."""
+
+    try:
+        factory = {'transport': partial(WorkbenchTransport, None),
+                   'task': partial(WorkbenchTask, None, None)}[args.type]
+    except KeyError as ex:
+        raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
+    else:
+        request = factory(connection, args.number)
+
+        if args.recursive:
+            sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
+            request.fetch()
+
+        sap.cli.core.printout(f'Re-assigning {args.number}')
+        request.reassign(args.owner, recursive=args.recursive)
+        sap.cli.core.printout(f'Re-assigned {args.number}')
+
+    return 0
 
 
 # pylint: disable=invalid-name
@@ -118,3 +201,5 @@ def print_list(connection, args):
                 if recursion - 2 >= 0:
                     for abap_object in task.objects:
                         object_printer(sys.stdout, f'{abap_object.type} {abap_object.name}')
+
+    return 0

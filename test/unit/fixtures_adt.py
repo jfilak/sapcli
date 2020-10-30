@@ -34,6 +34,13 @@ TASK_RELEASE_OK_RESPONSE = f'''<?xml version="1.0" encoding="UTF-8"?>
   </tm:releasereports>
 </tm:root>'''
 
+TASK_RELEASE_ERR_RESPONSE = f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newreleasejobs" tm:releasetimestamp="20190212191502 " tm:number="{TASK_NUMBER}">
+  <tm:releasereports>
+    <chkrun:checkReport xmlns:chkrun="http://www.sap.com/adt/checkrun" chkrun:reporter="transportrelease" chkrun:triggeringUri="/sap/bc/adt/cts/transportrequests/{TASK_NUMBER}" chkrun:status="error" chkrun:statusText="Error"/>
+  </tm:releasereports>
+</tm:root>'''
+
 TRASNPORT_RELEASE_OK_RESPONSE = f'''<?xml version="1.0" encoding="UTF-8"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newreleasejobs" tm:releasetimestamp="20190212191502 " tm:number="{TRANSPORT_NUMBER}">
   <tm:releasereports>
@@ -61,6 +68,25 @@ SHORTENED_WORKBENCH_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
             </tm:modifiable>
         </tm:target>
     </tm:workbench>
+</tm:root>
+'''
+
+SHORTENED_TRANSPORT_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:object_type="R" adtcore:name="{TRANSPORT_NUMBER}" adtcore:type="RQRQ" adtcore:changedAt="2020-08-10T12:52:35Z" adtcore:changedBy="FILAK" adtcore:createdBy="FILAK" xmlns:adtcore="http://www.sap.com/adt/core">
+    <tm:request tm:number="{TRANSPORT_NUMBER}" tm:parent="" tm:owner="FILAK" tm:desc="Transport Description" tm:type="K" tm:status="D" tm:status_text="Modifiable" tm:target="CTS_TARGET" tm:target_desc="Target Description" tm:cts_project="" tm:cts_project_desc="" tm:source_client="123" tm:lastchanged_timestamp="20200810125235" tm:uri="/sap/bc/adt/cts/transportrequests/{TRANSPORT_NUMBER}">
+        <tm:attributes tm:attribute="SAPCORR" tm:description="Request created with correction request" tm:value="002075125900003621952020" tm:position="000001"/>
+        <tm:task tm:number="{TASK_NUMBER}" tm:parent="{TRANSPORT_NUMBER}" tm:owner="FILAK" tm:desc="Task Description" tm:type="Unclassified" tm:status="D" tm:status_text="Modifiable" tm:target="" tm:target_desc="" tm:cts_project="" tm:cts_project_desc="" tm:source_client="123" tm:lastchanged_timestamp="20200810125235" tm:uri="/sap/bc/adt/cts/transportrequests/{TASK_NUMBER}">
+        </tm:task>
+    </tm:request>
+</tm:root>
+'''
+
+SHORTENED_TASK_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:object_type="T" adtcore:name="{TASK_NUMBER}" adtcore:type="RQRQ" adtcore:changedAt="2020-08-10T12:52:35Z" adtcore:changedBy="FILAK" adtcore:createdBy="FILAK" xmlns:adtcore="http://www.sap.com/adt/core">
+    <tm:request tm:number="{TRANSPORT_NUMBER}" tm:parent="" tm:owner="FILAK" tm:desc="Transport Description" tm:type="K" tm:status="D" tm:status_text="Modifiable" tm:target="CTS_TARGET" tm:target_desc="Target Description" tm:cts_project="" tm:cts_project_desc="" tm:source_client="123" tm:lastchanged_timestamp="20200810125235" tm:uri="/sap/bc/adt/cts/transportrequests/{TRANSPORT_NUMBER}">
+    </tm:request>
+    <tm:task tm:number="{TASK_NUMBER}" tm:parent="{TRANSPORT_NUMBER}" tm:owner="FILAK" tm:desc="Task Description" tm:type="Unclassified" tm:status="D" tm:status_text="Modifiable" tm:target=""    tm:target_desc="" tm:cts_project="" tm:cts_project_desc="" tm:source_client="123" tm:lastchanged_timestamp="20200810125235" tm:uri="/sap/bc/adt/cts/transportrequests/{TASK_NUMBER}">
+    </tm:task>
 </tm:root>
 '''
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import re
 import unittest
 from unittest.mock import patch, Mock
 from functools import partial
@@ -13,9 +14,16 @@ from fixtures_adt import (
     TASK_NUMBER,
     TRANSPORT_NUMBER,
     TASK_RELEASE_OK_RESPONSE,
+    TASK_RELEASE_ERR_RESPONSE,
     TRASNPORT_RELEASE_OK_RESPONSE,
-    SHORTENED_WORKBENCH_XML
+    SHORTENED_WORKBENCH_XML,
+    SHORTENED_TRANSPORT_XML,
+    SHORTENED_TASK_XML
 )
+
+
+CTS_OWNER='FILAK'
+
 
 ABAP_OBJECT_ATTRIBUTES = {
     'tm:pgmid': 'LIMU',
@@ -70,7 +78,8 @@ WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
     name='FOO',
     wbtype='TABL/DS',
     description='Object Description',
-    locked=True
+    locked=True,
+    position='000001'
 )
 
 FOREIGN_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
@@ -79,7 +88,8 @@ FOREIGN_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
     name='FOO',
     wbtype='TABL/DS',
     description='Object Description',
-    locked=False
+    locked=False,
+    position='000000'
 )
 
 NO_DESC_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
@@ -88,7 +98,8 @@ NO_DESC_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
     name='FOO',
     wbtype='TABL/DS',
     description='Object Info',
-    locked=False
+    locked=False,
+    position='000000'
 )
 
 NO_WTYPE_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
@@ -97,7 +108,8 @@ NO_WTYPE_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
     name='FOO',
     wbtype='',
     description='Object Info',
-    locked=False
+    locked=False,
+    position='000000'
 )
 
 NO_OBJINFO_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
@@ -106,13 +118,14 @@ NO_OBJINFO_WORKBENCH_ABAP_OBJECT = sap.adt.cts.WorkbenchABAPObject(
     name='81680085',
     wbtype='',
     description='(PGMID=R3TR,TYPE=SUSH,NAME=81680085)',
-    locked=False
+    locked=False,
+    position='000000'
 )
 
 TASK_ATTRIBUTES = {
     'tm:number': TASK_NUMBER,
     'tm:parent': TRANSPORT_NUMBER,
-    'tm:owner': 'FILAK',
+    'tm:owner': CTS_OWNER,
     'tm:desc': 'Task Description',
     'tm:type': 'Development/Correction',
     'tm:status': 'D',
@@ -126,7 +139,7 @@ TASK_ATTRIBUTES = {
 
 NW_752_SP2_TASK_ATTRIBUTES = {
     'tm:number': TASK_NUMBER,
-    'tm:owner': 'FILAK',
+    'tm:owner': CTS_OWNER,
     'tm:desc': 'Task Description',
     'tm:status': 'D',
     'tm:uri': f'/sap/bc/adt/vit/wb/object_type/%20%20%20%20rq/object_name/{TASK_NUMBER}'
@@ -135,7 +148,7 @@ NW_752_SP2_TASK_ATTRIBUTES = {
 TRANSPORT_ATTRIBUTES = {
     'tm:number': TRANSPORT_NUMBER,
     'tm:parent': '',
-    'tm:owner': 'FILAK',
+    'tm:owner': CTS_OWNER,
     'tm:desc': 'Transport Description',
     'tm:type': 'K',
     'tm:status': 'D',
@@ -149,7 +162,7 @@ TRANSPORT_ATTRIBUTES = {
 
 NW_752_SP2_TRANSPORT_ATTRIBUTES = {
     'tm:number': TRANSPORT_NUMBER,
-    'tm:owner': 'FILAK',
+    'tm:owner': CTS_OWNER,
     'tm:desc': 'Transport Description',
     'tm:status': 'D',
     'tm:uri': f'/sap/bc/adt/vit/wb/object_type/%20%20%20%20rq/object_name/{TRANSPORT_NUMBER}'
@@ -179,12 +192,24 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
     def test_workbench_request_init(self):
         """Just to make sure init populates all the properties."""
 
-        wbr = sap.adt.cts.AbstractWorkbenchRequest('connection', 'num_wb1', 'user_owner', 'description')
+        wbr = sap.adt.cts.AbstractWorkbenchRequest('connection', 'num_wb1', 'user_owner', 'description', 'R', 'target')
 
         self.assertEqual(wbr._connection, 'connection')
         self.assertEqual(wbr.number, 'num_wb1')
         self.assertEqual(wbr.owner, 'user_owner')
         self.assertEqual(wbr.description, 'description')
+        self.assertEqual(wbr.target, 'target')
+
+        self.assertEqual(wbr.status, 'R')
+        self.assertTrue(wbr.is_released)
+
+    def test_workbench_request_init_with_status(self):
+        """Just to make sure init fill status with ? if no provided"""
+
+        wbr = sap.adt.cts.AbstractWorkbenchRequest('connection', 'num_wb1', 'user_owner', 'description', None, 'target')
+
+        self.assertEqual(wbr.status, '?')
+        self.assertFalse(wbr.is_released)
 
     def test_workbench_transport_init(self):
         wbr = sap.adt.cts.WorkbenchTransport(['1', '2'], 'connection', 'num_wb1', 'user_owner', 'description')
@@ -204,6 +229,28 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
         self.assertEqual(wbr.number, 'num_wb1')
         self.assertEqual(wbr.owner, 'user_owner')
         self.assertEqual(wbr.description, 'description')
+
+    def test_workbench_internal(self):
+
+        wbr = sap.adt.cts.AbstractWorkbenchRequest('connection', 'num_wb1', 'user_owner', 'description', None, 'target')
+
+        with self.assertRaises(NotImplementedError):
+            wbr.get_type()
+
+        with self.assertRaises(NotImplementedError):
+            wbr._deserialize("No data")
+
+        with self.assertRaises(NotImplementedError):
+            wbr._release_children()
+
+        with self.assertRaises(NotImplementedError):
+            wbr._reassign_children("No owner")
+
+        with self.assertRaises(NotImplementedError):
+            wbr._delete_children()
+
+        with self.assertRaises(ValueError):
+            wbr._copy("No copy on string")
 
     def do_check_release(self, factory):
         """Check it correctly builds the URL with parameters and returns
@@ -225,20 +272,387 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
 
         self.assertEqual(resp, TASK_RELEASE_OK_RESPONSE)
 
-    def test_workbench_request_release(self):
-        "AbstractWorkbenchRequest can be released"""
+    def do_check_create(self, factory):
+        """Check it correctly builds the URL with parameters and returns
+           the expected data.
+        """
 
-        self.do_check_release(sap.adt.cts.AbstractWorkbenchRequest)
+        connection = Connection([Response("", 200, {})])
 
-    def test_workbench_transport_release(self):
-        "WorkbenchTransport can be released"""
+        wbr = factory(connection, TASK_NUMBER, CTS_OWNER, 'To test create', status=None, target='6IT')
+        resp = wbr.create()
 
-        self.do_check_release(partial(sap.adt.cts.WorkbenchTransport, None))
+        self.assertEqual(
+            connection.execs,
+            [Request.post(
+                uri='/sap/bc/adt/cts/transportrequests',
+                headers={'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml',
+                      'Content-Type': 'text/plain'},
+                body=f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
+  <tm:request tm:desc="To test create" tm:type="{wbr.get_type()}" tm:target="6IT" tm:cts_project="">
+    <tm:task tm:owner="{CTS_OWNER}"/>
+  </tm:request>
+</tm:root>
+'''
+            )]
+        )
 
-    def test_workbench_task_release(self):
-        "WorkbenchTask can be released"""
+    def test_workbench_create_transport(self):
+        "Transport can be created"""
 
-        self.do_check_release(partial(sap.adt.cts.WorkbenchTask, None, None))
+        self.do_check_create(partial(sap.adt.cts.WorkbenchTransport, None))
+
+    def test_workbench_create_task(self):
+        "Task can be created"""
+
+        self.do_check_create(partial(sap.adt.cts.WorkbenchTask, None, None))
+
+
+class TestADTCTSWorkbenchRequestSetup(unittest.TestCase):
+
+    def setUp(self):
+        self.connection = Connection()
+
+        self.object_1_1 = sap.adt.cts.WorkbenchABAPObject(
+            pgmid='R3TR',
+            type='CLAS',
+            name='CL_FOO',
+            wbtype='CLAS/AU',
+            description='just a class',
+            locked=True,
+            position='000000'
+        )
+
+        self.object_1_2 = sap.adt.cts.WorkbenchABAPObject(
+            pgmid='R3TR',
+            type='CLAS',
+            name='CL_BAR',
+            wbtype='CLAS/CC',
+            description='just another class',
+            locked=True,
+            position='000001'
+        )
+
+        self.object_2_1 = sap.adt.cts.WorkbenchABAPObject(
+            pgmid='LIMU',
+            type='TABD',
+            name='TADIR',
+            wbtype='TABD/DS',
+            description='just a table',
+            locked=True,
+            position='000000'
+        )
+
+        self.object_2_2 = sap.adt.cts.WorkbenchABAPObject(
+            pgmid='LIMU',
+            type='TABD',
+            name='USR02',
+            wbtype='TABD/DS',
+            description='just another table',
+            locked=True,
+            position='000001'
+        )
+
+        self.transport_id = 'NPLK007000'
+
+        self.task_1 = sap.adt.cts.WorkbenchTask(
+            self.transport_id,
+            [self.object_1_1, self.object_1_2],
+            self.connection,
+            number='NPLK007001',
+            owner='ANZEIGER'
+        )
+
+        self.task_2 = sap.adt.cts.WorkbenchTask(
+            self.transport_id,
+            [self.object_2_1, self.object_2_2],
+            self.connection,
+            number='NPLK007002',
+            owner='TESTER'
+        )
+
+        self.task_3 = sap.adt.cts.WorkbenchTask(
+            self.transport_id,
+            [],
+            self.connection,
+            number='NPLK007003',
+            owner='TESTER',
+            status='R'
+        )
+
+        self.transport = sap.adt.cts.WorkbenchTransport(
+            [self.task_1, self.task_2, self.task_3],
+            self.connection,
+            number=self.transport_id,
+            owner='TESTER'
+        )
+
+
+class TestADTCTSWorkbenchRequestRelease(TestADTCTSWorkbenchRequestSetup):
+
+    def request_for_cts_task(self, task):
+        return Request.post(
+            f'/sap/bc/adt/cts/transportrequests/{task.number}/newreleasejobs',
+            accept='application/vnd.sap.adt.transportorganizer.v1+xml'
+        )
+
+    def test_release_task(self):
+        self.connection.set_responses(
+            Response(status_code=200, text=TASK_RELEASE_OK_RESPONSE)
+        )
+
+        report = self.task_1.release()
+        self.assertEqual(self.connection.execs, [self.request_for_cts_task(self.task_1)])
+        self.assertEqual(str(report), f'Transport request/task {TASK_NUMBER} was successfully released')
+        self.assertTrue(report.release_was_successful)
+
+    def test_release_task_children_no_action(self):
+        self.task_1._release_children()
+        self.assertEqual(len(self.connection.execs), 0)
+
+    def test_release_transport(self):
+        self.connection.set_responses(
+            Response(status_code=200, text=TRASNPORT_RELEASE_OK_RESPONSE)
+        )
+
+        self.transport.release()
+        self.assertEqual(self.connection.execs, [self.request_for_cts_task(self.transport)])
+
+    def test_release_transport_recursive(self):
+        self.connection.set_responses(
+            Response(status_code=200, text=TASK_RELEASE_OK_RESPONSE),
+            Response(status_code=200, text=TASK_RELEASE_OK_RESPONSE),
+            Response(status_code=200, text=TRASNPORT_RELEASE_OK_RESPONSE)
+        )
+
+        self.transport.release(recursive=True)
+
+        self.assertEqual(
+            self.connection.execs,
+            [   self.request_for_cts_task(self.task_1),
+                self.request_for_cts_task(self.task_2),
+                self.request_for_cts_task(self.transport)
+            ]
+        )
+
+    def test_release_task_error(self):
+        self.connection.set_responses(
+            Response(status_code=200, text=TASK_RELEASE_ERR_RESPONSE)
+        )
+
+        with self.assertRaises(sap.adt.cts.CTSReleaseError) as caught:
+            self.task_2.release()
+
+        self.assertEqual(str(caught.exception), f'Failed to release WorkbenchTask {self.task_2.number}: Error')
+
+
+class TestADTCTSWorkbenchRequestDelete(TestADTCTSWorkbenchRequestSetup):
+
+    def test_delete_task(self):
+        self.task_1.delete()
+        self.assertEqual(
+            self.connection.execs,
+            [Request.delete('/sap/bc/adt/cts/transportrequests/NPLK007001')]
+        )
+
+    def test_delete_transport(self):
+        self.transport.delete()
+        self.assertEqual(
+            self.connection.execs,
+            [Request.delete('/sap/bc/adt/cts/transportrequests/NPLK007000')]
+        )
+
+
+    def test_delete_transport_recursive(self):
+        self.transport.delete(recursive=True)
+        self.assertEqual(
+            self.connection.execs,
+            [   Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007001',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="NPLK007001" tm:useraction="removeobject">
+  <tm:request>
+    <tm:abap_object tm:name="{self.object_1_1.name}" tm:obj_desc="{self.object_1_1.description}" tm:pgmid="{self.object_1_1.pgmid}" tm:type="{self.object_1_1.type}" tm:position="{self.object_1_1.position}"/>
+  </tm:request>
+</tm:root>'''
+                ),
+                Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007001',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="NPLK007001" tm:useraction="removeobject">
+  <tm:request>
+    <tm:abap_object tm:name="{self.object_1_2.name}" tm:obj_desc="{self.object_1_2.description}" tm:pgmid="{self.object_1_2.pgmid}" tm:type="{self.object_1_2.type}" tm:position="{self.object_1_2.position}"/>
+  </tm:request>
+</tm:root>'''
+                ),
+                Request.delete('/sap/bc/adt/cts/transportrequests/NPLK007001'),
+                Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007002',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="NPLK007002" tm:useraction="removeobject">
+  <tm:request>
+    <tm:abap_object tm:name="{self.object_2_1.name}" tm:obj_desc="{self.object_2_1.description}" tm:pgmid="{self.object_2_1.pgmid}" tm:type="{self.object_2_1.type}" tm:position="{self.object_2_1.position}"/>
+  </tm:request>
+</tm:root>'''
+                ),
+                Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007002',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="NPLK007002" tm:useraction="removeobject">
+  <tm:request>
+    <tm:abap_object tm:name="{self.object_2_2.name}" tm:obj_desc="{self.object_2_2.description}" tm:pgmid="{self.object_2_2.pgmid}" tm:type="{self.object_2_2.type}" tm:position="{self.object_2_2.position}"/>
+  </tm:request>
+</tm:root>'''
+                ),
+                Request.delete('/sap/bc/adt/cts/transportrequests/NPLK007002'),
+                Request.delete('/sap/bc/adt/cts/transportrequests/NPLK007000'),
+            ]
+        )
+
+
+class TestADTCTSWorkbenchRequestCreate(TestADTCTSWorkbenchRequestSetup):
+
+    def test_create_task(self):
+        self.task_1.create()
+        self.maxDiff = None
+        self.assertEqual(
+            self.connection.execs,
+            [   Request.post_text(
+                    uri='/sap/bc/adt/cts/transportrequests',
+                    accept='application/vnd.sap.adt.transportorganizer.v1+xml',
+                    body=f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
+  <tm:request tm:desc="{self.task_1.description}" tm:type="T" tm:target="{self.task_1.target}" tm:cts_project="">
+    <tm:task tm:owner="{self.task_1.owner}"/>
+  </tm:request>
+</tm:root>
+'''
+                )
+            ]
+        )
+
+    def test_create_transport(self):
+        self.transport.create()
+        self.maxDiff = None
+        self.assertEqual(
+            self.connection.execs,
+            [   Request.post_text(
+                    uri='/sap/bc/adt/cts/transportrequests',
+                    accept='application/vnd.sap.adt.transportorganizer.v1+xml',
+                    body=f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
+  <tm:request tm:desc="{self.transport.description}" tm:type="K" tm:target="{self.transport.target}" tm:cts_project="">
+    <tm:task tm:owner="{self.transport.owner}"/>
+  </tm:request>
+</tm:root>
+'''
+                )
+            ]
+        )
+
+
+class TestADTCTSWorkbenchRequestReassign(TestADTCTSWorkbenchRequestSetup):
+
+    def test_reassign_task(self):
+        self.task_1.reassign('FILAK')
+        self.maxDiff = None
+        self.assertEqual(
+            self.connection.execs,
+            [   Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007001',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm"
+ tm:number="NPLK007001"
+ tm:targetuser="FILAK"
+ tm:useraction="changeowner"/>'''
+                )
+            ]
+        )
+
+    def test_reassign_transport(self):
+        self.transport.reassign('FILAK')
+        self.maxDiff = None
+        self.assertEqual(
+            self.connection.execs,
+            [   Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007000',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm"
+ tm:number="NPLK007000"
+ tm:targetuser="FILAK"
+ tm:useraction="changeowner"/>'''
+                )
+            ]
+        )
+
+    def test_reassign_transport_recursive(self):
+        self.transport.reassign('FILAK', recursive=True)
+        self.maxDiff = None
+        self.assertEqual(
+            self.connection.execs,
+            [   Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007001',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm"
+ tm:number="NPLK007001"
+ tm:targetuser="FILAK"
+ tm:useraction="changeowner"/>'''),
+                Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007002',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm"
+ tm:number="NPLK007002"
+ tm:targetuser="FILAK"
+ tm:useraction="changeowner"/>'''),
+                Request.put(
+                    uri='/sap/bc/adt/cts/transportrequests/NPLK007000',
+                    body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm"
+ tm:number="NPLK007000"
+ tm:targetuser="FILAK"
+ tm:useraction="changeowner"/>''')
+            ]
+        )
+
+
+class TestADTCTSWorkbenchRequestFetch(TestADTCTSWorkbenchRequestSetup):
+
+    def test_fetch_task(self):
+        self.connection.set_responses(
+            Response(status_code=200, text=SHORTENED_TASK_XML)
+        )
+
+        task = sap.adt.cts.WorkbenchTask(None, [], self.connection, TASK_NUMBER)
+        task.fetch()
+
+        self.assertEqual(task.transport, TRANSPORT_NUMBER)
+        self.assertEqual(task.description, 'Task Description')
+        self.assertEqual(task.owner, 'FILAK')
+        self.assertEqual(task._status, 'D')
+
+        self.assertIsNone(task.target)
+
+    def test_fetch_transport(self):
+        self.connection.set_responses(
+            Response(status_code=200, text=SHORTENED_TRANSPORT_XML)
+        )
+
+        transport = sap.adt.cts.WorkbenchTransport([], self.connection, TRANSPORT_NUMBER)
+        transport.fetch()
+
+        self.assertEqual(transport.description, 'Transport Description')
+        self.assertEqual(transport.owner, 'FILAK')
+        self.assertEqual(transport._status, 'D')
+        self.assertEqual(transport.target, 'CTS_TARGET')
+
+        self.assertEqual(len(transport.tasks), 1)
+        task = transport.tasks[0]
+        self.assertEqual(task.description, 'Task Description')
+        self.assertEqual(task.owner, 'FILAK')
+        self.assertEqual(task._status, 'D')
+
+        self.assertIsNone(task.target)
 
 
 class TestADTCTSWorkbenchResponseHandler(unittest.TestCase):
@@ -280,7 +694,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
         self.assertEqual(task.number, TASK_NUMBER)
         self.assertEqual(task.description, 'Task Description')
         self.assertEqual(task.status, 'D')
-        self.assertEqual(task.owner, 'FILAK')
+        self.assertEqual(task.owner, CTS_OWNER)
         self.assertEqual(task._connection, connection)
         self.assertEqual(task.transport, TRANSPORT_NUMBER)
         self.assertEqual(task.objects, [WORKBENCH_ABAP_OBJECT])
@@ -291,7 +705,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
         self.assertEqual(transport.number, TRANSPORT_NUMBER)
         self.assertEqual(transport.description, 'Transport Description')
         self.assertEqual(transport.status, 'D')
-        self.assertEqual(transport.owner, 'FILAK')
+        self.assertEqual(transport.owner, CTS_OWNER)
         self.assertEqual(transport._connection, connection)
 
     def test_process_abap_object_foreign(self):
@@ -360,7 +774,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
         connection = Connection([Response(SHORTENED_WORKBENCH_XML, 200, {})])
         workbench = sap.adt.cts.Workbench(connection)
 
-        transport = workbench.get_transport_requests(user='FILAK')
+        transport = workbench.get_transport_requests(user=CTS_OWNER)
 
         self.assertEqual(
             connection.execs,
@@ -368,7 +782,7 @@ class TestADTCTSWorkbenchBuilder(unittest.TestCase):
                      f'/sap/bc/adt/cts/transportrequests',
                      {'Accept': 'application/vnd.sap.adt.transportorganizertree.v1+xml, application/vnd.sap.adt.transportorganizer.v1+xml'},
                      None,
-                     sap.adt.cts.workbench_params('FILAK'))])
+                     sap.adt.cts.workbench_params(CTS_OWNER))])
 
         self.assert_trasport_equal(transport[0], connection)
         self.assert_task_equal(transport[0].tasks[0], connection)

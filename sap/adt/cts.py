@@ -1,11 +1,21 @@
 """CTS object proxies"""
 
+import re
 import xml.sax
 from xml.sax.handler import ContentHandler
 
 from typing import NamedTuple, Any, List
 
+from sap import get_logger
+from sap.errors import SAPCliError
 from sap.adt.core import mod_log
+
+
+class CTSReleaseError(SAPCliError):
+    """CTS Release Error"""
+
+    # pylint: disable=unnecessary-pass
+    pass
 
 
 # pylint: disable=too-few-public-methods
@@ -28,19 +38,56 @@ class WorkbenchResponseHandler(ContentHandler):
 
         self._transport = None
         self._task = None
+        self.adt_task = None
 
     def startElement(self, name, attrs):
         if name == 'tm:request':
             self._transport = Element(attrs, [])
         elif name == 'tm:task':
             self._task = Element(attrs, [])
-            self._transport.children.append(self._task)
+            if self._transport is not None:
+                self._transport.children.append(self._task)
         elif name == 'tm:abap_object' and self._task is not None:
             self._task.children.append(Element(attrs, []))
 
     def endElement(self, name):
         if name == 'tm:request':
             self._builder.process_transport_xml(self._transport)
+            self._transport = None
+        elif name == 'tm:task' and self._transport is None:
+            self.adt_task = self._builder.process_task_xml(self._task)
+
+
+class ReleaseResponse:
+    """Release response values"""
+
+    def __init__(self, status: str, text: str):
+        self._status = status
+        self._text = text
+
+    def __str__(self):
+        return self._text
+
+    @property
+    def release_was_successful(self) -> bool:
+        """True if the release action was successful"""
+
+        return self._status == 'released'
+
+
+class ReleaseResponseHandler(ContentHandler):
+    """Python xml.sax.handler.ContentHandler converting ADT CTS Realase response XML
+       data into corresponding Python objects.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+        self.report = None
+
+    def startElement(self, name, attrs):
+        if name == 'chkrun:checkReport':
+            self.report = ReleaseResponse(attrs['chkrun:status'], attrs['chkrun:statusText'])
 
 
 def workbench_params(user: str):
@@ -54,16 +101,29 @@ def workbench_params(user: str):
     }
 
 
+class WorkbenchRequestResponseCreate(NamedTuple):
+    """Create response data"""
+
+    number: str  # 6 digit number
+    data: str  # full HTTP response
+
+
 class AbstractWorkbenchRequest:
     """Workbench request"""
 
     def __init__(self, connection, number: str, owner: str = None,
-                 description: str = None, status: str = None):
+                 description: str = None, status: str = None, target: str = None):
+        """
+        Parameters:
+          - status: single character from the set R,D,?
+        """
+
         self._connection = connection
         self._number = number
         self._owner = owner
         self._description = description
         self._status = '?' if status is None else status
+        self._target = target
 
     @property
     def number(self):
@@ -85,21 +145,135 @@ class AbstractWorkbenchRequest:
         return self._description
 
     @property
+    def target(self):
+        """Request target"""
+
+        return self._target
+
+    @property
     def status(self):
         """Status -> [D,R,?]"""
 
         return self._status
 
-    def release(self):
+    @property
+    def is_released(self):
+        """True if the request is already released"""
+
+        return self._status == 'R'
+
+    @property
+    def uri(self):
+        """CTS Request part of ADT URI"""
+
+        return f'cts/transportrequests/{self._number}'
+
+    def create(self):
+        """Create the request"""
+
+        typ = self.get_type()
+        resp = self._connection.execute(
+            'POST',
+            'cts/transportrequests',
+            headers={'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml',
+                     'Content-Type': 'text/plain'},
+            body=f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
+  <tm:request tm:desc="{self.description}" tm:type="{typ}" tm:target="{self._target}" tm:cts_project="">
+    <tm:task tm:owner="{self.owner}"/>
+  </tm:request>
+</tm:root>
+''')
+
+        number = re.search('.*m:number="([^"]+)".*', resp.text)
+        return WorkbenchRequestResponseCreate(number, resp.text)
+
+    def release(self, recursive=False):
         """Release the request"""
+
+        if recursive:
+            self._release_children()
 
         resp = self._connection.execute(
             'POST',
-            f'cts/transportrequests/{self._number}/newreleasejobs',
+            f'{self.uri}/newreleasejobs',
             headers={'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml'}
         )
 
-        return resp.text
+        xml_handler = ReleaseResponseHandler()
+        xml.sax.parseString(resp.text, xml_handler)
+
+        report = xml_handler.report
+
+        if not report.release_was_successful:
+            raise CTSReleaseError(f'Failed to release {self.__class__.__name__} {self._number}: {str(report)}')
+
+        return report
+
+    def reassign(self, newowner, recursive=False):
+        """Changes the request's owner"""
+
+        if recursive:
+            self._reassign_children(newowner)
+
+        get_logger().info('Reassigning CTS request: %s', self.number)
+
+        self._connection.execute('PUT', self.uri, body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm"
+ tm:number="{self._number}"
+ tm:targetuser="{newowner}"
+ tm:useraction="changeowner"/>''')
+
+    def delete(self, recursive=False):
+        """Deletes Request"""
+
+        if recursive:
+            self._delete_children()
+
+        get_logger().info('Deleting CTS request: %s', self.number)
+        self._connection.execute('DELETE', self.uri)
+
+    def fetch(self):
+        """Fetch the request information"""
+
+        resp = self._connection.execute('GET', self.uri)
+
+        self._deserialize(resp.text)
+
+    def get_type(self):
+        """Return type of Request"""
+
+        raise NotImplementedError
+
+    def _deserialize(self, xml_data):
+        """Deserialize ADT request information"""
+
+        raise NotImplementedError
+
+    def _release_children(self):
+        """Release child objects"""
+
+        raise NotImplementedError
+
+    def _reassign_children(self, newowner):
+        """Changes owner of child objects"""
+
+        raise NotImplementedError
+
+    def _delete_children(self):
+        """Delete children or this request"""
+
+        raise NotImplementedError
+
+    def _copy(self, another):
+        if not isinstance(another, self.__class__):
+            raise ValueError
+
+        # pylint: disable=protected-access
+        self._owner = another._owner
+        self._description = another._description
+        self._status = another._status
+        self._target = another._target
 
 
 class WorkbenchTransport(AbstractWorkbenchRequest):
@@ -110,49 +284,136 @@ class WorkbenchTransport(AbstractWorkbenchRequest):
 
         self._tasks = tasks
 
-    def add_task(self, task):
-        """Adds a new task to the list of tasks tracked under this transport"""
+    def get_type(self):
+        """Return type of Request"""
 
-        self._tasks.append(task)
+        return 'K'
 
     @property
     def tasks(self):
         """Returns the list of tasks tracked under this transport"""
 
-        return self._tasks
+        return self._tasks or []
+
+    def _deserialize(self, xml_data):
+        """Deserialize ADT request information"""
+
+        builder = WorkbenchBuilder(self._connection)
+        xml_handler = WorkbenchResponseHandler(builder)
+        xml.sax.parseString(xml_data, xml_handler)
+
+        self._copy(builder.transports[0])
+        self._tasks = builder.transports[0].tasks
+
+    def _release_children(self):
+        for task in self.tasks:
+            if task.is_released:
+                continue
+
+            task.release()
+
+    def _reassign_children(self, newowner):
+        """Changes owner of child objects"""
+
+        get_logger().info('Reassigning tasks of transport: %s', self.number)
+        for task in self.tasks:
+            if task.is_released:
+                continue
+
+            task.reassign(newowner, recursive=True)
+
+    def _delete_children(self):
+        """Deletes tasks of transport"""
+
+        get_logger().info('Deleting tasks of transport: %s', self.number)
+        for task in self.tasks:
+            if task.is_released:
+                continue
+
+            task.delete(recursive=True)
 
 
 class WorkbenchABAPObject(NamedTuple):
     """ABAP Object tracked in a Transport Manager Request Task"""
 
-    pgmid: str
-    type: str
-    name: str
-    wbtype: str
-    description: str
-    locked: bool
+    pgmid: str  # 4 letters type from TADIR -> e.g. LIMU, R3TR
+    type: str  # 4 letters object type from  TADIR -> e.g. TABD, CLAS, SUSH
+    name: str  # up to 30 letters object name without padding
+    wbtype: str  # type/kind where the kind is 2 letters code
+    description: str  # up to 30 letters randomt string with any characters
+    locked: bool  # lock status
+    position: str  # 6 digit, zero padded string -> 000001
+
+
+WorkbenchABAPObjectList = List[WorkbenchABAPObject]
 
 
 class WorkbenchTask(AbstractWorkbenchRequest):
     """Transport Manager Task"""
 
-    def __init__(self, transport, objects, *params, **kwargs):
+    def __init__(self, transport: str, objects: WorkbenchABAPObjectList, *params, **kwargs):
         super().__init__(*params, **kwargs)
 
         self._transport = transport
         self._objects = objects
 
     @property
-    def transport(self):
+    def transport(self) -> str:
         """Parent transport"""
 
         return self._transport
 
     @property
-    def objects(self):
+    def objects(self) -> WorkbenchABAPObjectList:
         """Returns the list of objects registered in this task"""
 
         return self._objects
+
+    def get_type(self):
+        """Return type of Request"""
+
+        return 'T'
+
+    def _deserialize(self, xml_data):
+        """Deserialize ADT request information"""
+
+        builder = WorkbenchBuilder(self._connection)
+        xml_handler = WorkbenchResponseHandler(builder)
+        xml.sax.parseString(xml_data, xml_handler)
+
+        self._copy(xml_handler.adt_task)
+        self._transport = builder.transports[0].number
+
+    def _release_children(self):
+        # pylint: disable=unnecessary-pass
+        pass  # No children to reassign
+
+    def _reassign_children(self, newowner):
+        """Changes owner of child objects"""
+
+        # pylint: disable=unnecessary-pass
+        pass  # No children to reassign
+
+    def _delete_object(self, obj):
+        """Remove the selected object from the task"""
+
+        get_logger().info('Deleting object: %s %s %s', obj.pgmid, obj.type, obj.name)
+        self._connection.execute(
+            'PUT',
+            self.uri,
+            body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="{self._number}" tm:useraction="removeobject">
+  <tm:request>
+    <tm:abap_object tm:name="{obj.name}" tm:obj_desc="{obj.description}" tm:pgmid="{obj.pgmid}" tm:type="{obj.type}" tm:position="{obj.position}"/>
+  </tm:request>
+</tm:root>''')
+
+    def _delete_children(self):
+        """Deletes objects of task"""
+
+        get_logger().info('Deleting objects of task: %s', self.number)
+        for obj in self.objects:
+            self._delete_object(obj)
 
 
 class WorkbenchBuilder:
@@ -183,7 +444,8 @@ class WorkbenchBuilder:
             transport_elem.attributes['tm:number'],
             owner=transport_elem.attributes['tm:owner'],
             description=transport_elem.attributes['tm:desc'],
-            status=transport_elem.attributes['tm:status']
+            status=transport_elem.attributes['tm:status'],
+            target=transport_elem.attributes.get('tm:target', None)
         )
 
         self.transports.append(transport)
@@ -234,7 +496,8 @@ class WorkbenchBuilder:
             attributes['tm:name'],
             attributes.get('tm:wbtype', ''),
             description,
-            attributes.get('tm:lock_status', ' ') == 'X'
+            attributes.get('tm:lock_status', ' ') == 'X',
+            attributes.get('tm:position', '000000')
         )
 
         return abap_object

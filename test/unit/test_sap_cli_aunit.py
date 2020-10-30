@@ -292,13 +292,13 @@ class TestAUnitCommandRunTransport(unittest.TestCase):
 
         fake_fetch_transports.return_value = sap.adt.cts.WorkbenchTransport(
             [sap.adt.cts.WorkbenchTask('NPLK123456',
-                [sap.adt.cts.WorkbenchABAPObject('R3TR', 'PROG', 'program', 'T', 'descr', 'X'),
-                 sap.adt.cts.WorkbenchABAPObject('R3TR', 'CLAS', 'class', 'T', 'descr', 'X'),
+                [sap.adt.cts.WorkbenchABAPObject('R3TR', 'PROG', 'program', 'T', 'descr', 'X', '000000'),
+                 sap.adt.cts.WorkbenchABAPObject('R3TR', 'CLAS', 'class', 'T', 'descr', 'X', '000001'),
                 ],
                 connection, 'NPLK123457', 'FILAK', 'Description', 'D'),
              sap.adt.cts.WorkbenchTask('NPLK123456',
-                [sap.adt.cts.WorkbenchABAPObject('R3TR', 'FUGR', 'functions', 'T', 'descr', 'X'),
-                 sap.adt.cts.WorkbenchABAPObject('R3TR', 'TABU', 'table', 'T', 'descr', 'X'),
+                [sap.adt.cts.WorkbenchABAPObject('R3TR', 'FUGR', 'functions', 'T', 'descr', 'X', '000000'),
+                 sap.adt.cts.WorkbenchABAPObject('R3TR', 'TABU', 'table', 'T', 'descr', 'X', '000001'),
                 ],
                 connection, 'NPLK123458', 'FILAK', 'Description', 'D'),
             ],
