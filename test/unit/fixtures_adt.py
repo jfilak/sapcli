@@ -48,6 +48,18 @@ TRASNPORT_RELEASE_OK_RESPONSE = f'''<?xml version="1.0" encoding="UTF-8"?>
   </tm:releasereports>
 </tm:root>'''
 
+TRANSPORT_CREATE_OK_RESPONSE = f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
+  <tm:request tm:number="{TRANSPORT_NUMBER}" tm:parent="" tm:desc="Transport Description" tm:type="K" tm:target="LOCAL" tm:target_desc="" tm:cts_project="" tm:cts_project_desc="" tm:uri="/sap/bc/adt/vit/wb/object_type/%20%20%20%20rq/object_name/{TRANSPORT_NUMBER}">
+  </tm:request>
+</tm:root>
+'''
+
+TASK_CREATE_OK_RESPONSE= f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:targetuser="FILAK" tm:useraction="tasks" tm:number="{TASK_NUMBER}" tm:uri="/sap/bc/adt/cts/transportrequests/{TASK_NUMBER}">
+</tm:root>
+'''
+
 SHORTENED_WORKBENCH_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" xmlns:adtcore="http://www.sap.com/adt/core">
     <tm:workbench tm:category="Workbench">

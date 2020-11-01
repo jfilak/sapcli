@@ -168,25 +168,25 @@ class AbstractWorkbenchRequest:
 
         return f'cts/transportrequests/{self._number}'
 
+    def _create_request(self) -> (str, str):
+        """Returns a tuple (CTS URI request, XML content)"""
+
+        raise NotImplementedError
+
     def create(self):
         """Create the request"""
 
-        typ = self.get_type()
+        uri, body = self._create_request()
         resp = self._connection.execute(
             'POST',
-            'cts/transportrequests',
+            uri,
             headers={'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml',
                      'Content-Type': 'text/plain'},
-            body=f'''<?xml version="1.0" encoding="UTF-8"?>
-<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
-  <tm:request tm:desc="{self.description}" tm:type="{typ}" tm:target="{self._target}" tm:cts_project="">
-    <tm:task tm:owner="{self.owner}"/>
-  </tm:request>
-</tm:root>
-''')
+            body=body
+        )
 
-        number = re.search('.*m:number="([^"]+)".*', resp.text)
-        return WorkbenchRequestResponseCreate(number, resp.text)
+        self._number = re.search('.*tm:number="([^"]+)".*', resp.text).group(1)
+        return WorkbenchRequestResponseCreate(self._number, resp.text)
 
     def release(self, recursive=False):
         """Release the request"""
@@ -295,6 +295,17 @@ class WorkbenchTransport(AbstractWorkbenchRequest):
 
         return self._tasks or []
 
+    def _create_request(self):
+        """Create the request"""
+
+        return ('cts/transportrequests', f'''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
+  <tm:request tm:desc="{self.description}" tm:type="{self.get_type()}" tm:target="{self.target}" tm:cts_project="">
+    <tm:task tm:owner="{self.owner}"/>
+  </tm:request>
+</tm:root>
+''')
+
     def _deserialize(self, xml_data):
         """Deserialize ADT request information"""
 
@@ -373,6 +384,13 @@ class WorkbenchTask(AbstractWorkbenchRequest):
         """Return type of Request"""
 
         return 'T'
+
+    def _create_request(self):
+        """Create the request"""
+
+        return (f'cts/transportrequests/{self.transport}/tasks', f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="{self.transport}" tm:targetuser="{self.owner}" tm:useraction="newtask"/>
+''')
 
     def _deserialize(self, xml_data):
         """Deserialize ADT request information"""

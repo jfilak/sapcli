@@ -15,7 +15,9 @@ from fixtures_adt import (
     TRANSPORT_NUMBER,
     TASK_RELEASE_OK_RESPONSE,
     TASK_RELEASE_ERR_RESPONSE,
+    TASK_CREATE_OK_RESPONSE,
     TRASNPORT_RELEASE_OK_RESPONSE,
+    TRANSPORT_CREATE_OK_RESPONSE,
     SHORTENED_WORKBENCH_XML,
     SHORTENED_TRANSPORT_XML,
     SHORTENED_TASK_XML
@@ -252,62 +254,6 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
         with self.assertRaises(ValueError):
             wbr._copy("No copy on string")
 
-    def do_check_release(self, factory):
-        """Check it correctly builds the URL with parameters and returns
-           the expected data.
-        """
-
-        connection = Connection([Response(TASK_RELEASE_OK_RESPONSE, 200, {})])
-
-        wbr = factory(connection, TASK_NUMBER)
-        resp = wbr.release()
-
-        self.assertEqual(
-            connection.execs,
-            [Request('POST',
-                     f'/sap/bc/adt/cts/transportrequests/{TASK_NUMBER}/newreleasejobs',
-                     {'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml'},
-                     None,
-                     None)])
-
-        self.assertEqual(resp, TASK_RELEASE_OK_RESPONSE)
-
-    def do_check_create(self, factory):
-        """Check it correctly builds the URL with parameters and returns
-           the expected data.
-        """
-
-        connection = Connection([Response("", 200, {})])
-
-        wbr = factory(connection, TASK_NUMBER, CTS_OWNER, 'To test create', status=None, target='6IT')
-        resp = wbr.create()
-
-        self.assertEqual(
-            connection.execs,
-            [Request.post(
-                uri='/sap/bc/adt/cts/transportrequests',
-                headers={'Accept': 'application/vnd.sap.adt.transportorganizer.v1+xml',
-                      'Content-Type': 'text/plain'},
-                body=f'''<?xml version="1.0" encoding="UTF-8"?>
-<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
-  <tm:request tm:desc="To test create" tm:type="{wbr.get_type()}" tm:target="6IT" tm:cts_project="">
-    <tm:task tm:owner="{CTS_OWNER}"/>
-  </tm:request>
-</tm:root>
-'''
-            )]
-        )
-
-    def test_workbench_create_transport(self):
-        "Transport can be created"""
-
-        self.do_check_create(partial(sap.adt.cts.WorkbenchTransport, None))
-
-    def test_workbench_create_task(self):
-        "Task can be created"""
-
-        self.do_check_create(partial(sap.adt.cts.WorkbenchTask, None, None))
-
 
 class TestADTCTSWorkbenchRequestSetup(unittest.TestCase):
 
@@ -514,25 +460,34 @@ class TestADTCTSWorkbenchRequestDelete(TestADTCTSWorkbenchRequestSetup):
 class TestADTCTSWorkbenchRequestCreate(TestADTCTSWorkbenchRequestSetup):
 
     def test_create_task(self):
-        self.task_1.create()
-        self.maxDiff = None
-        self.assertEqual(
-            self.connection.execs,
-            [   Request.post_text(
-                    uri='/sap/bc/adt/cts/transportrequests',
-                    accept='application/vnd.sap.adt.transportorganizer.v1+xml',
-                    body=f'''<?xml version="1.0" encoding="UTF-8"?>
-<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
-  <tm:request tm:desc="{self.task_1.description}" tm:type="T" tm:target="{self.task_1.target}" tm:cts_project="">
-    <tm:task tm:owner="{self.task_1.owner}"/>
-  </tm:request>
-</tm:root>
-'''
-                )
-            ]
+        self.connection.set_responses(
+            Response(status_code=201, text=TASK_CREATE_OK_RESPONSE)
         )
 
+        self.task_1._number = None
+        self.task_1._transport = self.transport.number
+        self.task_1.create()
+        self.maxDiff = None
+
+        self.assertEqual(len(self.connection.execs), 1)
+        self.connection.execs[0].assertEqual(
+            Request.post_text(
+                uri=f'/sap/bc/adt/cts/transportrequests/{self.task_1.transport}/tasks',
+                accept='application/vnd.sap.adt.transportorganizer.v1+xml',
+                body=f'''<?xml version="1.0" encoding="ASCII"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="{self.task_1.transport}" tm:targetuser="{self.task_1.owner}" tm:useraction="newtask"/>
+'''
+            ),
+            asserter=self
+        )
+        self.assertEqual(self.task_1.number, TASK_NUMBER)
+
     def test_create_transport(self):
+        self.connection.set_responses(
+            Response(status_code=201, text=TRANSPORT_CREATE_OK_RESPONSE)
+        )
+
+        self.transport._number = None
         self.transport.create()
         self.maxDiff = None
         self.assertEqual(
@@ -550,6 +505,7 @@ class TestADTCTSWorkbenchRequestCreate(TestADTCTSWorkbenchRequestSetup):
                 )
             ]
         )
+        self.assertEqual(self.transport.number, TRANSPORT_NUMBER)
 
 
 class TestADTCTSWorkbenchRequestReassign(TestADTCTSWorkbenchRequestSetup):
