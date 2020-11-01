@@ -251,6 +251,9 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             wbr._delete_children()
 
+        with self.assertRaises(NotImplementedError):
+            wbr._create_request()
+
         with self.assertRaises(ValueError):
             wbr._copy("No copy on string")
 
@@ -609,6 +612,12 @@ class TestADTCTSWorkbenchRequestFetch(TestADTCTSWorkbenchRequestSetup):
         self.assertEqual(task._status, 'D')
 
         self.assertIsNone(task.target)
+
+
+class TestADTCTSWorkbenchTask(TestADTCTSWorkbenchRequestSetup):
+
+    def test_get_type(self):
+        self.assertEqual(self.task_1.get_type(), 'T')
 
 
 class TestADTCTSWorkbenchResponseHandler(unittest.TestCase):
