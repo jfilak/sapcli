@@ -136,8 +136,10 @@ def print_junit4_testcase_error(stream, alert, elem_pad):
 def print_aunit_junit4(run_results, args, stream):
     """Print results to stream in the form of JUnit"""
 
+    xml_testsuite_name = escape("|".join(args.name))
+
     print('<?xml version="1.0" encoding="UTF-8" ?>', file=stream)
-    print(f'<testsuites name="{escape(args.name)}">', file=stream)
+    print(f'<testsuites name="{xml_testsuite_name}">', file=stream)
 
     critical = 0
     for program in run_results.programs:
@@ -191,13 +193,16 @@ status="{escape(status)}"',
     return critical
 
 
-def find_testclass(package, program, testclass):
+def find_testclass(package, program, testclass, file_required=False):
     """Find the relative path of the test-class file"""
 
     name = f'{program.lower()}.clas.testclasses.abap'
     for root, _, files in os.walk('.'):
         if name in files:
             return os.path.join(root, name)[2:]
+
+    if file_required:
+        return None
 
     return escape(package + '/' + program + '=>' + testclass)
 
@@ -234,7 +239,14 @@ def print_aunit_sonar(run_results, args, stream):
     critical = 0
     for program in run_results.programs:
         for test_class in program.test_classes:
-            filename = find_testclass(args.name, program.name, test_class.name)
+            for requested_name in args.name:
+                filename = find_testclass(requested_name, program.name, test_class.name, file_required=True)
+                if filename is not None:
+                    break
+            else:
+                package = args.name[0] if len(args.name) == 1 else 'UNKNOWN_PACKAGE'
+                filename = find_testclass(package, program.name, test_class.name, file_required=False)
+
             print(f'  <file path="{filename}">', file=stream)
 
             for test_method in test_class.test_methods:
@@ -344,7 +356,8 @@ def print_acoverage_jacoco(root_node, args, stream):
     print('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', file=stream)
     print('<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">', file=stream)
 
-    print(f'<report name="{escape(args.name)}">', file=stream)
+    xml_report_name = escape("|".join(args.name))
+    print(f'<report name="{xml_report_name}">', file=stream)
     _print_package_jacoco(root_node, stream, INDENT, 1)
     print('</report>', file=stream)
 
@@ -438,7 +451,7 @@ class ResultOptions(Enum):
 
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
 @CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'sonar'], default='human')
-@CommandGroup.argument('name')
+@CommandGroup.argument('name', nargs='+', type=str)
 @CommandGroup.argument('type', choices=['program', 'class', 'package', 'transport'])
 @CommandGroup.argument('--result',
                        choices=[
@@ -475,20 +488,22 @@ def run(connection, args):
     except KeyError as ex:
         raise SAPCliError(f'Unknown type: {args.type}') from ex
 
-    obj = typ(connection, args.name)
     sets = sap.adt.objects.ADTObjectSets()
 
-    if args.type == 'transport':
-        testable = obj.get_testable_objects(args.as4user)
+    for objname in args.name:
+        obj = typ(connection, objname)
 
-        if not testable:
-            sap.cli.core.printerr('No testable objects found')
-            return 1
+        if args.type == 'transport':
+            testable = obj.get_testable_objects(args.as4user)
 
-        for tr_obj in testable:
-            sets.include_object(tr_obj)
-    else:
-        sets.include_object(obj)
+            if not testable:
+                sap.cli.core.printerr('No testable objects found')
+                return 1
+
+            for tr_obj in testable:
+                sets.include_object(tr_obj)
+        else:
+            sets.include_object(obj)
 
     aunit = sap.adt.AUnit(connection)
     activate_coverage = args.result in (ResultOptions.ONLY_COVERAGE.value, ResultOptions.ALL.value)

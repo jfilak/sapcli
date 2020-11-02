@@ -18,15 +18,16 @@ from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 from fixtures_adt_aunit import AUNIT_NO_TEST_RESULTS_XML, AUNIT_RESULTS_XML, GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML
 from sap.cli.aunit import ResultOptions
 
-parser = ArgumentParser()
-sap.cli.aunit.CommandGroup().install_parser(parser)
+from infra import generate_parse_args
 
 
-def parse_args(*argv):
-    return parser.parse_args(argv)
+parse_args = generate_parse_args(sap.cli.aunit.CommandGroup())
 
 
 class TestAUnitWrite(unittest.TestCase):
+
+    def setUp(self):
+        self.connection = Connection()
 
     def assert_print_no_test_classes(self, mock_print):
         self.assertEqual(
@@ -51,53 +52,51 @@ class TestAUnitWrite(unittest.TestCase):
 
         self.assertEqual(str(cm.exception), 'Unknown type: foo')
 
+    def execute_run(self, *args, **kwargs):
+        cmd_args = parse_args('run', *args, **kwargs)
+        return cmd_args.execute(self.connection, cmd_args)
+
     def test_aunit_program(self):
-        connection = Connection([Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})])
+        self.connection.set_responses(
+            Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})
+        )
 
         with patch('sap.cli.aunit.print') as mock_print:
-            sap.cli.aunit.run(connection, SimpleNamespace(
-                type='program', name='yprogram', output='human', result=ResultOptions.ONLY_UNIT.value
-            ))
+            self.execute_run('program', '--output', 'human', 'yprogram', '--result', ResultOptions.ONLY_UNIT.value)
 
-        self.assertEqual(len(connection.execs), 1)
-        self.assertIn('programs/programs/yprogram', connection.execs[0].body)
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('programs/programs/yprogram', self.connection.execs[0].body)
         self.assert_print_no_test_classes(mock_print)
 
     def test_aunit_class(self):
-        connection = Connection([Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})])
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
 
         with patch('sap.cli.aunit.print') as mock_print:
-            sap.cli.aunit.run(connection, SimpleNamespace(
-                type='class', name='yclass', output='human', result=ResultOptions.ONLY_UNIT.value
-            ))
+            self.execute_run('class', 'yclass', '--output', 'human', '--result', ResultOptions.ONLY_UNIT.value)
 
-        self.assertEqual(len(connection.execs), 1)
-        self.assertIn('oo/classes/yclass', connection.execs[0].body)
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
         self.assert_print_no_test_classes(mock_print)
 
     def test_aunit_package(self):
-        connection = Connection([Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})])
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
 
         with patch('sap.cli.aunit.print') as mock_print:
-            sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage', output='human', result=ResultOptions.ONLY_UNIT.value
-            ))
+            self.execute_run('package', 'ypackage', '--output', 'human', '--result', ResultOptions.ONLY_UNIT.value)
 
-        self.assertEqual(len(connection.execs), 1)
-        self.assertIn('packages/ypackage', connection.execs[0].body)
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('packages/ypackage', self.connection.execs[0].body)
         self.assert_print_no_test_classes(mock_print)
 
     def test_aunit_package_with_results(self):
-        connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
         with patch('sap.cli.aunit.print') as mock_print:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage', output='human', result=ResultOptions.ONLY_UNIT.value
-            ))
+            exit_code = self.execute_run('package', 'ypackage', '--output', 'human', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
-        self.assertEqual(len(connection.execs), 1)
-        self.assertIn('packages/ypackage', connection.execs[0].body)
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('packages/ypackage', self.connection.execs[0].body)
 
         self.assertEqual(mock_print.call_args_list[0], call('ZCL_THEKING_MANUAL_HARDCORE', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[1], call('  LTCL_TEST', file=sys.stdout))
@@ -124,30 +123,26 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(mock_print.call_args_list[22], call('Errors:     3', file=sys.stdout))
 
     def test_aunit_package_with_results_raw(self):
-        connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
         with patch('sap.cli.aunit.print') as mock_print:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage', output='raw', result=ResultOptions.ONLY_UNIT.value
-            ))
+            exit_code = self.execute_run('package', 'ypackage', '--output', 'raw', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
-        self.assertEqual(len(connection.execs), 1)
-        self.assertIn('packages/ypackage', connection.execs[0].body)
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('packages/ypackage', self.connection.execs[0].body)
 
         self.assertEqual(mock_print.call_args_list[0][0], (AUNIT_RESULTS_XML,))
 
     def test_aunit_package_with_results_junit4(self):
-        connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
         with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage', output='junit4', result=ResultOptions.ONLY_UNIT.value
-            ))
+            exit_code = self.execute_run('package', 'ypackage', '--output', 'junit4', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
-        self.assertEqual(len(connection.execs), 1)
-        self.assertIn('packages/ypackage', connection.execs[0].body)
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('packages/ypackage', self.connection.execs[0].body)
 
         self.maxDiff = None
         self.assertEqual(mock_stdout.getvalue(),
@@ -183,16 +178,14 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
 ''')
 
     def test_aunit_package_with_results_sonar(self):
-        connection = Connection([Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})])
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
         with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage', output='sonar', result=ResultOptions.ONLY_UNIT.value
-            ))
+            exit_code = self.execute_run('package', 'ypackage', '--output', 'sonar', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
-        self.assertEqual(len(connection.execs), 1)
-        self.assertIn('packages/ypackage', connection.execs[0].body)
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('packages/ypackage', self.connection.execs[0].body)
 
         self.maxDiff = None
         self.assertEqual(mock_stdout.getvalue(),
@@ -240,7 +233,7 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
     def test_aunit_parser_results_global_class_tests(self):
         results = sap.adt.aunit.parse_aunit_response(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML).run_results
         output = StringIO()
-        sap.cli.aunit.print_aunit_junit4(results, SimpleNamespace(name='$TMP'), output)
+        sap.cli.aunit.print_aunit_junit4(results, SimpleNamespace(name=['$TMP']), output)
 
         self.maxDiff = None
         self.assertEqual(output.getvalue(),
@@ -252,10 +245,25 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 </testsuites>
 ''')
 
+    def test_aunit_parser_results_global_class_tests_multiple_targets(self):
+        results = sap.adt.aunit.parse_aunit_response(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML)
+        output = StringIO()
+        sap.cli.aunit.print_aunit_junit4(results.run_results, SimpleNamespace(name=['$TMP', '$LOCAL', '$BAR']), output)
+
+        self.maxDiff = None
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="$TMP|$LOCAL|$BAR">
+  <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
+    <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
+  </testsuite>
+</testsuites>
+''')
+
     def test_aunit_parser_results_global_class_tests_sonar(self):
         results = sap.adt.aunit.parse_aunit_response(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML).run_results
         output = StringIO()
-        sap.cli.aunit.print_aunit_sonar(results, SimpleNamespace(name='$TMP'), output)
+        sap.cli.aunit.print_aunit_sonar(results, SimpleNamespace(name=['$TMP']), output)
 
         self.maxDiff = None
         self.assertEqual(output.getvalue(),
@@ -273,38 +281,34 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 ''')
 
     def test_acoverage_package_with_results_raw(self):
-        connection = Connection([
+        self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
-        ])
+            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
+        )
 
         with patch('sap.cli.aunit.print') as mock_print:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage',
-                coverage_output='raw', coverage_filepath=None,
-                result=sap.cli.aunit.ResultOptions.ONLY_COVERAGE.value
-            ))
+            exit_code = self.execute_run(
+                'package', 'ypackage', '--coverage-output', 'raw', '--result', ResultOptions.ONLY_COVERAGE.value
+            )
 
         self.assertEqual(exit_code, None)
-        self.assertEqual(len(connection.execs), 2)
+        self.assertEqual(len(self.connection.execs), 2)
 
         self.assertEqual(mock_print.call_args_list[0], call(ACOVERAGE_RESULTS_XML, file=sys.stdout))
 
     def test_acoverage_package_with_results_human(self):
-        connection = Connection([
+        self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
-        ])
+            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
+        )
 
         with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage',
-                coverage_output='human', coverage_filepath=None,
-                result=sap.cli.aunit.ResultOptions.ONLY_COVERAGE.value
-            ))
+            exit_code = self.execute_run(
+                'package', 'ypackage', '--coverage-output', 'human', '--result', ResultOptions.ONLY_COVERAGE.value
+            )
 
         self.assertEqual(exit_code, None)
-        self.assertEqual(len(connection.execs), 2)
+        self.assertEqual(len(self.connection.execs), 2)
 
         self.assertEqual(mock_stdout.getvalue(),
 '''TEST_CHECK_LIST : 29.00%
@@ -316,20 +320,18 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 ''')
 
     def test_acoverage_package_with_results_jacoco(self):
-        connection = Connection([
+        self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
-        ])
+            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
+        )
 
         with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage',
-                coverage_output='jacoco', coverage_filepath=None,
-                result=sap.cli.aunit.ResultOptions.ONLY_COVERAGE.value
-            ))
+            exit_code = self.execute_run(
+                'package', 'ypackage', '--coverage-output', 'jacoco', '--result', ResultOptions.ONLY_COVERAGE.value
+            )
 
         self.assertEqual(exit_code, None)
-        self.assertEqual(len(connection.execs), 2)
+        self.assertEqual(len(self.connection.execs), 2)
 
         self.assertEqual(mock_stdout.getvalue(),
 '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -369,81 +371,90 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 ''')
 
     def test_result_option_all(self):
-        connection = Connection([
+        self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
-        ])
+            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
+        )
 
         with patch('sap.cli.aunit.print') as mock_print:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage',
-                coverage_output='raw', output='raw',
-                coverage_filepath=None,
-                result=sap.cli.aunit.ResultOptions.ALL.value
-            ))
+            exit_code = self.execute_run(
+                'package', 'ypackage', '--output', 'raw', '--coverage-output', 'raw', '--result', ResultOptions.ALL.value
+            )
 
         self.assertEqual(exit_code, 3)
-        self.assertEqual(len(connection.execs), 2)
+        self.assertEqual(len(self.connection.execs), 2)
 
         self.assertEqual(len(mock_print.call_args_list), 2)
         self.assertEqual(mock_print.call_args_list[0], call(AUNIT_RESULTS_XML, file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[1], call(ACOVERAGE_RESULTS_XML, file=sys.stdout))
 
     def test_result_option_unit(self):
-        connection = Connection([
-            Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-        ])
+        self.connection.set_responses(
+            Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})
+        )
 
         with patch('sap.cli.aunit.print') as mock_print:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage',
-                coverage_output='raw', output='raw',
-                coverage_filepath=None,
-                result=sap.cli.aunit.ResultOptions.ONLY_UNIT.value
-            ))
+            exit_code = self.execute_run(
+                'package', 'ypackage', '--output', 'raw', '--coverage-output', 'raw', '--result', ResultOptions.ONLY_UNIT.value
+            )
 
         self.assertEqual(exit_code, 3)
-        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(len(self.connection.execs), 1)
 
         self.assertEqual(len(mock_print.call_args_list), 1)
         self.assertEqual(mock_print.call_args_list[0], call(AUNIT_RESULTS_XML, file=sys.stdout))
 
     def test_result_option_coverage(self):
-        connection = Connection([
+        self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
-        ])
+            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
+        )
 
         with patch('sap.cli.aunit.print') as mock_print:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage',
-                coverage_output='raw', output='raw',
-                coverage_filepath=None,
-                result=sap.cli.aunit.ResultOptions.ONLY_COVERAGE.value
-            ))
+            exit_code = self.execute_run(
+                'package', 'ypackage', '--output', 'raw', '--coverage-output', 'raw', '--result', ResultOptions.ONLY_COVERAGE.value
+            )
 
         self.assertEqual(exit_code, None)
-        self.assertEqual(len(connection.execs), 2)
+        self.assertEqual(len(self.connection.execs), 2)
 
         self.assertEqual(len(mock_print.call_args_list), 1)
         self.assertEqual(mock_print.call_args_list[0], call(ACOVERAGE_RESULTS_XML, file=sys.stdout))
 
     def test_coverage_filepath(self):
-        connection = Connection([
+        self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
             Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
-        ])
+        )
 
         coverage_filepath = 'path/to/coverage'
         with patch('sap.cli.aunit.open', mock_open()) as mock_file:
-            exit_code = sap.cli.aunit.run(connection, SimpleNamespace(
-                type='package', name='ypackage',
-                coverage_output='raw', output='raw',
-                coverage_filepath=coverage_filepath,
-                result=sap.cli.aunit.ResultOptions.ONLY_COVERAGE.value
-            ))
+            exit_code = self.execute_run(
+                'package', 'ypackage', '--output', 'raw', '--coverage-output', 'raw', '--result', ResultOptions.ONLY_COVERAGE.value,
+                '--coverage-filepath', coverage_filepath
+            )
 
         mock_file.assert_called_with(coverage_filepath, 'w+')
+
+    def test_aunit_parser_results_global_class_tests_sonar_multiple_targets(self):
+        results = sap.adt.aunit.parse_aunit_response(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML)
+        output = StringIO()
+        sap.cli.aunit.print_aunit_sonar(results.run_results, SimpleNamespace(name=['$LOCAL', '$TMP']), output)
+
+        self.maxDiff = None
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8" ?>
+<testExecutions version="1">
+  <file path="UNKNOWN_PACKAGE/ZCL_TEST_CLASS=&gt;ZCL_TEST_CLASS">
+    <testCase name="DO_THE_TEST" duration="0"/>
+    <testCase name="ZCL_TEST_CLASS" duration="0">
+      <skipped message="The global test class [ZCL_TEST_CLASS] is not abstract">
+You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;
+      </skipped>
+    </testCase>
+  </file>
+</testExecutions>
+''')
 
 
 class TestAUnitCommandRunTransport(unittest.TestCase):

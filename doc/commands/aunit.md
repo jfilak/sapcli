@@ -4,7 +4,7 @@
 
 ## run
 
-Execute `sapcli` with the parameters `aunit run {package|class|program|transport} $OBJECT_NAME`.
+Execute `sapcli` with the parameters `aunit run {package|class|program|transport} OBJECT_NAME [OBJECT_NAME | ...]`.
 
 The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests if _unit_ included in the result.
