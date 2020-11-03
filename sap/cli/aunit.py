@@ -3,7 +3,7 @@
 import os
 import sys
 from enum import Enum
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, quoteattr
 from itertools import islice
 
 import sap
@@ -116,7 +116,7 @@ def print_junit4_system_err(stream, details, elem_pad):
 def print_junit4_testcase_error(stream, alert, elem_pad):
     """Print AUnit Alert as JUnit4 testcase/error"""
 
-    print(f'{elem_pad}<error type="{escape(alert.kind)}" message="{escape(alert.title)}"',
+    print(f'{elem_pad}<error type={quoteattr(alert.kind)} message={quoteattr(alert.title)}',
           file=stream, end='')
 
     if not alert.stack:
@@ -136,15 +136,15 @@ def print_junit4_testcase_error(stream, alert, elem_pad):
 def print_aunit_junit4(run_results, args, stream):
     """Print results to stream in the form of JUnit"""
 
-    xml_testsuite_name = escape("|".join(args.name))
+    testsuite_name = "|".join(args.name)
 
     print('<?xml version="1.0" encoding="UTF-8" ?>', file=stream)
-    print(f'<testsuites name="{xml_testsuite_name}">', file=stream)
+    print(f'<testsuites name={quoteattr(testsuite_name)}>', file=stream)
 
     critical = 0
     for program in run_results.programs:
         for test_class in program.test_classes:
-            print(f'  <testsuite name="{escape(test_class.name)}" package="{escape(program.name)}" \
+            print(f'  <testsuite name={quoteattr(test_class.name)} package={quoteattr(program.name)} \
 tests="{len(test_class.test_methods)}"', file=stream, end='')
 
             if not test_class.test_methods:
@@ -157,8 +157,6 @@ tests="{len(test_class.test_methods)}"', file=stream, end='')
             if program.name != test_class.name:
                 tc_class_name = f'{program.name}=>{test_class.name}'
 
-            tc_class_name = escape(tc_class_name)
-
             for test_method in test_class.test_methods:
                 status = None
 
@@ -170,8 +168,8 @@ tests="{len(test_class.test_methods)}"', file=stream, end='')
                 else:
                     status = 'OK'
 
-                print(f'    <testcase name="{escape(test_method.name)}" classname="{tc_class_name}" \
-status="{escape(status)}"',
+                print(f'    <testcase name={quoteattr(test_method.name)} classname={quoteattr(tc_class_name)} \
+status={quoteattr(status)}',
                       file=stream, end='')
 
                 if not test_method.alerts:
@@ -204,7 +202,7 @@ def find_testclass(package, program, testclass, file_required=False):
     if file_required:
         return None
 
-    return escape(package + '/' + program + '=>' + testclass)
+    return package + '/' + program + '=>' + testclass
 
 
 def print_sonar_alert(alert, stream):
@@ -221,11 +219,11 @@ def print_sonar_alert(alert, stream):
             print(escape(frame), file=stream)
 
     if alert.is_error:
-        print(f'      <error message="{escape(alert.title)}">', file=stream)
+        print(f'      <error message={quoteattr(alert.title)}>', file=stream)
         print_alert()
         print('      </error>', file=stream)
     elif alert.is_warning:
-        print(f'      <skipped message="{escape(alert.title)}">', file=stream)
+        print(f'      <skipped message={quoteattr(alert.title)}>', file=stream)
         print_alert()
         print('      </skipped>', file=stream)
 
@@ -247,10 +245,10 @@ def print_aunit_sonar(run_results, args, stream):
                 package = args.name[0] if len(args.name) == 1 else 'UNKNOWN_PACKAGE'
                 filename = find_testclass(package, program.name, test_class.name, file_required=False)
 
-            print(f'  <file path="{filename}">', file=stream)
+            print(f'  <file path={quoteattr(filename)}>', file=stream)
 
             for test_method in test_class.test_methods:
-                print(f'    <testCase name="{escape(test_method.name)}" duration="{test_method.duration}"',
+                print(f'    <testCase name={quoteattr(test_method.name)} duration="{test_method.duration}"',
                       file=stream, end='')
                 if not test_method.alerts:
                     print('/>', file=stream)
@@ -267,7 +265,7 @@ def print_aunit_sonar(run_results, args, stream):
                 print('    </testCase>', file=stream)
 
             if test_class.alerts:
-                print(f'    <testCase name="{escape(test_class.name)}" duration="0">', file=stream)
+                print(f'    <testCase name={quoteattr(test_class.name)} duration="0">', file=stream)
 
                 for alert in test_class.alerts:
                     print_sonar_alert(alert, stream)
@@ -356,8 +354,8 @@ def print_acoverage_jacoco(root_node, args, stream):
     print('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', file=stream)
     print('<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">', file=stream)
 
-    xml_report_name = escape("|".join(args.name))
-    print(f'<report name="{xml_report_name}">', file=stream)
+    report_name = "|".join(args.name)
+    print(f'<report name={quoteattr(report_name)}>', file=stream)
     _print_package_jacoco(root_node, stream, INDENT, 1)
     print('</report>', file=stream)
 
