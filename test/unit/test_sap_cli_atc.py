@@ -13,14 +13,10 @@ from sap.adt.objects import ADTObjectSets
 
 from mock import Connection, Response
 
-
-parser = ArgumentParser()
-sap.cli.atc.CommandGroup().install_parser(parser)
+from infra import generate_parse_args
 
 
-def parse_args(*argv):
-    global parser
-    return parser.parse_args(argv)
+parse_args = generate_parse_args(sap.cli.atc.CommandGroup())
 
 
 class TestConfiguration(unittest.TestCase):
@@ -80,6 +76,10 @@ class TestRun(unittest.TestCase):
 
         fake_print.assert_called_once_with('WORKLIST', sys.stdout, error_level=2)
 
+    def execute_run(self, *args, **kwargs):
+        cmd_args = parse_args('run', *args, **kwargs)
+        return cmd_args.execute(self.connection, cmd_args)
+
     def test_invalid_type(self):
         connection = Mock()
 
@@ -125,7 +125,7 @@ class TestRun(unittest.TestCase):
     @patch('sap.adt.atc.ChecksRunner')
     @patch('sap.adt.atc.fetch_customizing')
     @patch('sap.adt.Class')
-    def test_program(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+    def test_class(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
 
         self.setUpRunMocks(fake_object, 'ZCL_CLASS', fake_fetch_customizing, fake_runner, fake_sets)
 
@@ -139,7 +139,7 @@ class TestRun(unittest.TestCase):
     @patch('sap.adt.atc.ChecksRunner')
     @patch('sap.adt.atc.fetch_customizing')
     @patch('sap.adt.Package')
-    def test_program(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+    def test_package(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
 
         self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
 
@@ -147,6 +147,21 @@ class TestRun(unittest.TestCase):
         args.execute(self.connection, args)
 
         self.assertRunCalls(fake_object, fake_fetch_customizing, fake_sets, fake_runner, fake_print)
+
+    @patch('sap.cli.atc.print_worklist_to_stream')
+    @patch('sap.adt.objects.ADTObjectSets')
+    @patch('sap.adt.atc.ChecksRunner')
+    @patch('sap.adt.atc.fetch_customizing')
+    @patch('sap.adt.Package')
+    def test_package_multiple(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+
+        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
+
+        args = parse_args('run', 'package', fake_object.name, '$TMP')
+        args.execute(self.connection, args)
+
+        self.assertEqual(fake_object.call_args_list, [call(self.connection, fake_object.name), call(self.connection, '$TMP')])
+        self.assertEqual(fake_sets.return_value.include_object.call_args_list, [call(fake_object.return_value), call(fake_object.return_value)])
 
     @patch('sap.cli.atc.print_worklist_to_stream')
     @patch('sap.adt.objects.ADTObjectSets')

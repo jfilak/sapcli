@@ -119,7 +119,7 @@ def customizing(connection, _):
                        help='Executed Check Variant; default: the system variant')
 @CommandGroup.argument('-e', '--error-level', default=2, type=int,
                        help='Exit with non zero if a finding with this or higher prio returned')
-@CommandGroup.argument('name')
+@CommandGroup.argument('name', nargs='+', type=str)
 @CommandGroup.argument('type', choices=['program', 'class', 'package'])
 @CommandGroup.argument('-o', '--output', default='human', choices=['human', 'html', 'checkstyle'],
                        help='Output format in which checks will be printed')
@@ -161,7 +161,9 @@ def run(connection, args):
                 raise SAPCliError('Severity mapping has incorrect format') from ex
 
     objects = sap.adt.objects.ADTObjectSets()
-    objects.include_object(typ(connection, args.name))
+
+    for objname in args.name:
+        objects.include_object(typ(connection, objname))
 
     if args.variant is None:
         settings = sap.adt.atc.fetch_customizing(connection)
