@@ -3,6 +3,8 @@ import json
 import os
 import sys
 
+from xml.sax.saxutils import escape, quoteattr
+
 from sap import get_logger
 import sap.adt
 import sap.adt.atc
@@ -64,17 +66,17 @@ def print_worklist_as_html_to_stream(run_results, stream, error_level=99):
     for obj in run_results.objects:
         stream.write('<tr><th>Object type ID</th>\n'
                      '<th>Name</th></tr>\n')
-        stream.write(f'<tr><td>{obj.object_type_id}</td>\n'
-                     f'<td>{obj.name}</td></tr>\n')
+        stream.write(f'<tr><td>{escape(obj.object_type_id)}</td>\n'
+                     f'<td>{escape(obj.name)}</td></tr>\n')
         stream.write('<tr><th>Priority</th>\n'
                      '<th>Check title</th>\n'
                      '<th>Message title</th></tr>\n')
         for finding in obj.findings:
             if int(finding.priority) <= error_level:
                 ret += 1
-            stream.write(f'<tr><td>{finding.priority}</td>\n'
-                         f'<td>{finding.check_title}</td>\n'
-                         f'<td>{finding.message_title}</td></tr>\n')
+            stream.write(f'<tr><td>{escape(str(finding.priority))}</td>\n'
+                         f'<td>{escape(finding.check_title)}</td>\n'
+                         f'<td>{escape(finding.message_title)}</td></tr>\n')
 
     stream.write('</table>\n')
     return 0 if ret < 1 else 1
@@ -91,13 +93,15 @@ def print_worklist_as_checkstyle_xml_to_stream(run_results, stream, error_level=
     stream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
     stream.write(f'<checkstyle version="{CHECKSTYLE_VERSION}">\n')
     for obj in run_results.objects:
-        stream.write(f'<file name="{obj.object_type_id}/{obj.name}">\n')
+        filename = f'{obj.object_type_id}/{obj.name}'
+        stream.write(f'<file name={quoteattr(filename)}>\n')
         for finding in obj.findings:
             if int(finding.priority) <= error_level:
                 ret += 1
-            stream.write(f'<error severity="{severity_mapping.get(str(finding.priority), INFO)}" '
-                         f'message="{finding.message_title}" '
-                         f'source="{finding.check_title}"/>\n')
+            severity = severity_mapping.get(str(finding.priority), INFO)
+            stream.write(f'<error severity={quoteattr(severity)} '
+                         f'message={quoteattr(finding.message_title)} '
+                         f'source={quoteattr(finding.check_title)}/>\n')
         stream.write('</file>\n')
 
     stream.write('</checkstyle>\n')
