@@ -38,6 +38,7 @@ class CommandsCache:
         import sap.cli.activation
         import sap.cli.startrfc
         import sap.cli.adt
+        import sap.cli.strust
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -66,7 +67,8 @@ class CommandsCache:
         if CommandsCache.rfc is None:
             if rfc.rfc_is_available():
                 CommandsCache.rfc = [
-                    (rfc_connection_from_args, sap.cli.startrfc.CommandGroup())
+                    (rfc_connection_from_args, sap.cli.startrfc.CommandGroup()),
+                    (rfc_connection_from_args, sap.cli.strust.CommandGroup())
                 ]
             else:
                 CommandsCache.rfc = list()
