@@ -8,11 +8,28 @@ from sap.rfc.core import RFCResponse
 
 BAPIReturnRFC = Union[RFCResponse, List[RFCResponse]]
 
+BAPI_MTYPE = {
+    'S': 'Success',
+    'E': 'Error',
+    'W': 'Warning',
+    'I': 'Info',
+    'A': 'Abort'
+}
+
 
 def bapi_message_to_str(bapiret: RFCResponse):
     """Converts a single BAPI return value to a human readable string"""
 
-    return '/'.join([bapiret['TYPE'], bapiret['ID'], bapiret['NUMBER'] + ': ' + bapiret['MESSAGE']])
+    msg_type = bapiret['TYPE']
+    msg_id = bapiret['ID']
+    msg_number = bapiret['NUMBER']
+    msg_message = bapiret['MESSAGE']
+
+    msg_code = BAPI_MTYPE.get(msg_type, msg_type)
+    if msg_id or (msg_number and msg_number != '000'):
+        msg_code += f'({msg_id}|{msg_number})'
+
+    return f'{msg_code}: {msg_message}'
 
 
 class BAPIReturn:
