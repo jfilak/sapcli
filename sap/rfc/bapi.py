@@ -51,7 +51,7 @@ class BAPIReturn:
             self._error_message = None
 
     def __str__(self):
-        return '\n'.join([bapi_message_to_str(bapiret) for bapiret in self._bapirettab])
+        return '\n'.join(self.message_lines())
 
     def __getitem__(self, index):
         return self._bapirettab[index]
@@ -62,6 +62,12 @@ class BAPIReturn:
         """
 
         return any((msg['ID'] == msg_class and msg['NUMBER'] == msg_number for msg in self._bapirettab))
+
+    def message_lines(self):
+        """Returns list of strings with human readable messages.
+        """
+
+        return [bapi_message_to_str(bapiret) for bapiret in self._bapirettab]
 
     @property
     def is_error(self):

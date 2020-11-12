@@ -98,6 +98,9 @@ class TestBAPIReturn(unittest.TestCase):
     def test_error_message_with_error(self):
         self.assertEqual(BAPIReturn(self.bapirettab).error_message, 'Error(ERR|333): Error message')
 
+    def test_message_lines(self):
+        self.assertEqual(BAPIReturn(self.bapirettab).message_lines(), ['Error(ERR|333): Error message', 'Warning(WRN|777): Warning message'])
+
 
 class TestBAPIError(unittest.TestCase):
 
