@@ -67,11 +67,11 @@ FAKE/TEST/MADE_UP_OBJECT
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <checkstyle version="8.36">
-<file name="FAKE/TEST/MADE_UP_OBJECT">
-<error severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
-<error severity="error" message="Prio 2" source="PRIO_2"/>
-<error severity="warning" message="Prio 3" source="PRIO_3"/>
-<error severity="warning" message="Prio 4" source="PRIO_4"/>
+<file name="FAKE/TEST&#8725;FOO&#8725;MADE_UP_OBJECT">
+<error line="24" column="0" severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error line="32" column="0" severity="error" message="Prio 2" source="PRIO_2"/>
+<error line="45" column="0" severity="warning" message="Prio 3" source="PRIO_3"/>
+<error line="67" column="0" severity="warning" message="Prio 4" source="PRIO_4"/>
 </file>
 </checkstyle>
 ```
