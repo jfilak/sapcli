@@ -285,19 +285,23 @@ class TestPrintWorklistMixin:
     def setUp(self):
         atcobject = sap.adt.atc.ATCObject()
         atcobject.object_type_id = 'FAKE/TEST'
+        atcobject.typ = 'FAKE'
         atcobject.name = 'MADE_UP_OBJECT'
+        atcobject.package_name = 'PACKAGE'
         atcobject.findings = sap.adt.atc.ATCFindingList()
 
         finding = sap.adt.atc.ATCFinding()
         finding.priority = 1
         finding.check_title = 'UNIT_TEST'
         finding.message_title = 'Unit tests for ATC module of sapcli'
+        finding.location = 'foo/bar/start=24'
         atcobject.findings.append(finding)
 
         finding = sap.adt.atc.ATCFinding()
         finding.priority = 2
         finding.check_title = 'PRIO_2'
         finding.message_title = 'Prio 2'
+        finding.location = 'foo/bar/start=24,32'
         atcobject.findings.append(finding)
 
         finding = sap.adt.atc.ATCFinding()
@@ -450,11 +454,11 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
         self.assertEqual(output.getvalue(),
 '''<?xml version="1.0" encoding="UTF-8"?>
 <checkstyle version="8.36">
-<file name="FAKE/TEST/MADE_UP_OBJECT">
-<error severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
-<error severity="error" message="Prio 2" source="PRIO_2"/>
-<error severity="warning" message="Prio 3" source="PRIO_3"/>
-<error severity="warning" message="Prio 4" source="PRIO_4"/>
+<file name="FAKE/PACKAGE∕MADE_UP_OBJECT">
+<error line="24" column="0" severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error line="24" column="32" severity="error" message="Prio 2" source="PRIO_2"/>
+<error line="0" column="0" severity="warning" message="Prio 3" source="PRIO_3"/>
+<error line="0" column="0" severity="warning" message="Prio 4" source="PRIO_4"/>
 </file>
 </checkstyle>
 ''')
@@ -466,11 +470,11 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
         self.assertEqual(output.getvalue(),
 '''<?xml version="1.0" encoding="UTF-8"?>
 <checkstyle version="8.36">
-<file name="FAKE/TEST/MADE_UP_OBJECT">
-<error severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
-<error severity="error" message="Prio 2" source="PRIO_2"/>
-<error severity="warning" message="Prio 3" source="PRIO_3"/>
-<error severity="warning" message="Prio 4" source="PRIO_4"/>
+<file name="FAKE/PACKAGE∕MADE_UP_OBJECT">
+<error line="24" column="0" severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error line="24" column="32" severity="error" message="Prio 2" source="PRIO_2"/>
+<error line="0" column="0" severity="warning" message="Prio 3" source="PRIO_3"/>
+<error line="0" column="0" severity="warning" message="Prio 4" source="PRIO_4"/>
 </file>
 </checkstyle>
 ''')
@@ -482,11 +486,11 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
         self.assertEqual(output.getvalue(),
 '''<?xml version="1.0" encoding="UTF-8"?>
 <checkstyle version="8.36">
-<file name="FAKE/TEST/MADE_UP_OBJECT">
-<error severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
-<error severity="error" message="Prio 2" source="PRIO_2"/>
-<error severity="warning" message="Prio 3" source="PRIO_3"/>
-<error severity="warning" message="Prio 4" source="PRIO_4"/>
+<file name="FAKE/PACKAGE∕MADE_UP_OBJECT">
+<error line="24" column="0" severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error line="24" column="32" severity="error" message="Prio 2" source="PRIO_2"/>
+<error line="0" column="0" severity="warning" message="Prio 3" source="PRIO_3"/>
+<error line="0" column="0" severity="warning" message="Prio 4" source="PRIO_4"/>
 </file>
 </checkstyle>
 ''')
@@ -503,15 +507,49 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
         self.assertEqual(output.getvalue(),
 '''<?xml version="1.0" encoding="UTF-8"?>
 <checkstyle version="8.36">
-<file name="FAKE/TEST/MADE_UP_OBJECT">
-<error severity="info" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
-<error severity="warning" message="Prio 2" source="PRIO_2"/>
-<error severity="error" message="Prio 3" source="PRIO_3"/>
-<error severity="info" message="Prio 4" source="PRIO_4"/>
+<file name="FAKE/PACKAGE∕MADE_UP_OBJECT">
+<error line="24" column="0" severity="info" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error line="24" column="32" severity="warning" message="Prio 2" source="PRIO_2"/>
+<error line="0" column="0" severity="error" message="Prio 3" source="PRIO_3"/>
+<error line="0" column="0" severity="info" message="Prio 4" source="PRIO_4"/>
 </file>
 </checkstyle>
 ''')
         self.assertEqual(1, ret)
+
+    def test_replace_slash_without_slash(self):
+        name = 'foo'
+        name_after_replace = sap.cli.atc.replace_slash(name)
+        self.assertEqual(name, name_after_replace)
+
+    def test_replace_slash_none(self):
+        name_after_replace = sap.cli.atc.replace_slash(None)
+        self.assertEqual('', name_after_replace)
+
+
+    def test_replace_slash(self):
+        name = 'foo/bar'
+        name_after_replace = sap.cli.atc.replace_slash(name)
+        self.assertEqual('foo\u2215bar', name_after_replace)
+
+    def test_get_line_and_column(self):
+        location = 'foo/bar#start=24,32'
+        line, column = sap.cli.atc.get_line_and_column(location)
+        self.assertEqual(('24','32'), (line, column))
+
+    def test_get_line(self):
+        location = 'foo/bar#start=24'
+        line, column = sap.cli.atc.get_line_and_column(location)
+        self.assertEqual(('24','0'), (line, column))
+
+    def test_get_line_and_column_from_none(self):
+        line, column = sap.cli.atc.get_line_and_column(None)
+        self.assertEqual(('0','0'), (line, column))
+
+    def test_get_line_and_column_not_provided(self):
+        location = 'foo/bar#'
+        line, column = sap.cli.atc.get_line_and_column(location)
+        self.assertEqual(('0','0'), (line, column))
 
 if __name__ == '__main__':
     unittest.main()

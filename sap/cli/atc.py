@@ -1,6 +1,7 @@
 """ATC proxy for ABAP Unit"""
 import json
 import os
+import re
 import sys
 
 from xml.sax.saxutils import escape, quoteattr
@@ -10,7 +11,6 @@ import sap.adt
 import sap.adt.atc
 from sap.cli.core import printout
 from sap.errors import SAPCliError
-
 
 CHECKSTYLE_VERSION = '8.36'
 ERROR = 'error'
@@ -82,6 +82,29 @@ def print_worklist_as_html_to_stream(run_results, stream, error_level=99):
     return 0 if ret < 1 else 1
 
 
+def replace_slash(name):
+    """Replaces slash with division slash symbol for CheckStyle Jenkins plugin"""
+
+    DIVISION_SLASH = '\u2215'
+
+    return (name or '').replace('/', DIVISION_SLASH)
+
+
+def get_line_and_column(location):
+    """Finds line and column in location"""
+
+    START_PATTERN = r'(start=)(?P<line>\d+)(,(?P<column>\d+))?'
+
+    search_result = re.search(START_PATTERN, location or '')
+
+    line = column = '0'
+    if search_result:
+        line = search_result.group('line')
+        column = search_result.group('column') or '0'
+
+    return line, column
+
+
 # pylint: disable=invalid-name
 def print_worklist_as_checkstyle_xml_to_stream(run_results, stream, error_level=99, severity_mapping=None):
     """Print results as checkstyle xml to stream"""
@@ -93,15 +116,22 @@ def print_worklist_as_checkstyle_xml_to_stream(run_results, stream, error_level=
     stream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
     stream.write(f'<checkstyle version="{CHECKSTYLE_VERSION}">\n')
     for obj in run_results.objects:
-        filename = f'{obj.object_type_id}/{obj.name}'
+        package_name = replace_slash(obj.typ)
+        name = replace_slash(f'{obj.package_name}/{obj.name}')
+        filename = f'{package_name}/{name}'
         stream.write(f'<file name={quoteattr(filename)}>\n')
         for finding in obj.findings:
             if int(finding.priority) <= error_level:
                 ret += 1
             severity = severity_mapping.get(str(finding.priority), INFO)
-            stream.write(f'<error severity={quoteattr(severity)} '
+            line, column = get_line_and_column(finding.location)
+            stream.write(f'<error '
+                         f'line={quoteattr(line)} '
+                         f'column={quoteattr(column)} '
+                         f'severity={quoteattr(severity)} '
                          f'message={quoteattr(finding.message_title)} '
-                         f'source={quoteattr(finding.check_title)}/>\n')
+                         f'source={quoteattr(finding.check_title)}'
+                         f'/>\n')
         stream.write('</file>\n')
 
     stream.write('</checkstyle>\n')
