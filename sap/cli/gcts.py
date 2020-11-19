@@ -101,6 +101,9 @@ def repolist(connection, args):
 @CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
 @CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
 @CommandGroup.argument('--vcs-token', type=str, nargs='?')
+@CommandGroup.argument('-t', '--type', choices=['GITHUB', 'GIT'], default='GITHUB')
+@CommandGroup.argument('-r', '--role', choices=['SOURCE', 'TARGET'], default='SOURCE',
+                       help='SOURCE=Development, TARGET=Provided')
 @CommandGroup.argument('package', nargs='?')
 @CommandGroup.argument('url')
 @CommandGroup.command()
@@ -120,7 +123,9 @@ def clone(connection, args):
                                               start_dir=args.starting_folder,
                                               vcs_token=args.vcs_token,
                                               vsid=args.vsid,
-                                              error_exists=not args.no_fail_exists)
+                                              error_exists=not args.no_fail_exists,
+                                              role=args.role,
+                                              typ=args.type)
     except sap.rest.gcts.GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1

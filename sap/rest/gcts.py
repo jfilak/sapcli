@@ -176,7 +176,7 @@ class Repository:
 
         return _config_list_to_dict(self._get_item('config'))
 
-    def create(self, url, vsid, config=None):
+    def create(self, url, vsid, config=None, role='SOURCE', typ='GITHUB'):
         """Creates the repository
 
            Raises:
@@ -191,8 +191,8 @@ class Repository:
             'name': self._name,
             'vsid': vsid,
             'url': url,
-            'role': 'SOURCE',
-            'type': 'GITHUB',
+            'role': role,
+            'type': typ,
             'connection': 'ssl'
         })
 
@@ -347,7 +347,9 @@ def simple_fetch_repos(connection):
     return [Repository(connection, repo['name'], data=repo) for repo in result]
 
 
-def simple_clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True):
+# pylint: disable=too-many-arguments
+def simple_clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
+                 role='SOURCE', typ='GITHUB'):
     """Creates and clones the repository in the target systems"""
 
     config = {}
@@ -361,7 +363,7 @@ def simple_clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=
     repo = Repository(connection, name)
 
     try:
-        repo.create(url, vsid, config=config)
+        repo.create(url, vsid, config=config, role=role, typ=typ)
     except GCTSRepoAlreadyExistsError as ex:
         if error_exists:
             raise ex

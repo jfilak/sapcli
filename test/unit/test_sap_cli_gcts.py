@@ -115,7 +115,9 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             start_dir='src/',
             vsid='6IT',
             vcs_token=None,
-            error_exists=True
+            error_exists=True,
+            typ='GITHUB',
+            role='SOURCE'
         )
 
         self.assertConsoleContents(console=self.console, stdout='''Cloned repository:
@@ -131,7 +133,9 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             '--vsid', 'GIT',
             '--vcs-token', '12345',
             '--starting-folder', 'backend/src/',
-            '--no-fail-exists'
+            '--no-fail-exists',
+            '--role', 'TARGET',
+            '--type', 'GIT'
         )
 
         exit_code = args.execute(self.conn, args)
@@ -144,7 +148,9 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             start_dir='backend/src/',
             vsid='GIT',
             vcs_token='12345',
-            error_exists=False
+            error_exists=False,
+            typ='GIT',
+            role='TARGET'
         )
 
     def test_clone_existing(self):
@@ -160,7 +166,9 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             start_dir='src/',
             vsid='6IT',
             vcs_token=None,
-            error_exists=False
+            error_exists=False,
+            typ='GITHUB',
+            role='SOURCE'
         )
 
     @patch('sap.cli.gcts.dump_gcts_messages')

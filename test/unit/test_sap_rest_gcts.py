@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, call, patch, PropertyMock
 
 from sap.rest.errors import HTTPRequestError, UnauthorizedError
 
@@ -201,6 +201,24 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             {'key': 'third_key', 'value': 'fourth_value'},
             {'key': 'second_key', 'value': 'second_value'},
         ]
+
+        self.maxDiff = None
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository', body=repo_request, accept='application/json'),
+                                       self, json_body=True)
+
+    def test_create_with_role_and_type(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=201, json={'repository': self.repo_server_data})
+        )
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+
+        repo.create(self.repo_url, self.repo_vsid, role='TARGET', typ='GIT')
+
+        repo_request = dict(self.repo_request)
+        repo_request['data']['role'] = 'TARGET'
+        repo_request['data']['type'] = 'GIT'
 
         self.maxDiff = None
         self.assertEqual(len(self.conn.execs), 1)
@@ -488,6 +506,30 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         self.conn.execs[CALL_ID_CREATE].assertEqual(Request.post_json(uri='repository', body=request_load, accept='application/json'), self, json_body=True)
         self.conn.execs[CALL_ID_CLONE].assertEqual(Request.post(uri=f'repository/{self.repo_name}/clone'), self)
+
+    @patch('sap.rest.gcts.Repository.is_cloned', new_callable=PropertyMock)
+    @patch('sap.rest.gcts.Repository.create')
+    def test_simple_clone_passing_parameters(self, fake_create, fake_is_cloned):
+        fake_is_cloned.return_value = True
+
+        def assertPassedParameters(url, vsid, config=None, role=None, typ=None):
+            self.assertEqual(vsid, '0ZZ')
+            self.assertEqual(role, 'TARGET')
+            self.assertEqual(typ, 'GIT')
+            self.assertEqual(config, {'VCS_TARGET_DIR': 'foo/', 'CLIENT_VCS_AUTH_TOKEN': 'THE_TOKEN'})
+
+        fake_create.side_effect = assertPassedParameters
+
+        sap.rest.gcts.simple_clone(
+            self.conn,
+            self.repo_url,
+            self.repo_name,
+            vcs_token='THE_TOKEN',
+            vsid='0ZZ',
+            start_dir='foo/',
+            role='TARGET',
+            typ='GIT'
+        )
 
     def test_simple_clone_without_params_create_fail(self):
         log_builder = LogBuilder()
