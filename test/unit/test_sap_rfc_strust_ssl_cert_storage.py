@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from sap.rfc.strust import SSLCertStorage, InvalidSSLStorage, PutCertificateError
 
@@ -30,7 +30,7 @@ class TestSSLCertStorage(unittest.TestCase):
         ssl_storage = SSLCertStorage(conn, 'STR', 'TEST')
         self.assertEquals(str(ssl_storage), 'SSL Storage STR/TEST')
 
-    def test_raise_if_not_ok_raises(self):
+    def test_sanitize_raises(self):
         mock_connectionection = Mock()
         mock_connectionection.call.return_value = {
             'ET_BAPIRET2': [{'TYPE': 'E', 'MESSAGE': 'Invalid storage'}]}
@@ -40,16 +40,49 @@ class TestSSLCertStorage(unittest.TestCase):
         with self.assertRaises(InvalidSSLStorage) as cm:
             ssl_storage.sanitize()
 
-        print(mock_connectionection.call.call_args_list)
-        self.assertEquals(mock_connectionection.call.call_args_list,
-                          [mock.call('SSFR_PSE_CHECK',
-                                     dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'RAISE',
-                                                              'PSE_APPLIC': 'TEST'}))])
+        self.assertEqual(mock_connectionection.call.call_args_list,
+                         [mock.call('SSFR_PSE_CHECK',
+                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'RAISE',
+                                                             'PSE_APPLIC': 'TEST'}))])
 
-        self.assertEquals(str(cm.exception),
-                          'The SSL Storage RAISE/TEST is broken: Invalid storage')
+        self.assertEqual(str(cm.exception),
+                         'The SSL Storage RAISE/TEST is broken: Invalid storage')
 
-    def test_raise_if_not_ok(self):
+    def test_sanitize_raises_if_not_ret(self):
+        mock_connectionection = Mock()
+        mock_connectionection.call.return_value = {
+            'ET_BAPIRET2': []}
+
+        ssl_storage = SSLCertStorage(mock_connectionection, 'RAISE', 'TEST')
+
+        with self.assertRaises(InvalidSSLStorage) as cm:
+            ssl_storage.sanitize()
+
+        self.assertEqual(mock_connectionection.call.call_args_list,
+                         [mock.call('SSFR_PSE_CHECK',
+                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'RAISE',
+                                                             'PSE_APPLIC': 'TEST'}))])
+
+        self.assertEqual(str(cm.exception),
+                         'Received no response from the server - check STRUST manually.')
+
+    def test_sanitize_create(self):
+        mock_connectionection = Mock()
+        mock_connectionection.call.return_value = {
+            'ET_BAPIRET2': [{'TYPE': 'E', 'NUMBER': '031'}]}
+
+        ssl_storage = SSLCertStorage(mock_connectionection, 'CREATE', 'TEST')
+
+        with patch('sap.rfc.strust.SSLCertStorage.create', Mock()) as mock_create:
+            ssl_storage.sanitize()
+
+        self.assertEqual(mock_connectionection.call.call_args_list,
+                         [mock.call('SSFR_PSE_CHECK',
+                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'CREATE',
+                                                             'PSE_APPLIC': 'TEST'}))])
+        mock_create.assert_called_once()
+
+    def test_sanitize(self):
         mock_connectionection = Mock()
         mock_connectionection.call.return_value = {'ET_BAPIRET2': [{'TYPE': 'S'}]}
 
@@ -61,19 +94,65 @@ class TestSSLCertStorage(unittest.TestCase):
                                      dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'NOTRAISE',
                                                               'PSE_APPLIC': 'TEST'}))])
 
+    def test_create(self):
+        mock_connectionection = Mock()
+        mock_connectionection.call.return_value = {'ET_BAPIRET2': []}
+
+        ssl_storage = SSLCertStorage(mock_connectionection, 'NOTRAISE', 'TEST')
+        ssl_storage.create()
+
+        self.assertEquals(mock_connectionection.call.call_args_list,
+                          [mock.call('SSFR_PSE_CREATE',
+                                     {
+                                         'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'NOTRAISE',
+                                                                'PSE_APPLIC': 'TEST'},
+                                         'IV_ALG': 'R',
+                                         'IV_KEYLEN': 2048,
+                                         'IV_REPLACE_EXISTING_PSE': '-'
+                                     })
+                           ])
+
+    def test_create_raises(self):
+        mock_connectionection = Mock()
+        mock_connectionection.call.return_value = {'ET_BAPIRET2': [
+            {'TYPE': 'E', 'MESSAGE': 'Invalid storage'}
+        ]}
+
+        ssl_storage = SSLCertStorage(mock_connectionection, 'RAISE', 'TEST')
+
+        with self.assertRaises(InvalidSSLStorage) as cm:
+            ssl_storage.create()
+
+        self.assertEquals(mock_connectionection.call.call_args_list,
+                          [mock.call('SSFR_PSE_CREATE',
+                                     {
+                                         'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'RAISE',
+                                                                'PSE_APPLIC': 'TEST'},
+                                         'IV_ALG': 'R',
+                                         'IV_KEYLEN': 2048,
+                                         'IV_REPLACE_EXISTING_PSE': '-'
+                                     })
+                           ])
+
+        self.assertEqual(str(cm.exception),
+                         str([{'TYPE': 'E', 'MESSAGE': 'Invalid storage'}])
+                         )
+
     def test_put_certificate(self):
         mock_connectionection = Mock()
         mock_connectionection.call.return_value = {'ET_BAPIRET2': []}
 
         ssl_storage = SSLCertStorage(mock_connectionection, 'PUTOK', 'TEST')
 
-        ssl_storage.put_certificate('plain old data')
+        result = ssl_storage.put_certificate('plain old data')
 
-        self.assertEquals(mock_connectionection.call.call_args_list,
-                          [mock.call('SSFR_PUT_CERTIFICATE',
-                                     dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTOK',
-                                                              'PSE_APPLIC': 'TEST'},
-                                          IV_CERTIFICATE=u'plain old data'))])
+        self.assertEqual(result, 'OK')
+
+        self.assertEqual(mock_connectionection.call.call_args_list,
+                         [mock.call('SSFR_PUT_CERTIFICATE',
+                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTOK',
+                                                             'PSE_APPLIC': 'TEST'},
+                                         IV_CERTIFICATE=u'plain old data'))])
 
     def test_put_certificate_fail(self):
         mock_connectionection = Mock()
@@ -94,6 +173,26 @@ class TestSSLCertStorage(unittest.TestCase):
         self.assertEquals(str(cm.exception),
                           'Failed to put the CERT to the SSL Storage PUTERR/TEST: '
                           'Put has failed')
+
+    def test_put_certificate_fail_and_return_msg(self):
+        mock_connectionection = Mock()
+        mock_connectionection.call.return_value = {
+            'ET_BAPIRET2': [{'TYPE': 'E', 'NUMBER': '522', 'MESSAGE': 'Put has failed'}]}
+
+        ssl_storage = SSLCertStorage(mock_connectionection, 'PUTERR', 'TEST')
+
+        result = ssl_storage.put_certificate('plain old data')
+
+        self.assertEqual(result,
+                         'SSFR_PUT_CERTIFICATE reported Error 522 - ' \
+                         'probably already exists (check manually): Put has failed'
+                         )
+
+        self.assertEqual(mock_connectionection.call.call_args_list,
+                         [mock.call('SSFR_PUT_CERTIFICATE',
+                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTERR',
+                                                             'PSE_APPLIC': 'TEST'},
+                                         IV_CERTIFICATE=u'plain old data'))])
 
 
 if __name__ == '__main__':

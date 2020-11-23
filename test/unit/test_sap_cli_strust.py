@@ -7,6 +7,12 @@ from sap.errors import SAPCliError
 from sap.rfc.strust import CLIENT_ANONYMOUS, CLIENT_STANDART
 
 
+class TestCommandGroup(unittest.TestCase):
+
+    def test_cli_ddl_commands_constructor(self):
+        sap.cli.strust.CommandGroup()
+
+
 class TestAddAllFiles(unittest.TestCase):
 
     def test_smooth_run(self):
