@@ -63,7 +63,7 @@ class SSLCertStorage:
         ret = stat['ET_BAPIRET2']
         if not ret:
             raise InvalidSSLStorage(
-                'The {0} is broken: received no response from the server - check STRUST manually.'
+                'Received no response from the server - check STRUST manually.'
             )
 
         message = ret[0]
