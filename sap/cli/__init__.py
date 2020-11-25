@@ -17,6 +17,7 @@ class CommandsCache:
     adt = None
     rfc = None
     rest = None
+    odata = None
 
     @staticmethod
     def commands():
@@ -41,6 +42,7 @@ class CommandsCache:
         import sap.cli.strust
         import sap.cli.user
         import sap.cli.abapgit
+        import sap.cli.bsp
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -77,7 +79,12 @@ class CommandsCache:
             else:
                 CommandsCache.rfc = list()
 
-        return CommandsCache.adt + CommandsCache.rest + CommandsCache.rfc
+        if CommandsCache.odata is None:
+            CommandsCache.odata = [
+                (bsp_connection_from_args, sap.cli.bsp.CommandGroup())
+            ]
+
+        return CommandsCache.adt + CommandsCache.rest + CommandsCache.rfc + CommandsCache.odata
 
 
 def adt_connection_from_args(args):
@@ -108,6 +115,16 @@ def gcts_connection_from_args(args):
     return sap.rest.Connection('sap/bc/cts_abapvcs', 'system', args.ashost, args.client,
                                args.user, args.password, port=args.port, ssl=args.ssl,
                                verify=args.verify)
+
+
+def bsp_connection_from_args(args):
+    """Returns RFC connection constructed from the passed args (Namespace)
+    """
+
+    import sap.odata
+    return sap.odata.Connection('ABAP_REPOSITORY_SRV', args.ashost, args.port,
+                                args.client, args.user, args.password, args.ssl,
+                                args.verify)
 
 
 def get_commands():
