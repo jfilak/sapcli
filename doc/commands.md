@@ -15,3 +15,4 @@
 13. [checkout](commands/checkout.md) - Source Code Management System
 14. [datapreview](commands/datapreview.md) - Simple ABAP OSQL queries
 15. [startrfc](commands/startrfc.md) - Run arbitrary RFC enabled Function Modules
+16. [bsp](commands/bsp.md) - Management of BSP applications
