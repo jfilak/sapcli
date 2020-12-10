@@ -3,6 +3,7 @@
 1. [create](#create)
 2. [list](#list)
 3. [check](#check)
+4. [stat](#stat)
 
 ## create
 
@@ -29,4 +30,24 @@ Run all available standard ADT checks for all objects of the give package.
 
 ```bash
 sapcli package check \$productive_code
+```
+
+## stat
+
+Prints basic set of package attributes. Returned exit could be interpreted as:
+* `0` - package found
+* `1` - package not found
+
+```bash
+sapcli package stat \$productive_code
+```
+
+which results in output similar to:
+```
+Name                   :PROD_BSP_APS
+Active                 :active
+Application Component  :APP-COMP-XY
+Software Component     :SW-COMP-XY
+Transport Layer        :
+Package Type           :development
 ```

@@ -36,6 +36,16 @@ class ExceptionResourceAlreadyExists(ADTError):
         return f'{self.message}'
 
 
+class ExceptionResourceNotFound(ADTError):
+    """Thin wrapper for the class type of ADTErrors"""
+
+    def __init__(self, message):
+        super().__init__('com.sap.adt', self.__class__.__name__, message)
+
+    def __str__(self):
+        return f'{self.message}'
+
+
 def new_adt_error_from_xml(xmldata):
     """Parses the xml data and create the correct instance.
 

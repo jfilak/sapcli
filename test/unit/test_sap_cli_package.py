@@ -8,11 +8,15 @@ from io import StringIO
 
 from sap.errors import SAPCliError
 from sap.rest.errors import HTTPRequestError
-from sap.adt.errors import ExceptionResourceAlreadyExists
-import sap.cli.package
+from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionResourceNotFound
 
-from mock import Connection, Response
+import sap.cli.package
+import sap.cli.core
+
+from mock import Connection, Response, ConsoleOutputTestCase, PatcherTestCase
 from fixtures_adt import EMPTY_RESPONSE_OK, ERROR_XML_PACKAGE_ALREADY_EXISTS
+from fixtures_adt_package import GET_PACKAGE_ADT_XML, GET_PACKAGE_ADT_XML_NOT_FOUND
+
 
 RESPONSE_PACKAGE_EXISTS = Response(status_code=405,
                                    headers={'content-type': 'application/xml'},
@@ -142,6 +146,42 @@ class TestPackageList(unittest.TestCase):
                                                  call('Z_HELLO_WORLD'),
                                                  call('$VICTORY_TESTS/ZCL_TESTS'),
                                                  call('$VICTORY_DOC/')])
+
+class TestPackageStat(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        ConsoleOutputTestCase.setUp(self)
+        self.patch_console(console=self.console)
+
+    def test_stat_existing(self):
+
+        conn = Connection([Response(status_code=200, headers={}, text=GET_PACKAGE_ADT_XML)])
+
+        args = parse_args('stat', '$IAMTHEKING')
+
+        exit_code = args.execute(conn, args)
+        self.assertEqual(exit_code, sap.cli.core.EXIT_CODE_OK)
+
+        self.assertEqual(len(conn.execs), 1)
+
+        self.assertConsoleContents(self.console, stdout='''Name                   :$IAMTHEKING
+Active                 :active
+Application Component  :-
+Software Component     :LOCAL
+Transport Layer        :
+Package Type           :development
+''')
+
+    def test_stat_not_found(self):
+
+        conn = Connection([Response(status_code=404, headers={'content-type': 'application/xml'}, text=GET_PACKAGE_ADT_XML_NOT_FOUND)])
+
+        args = parse_args('stat', '$IAMTHEKING')
+
+        exit_code = args.execute(conn, args)
+
+        self.assertEqual(exit_code, sap.cli.core.EXIT_CODE_NOT_FOUND)
+        self.assertConsoleContents(self.console, stderr='Package $IAMTHEKING not found\n')
 
 
 class TestPackageCheck(unittest.TestCase):

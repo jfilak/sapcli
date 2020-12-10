@@ -4,6 +4,9 @@ import sys
 
 from sap.errors import SAPCliError
 
+EXIT_CODE_OK = 0
+EXIT_CODE_NOT_FOUND = 10
+
 
 class InvalidCommandLineError(SAPCliError):
     """Exception type for wrong command line parameters"""
