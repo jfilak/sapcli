@@ -5,6 +5,7 @@ import unittest
 import sap.adt.errors
 
 from fixtures_adt import ERROR_XML_PACKAGE_ALREADY_EXISTS, ERROR_XML_MADEUP_PROBLEM
+from fixtures_adt_package import GET_PACKAGE_ADT_XML_NOT_FOUND
 
 
 class TestADTError(unittest.TestCase):
@@ -23,6 +24,17 @@ class TestADTError(unittest.TestCase):
         self.assertEqual(str(error), error.message)
         self.assertEqual(repr(error), 'com.sap.adt.ExceptionResourceAlreadyExists')
         self.assertIsInstance(error, sap.adt.errors.ExceptionResourceAlreadyExists)
+
+    def test_parse_not_found_package(self):
+        error = sap.adt.errors.new_adt_error_from_xml(GET_PACKAGE_ADT_XML_NOT_FOUND)
+
+        self.assertEqual(error.namespace, 'com.sap.adt')
+        self.assertEqual(error.type, 'ExceptionResourceNotFound')
+        self.assertEqual(error.message, 'Error while importing object PKG_NAME from the database.')
+
+        self.assertEqual(str(error), error.message)
+        self.assertEqual(repr(error), 'com.sap.adt.ExceptionResourceNotFound')
+        self.assertIsInstance(error, sap.adt.errors.ExceptionResourceNotFound)
 
     def test_parse_arbitrary_error(self):
         error = sap.adt.errors.new_adt_error_from_xml(ERROR_XML_MADEUP_PROBLEM)

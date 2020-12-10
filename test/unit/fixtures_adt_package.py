@@ -21,3 +21,13 @@ GET_PACKAGE_ADT_XML='''<?xml version="1.0" encoding="utf-8"?>
   </pak:subPackages>
 </pak:package>
 '''
+
+GET_PACKAGE_ADT_XML_NOT_FOUND='''<?xml version="1.0" encoding="utf-8"?>
+<exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework">
+  <namespace id="com.sap.adt"/>
+  <type id="ExceptionResourceNotFound"/>
+  <message lang="EN">Error while importing object PKG_NAME from the database.</message>
+  <localizedMessage lang="EN">Error while importing object PKG_NAME from the database.</localizedMessage>
+  <properties/>
+</exc:exception>
+'''.replace('\n', '').replace('\r', '')

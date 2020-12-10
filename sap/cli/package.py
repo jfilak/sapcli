@@ -6,7 +6,7 @@ from sap import get_logger
 
 import sap.adt
 import sap.adt.checks
-from sap.adt.errors import ExceptionResourceAlreadyExists
+from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionResourceNotFound
 
 import sap.cli.core
 
@@ -93,6 +93,32 @@ def list_package(connection, args):
             print(f'{basedir}')
 
     return 0
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command('stat')
+def stat(connection, args):
+    """Get information about package"""
+
+    package = sap.adt.Package(connection, args.name)
+
+    console = sap.cli.core.get_console()
+
+    try:
+        package.fetch()
+    except ExceptionResourceNotFound:
+        console.printerr(f'Package {args.name} not found')
+        return sap.cli.core.EXIT_CODE_NOT_FOUND
+
+    console.printout(f'Name                   :{package.name}')
+    console.printout(f'Active                 :{package.active}')
+    # pylint: disable=no-member
+    console.printout(f'Application Component  :{package.app_component.name}')
+    console.printout(f'Software Component     :{package.transport.software_component.name}')
+    console.printout(f'Transport Layer        :{package.transport.transport_layer.name}')
+    console.printout(f'Package Type           :{package.attributes.package_type}')
+
+    return sap.cli.core.EXIT_CODE_OK
 
 
 def _run_reporters_for_objects(connection, reporters, package_objects):
