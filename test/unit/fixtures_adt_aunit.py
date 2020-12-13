@@ -33,6 +33,20 @@ AUNIT_RESULTS_XML = '''<?xml version="1.0" encoding="utf-8"?>
               </alert>
             </alerts>
           </testMethod>
+          <testMethod adtcore:uri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOLD;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_WARN" adtcore:type="CLAS/OLI" adtcore:name="DO_THE_WARN" executionTime="0.033" uriType="semantic" navigationUri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOLD;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_WARN" unit="s">
+            <alerts>
+              <alert kind="failedAssertion" severity="tolerable">
+                <title>Warning: 'I am supposed to warn'</title>
+                <details>
+                  <detail text="True expected"/>
+                  <detail text="Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'."/>
+                </details>
+                <stack>
+                  <stackEntry adtcore:uri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#start=19,0" adtcore:type="CLAS/OCN/testclasses" adtcore:name="ZCL_THEKING_MANUAL_HARDCORE" adtcore:description="Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)"/>
+                </stack>
+              </alert>
+            </alerts>
+          </testMethod>
         <testMethod adtcore:uri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOLD;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_TEST" adtcore:type="CLAS/OLI" adtcore:name="DO_THE_TEST" executionTime="0" uriType="semantic" navigationUri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOLD;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_TEST" unit="s"/>
         </testMethods>
       </testClass>
@@ -80,6 +94,22 @@ AUNIT_RESULTS_XML = '''<?xml version="1.0" encoding="utf-8"?>
             </alerts>
           </testMethod>
           <testMethod adtcore:uri="/sap/bc/adt/programs/programs/zexample_tests/source/main#type=PROG%2FPLM;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_TEST" adtcore:type="PROG/OLI" adtcore:name="DO_THE_TEST" executionTime="0" uriType="semantic" navigationUri="/sap/bc/adt/programs/programs/zexample_tests/source/main#type=PROG%2FPLM;name=LTCL_TEST%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20DO_THE_TEST" unit="s"/>
+        </testMethods>
+      </testClass>
+    </testClasses>
+  </program>
+</aunit:runResult>
+'''
+
+AUNIT_RESULTS_NO_TEST_METHODS_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<aunit:runResult xmlns:aunit="http://www.sap.com/adt/aunit">
+  <external>
+    <coverage xmlns:adtcore="http://www.sap.com/adt/core" adtcore:uri="/sap/bc/adt/runtime/traces/coverage/measurements/FOOBAR"/>
+  </external>
+  <program adtcore:uri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore" adtcore:type="CLAS/OC" adtcore:name="ZCL_THEKING_MANUAL_HARDCORE" uriType="semantic" xmlns:adtcore="http://www.sap.com/adt/core">
+    <testClasses>
+      <testClass adtcore:uri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOCL;name=LTCL_TEST" adtcore:type="CLAS/OL" adtcore:name="LTCL_TEST" uriType="semantic" navigationUri="/sap/bc/adt/oo/classes/zcl_theking_manual_hardcore/includes/testclasses#type=CLAS%2FOCL;name=LTCL_TEST" durationCategory="short" riskLevel="harmless">
+        <testMethods>
         </testMethods>
       </testClass>
     </testClasses>

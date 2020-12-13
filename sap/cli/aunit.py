@@ -1,7 +1,9 @@
 """ADT proxy for ABAP Unit"""
 
 import os
+import re
 import sys
+from collections import defaultdict
 from enum import Enum
 from xml.sax.saxutils import escape, quoteattr
 from itertools import islice
@@ -14,6 +16,12 @@ import sap.adt.objects
 import sap.adt.cts
 import sap.cli.core
 import sap.adt.acoverage
+from sap.adt.acoverage_statements import (
+    ACoverageStatements,
+    StatementsBulkRequest,
+    StatementRequest,
+    parse_statements_response
+)
 from sap.errors import SAPCliError
 
 
@@ -300,6 +308,41 @@ def print_acoverage_raw(acoverage_xml, stream):
     print(acoverage_xml, file=stream)
 
 
+def get_line_and_column(location):
+    """Finds line and column in uri"""
+
+    # pylint: disable=invalid-name
+    START_PATTERN = r'(start=)(?P<line>\d+)(,(?P<column>\d+))?'
+
+    search_result = re.search(START_PATTERN, location or '')
+
+    line = column = '0'
+    if search_result:
+        line = search_result.group('line')
+        column = search_result.group('column') or '0'
+
+    return line, column
+
+
+def get_method_lines_mapping(statement_responses):
+    """
+    Build mapping using statement_responses
+    Mapping structure: {(class_name, method_name):[(line_number, is_covered)]}
+    """
+
+    result = defaultdict(list)
+    for statement_response in statement_responses:
+        split_results = statement_response.name.rsplit('.', 2)
+        class_name = split_results[-2]
+        method_name = split_results[-1]
+        for statement in statement_response.statements:
+            line, _ = get_line_and_column(statement.uri)
+            is_covered = bool(int(statement.executed or 0))
+            result[(class_name, method_name)].append((line, is_covered))
+
+    return result
+
+
 def _print_counters_jacoco(node, stream, indent, indent_level):
     # pylint: disable=invalid-name
     COVERAGE_COUNTER_TYPE_MAPPING = {
@@ -315,39 +358,67 @@ def _print_counters_jacoco(node, stream, indent, indent_level):
               f'covered="{coverage.executed}"/>', file=stream)
 
 
-def _print_class_jacoco(node, stream, indent, indent_level):
+def _print_source_file_jacoco(file_name, lines_data, stream, indent, indent_level):
+    file_level_indent = indent * indent_level
+    line_level_indent = indent * (indent_level + 1)
+
+    print(f'{file_level_indent}<sourcefile name="{file_name}">', file=stream)
+    for line_number, is_covered in lines_data:
+        covered_instructions = '1' if is_covered else '0'
+        missed_instructions = '0' if is_covered else '1'
+
+        print(
+            f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" ci="{covered_instructions}">',
+            file=stream
+        )
+
+    print(f'{file_level_indent}</sourcefile>', file=stream)
+
+
+def _print_class_jacoco(node, method_lines_mapping, stream, indent, indent_level):
+    class_level_indent = indent * indent_level
+    method_level_indent = indent * (indent_level + 1)
+
     if len(node.name) == 32:
-        print(f'{indent * 2}<class name="{node.name}">', file=stream)
-        _print_counters_jacoco(node, stream, indent, indent_level + 1)
-        print(f'{indent * 2}</class>', file=stream)
         if node.nodes:
             node = node.nodes[0]
         else:
+            class_name = node.name[:30].rstrip('=')
+            print(f'{class_level_indent}<class name="{class_name}" sourcefilename="{class_name}">', file=stream)
+            _print_counters_jacoco(node, stream, indent, indent_level + 1)
+            print(f'{class_level_indent}</class>', file=stream)
             return
 
-    print(f'{indent * 2}<class name="{node.name}">', file=stream)
+    lines_data = []
+    print(f'{class_level_indent}<class name="{node.name}" sourcefilename="{node.name}">', file=stream)
     for method in node.nodes:
-        print(f'{indent * 3}<method name="{method.name}">', file=stream)
+        line, _ = get_line_and_column(method.uri)
+        print(f'{method_level_indent}<method name="{method.name}" line="{line}">', file=stream)
         _print_counters_jacoco(method, stream, indent, indent_level + 2)
-        print(f'{indent * 3}</method>', file=stream)
+        print(f'{method_level_indent}</method>', file=stream)
+
+        lines_data += method_lines_mapping[(node.name, method.name)]
 
     _print_counters_jacoco(node, stream, indent, indent_level + 1)
-    print(f'{indent * 2}</class>', file=stream)
+    print(f'{class_level_indent}</class>', file=stream)
+    _print_source_file_jacoco(node.name, lines_data, stream, indent, indent_level)
 
 
-def _print_package_jacoco(node, stream, indent, indent_level):
+def _print_package_jacoco(node, method_lines_mapping, stream, indent, indent_level):
     for package in node.nodes:
         print(f'{indent}<package name="{package.name}">', file=stream)
         for class_node in package.nodes:
-            _print_class_jacoco(class_node, stream, indent, indent_level + 1)
+            _print_class_jacoco(class_node, method_lines_mapping, stream, indent, indent_level + 1)
         _print_counters_jacoco(package, stream, indent, indent_level + 1)
         print(f'{indent}</package>', file=stream)
 
     _print_counters_jacoco(node, stream, indent, indent_level)
 
 
-def print_acoverage_jacoco(root_node, args, stream):
+def print_acoverage_jacoco(root_node, statement_responses, args, stream):
     """Print results of ACoverage to stream in the form of JaCoCo"""
+
+    method_lines_mapping = get_method_lines_mapping(statement_responses)
 
     # pylint: disable=invalid-name
     INDENT = '   '
@@ -356,8 +427,21 @@ def print_acoverage_jacoco(root_node, args, stream):
 
     report_name = "|".join(args.name)
     print(f'<report name={quoteattr(report_name)}>', file=stream)
-    _print_package_jacoco(root_node, stream, INDENT, 1)
+    _print_package_jacoco(root_node, method_lines_mapping, stream, INDENT, 1)
     print('</report>', file=stream)
+
+
+def get_acoverage_statements(connection, coverage_identifier, statement_uris):
+    """Retrieve and parse acoverage statements for specific coverage identifier"""
+
+    acoverage_statements = ACoverageStatements(connection)
+    statement_requests = [StatementRequest(uri) for uri in statement_uris]
+    bulk_statements = StatementsBulkRequest(coverage_identifier, statement_requests)
+    acoverage_statements = ACoverageStatements(connection)
+    acoverage_statements_response = acoverage_statements.execute(bulk_statements)
+    parsed_response = parse_statements_response(acoverage_statements_response.text)
+
+    return parsed_response.statement_responses
 
 
 class TransportObjectSelector:
@@ -420,11 +504,11 @@ def print_aunit_output(args, aunit_response, aunit_parsed_response):
     return result
 
 
-def print_acoverage_output(args, acoverage_response, root_node):
+def print_acoverage_output(args, acoverage_response, root_node, statement_responses):
     """Prints ACoverage output in selected format and stream"""
 
     if args.coverage_output not in ('raw', 'human', 'jacoco'):
-        raise SAPCliError(f'Unsupported output type: {args.output}')
+        raise SAPCliError(f'Unsupported output type: {args.coverage_output}')
 
     stream = open(args.coverage_filepath, 'w+') if args.coverage_filepath else sys.stdout
 
@@ -433,7 +517,7 @@ def print_acoverage_output(args, acoverage_response, root_node):
     elif args.coverage_output == 'human':
         print_acoverage_human(root_node, stream)
     elif args.coverage_output == 'jacoco':
-        print_acoverage_jacoco(root_node, args, stream)
+        print_acoverage_jacoco(root_node, statement_responses, args, stream)
 
     if args.coverage_filepath:
         stream.close()
@@ -514,8 +598,16 @@ def run(connection, args):
     if activate_coverage:
         acoverage = sap.adt.ACoverage(connection)
         acoverage_response = acoverage.execute(aunit_parsed_response.coverage_identifier, sets)
-        root_node = sap.adt.acoverage.parse_acoverage_response(acoverage_response.text).root_node
+        parsed_acoverage_response = sap.adt.acoverage.parse_acoverage_response(acoverage_response.text)
 
-        print_acoverage_output(args, acoverage_response, root_node)
+        statement_responses = get_acoverage_statements(
+            connection,
+            aunit_parsed_response.coverage_identifier,
+            parsed_acoverage_response.statement_uris
+        )
+
+        root_node = parsed_acoverage_response.root_node
+
+        print_acoverage_output(args, acoverage_response, root_node, statement_responses)
 
     return result
