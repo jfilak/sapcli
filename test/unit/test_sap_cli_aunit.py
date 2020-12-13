@@ -1,25 +1,19 @@
 #!/usr/bin/env python3
 
 import sys
-from argparse import ArgumentParser
-
 import unittest
-from unittest.mock import patch, call, Mock, mock_open
 from io import StringIO
 from types import SimpleNamespace
+from unittest.mock import patch, call, Mock, mock_open
 
-from fixtures_adt_coverage import ACOVERAGE_RESULTS_XML
-from sap.errors import SAPCliError
-import sap.cli.aunit
 import sap.adt.cts
-
-from mock import Connection, Response
-from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
-from fixtures_adt_aunit import AUNIT_NO_TEST_RESULTS_XML, AUNIT_RESULTS_XML, GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML
-from sap.cli.aunit import ResultOptions
-
+import sap.cli.aunit
+from fixtures_adt_aunit import AUNIT_NO_TEST_RESULTS_XML, AUNIT_RESULTS_XML, GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML, AUNIT_RESULTS_NO_TEST_METHODS_XML
+from fixtures_adt_coverage import ACOVERAGE_RESULTS_XML, ACOVERAGE_STATEMENTS_RESULTS_XML
 from infra import generate_parse_args
-
+from mock import Connection, Response
+from sap.cli.aunit import ResultOptions
+from sap.errors import SAPCliError
 
 parse_args = generate_parse_args(sap.cli.aunit.CommandGroup())
 
@@ -52,6 +46,12 @@ class TestAUnitWrite(unittest.TestCase):
 
         self.assertEqual(str(cm.exception), 'Unknown type: foo')
 
+    def test_print_aunit_output_raises(self):
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.aunit.print_aunit_output(SimpleNamespace(output='foo'), Mock(), Mock())
+
+        self.assertEqual(str(cm.exception), 'Unsupported output type: foo')
+
     def execute_run(self, *args, **kwargs):
         cmd_args = parse_args('run', *args, **kwargs)
         return cmd_args.execute(self.connection, cmd_args)
@@ -68,7 +68,7 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertIn('programs/programs/yprogram', self.connection.execs[0].body)
         self.assert_print_no_test_classes(mock_print)
 
-    def test_aunit_class(self):
+    def test_aunit_class_human(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
 
         with patch('sap.cli.aunit.print') as mock_print:
@@ -88,6 +88,22 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertIn('packages/ypackage', self.connection.execs[0].body)
         self.assert_print_no_test_classes(mock_print)
 
+    def test_aunit_junit4_no_test_methods(self):
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_NO_TEST_METHODS_XML, headers={}))
+
+        with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+            self.execute_run('package', 'ypackage', '--output', 'junit4', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertEqual(
+            """<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="ypackage">
+  <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="0"/>
+</testsuites>
+""",
+            mock_stdout.getvalue()
+        )
+
     def test_aunit_package_with_results(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
@@ -101,26 +117,27 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(mock_print.call_args_list[0], call('ZCL_THEKING_MANUAL_HARDCORE', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[1], call('  LTCL_TEST', file=sys.stdout))
         self.assertEqual(mock_print.call_args_list[2], call('    DO_THE_FAIL [ERR]', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[3], call('    DO_THE_TEST [OK]', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[4], call('  LTCL_TEST_HARDER', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[5], call('    DO_THE_FAIL [ERR]', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[6], call('    DO_THE_TEST [OK]', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[7], call('ZEXAMPLE_TESTS', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[8], call('  LTCL_TEST', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[9], call('    DO_THE_FAIL [ERR]', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[10], call('    DO_THE_TEST [OK]', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[11], call('', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[12], call('ZCL_THEKING_MANUAL_HARDCORE=>LTCL_TEST=>DO_THE_FAIL', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[13], call('*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[14], call('ZCL_THEKING_MANUAL_HARDCORE=>LTCL_TEST_HARDER=>DO_THE_FAIL', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[15], call('*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[16], call('ZEXAMPLE_TESTS=>LTCL_TEST=>DO_THE_FAIL', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[17], call('*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[18], call('*  [critical] [failedAssertion] - Error<LOAD_PROGRAM_CLASS_MISMATCH>', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[19], call('', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[20], call('Successful: 3', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[21], call('Warnings:   0', file=sys.stdout))
-        self.assertEqual(mock_print.call_args_list[22], call('Errors:     3', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[3], call('    DO_THE_WARN [SKIP]', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[4], call('    DO_THE_TEST [OK]', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[5], call('  LTCL_TEST_HARDER', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[6], call('    DO_THE_FAIL [ERR]', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[7], call('    DO_THE_TEST [OK]', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[8], call('ZEXAMPLE_TESTS', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[9], call('  LTCL_TEST', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[10], call('    DO_THE_FAIL [ERR]', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[11], call('    DO_THE_TEST [OK]', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[12], call('', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[13], call('ZCL_THEKING_MANUAL_HARDCORE=>LTCL_TEST=>DO_THE_FAIL', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[14], call('*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[15], call('ZCL_THEKING_MANUAL_HARDCORE=>LTCL_TEST_HARDER=>DO_THE_FAIL', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[16], call('*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[17], call('ZEXAMPLE_TESTS=>LTCL_TEST=>DO_THE_FAIL', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[18], call('*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[19], call('*  [critical] [failedAssertion] - Error<LOAD_PROGRAM_CLASS_MISMATCH>', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[20], call('', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[21], call('Successful: 3', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[22], call('Warnings:   1', file=sys.stdout))
+        self.assertEqual(mock_print.call_args_list[23], call('Errors:     3', file=sys.stdout))
 
     def test_aunit_package_with_results_raw(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
@@ -148,11 +165,16 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(mock_stdout.getvalue(),
 '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="ypackage">
-  <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
+  <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="3">
     <testcase name="DO_THE_FAIL" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="ERR">
       <system-err>True expected
 Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
       <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</error>
+    </testcase>
+    <testcase name="DO_THE_WARN" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="SKIP">
+      <system-err>True expected
+Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
+      <error type="failedAssertion" message="Warning: 'I am supposed to warn'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)</error>
     </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="OK"/>
   </testsuite>
@@ -199,6 +221,14 @@ Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===
 
 Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
       </error>
+    </testCase>
+    <testCase name="DO_THE_WARN" duration="33">
+      <skipped message="Warning: 'I am supposed to warn'">
+True expected
+Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
+
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)
+      </skipped>
     </testCase>
     <testCase name="DO_THE_TEST" duration="0"/>
   </file>
@@ -280,7 +310,33 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 </testExecutions>
 ''')
 
-    def test_acoverage_package_with_results_raw(self):
+    @patch('os.walk')
+    def test_print_aunit_sonar_filename_is_not_none(self, walk):
+        walk.return_value = [('.', None, ['zcl_theking_manual_hardcore.clas.testclasses.abap', 'bar'])]
+        results = sap.adt.aunit.parse_aunit_response(AUNIT_RESULTS_NO_TEST_METHODS_XML).run_results
+        output = StringIO()
+        sap.cli.aunit.print_aunit_sonar(results, SimpleNamespace(name=['foo']), output)
+
+        self.assertEqual(
+            '''<?xml version="1.0" encoding="UTF-8" ?>
+<testExecutions version="1">
+  <file path="zcl_theking_manual_hardcore.clas.testclasses.abap">
+  </file>
+</testExecutions>
+''',
+            output.getvalue()
+        )
+
+    def test_print_acoverage_output_raises(self):
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.aunit.print_acoverage_output(SimpleNamespace(coverage_output='foo'), Mock(), Mock(), Mock())
+
+        self.assertEqual(str(cm.exception), 'Unsupported output type: foo')
+
+    @patch('sap.cli.aunit.get_acoverage_statements')
+    def test_acoverage_package_with_results_raw(self, get_acoverage_statements):
+        get_acoverage_statements.return_value = []
+
         self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
             Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
@@ -296,7 +352,10 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 
         self.assertEqual(mock_print.call_args_list[0], call(ACOVERAGE_RESULTS_XML, file=sys.stdout))
 
-    def test_acoverage_package_with_results_human(self):
+    @patch('sap.cli.aunit.get_acoverage_statements')
+    def test_acoverage_package_with_results_human(self, get_acoverage_statements):
+        get_acoverage_statements.return_value = []
+
         self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
             Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
@@ -322,7 +381,8 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
     def test_acoverage_package_with_results_jacoco(self):
         self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
+            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
+            Response(status_code=200, text=ACOVERAGE_STATEMENTS_RESULTS_XML, headers={}),
         )
 
         with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
@@ -331,25 +391,19 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
             )
 
         self.assertEqual(exit_code, None)
-        self.assertEqual(len(self.connection.execs), 2)
-
+        self.assertEqual(len(self.connection.execs), 3)
         self.assertEqual(mock_stdout.getvalue(),
 '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">
 <report name="ypackage">
    <package name="TEST_CHECK_LIST">
-      <class name="FOO===========================CP">
-         <counter type="BRANCH" missed="7" covered="22"/>
-         <counter type="METHOD" missed="0" covered="8"/>
-         <counter type="INSTRUCTION" missed="3" covered="60"/>
-      </class>
-      <class name="FOO">
-         <method name="METHOD_A">
+      <class name="FOO" sourcefilename="FOO">
+         <method name="METHOD_A" line="52">
             <counter type="BRANCH" missed="2" covered="3"/>
             <counter type="METHOD" missed="0" covered="1"/>
             <counter type="INSTRUCTION" missed="0" covered="5"/>
          </method>
-         <method name="METHOD_B">
+         <method name="METHOD_B" line="199">
             <counter type="BRANCH" missed="1" covered="1"/>
             <counter type="METHOD" missed="0" covered="1"/>
             <counter type="INSTRUCTION" missed="2" covered="6"/>
@@ -358,7 +412,22 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
          <counter type="METHOD" missed="0" covered="8"/>
          <counter type="INSTRUCTION" missed="3" covered="60"/>
       </class>
-      <class name="BAR===========================CP">
+      <sourcefile name="FOO">
+         <line nr="53" mi="0" ci="1">
+         <line nr="54" mi="0" ci="1">
+         <line nr="55" mi="0" ci="1">
+         <line nr="56" mi="0" ci="1">
+         <line nr="59" mi="0" ci="1">
+         <line nr="209" mi="0" ci="1">
+         <line nr="212" mi="0" ci="1">
+         <line nr="215" mi="0" ci="1">
+         <line nr="216" mi="0" ci="1">
+         <line nr="219" mi="0" ci="1">
+         <line nr="220" mi="0" ci="1">
+         <line nr="224" mi="1" ci="0">
+         <line nr="225" mi="1" ci="0">
+      </sourcefile>
+      <class name="BAR" sourcefilename="BAR">
          <counter type="BRANCH" missed="0" covered="0"/>
          <counter type="METHOD" missed="0" covered="0"/>
          <counter type="INSTRUCTION" missed="0" covered="0"/>
@@ -373,7 +442,8 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
     def test_result_option_all(self):
         self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
+            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
+            Response(status_code=200, text=ACOVERAGE_STATEMENTS_RESULTS_XML, headers={}),
         )
 
         with patch('sap.cli.aunit.print') as mock_print:
@@ -382,7 +452,7 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
             )
 
         self.assertEqual(exit_code, 3)
-        self.assertEqual(len(self.connection.execs), 2)
+        self.assertEqual(len(self.connection.execs), 3)
 
         self.assertEqual(len(mock_print.call_args_list), 2)
         self.assertEqual(mock_print.call_args_list[0], call(AUNIT_RESULTS_XML, file=sys.stdout))
@@ -407,7 +477,8 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
     def test_result_option_coverage(self):
         self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
-            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
+            Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
+            Response(status_code=200, text=ACOVERAGE_STATEMENTS_RESULTS_XML, headers={}),
         )
 
         with patch('sap.cli.aunit.print') as mock_print:
@@ -416,7 +487,7 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
             )
 
         self.assertEqual(exit_code, None)
-        self.assertEqual(len(self.connection.execs), 2)
+        self.assertEqual(len(self.connection.execs), 3)
 
         self.assertEqual(len(mock_print.call_args_list), 1)
         self.assertEqual(mock_print.call_args_list[0], call(ACOVERAGE_RESULTS_XML, file=sys.stdout))
@@ -425,6 +496,7 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
         self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}),
             Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={}),
+            Response(status_code=200, text=ACOVERAGE_STATEMENTS_RESULTS_XML, headers={}),
         )
 
         coverage_filepath = 'path/to/coverage'

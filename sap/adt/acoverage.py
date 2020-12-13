@@ -64,6 +64,7 @@ class Node(NamedTuple):
 
     name: str
     type: str
+    uri: str
     nodes: List
     coverages: List
     parent_node: object
@@ -86,10 +87,10 @@ class CoverageResponseHandler(ContentHandler):
         super().__init__()
 
         self.root_node = None
+        self.statement_uris = []
         self._node = None
-        self._nodes = []
         self._parent_node = None
-        self._coverage = None
+        self._save_uris = False
 
     def startElement(self, name, attrs):
         mod_log().debug('XML: %s', name)
@@ -97,16 +98,20 @@ class CoverageResponseHandler(ContentHandler):
             self.root_node = Node(
                 name=attrs.get('name'),
                 type=None,
+                uri=None,
                 nodes=[],
                 coverages=[],
                 parent_node=self._parent_node
             )
             self._node = self.root_node
+        elif name == 'nodes':
+            self._save_uris = True
         elif name == 'adtcore:objectReference':
             self._parent_node = self._node
             self._node = Node(
                 name=attrs.get('adtcore:name'),
                 type=attrs.get('adtcore:type'),
+                uri=attrs.get('adtcore:uri'),
                 nodes=[],
                 coverages=[],
                 parent_node=self._parent_node
@@ -121,6 +126,8 @@ class CoverageResponseHandler(ContentHandler):
             )
             self._node.coverages.append(coverage)
             mod_log().debug('XML: %s: %s', name, coverage.type)
+        elif name == 'atom:link' and self._save_uris:
+            self.statement_uris.append(attrs.get('href'))
 
     def endElement(self, name):
         mod_log().debug('XML: %s: CLOSING', name)
