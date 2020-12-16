@@ -413,19 +413,19 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
          <counter type="INSTRUCTION" missed="3" covered="60"/>
       </class>
       <sourcefile name="FOO">
-         <line nr="53" mi="0" ci="1">
-         <line nr="54" mi="0" ci="1">
-         <line nr="55" mi="0" ci="1">
-         <line nr="56" mi="0" ci="1">
-         <line nr="59" mi="0" ci="1">
-         <line nr="209" mi="0" ci="1">
-         <line nr="212" mi="0" ci="1">
-         <line nr="215" mi="0" ci="1">
-         <line nr="216" mi="0" ci="1">
-         <line nr="219" mi="0" ci="1">
-         <line nr="220" mi="0" ci="1">
-         <line nr="224" mi="1" ci="0">
-         <line nr="225" mi="1" ci="0">
+         <line nr="53" mi="0" ci="1"/>
+         <line nr="54" mi="0" ci="1"/>
+         <line nr="55" mi="0" ci="1"/>
+         <line nr="56" mi="0" ci="1"/>
+         <line nr="59" mi="0" ci="1"/>
+         <line nr="209" mi="0" ci="1"/>
+         <line nr="212" mi="0" ci="1"/>
+         <line nr="215" mi="0" ci="1"/>
+         <line nr="216" mi="0" ci="1"/>
+         <line nr="219" mi="0" ci="1"/>
+         <line nr="220" mi="0" ci="1"/>
+         <line nr="224" mi="1" ci="0"/>
+         <line nr="225" mi="1" ci="0"/>
       </sourcefile>
       <class name="BAR" sourcefilename="BAR">
          <counter type="BRANCH" missed="0" covered="0"/>
