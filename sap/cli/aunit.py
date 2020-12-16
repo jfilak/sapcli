@@ -368,7 +368,7 @@ def _print_source_file_jacoco(file_name, lines_data, stream, indent, indent_leve
         missed_instructions = '0' if is_covered else '1'
 
         print(
-            f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" ci="{covered_instructions}">',
+            f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" ci="{covered_instructions}"/>',
             file=stream
         )
 
