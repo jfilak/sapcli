@@ -329,7 +329,7 @@ class AUnitResponseHandler(ContentHandler):
             mod_log().debug('XML: %s: %s', name, self._test_class.name)
         elif name == 'testMethod':
             self._test_method = TestMethod(name=attrs.get('adtcore:name'),
-                                           duration=int(float(attrs.get('executionTime')) * 1000),
+                                           duration=int(float(attrs.get('executionTime', 0)) * 1000),
                                            alerts=[])
             self._test_class.test_methods.append(self._test_method)
             mod_log().debug('XML: %s: %s', name, self._test_method.name)
