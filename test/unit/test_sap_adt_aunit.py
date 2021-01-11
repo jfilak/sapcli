@@ -8,7 +8,11 @@ from sap.adt.aunit import Alert, AlertSeverity
 from sap.adt.objects import ADTObjectSets
 
 from fixtures_adt import DummyADTObject
-from fixtures_adt_aunit import AUNIT_RESULTS_XML, AUNIT_NO_TEST_RESULTS_XML
+from fixtures_adt_aunit import (
+    AUNIT_RESULTS_XML,
+    AUNIT_NO_TEST_RESULTS_XML,
+    AUNIT_NO_EXECUTION_TIME_RESULTS_XML
+)
 
 from mock import Connection
 
@@ -141,6 +145,10 @@ class TestAUnitParseResults(unittest.TestCase):
 
         self.assertEqual([(alert.kind, alert.severity, alert.title) for alert in run_results.alerts],
                          [('noTestClasses', 'tolerable', 'The task definition does not refer to any test')])
+
+    def test_parse_no_executiontime(self):
+        # just be happy there is no exception
+        run_results = sap.adt.aunit.parse_aunit_response(AUNIT_NO_EXECUTION_TIME_RESULTS_XML).run_results
 
 
 if __name__ == '__main__':
