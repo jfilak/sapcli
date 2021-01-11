@@ -640,7 +640,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Fetch Error')
 
-    @patch('sap.rest.gcts.Repository')
+    @patch('sap.rest.gcts.simple.Repository')
     def test_simple_checkout_ok(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
@@ -652,7 +652,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         fake_instance.checkout.assert_called_once_with('the_new_branch')
         self.assertEqual(response, 'probe')
 
-    @patch('sap.rest.gcts.Repository')
+    @patch('sap.rest.gcts.simple.Repository')
     def test_simple_delete_ok(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
@@ -664,7 +664,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         fake_instance.delete.assert_called_once_with()
         self.assertEqual(response, 'probe')
 
-    @patch('sap.rest.gcts.Repository')
+    @patch('sap.rest.gcts.simple.Repository')
     def test_simple_log_name(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
@@ -684,7 +684,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         response = sap.rest.gcts.simple_log(None, repo=fake_instance)
         self.assertEqual(response, 'probe')
 
-    @patch('sap.rest.gcts.Repository')
+    @patch('sap.rest.gcts.simple.Repository')
     def test_simple_pull_name(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
