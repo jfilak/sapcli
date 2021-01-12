@@ -75,3 +75,6 @@ Configure the given repository
 ```bash
 sapcli gcts config [-l|--list] PACKAGE
 ```
+
+**Parameters:**:
+- `--list`: Lists all configuration options for the specified repository
