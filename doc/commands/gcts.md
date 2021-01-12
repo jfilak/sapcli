@@ -52,7 +52,7 @@ Print out repository history log
 sapcli gcts log PACKAGE
 ```
 
-## log
+## pull
 
 Pulls the repository on the system
 
