@@ -15,8 +15,8 @@ class TestCommandGroup(unittest.TestCase):
 
 class TestAddAllFiles(unittest.TestCase):
 
-    def test_smooth_run(self):
-        def rfc_response(function, *args):
+    def assert_smooth_run(self, params):
+        def rfc_response(function, *args, **kwargs):
             return {
                 'SSFR_PSE_CHECK': {'ET_BAPIRET2': [{'TYPE': 'S'}]},
                 'SSFR_PUT_CERTIFICATE': {'ET_BAPIRET2': []},
@@ -31,49 +31,64 @@ class TestAddAllFiles(unittest.TestCase):
         mock_connection.__exit__ = Mock(return_value=False)
 
         with patch('sap.cli.strust.open', mock_open(read_data='CERT')) as mock_file:
-            sap.cli.strust.putcertificate(
-                mock_connection, SimpleNamespace(
-                    paths=['/path/1', '/path/2'],
-                    storage=[CLIENT_STANDART, CLIENT_ANONYMOUS, ],
-                    identity=[]
-                ))
+            sap.cli.strust.putcertificate( mock_connection, params)
+
+        #print(mock_file.mock_calls)
 
         self.assertEquals(
             mock_file.mock_calls,
-            [call('/path/1'),
+            [call('/path/1', 'rb'),
              call().__enter__(),
              call().read(),
              call().__exit__(None, None, None),
-             call('/path/2'),
+             call('/path/2', 'rb'),
              call().__enter__(),
              call().read(),
              call().__exit__(None, None, None)])
 
-        print(mock_connection.call.call_args_list)
+        #print(mock_connection.call.call_args_list)
 
         self.assertEquals(
             mock_connection.call.call_args_list,
             [call('SSFR_PSE_CHECK',
-                  {'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}}),
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
              call('SSFR_PSE_CHECK',
-                  {'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}}),
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}),
              call('SSFR_PUT_CERTIFICATE',
-                  {'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}, 'IV_CERTIFICATE': 'CERT'}),
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'},
+                  IV_CERTIFICATE='CERT'),
              call('SSFR_PUT_CERTIFICATE',
-                  {'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}, 'IV_CERTIFICATE': 'CERT'}),
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'},
+                  IV_CERTIFICATE='CERT'),
              call('SSFR_PUT_CERTIFICATE',
-                  {'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}, 'IV_CERTIFICATE': 'CERT'}),
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'},
+                  IV_CERTIFICATE='CERT'),
              call('SSFR_PUT_CERTIFICATE',
-                  {'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}, 'IV_CERTIFICATE': 'CERT'}),
-             call('ICM_SSL_PSE_CHANGED', {}),
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'},
+                  IV_CERTIFICATE='CERT'),
+             call('ICM_SSL_PSE_CHANGED'),
              call('SSFR_GET_CERTIFICATELIST',
-                  {'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}}),
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
              call('SSFR_PARSE_CERTIFICATE',
-                  {'IV_CERTIFICATE': 'xcert'}),
+                  IV_CERTIFICATE='xcert'),
              call('SSFR_GET_CERTIFICATELIST',
-                  {'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}}),
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}),
              call('SSFR_PARSE_CERTIFICATE',
-                  {'IV_CERTIFICATE': 'xcert'})])
+                  IV_CERTIFICATE='xcert')])
+
+    def test_smooth_run_storage(self):
+        self.assert_smooth_run(SimpleNamespace(
+            paths=['/path/1', '/path/2'],
+            storage=[CLIENT_STANDART, CLIENT_ANONYMOUS, ],
+            identity=[]
+        ))
+
+    def test_smooth_run_identity(self):
+        self.assert_smooth_run(SimpleNamespace(
+            paths=['/path/1', '/path/2'],
+            storage=[],
+            identity=['SSLC/DFAULT', 'SSLC/ANONYM']
+        ))
 
     def test_invalid_rage(self):
         mock_connection = Mock()

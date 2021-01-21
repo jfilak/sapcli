@@ -57,7 +57,7 @@ class SSLCertStorage:
 
         stat = self._connection.call(
             'SSFR_PSE_CHECK',
-            {'IS_STRUST_IDENTITY': self.identity}
+            IS_STRUST_IDENTITY=self.identity
         )
 
         ret = stat['ET_BAPIRET2']
@@ -69,8 +69,9 @@ class SSLCertStorage:
         message = ret[0]
         msgtype = message.get('TYPE', '')
         msgno = message.get('NUMBER', '')
+        msgid = message.get('ID', '')
 
-        if msgtype == 'E' and msgno == '031':
+        if msgtype == 'E' and ((msgno == '031') or (msgid == '1S' and msgno == '417')):
             self.create()
         elif msgtype != 'S':
             raise InvalidSSLStorage(
@@ -82,22 +83,27 @@ class SSLCertStorage:
 
         stat = self._connection.call(
             'SSFR_PSE_CREATE',
-            {'IS_STRUST_IDENTITY': self.identity,
-             'IV_ALG': alg,
-             'IV_KEYLEN': keylen,
-             'IV_REPLACE_EXISTING_PSE': 'X' if replace else '-'}
+            IS_STRUST_IDENTITY=self.identity,
+            IV_ALG=alg,
+            IV_KEYLEN=keylen,
+            IV_REPLACE_EXISTING_PSE='X' if replace else '-'
         )
 
         ret = stat['ET_BAPIRET2']
         if ret:
             raise InvalidSSLStorage(str(ret))
 
-    def put_certificate(self, cert):
-        """Adds the passed certificate to the storage"""
+    def put_certificate(self, cert: bytes):
+        """Adds the passed certificate to the storage
+
+           Parameters:
+            cert: certificate bytes
+        """
 
         stat = self._connection.call(
             'SSFR_PUT_CERTIFICATE',
-            {'IS_STRUST_IDENTITY': self.identity, 'IV_CERTIFICATE': cert}
+            IS_STRUST_IDENTITY=self.identity,
+            IV_CERTIFICATE=cert
         )
 
         ret = stat['ET_BAPIRET2']
@@ -124,7 +130,22 @@ class SSLCertStorage:
 
         stat = self._connection.call(
             'SSFR_GET_CERTIFICATELIST',
-            {'IS_STRUST_IDENTITY': self.identity}
+            IS_STRUST_IDENTITY=self.identity
         )
 
-        return stat
+        return stat['ET_CERTIFICATELIST']
+
+
+def notify_icm_changed_pse(connection):
+    """Informs ICM about changed PSE"""
+
+    connection.call('ICM_SSL_PSE_CHANGED')
+
+
+def iter_storage_certificates(ssl_storage: SSLCertStorage):
+    """Returns the certificate list"""
+
+    for xcert in ssl_storage.get_certificates():
+        # pylint: disable=protected-access
+        parse_ret = ssl_storage._connection.call('SSFR_PARSE_CERTIFICATE', IV_CERTIFICATE=xcert)
+        yield parse_ret

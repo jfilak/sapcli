@@ -42,8 +42,8 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEqual(mock_connectionection.call.call_args_list,
                          [mock.call('SSFR_PSE_CHECK',
-                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'RAISE',
-                                                             'PSE_APPLIC': 'TEST'}))])
+                                    IS_STRUST_IDENTITY={'PSE_CONTEXT': 'RAISE',
+                                                        'PSE_APPLIC': 'TEST'})])
 
         self.assertEqual(str(cm.exception),
                          'The SSL Storage RAISE/TEST is broken: Invalid storage')
@@ -60,8 +60,8 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEqual(mock_connectionection.call.call_args_list,
                          [mock.call('SSFR_PSE_CHECK',
-                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'RAISE',
-                                                             'PSE_APPLIC': 'TEST'}))])
+                                    IS_STRUST_IDENTITY={'PSE_CONTEXT': 'RAISE',
+                                                        'PSE_APPLIC': 'TEST'})])
 
         self.assertEqual(str(cm.exception),
                          'Received no response from the server - check STRUST manually.')
@@ -78,8 +78,8 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEqual(mock_connectionection.call.call_args_list,
                          [mock.call('SSFR_PSE_CHECK',
-                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'CREATE',
-                                                             'PSE_APPLIC': 'TEST'}))])
+                                    IS_STRUST_IDENTITY={'PSE_CONTEXT': 'CREATE',
+                                                        'PSE_APPLIC': 'TEST'})])
         mock_create.assert_called_once()
 
     def test_sanitize(self):
@@ -91,8 +91,8 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEquals(mock_connectionection.call.call_args_list,
                           [mock.call('SSFR_PSE_CHECK',
-                                     dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'NOTRAISE',
-                                                              'PSE_APPLIC': 'TEST'}))])
+                                     IS_STRUST_IDENTITY={'PSE_CONTEXT': 'NOTRAISE',
+                                                         'PSE_APPLIC': 'TEST'})])
 
     def test_create(self):
         mock_connectionection = Mock()
@@ -103,13 +103,12 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEquals(mock_connectionection.call.call_args_list,
                           [mock.call('SSFR_PSE_CREATE',
-                                     {
-                                         'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'NOTRAISE',
-                                                                'PSE_APPLIC': 'TEST'},
-                                         'IV_ALG': 'R',
-                                         'IV_KEYLEN': 2048,
-                                         'IV_REPLACE_EXISTING_PSE': '-'
-                                     })
+                                     IS_STRUST_IDENTITY={'PSE_CONTEXT': 'NOTRAISE',
+                                                         'PSE_APPLIC': 'TEST'},
+                                     IV_ALG='R',
+                                     IV_KEYLEN=2048,
+                                     IV_REPLACE_EXISTING_PSE='-'
+                                    )
                            ])
 
     def test_create_raises(self):
@@ -125,13 +124,12 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEquals(mock_connectionection.call.call_args_list,
                           [mock.call('SSFR_PSE_CREATE',
-                                     {
-                                         'IS_STRUST_IDENTITY': {'PSE_CONTEXT': 'RAISE',
-                                                                'PSE_APPLIC': 'TEST'},
-                                         'IV_ALG': 'R',
-                                         'IV_KEYLEN': 2048,
-                                         'IV_REPLACE_EXISTING_PSE': '-'
-                                     })
+                                     IS_STRUST_IDENTITY={'PSE_CONTEXT': 'RAISE',
+                                                           'PSE_APPLIC': 'TEST'},
+                                     IV_ALG='R',
+                                     IV_KEYLEN=2048,
+                                     IV_REPLACE_EXISTING_PSE='-'
+                                    )
                            ])
 
         self.assertEqual(str(cm.exception),
@@ -150,9 +148,9 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEqual(mock_connectionection.call.call_args_list,
                          [mock.call('SSFR_PUT_CERTIFICATE',
-                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTOK',
-                                                             'PSE_APPLIC': 'TEST'},
-                                         IV_CERTIFICATE=u'plain old data'))])
+                                    IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTOK',
+                                                        'PSE_APPLIC': 'TEST'},
+                                    IV_CERTIFICATE=u'plain old data')])
 
     def test_put_certificate_fail(self):
         mock_connectionection = Mock()
@@ -166,9 +164,9 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEquals(mock_connectionection.call.call_args_list,
                           [mock.call('SSFR_PUT_CERTIFICATE',
-                                     dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTERR',
-                                                              'PSE_APPLIC': 'TEST'},
-                                          IV_CERTIFICATE=u'plain old data'))])
+                                     IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTERR',
+                                                         'PSE_APPLIC': 'TEST'},
+                                     IV_CERTIFICATE=u'plain old data')])
 
         self.assertEquals(str(cm.exception),
                           'Failed to put the CERT to the SSL Storage PUTERR/TEST: '
@@ -190,9 +188,9 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEqual(mock_connectionection.call.call_args_list,
                          [mock.call('SSFR_PUT_CERTIFICATE',
-                                    dict(IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTERR',
-                                                             'PSE_APPLIC': 'TEST'},
-                                         IV_CERTIFICATE=u'plain old data'))])
+                                    IS_STRUST_IDENTITY={'PSE_CONTEXT': 'PUTERR',
+                                                        'PSE_APPLIC': 'TEST'},
+                                    IV_CERTIFICATE=u'plain old data')])
 
 
 if __name__ == '__main__':

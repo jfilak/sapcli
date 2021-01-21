@@ -12,7 +12,9 @@ from sap.rfc.strust import (
     CLIENT_ANONYMOUS,
     CLIENT_STANDART,
     IDENTITY_MAPPING,
-    Identity
+    Identity,
+    notify_icm_changed_pse,
+    iter_storage_certificates
 )
 
 
@@ -25,7 +27,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 @CommandGroup.argument('paths', type=str, nargs='+',
                        help='a file path containing X.509 Base64 certificate')
-@CommandGroup.argument('-s', '--storage', action='append', default=[CLIENT_ANONYMOUS, ],
+@CommandGroup.argument('-s', '--storage', action='append', default=[],
                        choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])
 @CommandGroup.command()
@@ -49,7 +51,7 @@ def putcertificate(connection, args):
 
     for identity in args.identity:
         try:
-            identities.append(*Identity(identity.split('/')))
+            identities.append(Identity(*identity.split('/')))
         except (ValueError, TypeError):
             # pylint: disable=raise-missing-from
             raise SAPCliError('Invalid identity format')
@@ -63,19 +65,17 @@ def putcertificate(connection, args):
 
     for file_path in args.paths:
         logging.info('Processing the file: %s', file_path)
-        with open(file_path) as cert_file:
+        with open(file_path, 'rb') as cert_file:
             cert_contents = cert_file.read()
             for ssl_storage in ssl_storages:
                 logging.info('Adding the file: %s to %s', file_path, ssl_storage)
                 logging.info(ssl_storage.put_certificate(cert_contents))
 
     logging.info('Notifying ICM ... ')
-    connection.call('ICM_SSL_PSE_CHANGED', {})
+    notify_icm_changed_pse(connection)
 
     for updated_storage in ssl_storages:
         logging.info('Certificates of %s:', str(updated_storage))
 
-        for xcert in updated_storage.get_certificates()['ET_CERTIFICATELIST']:
-            cert = connection.call('SSFR_PARSE_CERTIFICATE', {'IV_CERTIFICATE': xcert})
-
+        for cert in iter_storage_certificates(updated_storage):
             logging.info('* %s', cert['EV_SUBJECT'])
