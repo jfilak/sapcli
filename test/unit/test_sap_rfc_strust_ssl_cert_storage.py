@@ -30,7 +30,7 @@ class TestSSLCertStorage(unittest.TestCase):
         ssl_storage = SSLCertStorage(conn, 'STR', 'TEST')
         self.assertEquals(str(ssl_storage), 'SSL Storage STR/TEST')
 
-    def test_sanitize_raises(self):
+    def test_exists_raises(self):
         mock_connectionection = Mock()
         mock_connectionection.call.return_value = {
             'ET_BAPIRET2': [{'TYPE': 'E', 'MESSAGE': 'Invalid storage'}]}
@@ -38,7 +38,7 @@ class TestSSLCertStorage(unittest.TestCase):
         ssl_storage = SSLCertStorage(mock_connectionection, 'RAISE', 'TEST')
 
         with self.assertRaises(InvalidSSLStorage) as cm:
-            ssl_storage.sanitize()
+            ssl_storage.exists()
 
         self.assertEqual(mock_connectionection.call.call_args_list,
                          [mock.call('SSFR_PSE_CHECK',
@@ -48,7 +48,7 @@ class TestSSLCertStorage(unittest.TestCase):
         self.assertEqual(str(cm.exception),
                          'The SSL Storage RAISE/TEST is broken: Invalid storage')
 
-    def test_sanitize_raises_if_not_ret(self):
+    def test_exists_raises_if_not_ret(self):
         mock_connectionection = Mock()
         mock_connectionection.call.return_value = {
             'ET_BAPIRET2': []}
@@ -56,7 +56,7 @@ class TestSSLCertStorage(unittest.TestCase):
         ssl_storage = SSLCertStorage(mock_connectionection, 'RAISE', 'TEST')
 
         with self.assertRaises(InvalidSSLStorage) as cm:
-            ssl_storage.sanitize()
+            ssl_storage.exists()
 
         self.assertEqual(mock_connectionection.call.call_args_list,
                          [mock.call('SSFR_PSE_CHECK',
@@ -66,35 +66,20 @@ class TestSSLCertStorage(unittest.TestCase):
         self.assertEqual(str(cm.exception),
                          'Received no response from the server - check STRUST manually.')
 
-    def test_sanitize_create(self):
-        mock_connectionection = Mock()
-        mock_connectionection.call.return_value = {
-            'ET_BAPIRET2': [{'TYPE': 'E', 'NUMBER': '031'}]}
 
-        ssl_storage = SSLCertStorage(mock_connectionection, 'CREATE', 'TEST')
-
-        with patch('sap.rfc.strust.SSLCertStorage.create', Mock()) as mock_create:
-            ssl_storage.sanitize()
-
-        self.assertEqual(mock_connectionection.call.call_args_list,
-                         [mock.call('SSFR_PSE_CHECK',
-                                    IS_STRUST_IDENTITY={'PSE_CONTEXT': 'CREATE',
-                                                        'PSE_APPLIC': 'TEST'})])
-        mock_create.assert_called_once()
-
-    def test_sanitize(self):
+    def test_exists_yes(self):
         mock_connectionection = Mock()
         mock_connectionection.call.return_value = {'ET_BAPIRET2': [{'TYPE': 'S'}]}
 
         ssl_storage = SSLCertStorage(mock_connectionection, 'NOTRAISE', 'TEST')
-        ssl_storage.sanitize()
+        self.assertTrue(ssl_storage.exists())
 
         self.assertEquals(mock_connectionection.call.call_args_list,
                           [mock.call('SSFR_PSE_CHECK',
                                      IS_STRUST_IDENTITY={'PSE_CONTEXT': 'NOTRAISE',
                                                          'PSE_APPLIC': 'TEST'})])
 
-    def test_create(self):
+    def test_create_ok_default(self):
         mock_connectionection = Mock()
         mock_connectionection.call.return_value = {'ET_BAPIRET2': []}
 
@@ -108,6 +93,24 @@ class TestSSLCertStorage(unittest.TestCase):
                                      IV_ALG='R',
                                      IV_KEYLEN=2048,
                                      IV_REPLACE_EXISTING_PSE='-'
+                                    )
+                           ])
+
+    def test_create_ok_all_params(self):
+        mock_connectionection = Mock()
+        mock_connectionection.call.return_value = {'ET_BAPIRET2': []}
+
+        ssl_storage = SSLCertStorage(mock_connectionection, 'NOTRAISE', 'TEST')
+        ssl_storage.create(alg='S', keylen=4096, replace=True, dn='ou=test')
+
+        self.assertEquals(mock_connectionection.call.call_args_list,
+                          [mock.call('SSFR_PSE_CREATE',
+                                     IS_STRUST_IDENTITY={'PSE_CONTEXT': 'NOTRAISE',
+                                                         'PSE_APPLIC': 'TEST'},
+                                     IV_ALG='S',
+                                     IV_KEYLEN=4096,
+                                     IV_REPLACE_EXISTING_PSE='X',
+                                     IV_DN='ou=test'
                                     )
                            ])
 

@@ -27,6 +27,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 @CommandGroup.argument('paths', type=str, nargs='+',
                        help='a file path containing X.509 Base64 certificate')
+@CommandGroup.argument('-l', '--algorithm', type=str, help='R,S,G,H,X - or other if you need, of PSE file', default='R')
+@CommandGroup.argument('-k', '--key-length', type=int, default=2048, help='Of PSE file')
+@CommandGroup.argument('-d', '--dn', type=str, help='Distinguished Name of PSE file', default=None)
 @CommandGroup.argument('-s', '--storage', action='append', default=[],
                        choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])
@@ -59,7 +62,14 @@ def putcertificate(connection, args):
     ssl_storages = []
     for identity in identities:
         ssl_storage = SSLCertStorage(connection, identity.pse_context, identity.pse_applic)
-        ssl_storage.sanitize()
+
+        if not ssl_storage.exists():
+            ssl_storage.create(
+                alg=args.algorithm,
+                keylen=args.key_length,
+                dn=args.dn
+            )
+
         logging.debug('SSL Storage is OK: %s', ssl_storage)
         ssl_storages.append(ssl_storage)
 

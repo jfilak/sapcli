@@ -50,7 +50,7 @@ class SSLCertStorage:
     def __str__(self):
         return repr(self)
 
-    def sanitize(self):
+    def exists(self):
         """Checks if the storage is OK and if not, raise an exception
            of the type InvalidSSLStorage.
         """
@@ -69,25 +69,32 @@ class SSLCertStorage:
         message = ret[0]
         msgtype = message.get('TYPE', '')
         msgno = message.get('NUMBER', '')
-        msgid = message.get('ID', '')
 
-        if msgtype == 'E' and ((msgno == '031') or (msgid == '1S' and msgno == '417')):
-            self.create()
-        elif msgtype != 'S':
+        if msgtype == 'E' and msgno == '031':
+            return False
+
+        if msgtype != 'S':
             raise InvalidSSLStorage(
                 'The {0} is broken: {1}'.format(str(self), ret[0]['MESSAGE'])
             )
 
-    def create(self, alg='R', keylen=2048, replace=False):
+        return True
+
+    # pylint: disable=invalid-name
+    def create(self, alg='R', keylen=2048, replace=False, dn=None):
         """Create storage"""
 
-        stat = self._connection.call(
-            'SSFR_PSE_CREATE',
-            IS_STRUST_IDENTITY=self.identity,
-            IV_ALG=alg,
-            IV_KEYLEN=keylen,
-            IV_REPLACE_EXISTING_PSE='X' if replace else '-'
-        )
+        create_params = {
+            'IS_STRUST_IDENTITY': self.identity,
+            'IV_ALG': alg,
+            'IV_KEYLEN': keylen,
+            'IV_REPLACE_EXISTING_PSE': 'X' if replace else '-'
+        }
+
+        if dn is not None:
+            create_params['IV_DN'] = dn
+
+        stat = self._connection.call('SSFR_PSE_CREATE', **create_params)
 
         ret = stat['ET_BAPIRET2']
         if ret:

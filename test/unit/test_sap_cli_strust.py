@@ -7,6 +7,32 @@ from sap.errors import SAPCliError
 from sap.rfc.strust import CLIENT_ANONYMOUS, CLIENT_STANDART
 
 
+from infra import generate_parse_args
+
+
+parse_args = generate_parse_args(sap.cli.strust.CommandGroup())
+
+
+class RFCCall:
+
+    def __init__(self, function, **kwargs):
+        self.function = function
+        self.kwargs = kwargs
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        params = ', '.join((f'{name}={value}' for name, value in self.kwargs.items()))
+        return f'{self.function}({params})'
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+
+        return self.function == other.function and self.kwargs == other.kwargs
+
+
 class TestCommandGroup(unittest.TestCase):
 
     def test_cli_ddl_commands_constructor(self):
@@ -15,23 +41,31 @@ class TestCommandGroup(unittest.TestCase):
 
 class TestAddAllFiles(unittest.TestCase):
 
-    def assert_smooth_run(self, params):
-        def rfc_response(function, *args, **kwargs):
+    def setUp(self):
+        self.rfc_calls = list()
+        self.ssfr_pse_check_return_value = {'ET_BAPIRET2': [{'TYPE': 'S'}]}
+
+        def rfc_response(function, **kwargs):
+            self.rfc_calls.append(RFCCall(function, **kwargs))
+
             return {
-                'SSFR_PSE_CHECK': {'ET_BAPIRET2': [{'TYPE': 'S'}]},
+                'SSFR_PSE_CHECK': self.ssfr_pse_check_return_value,
+                'SSFR_PSE_CREATE': {'ET_BAPIRET2': []},
                 'SSFR_PUT_CERTIFICATE': {'ET_BAPIRET2': []},
                 'ICM_SSL_PSE_CHANGED': None,
                 'SSFR_GET_CERTIFICATELIST': {'ET_CERTIFICATELIST': ['xcert', ]},
                 'SSFR_PARSE_CERTIFICATE': {'EV_SUBJECT': None}
             }[function]
 
-        mock_connection = Mock()
-        mock_connection.call = Mock(side_effect=rfc_response)
-        mock_connection.__enter__ = Mock(return_value=mock_connection)
-        mock_connection.__exit__ = Mock(return_value=False)
+        self.mock_connection = Mock()
+        self.mock_connection.call = Mock(side_effect=rfc_response)
+        self.mock_connection.__enter__ = Mock(return_value=self.mock_connection)
+        self.mock_connection.__exit__ = Mock(return_value=False)
 
+
+    def assert_smooth_run(self, params):
         with patch('sap.cli.strust.open', mock_open(read_data='CERT')) as mock_file:
-            sap.cli.strust.putcertificate( mock_connection, params)
+            sap.cli.strust.putcertificate(self.mock_connection, params)
 
         #print(mock_file.mock_calls)
 
@@ -49,7 +83,7 @@ class TestAddAllFiles(unittest.TestCase):
         #print(mock_connection.call.call_args_list)
 
         self.assertEquals(
-            mock_connection.call.call_args_list,
+            self.mock_connection.call.call_args_list,
             [call('SSFR_PSE_CHECK',
                   IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
              call('SSFR_PSE_CHECK',
@@ -115,6 +149,29 @@ class TestAddAllFiles(unittest.TestCase):
                 ))
 
         self.assertEqual('Invalid identity format', str(caught.exception))
+
+    def test_with_pse_file_params(self):
+        args = parse_args('putcertificate',
+                          '-i', 'CONT/APP',
+                          '-d', 'ou=sapcli',
+                          '-k', '4096',
+                          '-l', 'H',
+                          '/path/1')
+
+        self.ssfr_pse_check_return_value = {'ET_BAPIRET2': [{'TYPE': 'E', 'NUMBER': '031'}]}
+        with patch('sap.cli.strust.open', mock_open(read_data='CERT')) as mock_file:
+            args.execute(self.mock_connection, args)
+
+        self.assertEqual(self.rfc_calls[1],
+                         RFCCall('SSFR_PSE_CREATE',
+                                 IS_STRUST_IDENTITY={'PSE_CONTEXT': 'CONT',
+                                                     'PSE_APPLIC': 'APP'},
+                                 IV_ALG='H',
+                                 IV_KEYLEN=4096,
+                                 IV_REPLACE_EXISTING_PSE='-',
+                                 IV_DN='ou=sapcli'
+                                )
+                        )
 
 
 if __name__ == '__main__':
