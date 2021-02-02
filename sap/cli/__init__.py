@@ -39,6 +39,7 @@ class CommandsCache:
         import sap.cli.startrfc
         import sap.cli.adt
         import sap.cli.strust
+        import sap.cli.abapgit
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -56,7 +57,8 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.cts.CommandGroup()),
                 (adt_connection_from_args, sap.cli.checkout.CommandGroup()),
                 (adt_connection_from_args, sap.cli.activation.CommandGroup()),
-                (adt_connection_from_args, sap.cli.adt.CommandGroup())
+                (adt_connection_from_args, sap.cli.adt.CommandGroup()),
+                (adt_connection_from_args, sap.cli.abapgit.CommandGroup())
             ]
 
         if CommandsCache.rest is None:
