@@ -37,17 +37,10 @@ class Connection:
             if port is None:
                 port = '80'
 
-        self._ssl_verify = verify
-
-        self._base_url = '{protocol}://{host}:{port}/sap/opu/odata/UI5/{service}'.format(
-            protocol=protocol, host=host, port=port, service=service)
-
-        self._query_args = 'sap-client={client}&saml2=disabled'.format(
-            client=client)
-
+        self._base_url = f'{protocol}://{host}:{port}/sap/opu/odata/UI5/{service}'
+        self._query_args = f'sap-client={client}&saml2=disabled'
         self._user = user
         self._auth = HTTPBasicAuth(user, password)
-        self._session = None
         self._timeout = config_get('http_timeout')
 
         self._session = requests.Session()
@@ -61,8 +54,8 @@ class Connection:
             req = self._session.prepare_request(req)
             res = self._session.send(req, timeout=self._timeout)
 
-        except requests.exceptions.ConnectTimeout:
-            raise TimedOutRequestError(req, self._timeout)
+        except requests.exceptions.ConnectTimeout as ex:
+            raise TimedOutRequestError(req, self._timeout) from ex
 
         if res.status_code == 401:
             raise UnauthorizedError(req, res, self._user)

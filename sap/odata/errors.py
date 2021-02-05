@@ -11,11 +11,9 @@ class HTTPRequestError(SAPCliError):
 
         self.request = request
         self.response = response
-        self.status_code = response.status_code
 
     def __repr__(self):
-        return '{status_code}\n{text}'.format(
-            status_code=self.response.status_code, text=self.response.text)
+        return f'{self.response.status_code}\n{self.response.text}'
 
     def __str__(self):
         return repr(self)
@@ -29,7 +27,6 @@ class UnauthorizedError(SAPCliError):
 
         self.request = request
         self.response = response
-        self.status_code = response.status_code
         self.method = request.method
         self.url = request.url
         self.user = user
