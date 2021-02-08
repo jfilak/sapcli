@@ -4,3 +4,4 @@ ve/
 *.orig
 .coverage
 .htmlcov/
+.vscode/

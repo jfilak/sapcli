@@ -13,3 +13,16 @@ class SAPCliError(FatalError):
 
     # pylint: disable=unnecessary-pass
     pass
+
+
+class ResourceAlreadyExistsError(SAPCliError):
+    """Exception for existing resources - e.g. item to be created"""
+
+    # pylint: disable=unnecessary-pass
+    pass
+
+    def __repr__(self):
+        return 'Resource already exists'
+
+    def __str__(self):
+        return repr(self)
