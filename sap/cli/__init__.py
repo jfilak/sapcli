@@ -7,6 +7,7 @@ Dependency modules are lazy loaded to enable partial modular installation.
 
 
 import os
+from functools import partial
 from types import SimpleNamespace
 from sap import rfc
 
@@ -43,6 +44,7 @@ class CommandsCache:
         import sap.cli.user
         import sap.cli.abapgit
         import sap.cli.bsp
+        import sap.cli.flp
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -81,7 +83,8 @@ class CommandsCache:
 
         if CommandsCache.odata is None:
             CommandsCache.odata = [
-                (bsp_connection_from_args, sap.cli.bsp.CommandGroup())
+                (partial(odata_connection_from_args, 'ABAP_REPOSITORY_SRV'), sap.cli.bsp.CommandGroup()),
+                (partial(odata_connection_from_args, 'UI2/PAGE_BUILDER_CUST'), sap.cli.flp.CommandGroup())
             ]
 
         return CommandsCache.adt + CommandsCache.rest + CommandsCache.rfc + CommandsCache.odata
@@ -117,12 +120,12 @@ def gcts_connection_from_args(args):
                                verify=args.verify)
 
 
-def bsp_connection_from_args(args):
+def odata_connection_from_args(service_name, args):
     """Returns RFC connection constructed from the passed args (Namespace)
     """
 
     import sap.odata
-    return sap.odata.Connection('ABAP_REPOSITORY_SRV', args.ashost, args.port,
+    return sap.odata.Connection(service_name, args.ashost, args.port,
                                 args.client, args.user, args.password, args.ssl,
                                 args.verify)
 

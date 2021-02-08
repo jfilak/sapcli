@@ -17,3 +17,4 @@
 15. [startrfc](commands/startrfc.md) - Run arbitrary RFC enabled Function Modules
 16. [user](commands/user.md) - Create, read, and modify AS ABAP users
 17. [bsp](commands/bsp.md) - Management of BSP applications
+18. [flp](commands/flp.md) - Fiori Launchpad
