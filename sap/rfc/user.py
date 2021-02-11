@@ -5,7 +5,10 @@ import datetime
 from typing import Dict, Union, List
 
 from sap.rfc.core import RFCParams
-from sap.rfc.bapi import BAPIError
+from sap.rfc.bapi import (
+    BAPIError,
+    BAPIReturn
+)
 
 
 UserId = str
@@ -159,12 +162,20 @@ class UserBuilder:
 
         return self
 
+    def _rfc_params_add_username(self, params):
+        add_to_dict_if_not_none(params, 'USERNAME', self._username)
+
+    def _rfc_params_add_password(self, params):
+        password = copy_dict_or_new(self._password)
+        add_to_dict_if_not_present(password, 'BAPIPWD', '')
+        params['PASSWORD'] = password
+
     def build_rfc_params(self) -> RFCParams:
-        """Creates RFC parameters"""
+        """Creates RFC parameters for Creating users"""
 
         params = dict()
 
-        add_to_dict_if_not_none(params, 'USERNAME', self._username)
+        self._rfc_params_add_username(params)
 
         address = copy_dict_or_new(self._address)
         add_to_dict_if_not_present(address, 'FIRSTNAME', '')
@@ -172,9 +183,7 @@ class UserBuilder:
         add_to_dict_if_not_present(address, 'E_MAIL', '')
         params['ADDRESS'] = address
 
-        password = copy_dict_or_new(self._password)
-        add_to_dict_if_not_present(password, 'BAPIPWD', '')
-        params['PASSWORD'] = password
+        self._rfc_params_add_password(params)
 
         alias = copy_dict_or_new(self._alias)
         add_to_dict_if_not_present(alias, 'USERALIAS', '')
@@ -184,6 +193,18 @@ class UserBuilder:
         add_to_dict_if_not_present(logondata, 'GLTGV', today_sap_date())
         add_to_dict_if_not_present(logondata, 'GLTGB', '20991231')
         params['LOGONDATA'] = logondata
+
+        return params
+
+    def build_change_rfc_params(self) -> RFCParams:
+        """Create RFC parameters fro Updating user"""
+
+        params = dict()
+        self._rfc_params_add_username(params)
+
+        if self._password:
+            self._rfc_params_add_password(params)
+            params['PASSWORDX'] = {'BAPIPWD': 'X'}
 
         return params
 
@@ -269,10 +290,24 @@ class UserManager:
 
         return UserBuilder()
 
+    def fetch_user_details(self, connection, username: UserId) -> dict:
+        """Creates a new user for the given user data"""
+
+        return self._call_bapi_method(connection,
+                'BAPI_USER_GET_DETAIL',
+                {'USERNAME': username})
+
     def create_user(self, connection, user_builder: UserBuilder) -> UserId:
         """Creates a new user for the given user data"""
 
-        self._call_bapi_method(connection, 'BAPI_USER_CREATE1', user_builder.build_rfc_params())
+        rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CREATE1', user_builder.build_rfc_params())
+        return BAPIReturn(rfc_ret['RETURN'])
+
+    def change_user(self, connection, user_builder: UserBuilder) -> UserId:
+        """Updates user with the given user data"""
+
+        rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CHANGE', user_builder.build_change_rfc_params())
+        return BAPIReturn(rfc_ret['RETURN'])
 
     # pylint: disable=no-self-use
     def user_role_assignment_builder(self, username: str) -> UserRoleAssignmentBuilder:

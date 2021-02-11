@@ -5,11 +5,14 @@ import datetime
 import unittest
 from unittest.mock import Mock
 
-from sap.rfc.bapi import BAPIError
+from sap.rfc.bapi import BAPIError, BAPIReturn
 from sap.rfc.user import add_to_dict_if_not_none, add_to_dict_if_not_present, today_sap_date, \
          UserBuilder, UserRoleAssignmentBuilder, UserProfileAssignmentBuilder, UserManager
 
-from test_sap_rfc_bapi import create_bapiret_error
+from test_sap_rfc_bapi import (
+        create_bapiret_error,
+        create_bapiret_info
+)
 
 
 class SAPRFCUserAux(unittest.TestCase):
@@ -126,6 +129,36 @@ class TestUserBuilder(unittest.TestCase):
             }
         })
 
+    def test_change_parameters_password(self):
+        username = 'FOO'
+        password = 'Password'
+
+        self.assertEqual(self.builder, self.builder.set_username(username))
+        self.assertEqual(self.builder, self.builder.set_password(password))
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params, {
+            'USERNAME': username,
+            'PASSWORD': {
+                'BAPIPWD': password
+            },
+            'PASSWORDX': {
+                'BAPIPWD': 'X'
+            }
+        })
+
+    def test_change_parameters_no_password(self):
+        username = 'FOO'
+
+        self.assertEqual(self.builder, self.builder.set_username(username))
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params, {
+            'USERNAME': username,
+        })
+
 
 class TestUserRoleAssignmentBuilder(unittest.TestCase):
 
@@ -223,9 +256,13 @@ class TestUserManager(unittest.TestCase):
         user_builder = self.manager.user_builder()
         user_builder.set_username(self.username)
 
-        self.manager.create_user(self.connection, user_builder)
+        self.bapirettab.append(create_bapiret_info('Created'))
+
+        retval = self.manager.create_user(self.connection, user_builder)
 
         self.connection.call.assert_called_once_with('BAPI_USER_CREATE1', **user_builder.build_rfc_params())
+
+        self.assertEqual(str(retval), str(BAPIReturn(self.bapirettab)))
 
     def test_create_user_with_error(self):
         user_builder = self.manager.user_builder()
@@ -258,3 +295,36 @@ class TestUserManager(unittest.TestCase):
         self.manager.assign_profiles(self.connection, builder)
 
         self.connection.call.assert_called_once_with('BAPI_USER_PROFILES_ASSIGN', **builder.build_rfc_params())
+
+    def test_fetch_user_ok(self):
+        retval = self.manager.fetch_user_details(self.connection, 'KAJ')
+
+        self.connection.call.assert_called_once_with('BAPI_USER_GET_DETAIL', USERNAME='KAJ')
+        self.assertEqual(retval, self.connection.call.return_value)
+
+    def test_fetch_user_fail(self):
+        self.bapirettab.append(create_bapiret_error('Error message'))
+
+        with self.assertRaises(BAPIError) as caught:
+            self.manager.fetch_user_details(self.connection, 'KAJ')
+
+    def test_change_user_ok(self):
+        user_builder = self.manager.user_builder()
+        user_builder.set_username(self.username)
+
+        self.bapirettab.append(create_bapiret_info('Changed'))
+
+        retval = self.manager.change_user(self.connection, user_builder)
+
+        self.connection.call.assert_called_once_with('BAPI_USER_CHANGE', **user_builder.build_change_rfc_params())
+
+        self.assertEqual(str(retval), str(BAPIReturn(self.bapirettab)))
+
+    def test_change_user_fail(self):
+        user_builder = self.manager.user_builder()
+        user_builder.set_username(self.username)
+
+        self.bapirettab.append(create_bapiret_error('Error message'))
+
+        with self.assertRaises(BAPIError) as caught:
+            self.manager.change_user(self.connection, user_builder)

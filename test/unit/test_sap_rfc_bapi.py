@@ -22,6 +22,10 @@ def create_bapiret_warning(message:str):
     return create_bapiret(typ='W', message=message, msg_class='WRN', msg_number='777')
 
 
+def create_bapiret_info(message:str):
+    return create_bapiret(typ='S', message=message, msg_class='NFO', msg_number='555')
+
+
 class TestMesageToStr(unittest.TestCase):
 
     def getBAPIMessage(self, **kwargs):
