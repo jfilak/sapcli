@@ -16,7 +16,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('abapgit')
 
 
-@CommandGroup.argument('--transport-request', type=str, nargs='?')
+@CommandGroup.argument('--corrnr', type=str, nargs='?')
 @CommandGroup.argument('--remote-user', type=str, nargs='?')
 @CommandGroup.argument('--remote-password', type=str, nargs='?')
 @CommandGroup.argument('--branch', type=str, nargs='?', default='refs/heads/master')
@@ -33,7 +33,7 @@ def link(connection, args):
         'branchName': args.branch,
         'remoteUser': args.remote_user,
         'remotePassword': args.remote_password,
-        'transportRequest': args.transport_request
+        'transportRequest': args.corrnr
     })
 
     console = sap.cli.core.get_console()
@@ -43,7 +43,7 @@ def link(connection, args):
         console.printerr(f'Failed to link repository: {args.package}', resp)
 
 
-@ CommandGroup.argument('--transport-request', type=str, nargs='?')
+@ CommandGroup.argument('--corrnr', type=str, nargs='?')
 @ CommandGroup.argument('--branch', type=str, nargs='?', default=None)
 @ CommandGroup.argument('--remote-user', type=str, nargs='?')
 @ CommandGroup.argument('--remote-password', type=str, nargs='?')
@@ -59,7 +59,7 @@ def pull(connection, args):
         'branchName': args.branch,
         'remoteUser': args.remote_user,
         'remotePassword': args.remote_password,
-        'transportRequest': args.transport_request
+        'transportRequest': args.corrnr
     })
 
     repository.fetch()
