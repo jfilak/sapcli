@@ -16,7 +16,7 @@ def get_sample_link_args():
     args.branch = 'branch'
     args.remote_user = 'user'
     args.remote_password = 'password'
-    args.transport_request = 'request'
+    args.corrnr = 'request'
     return args
 
 
@@ -26,7 +26,7 @@ def get_sample_pull_args():
     args.branch = 'branch'
     args.remote_user = 'user'
     args.remote_password = 'password'
-    args.transport_request = 'request'
+    args.corrnr = 'request'
     return args
 
 
