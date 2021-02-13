@@ -294,8 +294,8 @@ class UserManager:
         """Creates a new user for the given user data"""
 
         return self._call_bapi_method(connection,
-                'BAPI_USER_GET_DETAIL',
-                {'USERNAME': username})
+                                      'BAPI_USER_GET_DETAIL',
+                                      {'USERNAME': username})
 
     def create_user(self, connection, user_builder: UserBuilder) -> UserId:
         """Creates a new user for the given user data"""
