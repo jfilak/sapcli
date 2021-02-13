@@ -29,12 +29,19 @@ FLAKE8_BIN ?= flake8-3
 FLAKE8_CONFIG_FILE=.flake8
 FLAKE8_PARAMS=
 
-.PHONY: lint
-lint:
+.PHONY: run_pylint
+run_pylint:
 	$(PYLINT_BIN) --rcfile=$(PYLINT_RC_FILE) $(PYLINT_PARAMS) $(PYTHON_MODULE)
 	PYTHONPATH=$(PYTHON_MODULE_DIR):$$PYTHONPATH $(PYLINT_BIN) --rcfile=$(PYLINT_RC_FILE) $(PYLINT_PARAMS) $(PYTHON_BINARIES)
+
+.PHONY: run_flake8
+run_flake8:
 	$(FLAKE8_BIN) --config=$(FLAKE8_CONFIG_FILE) $(FLAKE8_PARAMS) $(PYTHON_MODULE)
 	PYTHONPATH=$(PYTHON_MODULE_DIR):$$PYTHONPATH $(FLAKE8_BIN) --config=$(FLAKE8_CONFIG_FILE) $(FLAKE8_PARAMS) $(PYTHON_BINARIES)
+
+.PHONY: lint
+lint: run_pylint run_flake8
+	@ echo "*** Linters done ***"
 
 .PHONY: test
 test:
