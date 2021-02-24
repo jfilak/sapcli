@@ -8,4 +8,4 @@ if [ $# -eq 1 ]; then
 fi
 
 cd ../../
-PYTHONPATH=./:test/unit python3 -m unittest ${PARAMS}
+PYTHONPATH=./:test/unit ${PYTHON_BIN:-python3} -m unittest ${PARAMS}
