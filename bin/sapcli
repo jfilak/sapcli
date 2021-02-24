@@ -113,19 +113,21 @@ def parse_command_line(argv):
 def main(argv):
     """Main function"""
 
+    retval = 1
     try:
         args = parse_command_line(argv)
         connection = args.connection_factory(args)
-        return args.execute(connection, args)
+        retval = args.execute(connection, args)
     except KeyboardInterrupt:
         log.error('Program interrupted!')
     except sap.errors.SAPCliError as ex:
         print('Exception:', file=sys.stderr)
         print(' ', str(ex), file=sys.stderr)
         log.debug('Execution of program has been terminated due to an error', exc_info=True)
-        return 1
     finally:
         logging.shutdown()
+
+    return retval
 
 
 if __name__ == '__main__':
