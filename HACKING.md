@@ -14,6 +14,12 @@ not put too much logic into the CLI commands.
 3. tests are written in python.unittest to avoid unnecessary dependencies and
    are stored in the directory [test/](test/)
 
+4. all development dependencies are tracked in the file [dev-requirements.txt](dev-requirements.txt) and can be installed with the following command
+
+```bash
+pip install -r dev-requirements.txt
+```
+
 ## Workflow
 
 1. Do your changes
