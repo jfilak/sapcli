@@ -201,8 +201,12 @@ def run(connection, args):
         args.variant = settings.system_check_variant
         
     results = []
-    if args.name is not None and isinstance(args.name, list) and len(args.name) > 0:
-        arr_objects = args.name[0].split()
+    if args.name and isinstance(args.name, list):
+        arr_objects = []
+        # Make sure it can be used as a sequence of strings or as an array of strings
+        for objectArr in args.name:
+            arr_objects += objectArr.split()
+
         for objname in arr_objects:
             checks = sap.adt.atc.ChecksRunner(connection, args.variant)
             objects = sap.adt.objects.ADTObjectSets()

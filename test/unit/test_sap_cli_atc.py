@@ -74,7 +74,7 @@ class TestRun(unittest.TestCase):
         fake_runner.assert_called_once_with(self.connection, 'THE_VARIANT')
         fake_runner.return_value.run_for.assert_called_once_with(fake_sets.return_value, max_verdicts=100)
 
-        fake_print.assert_called_once_with('WORKLIST', sys.stdout, error_level=2)
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2)
 
     def execute_run(self, *args, **kwargs):
         cmd_args = parse_args('run', *args, **kwargs)
