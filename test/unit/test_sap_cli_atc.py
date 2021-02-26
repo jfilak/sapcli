@@ -168,6 +168,21 @@ class TestRun(unittest.TestCase):
     @patch('sap.adt.atc.ChecksRunner')
     @patch('sap.adt.atc.fetch_customizing')
     @patch('sap.adt.Package')
+    def test_package_multiple_trim(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+
+        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
+
+        args = parse_args('run', 'package', '$PACKAGE $TMP')
+        args.execute(self.connection, args)
+
+        self.assertEqual(fake_object.call_args_list, [call(self.connection, fake_object.name), call(self.connection, '$TMP')])
+        self.assertEqual(fake_sets.return_value.include_object.call_args_list, [call(fake_object.return_value), call(fake_object.return_value)])
+
+    @patch('sap.cli.atc.print_worklists_to_stream')
+    @patch('sap.adt.objects.ADTObjectSets')
+    @patch('sap.adt.atc.ChecksRunner')
+    @patch('sap.adt.atc.fetch_customizing')
+    @patch('sap.adt.Package')
     def test_with_variant(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
 
         self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)

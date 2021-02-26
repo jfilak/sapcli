@@ -201,7 +201,7 @@ def run(connection, args):
         args.variant = settings.system_check_variant
         
     results = []
-    if args.name and isinstance(args.name, list):
+    if args.name:
         arr_objects = []
         # Make sure it can be used as a sequence of strings or as an array of strings
         for objectArr in args.name:
