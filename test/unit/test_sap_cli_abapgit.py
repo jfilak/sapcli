@@ -6,108 +6,165 @@
 import unittest
 from unittest.mock import Mock, patch, call
 
+from mock import (
+    ConsoleOutputTestCase,
+    PatcherTestCase,
+)
+
 import sap.cli.abapgit
 
-
-def get_sample_link_args():
-    args = Mock()
-    args.package = 'PKG'
-    args.url = 'URL'
-    args.branch = 'branch'
-    args.remote_user = 'user'
-    args.remote_password = 'password'
-    args.corrnr = 'request'
-    return args
+from infra import generate_parse_args
 
 
-def get_sample_pull_args():
-    args = Mock()
-    args.package = 'PKG'
-    args.branch = 'branch'
-    args.remote_user = 'user'
-    args.remote_password = 'password'
-    args.corrnr = 'request'
-    return args
+parse_args = generate_parse_args(sap.cli.abapgit.CommandGroup())
 
 
-class TestAbapgitCommands(unittest.TestCase):
-    '''Test Abapgit cli commands'''
+class TestAbapgitLink(PatcherTestCase, ConsoleOutputTestCase):
+    '''Test Abapgit Link command'''
 
-    @patch('sap.cli.core.get_console', return_value=Mock())
-    @patch('sap.adt.abapgit.Repository.link', return_value=Mock())
-    def test_link_repo_ok(self, link_patch, console_patch):
-        link_patch.return_value.status_code = 200
-        console_patch.return_value.printout = Mock()
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
 
-        sap.cli.abapgit.link('CONNECTION', get_sample_link_args())
+        self.connection = Mock()
 
-        link_patch.assert_called_once_with(
-            'CONNECTION',
-            {
-                'package': 'PKG',
-                'url': 'URL',
-                'branchName': 'branch',
-                'remoteUser': 'user',
-                'remotePassword': 'password',
-                'transportRequest': 'request'
-            })
+        self.patch_console(console=self.console)
+        self.link_patch = self.patch('sap.adt.abapgit.Repository.link')
+        self.link_patch.return_value = Mock()
 
-        console_patch.return_value.printout.assert_called_once_with('Repository was linked.')
+        self.param_branch = 'branch'
+        self.param_remote_user = 'user'
+        self.param_remote_password = 'password'
+        self.param_corrnr = 'request'
+        self.param_package = 'PKG'
+        self.param_url = 'URL'
 
-    @patch('sap.cli.core.get_console', return_value=Mock())
-    @patch('sap.adt.abapgit.Repository.link', return_value=Mock())
-    def test_link_repo_error(self, link_patch, console_patch):
-        link_patch.return_value.status_code = 500
-        console_patch.return_value.printerr = Mock()
+    def execute_link_all_params(self):
+        args = parse_args(
+            'link',
+            '--remote-user', self.param_remote_user,
+            '--remote-password', self.param_remote_password,
+            '--corrnr', self.param_corrnr,
+            '--branch', self.param_branch,
+            self.param_package,
+            self.param_url)
+        return args.execute(self.connection, args)
 
-        sap.cli.abapgit.link('CONNECTION', get_sample_link_args())
+    def build_abapgit_params(self, package=None):
+        return {
+            'package': self.param_package if package is None else package,
+            'url': self.param_url,
+            'branchName': self.param_branch,
+            'remoteUser': self.param_remote_user,
+            'remotePassword': self.param_remote_password,
+            'transportRequest': self.param_corrnr
+        }
 
-        link_patch.assert_called_once()
-        console_patch.return_value.printerr.assert_called_once_with(
-            'Failed to link repository: PKG', link_patch.return_value)
+    def test_link_repo_ok(self):
+        self.link_patch.return_value.status_code = 200
+
+        self.execute_link_all_params()
+
+        self.link_patch.assert_called_once_with(self.connection, self.build_abapgit_params())
+
+        self.assertConsoleContents(console=self.console, stdout='''Repository was linked.
+''')
+
+    def test_link_repo_ok_uppercase(self):
+        self.link_patch.return_value.status_code = 200
+
+        self.param_package = 'lower_case'
+        self.execute_link_all_params()
+
+        self.link_patch.assert_called_once_with(self.connection,
+                                                self.build_abapgit_params(package='LOWER_CASE'))
+
+    def test_link_repo_error(self):
+        self.link_patch.return_value.status_code = 500
+
+        self.execute_link_all_params()
+
+        self.link_patch.assert_called_once()
+
+        self.assertConsoleContents(console=self.console, stderr=f'''Failed to link repository: PKG {self.link_patch.return_value}
+''')
+
+
+class TestAbapgitPull(PatcherTestCase, ConsoleOutputTestCase):
+    '''Test Abapgit Pull command'''
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+
+        self.connection = Mock()
+
+        self.patch_console(console=self.console)
+        self.heartbeat_patch = self.patch('sap.cli.helpers.ConsoleHeartBeat')
+        self.repo_patch = self.patch('sap.adt.abapgit.Repository')
+
+        self.repo_inst = self.repo_patch.return_value
+        self.repo_inst.fetch = Mock()
+        self.repo_inst.pull = Mock()
+        self.repo_inst.get_status_text = Mock(return_value='STATUS_TEXT')
+
+        self.param_branch = 'branch'
+        self.param_remote_user = 'user'
+        self.param_remote_password = 'password'
+        self.param_corrnr = 'request'
+        self.param_package = 'PKG'
+
+    def build_abapgit_params(self):
+        return {
+            'branchName': self.param_branch,
+            'remoteUser': self.param_remote_user,
+            'remotePassword': self.param_remote_password,
+            'transportRequest': self.param_corrnr
+        }
+
+    def execute_pull_all_params(self):
+        args = parse_args('pull',
+            '--remote-user', self.param_remote_user,
+            '--remote-password', self.param_remote_password,
+            '--corrnr', self.param_corrnr,
+            '--branch', self.param_branch,
+            self.param_package)
+
+        return args.execute(self.connection, args)
+
 
     @patch('time.sleep')
-    @patch('sap.cli.helpers.ConsoleHeartBeat')
-    @patch('sap.cli.core.get_console', return_value=Mock())
-    @patch('sap.adt.abapgit.Repository', return_value=Mock())
-    def test_pull_repo_ok(self, repo_patch, console_patch, hartbeat_patch, sleep_patch):
-        repo = repo_patch.return_value
-        repo.fetch = Mock()
-        repo.pull = Mock()
-        repo.get_status = Mock(side_effect=['R', 'S', 'S', 'S'])
-        repo.get_status_text = Mock(return_value='STATUS_TEXT')
+    def test_pull_repo_ok(self, sleep_patch):
+        self.repo_inst.get_status = Mock(side_effect=['R', 'S', 'S', 'S'])
 
-        console_patch.return_value.printout = Mock()
+        self.execute_pull_all_params()
 
-        sap.cli.abapgit.pull('CONNECTION', get_sample_pull_args())
-
-        repo_patch.assert_called_once_with('CONNECTION', 'PKG')
-        repo.pull.assert_called_once_with({
-            'branchName': 'branch',
-            'remoteUser': 'user',
-            'remotePassword': 'password',
-            'transportRequest': 'request'
-        })
+        self.repo_patch.assert_called_once_with(self.connection, 'PKG')
+        self.repo_inst.pull.assert_called_once_with(self.build_abapgit_params())
 
         sleep_patch.assert_called_once_with(1)
-        hartbeat_patch.assert_called_once_with(console_patch.return_value, 1)
-        console_patch.return_value.printout.assert_called_once_with('STATUS_TEXT')
 
-    @patch('sap.cli.helpers.ConsoleHeartBeat')
-    @patch('sap.cli.core.get_console', return_value=Mock())
-    @patch('sap.adt.abapgit.Repository', return_value=Mock())
-    def test_pull_repo_error(self, repo_patch, console_patch, hartbeat_patch):
-        repo = repo_patch.return_value
-        repo.fetch = Mock()
-        repo.pull = Mock()
-        repo.get_status = Mock(return_value='E')
-        repo.get_status_text = Mock(return_value='STATUS_TEXT')
-        repo.get_error_log = Mock(return_value='ERROR_LOG')
+        self.heartbeat_patch.assert_called_once_with(self.console, 1)
+        self.assertConsoleContents(console=self.console, stdout='''STATUS_TEXT
+''')
 
-        console_patch.return_value.printerr = Mock()
+    @patch('time.sleep')
+    def test_pull_repo_ok_uppercase(self, sleep_patch):
+        self.param_package = 'lower_case'
+        self.execute_pull_all_params()
+        self.repo_patch.assert_called_once_with(self.connection, 'LOWER_CASE')
 
-        sap.cli.abapgit.pull('CONNECTION', get_sample_pull_args())
+    def test_pull_repo_error(self):
+        self.repo_inst.get_status = Mock(return_value='E')
+        self.repo_inst.get_error_log = Mock(return_value='ERROR_LOG')
 
-        repo.pull.assert_called_once()
-        hartbeat_patch.assert_called_once_with(console_patch.return_value, 1)
-        console_patch.return_value.printerr.assert_has_calls([call('STATUS_TEXT'), call('ERROR_LOG')])
+        self.execute_pull_all_params()
+
+        self.repo_inst.pull.assert_called_once()
+
+        self.heartbeat_patch.assert_called_once_with(self.console, 1)
+        self.assertConsoleContents(console=self.console, stderr='''STATUS_TEXT
+ERROR_LOG
+''')

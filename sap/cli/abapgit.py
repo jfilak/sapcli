@@ -28,7 +28,7 @@ def link(connection, args):
     """
 
     resp = sap.adt.abapgit.Repository.link(connection, {
-        'package': args.package,
+        'package': args.package.upper(),
         'url': args.url,
         'branchName': args.branch,
         'remoteUser': args.remote_user,
@@ -53,7 +53,7 @@ def pull(connection, args):
     """ pull git repository branch to linked ABAP package
     """
 
-    repository = sap.adt.abapgit.Repository(connection, args.package)
+    repository = sap.adt.abapgit.Repository(connection, args.package.upper())
     repository.fetch()
     repository.pull({
         'branchName': args.branch,
