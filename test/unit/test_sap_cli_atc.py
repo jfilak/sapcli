@@ -172,7 +172,7 @@ class TestRun(unittest.TestCase):
 
         self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
 
-        args = parse_args('run', 'package', '$PACKAGE $TMP')
+        args = parse_args('run', 'package', '$PACKAGE', '$TMP')
         args.execute(self.connection, args)
 
         self.assertEqual(fake_object.call_args_list, [call(self.connection, fake_object.name), call(self.connection, '$TMP')])
