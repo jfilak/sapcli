@@ -76,6 +76,7 @@ class TestRunResponse(unittest.TestCase):
         info = run_response.infos[0]
         self.assertEqual(info.typ, 'NO_OBJS')
         self.assertEqual(info.description, 'Selection does not contain objects which can be checked by ATC')
+        self.assertEqual(str(info), info.description)
 
     def test_run_response_infos_populated(self):
         run_response = sap.adt.atc.RunResponse()
