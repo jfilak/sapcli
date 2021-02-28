@@ -6,7 +6,6 @@ import sys
 
 from xml.sax.saxutils import escape, quoteattr
 
-from sap import get_logger
 import sap.adt
 import sap.adt.atc
 from sap.cli.core import printout
@@ -23,12 +22,6 @@ SEVERITY_MAPPING = {
     '4': WARNING,
     '5': INFO
 }
-
-
-def mod_log():
-    """Module logger"""
-
-    return get_logger()
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
