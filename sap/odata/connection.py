@@ -18,7 +18,7 @@ class Connection:
     # pylint: disable=too-many-arguments
     def __init__(self, service, host, port, client, user, password, ssl, verify):
         """Parameters:
-            - service: id of the odata service (e.g. ABAP_REPOSITORY_SRV)
+            - service: id of the odata service (e.g. UI5/ABAP_REPOSITORY_SRV)
             - host: string host name or IP of
             - port: string TCP/IP port for abap application server
             - client: string SAP client
@@ -37,7 +37,7 @@ class Connection:
             if port is None:
                 port = '80'
 
-        self._base_url = f'{protocol}://{host}:{port}/sap/opu/odata/UI5/{service}'
+        self._base_url = f'{protocol}://{host}:{port}/sap/opu/odata/{service}'
         self._query_args = f'sap-client={client}&saml2=disabled'
         self._user = user
         self._auth = HTTPBasicAuth(user, password)

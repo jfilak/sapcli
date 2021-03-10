@@ -86,7 +86,7 @@ class CommandsCache:
 
         if CommandsCache.odata is None:
             CommandsCache.odata = [
-                (partial(odata_connection_from_args, 'ABAP_REPOSITORY_SRV'), sap.cli.bsp.CommandGroup()),
+                (partial(odata_connection_from_args, 'UI5/ABAP_REPOSITORY_SRV'), sap.cli.bsp.CommandGroup()),
                 (partial(odata_connection_from_args, 'UI2/PAGE_BUILDER_CUST'), sap.cli.flp.CommandGroup())
             ]
 
