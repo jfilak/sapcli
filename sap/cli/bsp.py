@@ -8,7 +8,6 @@ import sap.cli.core
 import sap.cli.helpers
 
 from sap import get_logger
-from sap.errors import ResourceAlreadyExistsError
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -24,8 +23,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
 @CommandGroup.argument('--corrnr', type=str, required=True,
                        help='Transport Request to be used for application upload')
 @CommandGroup.command()
-def create(connection, args):
-    """Creates the requested BSP application.
+def upload(connection, args):
+    """Uploads the requested BSP application. If the application does not exist yet it will be created automatically.
 
        Important: Target ABAP system needs following setup
 
@@ -44,10 +43,12 @@ def create(connection, args):
     # check if application exists
     try:
         connection.client.entity_sets.Repositories.get_entity(Name=args.bsp).execute()
-        raise ResourceAlreadyExistsError
+        request = connection.client.entity_sets.Repositories.update_entity(Name=args.bsp)
     except pyodata.exceptions.HttpError as ex:
         if ex.response.status_code != 404:
             raise ex
+        get_logger().info('New BSP application will be created')
+        request = connection.client.entity_sets.Repositories.create_entity()
 
     app_data = {
         'Name': args.bsp,
@@ -55,24 +56,19 @@ def create(connection, args):
         'ZipArchive': app_data_b64.decode("utf-8"),
     }
 
-    create_request = connection.client \
-        .entity_sets \
-        .Repositories \
-        .create_entity() \
-        .custom('CodePage', 'UTF8') \
+    request.custom('CodePage', 'UTF8') \
         .custom('TransportRequest', args.corrnr) \
-        .custom('client', args.client)
-
-    create_request.set(**app_data)
+        .custom('client', args.client) \
+        .set(**app_data)
 
     try:
-        create_request.execute()
+        request.execute()
     except pyodata.exceptions.HttpError as ex:
         res = json.loads(ex.response.text)
         get_logger().info(pprint.pformat(res))
         raise ex
 
-    get_logger().info('BSP application successfully created and uploaded')
+    get_logger().info('BSP application successfully uploaded')
 
 
 @CommandGroup.argument('--bsp', type=str, required=True, help='BSP ID')
