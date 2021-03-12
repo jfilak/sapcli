@@ -73,3 +73,26 @@ def create(connection, args):
         raise ex
 
     get_logger().info('BSP application successfully created and uploaded')
+
+
+@CommandGroup.argument('--bsp', type=str, required=True, help='BSP ID')
+@CommandGroup.command()
+def stat(connection, args):
+    """Get information about BSP application"""
+
+    console = sap.cli.core.get_console()
+
+    # check if application exists
+    try:
+        bsp = connection.client.entity_sets.Repositories.get_entity(Name=args.bsp).execute()
+    except pyodata.exceptions.HttpError as ex:
+        if ex.response.status_code == 404:
+            return sap.cli.core.EXIT_CODE_NOT_FOUND
+        else:
+            raise ex
+
+    console.printout(f'Name                   :{bsp.Name}')
+    console.printout(f'Package                :{bsp.Package}')
+    console.printout(f'Description            :{bsp.Description}')
+
+    return sap.cli.core.EXIT_CODE_OK
