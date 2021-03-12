@@ -96,3 +96,24 @@ def stat(connection, args):
     console.printout(f'Description            :{bsp.Description}')
 
     return sap.cli.core.EXIT_CODE_OK
+
+
+@CommandGroup.argument('--bsp', type=str, required=True, help='BSP ID')
+@CommandGroup.argument('--corrnr', type=str, required=True,
+                       help='Transport Request to be used for application removal')
+@CommandGroup.command()
+def delete(connection, args):
+    """Get information about BSP application"""
+
+    try:
+        connection.client \
+            .entity_sets \
+            .Repositories \
+            .delete_entity(Name=args.bsp) \
+            .custom('TransportRequest', args.corrnr) \
+            .execute()
+    except pyodata.exceptions.HttpError as ex:
+        if ex.response.status_code != 404:
+            raise ex
+
+    get_logger().info('BSP application successfully removed')
