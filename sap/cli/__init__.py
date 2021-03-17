@@ -45,7 +45,7 @@ class CommandsCache:
         import sap.cli.abapgit
         import sap.cli.bsp
         import sap.cli.flp
-        import sap.cli.odataservice
+        import sap.cli.rap
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -65,7 +65,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.activation.CommandGroup()),
                 (adt_connection_from_args, sap.cli.adt.CommandGroup()),
                 (adt_connection_from_args, sap.cli.abapgit.CommandGroup()),
-                (adt_connection_from_args, sap.cli.odataservice.CommandGroup())
+                (adt_connection_from_args, sap.cli.rap.CommandGroup())
             ]
 
         if CommandsCache.rest is None:
