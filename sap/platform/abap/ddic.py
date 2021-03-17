@@ -10,6 +10,11 @@ class DEVC(Structure):
 
     # pylint: disable=invalid-name
     CTEXT: str
+    SRV_CHECK: str
+
+
+SUBC_EXECUTABLE_PROGRAM = '1'
+SUBC_INCLUDE = 'I'
 
 
 # pylint: disable=invalid-name
@@ -34,6 +39,12 @@ class VSEOCLASS(Structure):
     FIXPT: str
     # pylint: disable=invalid-name
     UNICODE: str
+    # pylint: disable=invalid-name
+    WITH_UNIT_TESTS: str
+    CATEGORY: str
+    EXPOSURE: str
+    CLSFINAL: str
+    CLSABSTRCT: str
 
 
 # pylint: disable=invalid-name
@@ -97,6 +108,9 @@ class PROGDIR(Structure):
     # ' ' Obsolete ABAP (Not Unicode)
     # pylint: disable=invalid-name
     UCCHECK: str
+    RLOAD: str
+    RSTAT: str
+    DBNA: str
 
 
 # pylint: disable=invalid-name

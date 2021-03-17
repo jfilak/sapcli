@@ -13,6 +13,12 @@ class PLAIN_STRUCT(sap.platform.abap.Structure):
     LINUX: str
 
 
+class NESTED_STRUCT(sap.platform.abap.Structure):
+
+    REVIEWER: str
+    REPORT: PLAIN_STRUCT
+
+
 class PLAIN_STRUCT_TT(sap.platform.abap.InternalTable[PLAIN_STRUCT]):
 
     pass
@@ -291,6 +297,72 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
  </item>
 </PLAIN_STRUCT_TT>
 ''')
+
+
+class TestSAPPlatformABAPFromXML(unittest.TestCase):
+
+    def test_from_xml_stucture_with_string_table(self):
+        act_struct = STRUCT_WITH_STRING_TABLE()
+
+        sap.platform.abap.from_xml(act_struct, '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <STRUCT_WITH_STRING_TABLE>
+   <PYTHON>theBest</PYTHON>
+   <LINUX>better</LINUX>
+   <DISTROS>
+    <item>Fedora</item>
+    <item>CentOS</item>
+   </DISTROS>
+  </STRUCT_WITH_STRING_TABLE>
+ </asx:values>
+</asx:abap>\n''')
+
+        self.assertEqual(act_struct.PYTHON, 'theBest')
+        self.assertEqual(act_struct.LINUX, 'better')
+        self.assertEqual([row for row in act_struct.DISTROS], ['Fedora', 'CentOS'])
+
+    def test_from_xml_internal_table_of_structure(self):
+        lines = PLAIN_STRUCT_TT()
+
+        sap.platform.abap.from_xml(lines, '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <PLAIN_STRUCT_TT>
+   <PLAIN_STRUCT>
+    <PYTHON>Nice</PYTHON>
+    <LINUX>Awesome</LINUX>
+   </PLAIN_STRUCT>
+   <PLAIN_STRUCT>
+    <PYTHON>Cool</PYTHON>
+    <LINUX>Fabulous</LINUX>
+   </PLAIN_STRUCT>
+  </PLAIN_STRUCT_TT>
+ </asx:values>
+</asx:abap>\n''')
+
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[0], PLAIN_STRUCT(PYTHON='Nice', LINUX='Awesome'))
+
+    def test_from_xml_nested_structure(self):
+        struct = NESTED_STRUCT()
+
+        sap.platform.abap.from_xml(struct, '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <NESTED_STRUCT>
+   <REVIEWER>Jakub Filak</REVIEWER>
+   <REPORT>
+    <PYTHON>Cool</PYTHON>
+    <LINUX>Fabulous</LINUX>
+   </REPORT>
+  </NESTED_STRUCT>
+ </asx:values>
+</asx:abap>\n''')
+
+        self.assertEqual(struct.REVIEWER, 'Jakub Filak')
+        self.assertEqual(struct.REPORT.PYTHON, 'Cool')
+        self.assertEqual(struct.REPORT.LINUX, 'Fabulous')
 
 
 if __name__ == '__main__':

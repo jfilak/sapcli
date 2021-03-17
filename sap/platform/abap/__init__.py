@@ -1,6 +1,17 @@
 # pylint: skip-file
 """ABAP language utilities"""
 
+import xml.sax
+from xml.sax.handler import ContentHandler
+
+from sap import get_logger
+
+
+def mod_log():
+    """ADT Module logger"""
+
+    return get_logger()
+
 
 # pylint: disable=too-few-public-methods
 class Structure:
@@ -119,6 +130,9 @@ class InternalTable(metaclass=InternalTableMeta):
         elif len(args) > 1:
             for row in args:
                 self._append_row(row)
+
+    def __repr__(self):
+        return f'[[{self._rows}]]'
 
     def __iter__(self):
         return self._rows.__iter__()
@@ -241,3 +255,213 @@ def to_xml(abap_struct_or_table, dest, top_element=None):
 
     dest.write(''' </asx:values>
 </asx:abap>\n''')
+
+
+class ABAPBaseWriter:
+    """An adapter for structures and tables"""
+
+    def __init__(self, parent, obj, name):
+        self.parent = parent
+        self.obj = obj
+        self.name = name
+
+    def do_start(self, name, attrs):
+        """Handle opening tag in an ancestor class.
+           Should return a writer adapter - either self or a new child adapter.
+        """
+
+        return self
+
+    def start(self, name, attrs):
+        """Handle opening tag - (overwrite do_start)"""
+
+        return self.do_start(name, attrs)
+
+    def get_type(self):
+        """Returns type of the adapted object"""
+
+        raise NotImplementedError()
+
+    def get_member_type(self, name):
+        """Returns type of the member of the given name"""
+
+        typ = self.get_type()
+        try:
+            return self.get_type().__annotations__[name]
+        except KeyError:
+            raise RuntimeError(f'{typ.__name__} does not have the member {name}')
+
+    def do_end(self, name, contents):
+        """Handle closing tag in an ancestor class.
+           Should return a writer adapter - either self or a new child adapter.
+        """
+
+        raise NotImplementedError()
+
+    def set_child(self, name, child_obj):
+        """Sets the member of the given name in the adapted object"""
+
+        raise NotImplementedError()
+
+    def end(self, name, contents):
+        """Handle closing tag - (overwrite do_end)"""
+
+        if name == self.name:
+            if self.parent is not None:
+                mod_log().debug('Setting: %s.%s = %s', self.parent.obj, name, self.obj)
+                self.parent.set_child(name, self.obj)
+
+            mod_log().debug('%s going to parent', name)
+            return self.parent
+
+        return self.do_end(name, contents)
+
+
+class ABAPStructureWriter(ABAPBaseWriter):
+
+    def get_type(self):
+        return type(self.obj)
+
+    def set_child(self, name, child_obj):
+        setattr(self.obj, name, child_obj)
+
+    def do_end(self, name, contents):
+        self.set_child(name, contents)
+
+        return self
+
+
+class ABAPTableWriter(ABAPBaseWriter):
+
+    def __init__(self, *args, **kwargs):
+        super(ABAPTableWriter, self).__init__(*args, **kwargs)
+
+        typ = self.get_type()
+        self.plain_list = not issubclass(typ, (Structure, InternalTable))
+
+    def get_type(self):
+        mod_log().debug('Object of table is: %s', self.obj._type.__name__)
+        return self.obj._type
+
+    def get_member_type(self, name):
+        return self.get_type()
+
+    def do_start(self, name, attrs):
+        if name == 'item':
+            if self.plain_list:
+                return self
+
+        mod_log().debug('New Instance of Complex: %s', self.obj._type.__name__)
+
+        # Return a new adapter for item type of the table
+        row = self.obj._type()
+        return ABAPStructureWriter(self, row, name)
+
+    def set_child(self, name, child_obj):
+        mod_log().debug('Appending: %s', child_obj)
+        self.obj.append(child_obj)
+
+    def do_end(self, name, contents):
+        if name != 'item':
+            # Closing tag of the item type must be
+            # handled in the corresponding adapter.
+            raise RuntimeError('No members allowed')
+
+        if not self.plain_list:
+            raise RuntimeError('Structure called "item" is not allowed')
+
+        mod_log().debug('New Instance of Scalar: %s', self.obj._type.__name__)
+        row = self.obj._type(contents)
+        self.set_child(name, row)
+
+        return self
+
+
+def get_xml_object_adapter(adapted_typ, adapted_obj, xml_tag, parent_adapter):
+
+    adapter_class = None
+
+    if issubclass(adapted_typ, Structure):
+        mod_log().debug('It is a structure')
+        adapter_class = ABAPStructureWriter
+    elif issubclass(adapted_typ, InternalTable):
+        mod_log().debug('It is a table')
+        adapter_class = ABAPTableWriter
+    else:
+        return None
+
+    if adapted_obj is None:
+        mod_log().debug('Creating a target object: %s', adapted_typ.__name__)
+        adapted_obj = adapted_typ()
+
+    mod_log().debug('Creating the adapter')
+    return adapter_class(parent_adapter, adapted_obj, xml_tag)
+
+
+class ABAPContentHandler(ContentHandler):
+    """A helper class for parsing ABAP types serialized into XML"""
+
+    def __init__(self, master_obj, root_elem=None):
+        self.root_elem = master_obj.__class__.__name__ if root_elem is None else root_elem
+
+        self.current = get_xml_object_adapter(type(master_obj), master_obj, self.root_elem, None)
+        if self.current is None:
+            raise RuntimeError('Master object must be structure or internal table')
+
+        self.contents = None
+        self._data = False
+
+    def startElement(self, name, attrs):
+        mod_log().debug('<%s>', name)
+
+        if not self._data:
+            if name == 'asx:values':
+                self._data = True
+            return
+
+        if name == self.root_elem:
+            return
+
+        mod_log().debug('Resolving type of <%s>', name)
+        typ = self.current.get_member_type(name)
+        mod_log().debug('<%s> == %s', name, typ.__name__)
+        adapter = get_xml_object_adapter(typ, None, name, self.current)
+
+        if adapter is not None:
+            mod_log().debug('<%s> delve deeper', name)
+            self.current = adapter
+        else:
+            mod_log().debug('<%s> handle scalar value', name)
+            self.current = self.current.start(name, attrs)
+            self.contents = ''
+
+    def characters(self, content):
+        if self.contents is None:
+            return
+
+        self.contents += content
+        mod_log().debug('<>%s</>', self.contents)
+
+    def endElement(self, name):
+        if name == 'asx:values':
+            mod_log().debug('</%s> exiting data', name)
+            self._data = False
+
+        if not self._data:
+            mod_log().debug('</%s> nolonger data section')
+            return
+
+        mod_log().debug('</%s> current %s', name, type(self.current))
+        self.current = self.current.end(name, self.contents)
+        mod_log().debug('</%s> next %s', name, type(self.current))
+        mod_log().debug('</%s> handle scalar value', name)
+        self.contents = None
+
+
+def from_xml(abap_struct_or_table, xml_contents, root_elem=None):
+    """"Reads the given xml_contents and stores the values in the give abap_struct_or_table"""
+
+    parser = ABAPContentHandler(abap_struct_or_table, root_elem=root_elem)
+    xml.sax.parseString(xml_contents, parser)
+
+    return abap_struct_or_table
