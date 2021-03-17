@@ -18,3 +18,4 @@
 16. [user](commands/user.md) - Create, read, and modify AS ABAP users
 17. [bsp](commands/bsp.md) - Management of BSP applications
 18. [flp](commands/flp.md) - Fiori Launchpad
+19. [rap](commands/businessservice.md) - RAP Business Services
