@@ -29,7 +29,7 @@ def startrfc(connection, args):
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
-    """Commands for exporting ADT objects"""
+    """Commands for calling RFC Function Modules"""
 
     def __init__(self):
         super().__init__('startrfc')
