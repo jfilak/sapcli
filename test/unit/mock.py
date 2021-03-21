@@ -1,5 +1,6 @@
 import copy
 import json
+import types
 from typing import Dict, NamedTuple
 from io import StringIO
 from argparse import ArgumentParser
@@ -424,3 +425,13 @@ class GCTSLogBuilder:
         self.exception = message
         self.errorLog.append(make_gcts_log_error(message=message, code=code))
         return self
+
+
+class TestRFCLibError(Exception):
+
+    def __init__(self, message):
+        super().__init__(message)
+
+
+mod_exception = types.SimpleNamespace(RFCLibError=TestRFCLibError)
+mod_pyrfc = types.SimpleNamespace(_exception=mod_exception)

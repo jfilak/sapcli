@@ -4,6 +4,9 @@ import sys
 import json
 import pprint
 
+# pylint: disable=import-error
+import pyrfc
+
 import sap.cli.core
 
 
@@ -21,11 +24,18 @@ def startrfc(connection, args):
     else:
         rfc_params = json.loads(args.JSON_PARAMETERS)
 
-    resp = connection.call(args.RFC_FUNCTION_MODULE, **rfc_params)
+    console = sap.cli.core.get_console()
 
-    sap.cli.core.printout(FORMATTERS[args.output](resp))
-
-    return 0
+    try:
+        resp = connection.call(args.RFC_FUNCTION_MODULE, **rfc_params)
+    # pylint: disable=protected-access
+    except pyrfc._exception.RFCLibError as ex:
+        console.printerr(f'{args.RFC_FUNCTION_MODULE} failed:')
+        console.printerr(str(ex))
+        return 1
+    else:
+        console.printout(FORMATTERS[args.output](resp))
+        return 0
 
 
 class CommandGroup(sap.cli.core.CommandGroup):

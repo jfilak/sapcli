@@ -4,12 +4,17 @@ import json
 from argparse import ArgumentParser
 from io import StringIO
 
+import sys
+import types
+
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch
+
+from mock import ConsoleOutputTestCase, PatcherTestCase, mod_pyrfc, TestRFCLibError
+
+sys.modules['pyrfc'] = mod_pyrfc
 
 import sap.cli.startrfc
-
-from mock import ConsoleOutputTestCase, PatcherTestCase
 
 
 def parse_args(*argv):
@@ -41,7 +46,7 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
     def tearDown(self):
         self.unpatch_all()
 
-    def execute_cmd(self, json_args_obj=None, exp_stdout=None, params=[]):
+    def execute_cmd(self, json_args_obj=None, exp_stdout=None, params=[], exp_stderr=''):
 
         if json_args_obj is None:
             args = parse_args(self.rfc_function_module, *params)
@@ -50,7 +55,7 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
         else:
             args = parse_args(self.rfc_function_module, *params, json.dumps(json_args_obj))
 
-        args.execute(self.rfc_connection, args)
+        exit_code = args.execute(self.rfc_connection, args)
 
         if json_args_obj is None:
             self.rfc_connection.call.assert_called_once_with(self.rfc_function_module)
@@ -60,7 +65,9 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
         if exp_stdout is None:
             exp_stdout = sap.cli.startrfc.FORMATTERS['human'](self.response) + '\n'
 
-        self.assertConsoleContents(self.console, stdout=exp_stdout, stderr='')
+        self.assertConsoleContents(self.console, stdout=exp_stdout, stderr=exp_stderr)
+
+        return exit_code
 
     def test_startrfc_without_parameters(self):
         self.execute_cmd()
@@ -81,3 +88,13 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
 
     def test_startrfc_output_dump(self):
         self.execute_cmd(exp_stdout=json.dumps(self.response) + '\n', params=['--output', 'json'])
+
+    def test_startrfc_exception(self):
+        self.rfc_connection.call = Mock(side_effect=TestRFCLibError('test startrfc'))
+        exit_code = self.execute_cmd(exp_stdout='', exp_stderr=f'''{self.rfc_function_module} failed:
+test startrfc
+''')
+        self.assertEqual(1, exit_code)
+
+
+del sys.modules['pyrfc']
