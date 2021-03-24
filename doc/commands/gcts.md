@@ -29,7 +29,7 @@ sapcli gcts clone [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type
 
 **Parameters**:
 - `--vsid VSID`: Virtual System ID of the repository; default is **6IT**
-- `--starting-folder FOLDER`: The directory inside the repository where to store ABAP files.
+- `--starting-folder FOLDER`: The directory inside the repository where to store ABAP files; default is **src/**.
 - `--role ROLE`: Either SOURCE (Development) or TARGET (Provided); default is **SOURCE**
 - `--type TYPE`: Either GIT or GITHUB; default is **GITHUB**
 - `--vcs-token TOKEN`: Authentication token
