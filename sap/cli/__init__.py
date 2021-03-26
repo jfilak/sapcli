@@ -38,10 +38,7 @@ class CommandsCache:
         import sap.cli.gcts
         import sap.cli.checkout
         import sap.cli.activation
-        import sap.cli.startrfc
         import sap.cli.adt
-        import sap.cli.strust
-        import sap.cli.user
         import sap.cli.abapgit
         import sap.cli.bsp
         import sap.cli.flp
@@ -75,6 +72,10 @@ class CommandsCache:
 
         if CommandsCache.rfc is None:
             if rfc.rfc_is_available():
+                import sap.cli.startrfc
+                import sap.cli.strust
+                import sap.cli.user
+
                 CommandsCache.rfc = [
                     (rfc_connection_from_args, sap.cli.startrfc.CommandGroup()),
                     (rfc_connection_from_args, sap.cli.strust.CommandGroup()),
