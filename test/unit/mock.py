@@ -92,12 +92,28 @@ class Request(NamedTuple):
         return Request.get(adt_uri=uri, headers=headers, params=params, accept='application/json')
 
     @staticmethod
-    def post(uri=None, headers=None, body=None, params=None, accept=None):
+    def post(uri=None, headers=None, body=None, params=None, accept=None, content_type=None):
         if accept:
             headers = headers or {}
             headers['Accept'] = accept
 
+        if content_type:
+            headers = headers or {}
+            headers['Content-Type'] = content_type
+
         return Request(method='POST', adt_uri=uri, headers=headers, body=body, params=params)
+
+    @staticmethod
+    def post_xml(uri=None, headers=None, body=None, params=None, accept=None):
+        return Request.post(
+                uri=uri,
+                headers=headers,
+                params=params,
+                accept=accept,
+                content_type='application/xml',
+                body=body
+            )
+
 
     @staticmethod
     def post_json(uri=None, headers=None, body=None, params=None, accept=None):
