@@ -2,7 +2,7 @@
 ADT proxy for service binding commands
 """
 
-import sap.adt.abapgit
+import sap.adt
 import sap.cli.core
 import sap.cli.helpers
 
