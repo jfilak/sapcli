@@ -93,6 +93,12 @@ ACTIVATION_WITH_PROPERTIES_XML='''<?xml version="1.0" encoding="utf-8"?>
   <chkl:properties checkExecuted="true" activationExecuted="true" generationExecuted="true"/>
 </chkl:messages>'''
 
+RESPONSE_ACTIVATION_OK = Response(
+    text=ACTIVATION_WITH_PROPERTIES_XML,
+    status_code=200,
+    content_type='application/xml; charset=utf-8'
+)
+
 ACTIVATION_WARNING_XML='''<?xml version="1.0" encoding="utf-8"?>
 <chkl:messages xmlns:chkl="http://www.sap.com/abapxml/checklist">
     <msg objDescr="Class ZCL_USER_MASTER_RECORD, Method CONSTRUCTOR" type="W" line="1" href="/sap/bc/adt/oo/classes/zcl_user_master_record/source/main#start=99,10" forceSupported="true">
