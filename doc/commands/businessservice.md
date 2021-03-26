@@ -1,8 +1,22 @@
 # rap
 
-## binding
+1. [definition activate](#activate)
+2. [biding publish](#publish)
 
-1. [publish](#publish)
+## definition
+
+### activate
+
+Activates the give Business Service Definition
+
+```bash
+sapcli rap definition activate NAME [NAME [NAME ...]]
+```
+
+**Parameters**:
+- `NAME`: A business service definition name to activate
+
+## binding
 
 ### publish
 

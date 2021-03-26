@@ -15,6 +15,9 @@ import sap.cli.rap
 
 from infra import generate_parse_args
 
+from mock import Connection, Response, Request
+from fixtures_adt_wb import RESPONSE_ACTIVATION_OK
+
 parse_args = generate_parse_args(sap.cli.rap.CommandGroup())
 
 
@@ -207,3 +210,49 @@ with supplied name "" and version "{self.param_version}"
 with supplied name "{self.param_service}" and version ""
 ''')
         self.assertEqual(exitcode, 1)
+
+
+class TestRapDefinition(PatcherTestCase, ConsoleOutputTestCase):
+    '''Test rap definition command group'''
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+
+        self.connection = Connection([RESPONSE_ACTIVATION_OK])
+        self.param_definition_name = 'EXAMPLE_CONFIG_SRV'
+
+    def execute_definition_activate(self):
+        args = parse_args(
+            'definition',
+            'activate',
+            self.param_definition_name
+        )
+        return args.execute(self.connection, args)
+
+    def test_activate(self):
+        self.execute_definition_activate()
+
+        self.assertConsoleContents(console=self.console,
+                                   stdout=f'''Activating:
+* EXAMPLE_CONFIG_SRV
+Activation has finished
+Warnings: 0
+Errors: 0
+''')
+
+        self.connection.execs[0].assertEqual(
+            Request.post_xml(
+                uri='/sap/bc/adt/activation',
+                accept='application/xml',
+                params={'method':'activate', 'preauditRequested':'true'},
+                body='''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:objectReference adtcore:uri="/sap/bc/adt/ddic/srvd/sources/example_config_srv" adtcore:name="EXAMPLE_CONFIG_SRV"/>
+</adtcore:objectReferences>'''
+            ),
+            self
+        )

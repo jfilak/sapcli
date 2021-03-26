@@ -21,6 +21,7 @@ from sap.adt.marshalling import Marshal
 
 
 XMLNS_SRVB = xmlns_adtcore_ancestor('srvb', 'http://www.sap.com/adt/ddic/ServiceBindings')
+XMLNS_SRVD = xmlns_adtcore_ancestor('srvd', 'http://www.sap.com/adt/ddic/srvdsources')
 
 
 # pylint: disable=too-few-public-methods
@@ -155,3 +156,21 @@ class ServiceBinding(ADTObject):
         )
 
         return from_xml(StatusMessage(), response.text, root_elem="DATA")
+
+
+class ServiceDefinition(ADTObject):
+    """Business Service Definition abstraction"""
+
+    OBJTYPE = ADTObjectType(
+        'SRVD/SRV',
+        'ddic/srvd/sources',
+        XMLNS_SRVD,
+        ['application/vnd.sap.adt.ddic.srvd.v1+xml'],
+        {},
+        'srvdSource'
+    )
+
+    def __init__(self, connection, name, package=None, metadata=None):
+        super().__init__(connection, name, metadata)
+
+        self._metadata.package_reference.name = package

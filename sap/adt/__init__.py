@@ -10,4 +10,4 @@ from sap.adt.aunit import AUnit  # noqa: F401
 from sap.adt.acoverage import ACoverage  # noqa: F401
 from sap.adt.repository import Repository  # noqa: F401
 from sap.adt.datapreview import DataPreview  # noqa: F401
-from sap.adt.businessservice import ServiceBinding  # noqa: F401
+from sap.adt.businessservice import ServiceDefinition, ServiceBinding  # noqa: F401

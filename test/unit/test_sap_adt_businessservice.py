@@ -11,6 +11,10 @@ import sap.adt.businessservice
 
 from mock import Connection, Response, Request
 
+from fixtures_adt_businessservice import (
+    SERVICE_DEFINITION_ADT_XML,
+)
+
 SAMPLE_ODATA_BINDING_V2 = '''<?xml version="1.0" encoding="utf-8"?>
 <srvb:serviceBinding srvb:releaseSupported="false" srvb:published="true" srvb:bindingCreated="true"
     xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core">
@@ -86,6 +90,12 @@ RESPONSE_BINDING_OK_SINGLE_SRVD = Response(
     text=SAMPLE_ODATA_BINDING_V2_SINGLE_SRVD,
     status_code=200,
     content_type='application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'
+)
+
+RESPONSE_DEFINITION_OK = Response(
+    text=SERVICE_DEFINITION_ADT_XML,
+    status_code=200,
+    content_type='application/vnd.sap.adt.ddic.srvd.v1+xml; charset=utf-8'
 )
 
 
@@ -217,3 +227,17 @@ class TestbusinessserviceBinding(unittest.TestCase):
         self.assertIsNone(binding.find_service(None, service_version))
         self.assertIsNone(binding.find_service(service_name, service_version))
 
+
+class TestbusinessserviceDefinition(unittest.TestCase):
+
+    def test_binding_fetch(self):
+        connection = Connection([RESPONSE_DEFINITION_OK])
+
+        definition_name = 'EXAMPLE_CONFIG_SRV'
+
+        definition = sap.adt.businessservice.ServiceDefinition(connection, definition_name)
+        definition.fetch()
+
+        self.assertEqual(definition.name, definition_name)
+        self.assertEqual(definition.description, 'Example Configuration')
+        self.assertEqual(definition.reference.name, 'EXAMPLE_CONFIG')
