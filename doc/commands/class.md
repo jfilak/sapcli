@@ -4,7 +4,8 @@
 2. [write](#write-1)
 3. [activate](#activate-1)
 4. [read](#read-1)
-4. [attributes](#attributes)
+5. [attributes](#attributes)
+6. [execute](#execute)
 
 ## create
 
@@ -95,3 +96,11 @@ Supported attributes:
 * Description
 * Responsible
 * Package
+
+## execute
+
+Executes the class if it implements the `if_oo_adt_classrun~main` method and prints the raw output
+
+```bash
+sapcli class execute ZCL_HELLOWORLD
+```

@@ -91,3 +91,12 @@ def attributes(connection, args):
     print(f'Responsible: {clas.responsible}')
     # pylint: disable=no-member
     print(f'Package    : {clas.reference.name}')
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def execute(connection, args):
+    """Runs the if_oo_adt_classrun~main method"""
+
+    clas = sap.adt.Class(connection, args.name)
+    print(clas.execute())
