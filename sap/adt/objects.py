@@ -1206,6 +1206,16 @@ class Class(OOADTObjectBase):
 
         return self._test_classes
 
+    def execute(self):
+        """Calls if_oo_adt_classrun~main"""
+
+        resp = self._connection.execute(
+            'POST',
+            'oo/classrun/' + quote_plus(self.name.lower()),
+            headers={'Accept': 'text/plain'})
+
+        return resp.text
+
 
 class DataDefinition(ADTObject):
     """CDS View definition"""
