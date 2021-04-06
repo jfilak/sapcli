@@ -1209,9 +1209,12 @@ class Class(OOADTObjectBase):
     def execute(self):
         """Calls if_oo_adt_classrun~main"""
 
+        # pylint: disable=no-member
+        name = self.name.lower()
+
         resp = self._connection.execute(
             'POST',
-            'oo/classrun/' + quote_plus(self.name.lower()),
+            'oo/classrun/' + quote_plus(name),
             headers={'Accept': 'text/plain'})
 
         return resp.text
