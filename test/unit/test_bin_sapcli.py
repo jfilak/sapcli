@@ -10,6 +10,8 @@ from types import SimpleNamespace
 import importlib.util
 from importlib.machinery import SourceFileLoader
 
+import sap
+
 loader = SourceFileLoader(fullname='sapcli', path='bin/sapcli')
 spec = importlib.util.spec_from_file_location('sapcli', 'bin/sapcli', loader=loader)
 sapcli = importlib.util.module_from_spec(spec)
@@ -273,6 +275,42 @@ class TestParseCommandLineWithCorrnr(unittest.TestCase):
 
         self.assertEqual(args.corrnr, '420WEEDTIME')
 
+class TestMainBinary(unittest.TestCase):
+
+    @patch('sapcli.parse_command_line')
+    def test_execution_successful(self, fake_parse_command_line):
+
+        fake_parse_command_line.return_value.execute.return_value = 0
+
+        params = ALL_PARAMETERS.copy()
+        retval = sapcli.main(params)
+        self.assertEqual(retval, 0)
+
+    @patch('sapcli.parse_command_line')
+    def test_execution_interrupted(self, fake_parse_command_line):
+
+        fake_parse_command_line.return_value.execute.side_effect = KeyboardInterrupt
+
+        with patch('sys.stderr', new_callable=StringIO) as fake_output:
+            params = ALL_PARAMETERS.copy()
+            retval = sapcli.main(params)
+#
+        self.assertEqual(retval, 1)
+        self.assertEqual(fake_output.getvalue(), 'Program interrupted!\n')
+
+    @patch('sapcli.parse_command_line')
+    def test_execution_failed(self, fake_parse_command_line):
+
+        fake_parse_command_line.return_value.execute.side_effect = sap.errors.ResourceAlreadyExistsError
+
+        with patch('sys.stderr', new_callable=StringIO) as fake_output:
+            with patch('sys.stdout', new_callable=StringIO) as fake_stdout_output:
+                params = ALL_PARAMETERS.copy()
+                retval = sapcli.main(params)
+
+        self.assertEqual(retval, 1)
+        self.assertRegex(fake_output.getvalue(), r'^Exception \(ResourceAlreadyExistsError\):')
+        self.assertRegex(fake_output.getvalue(), r'Resource already exists')
 
 if __name__ == '__main__':
     unittest.main()

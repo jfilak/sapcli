@@ -121,7 +121,7 @@ def main(argv):
     except KeyboardInterrupt:
         log.error('Program interrupted!')
     except sap.errors.SAPCliError as ex:
-        print('Exception:', file=sys.stderr)
+        print(f'Exception ({type(ex).__name__}):', file=sys.stderr)
         print(' ', str(ex), file=sys.stderr)
         log.debug('Execution of program has been terminated due to an error', exc_info=True)
     finally:
