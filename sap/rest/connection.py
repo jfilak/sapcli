@@ -117,6 +117,9 @@ class Connection:
 
         mod_log().info('Executing %s %s', method, url)
 
+        if body is not None:
+            mod_log().info('Body %s ', body)
+
         try:
             res = session.send(req, timeout=self._timeout)
         except requests.exceptions.ConnectTimeout as ex:
