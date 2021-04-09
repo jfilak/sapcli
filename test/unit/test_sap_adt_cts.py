@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch, Mock
 from functools import partial
 import xml.sax
+from xml.sax.saxutils import escape
 
 import sap.adt.cts
 from sap.adt.cts import Element
@@ -278,7 +279,7 @@ class TestADTCTSWorkbenchRequestSetup(unittest.TestCase):
             type='CLAS',
             name='CL_BAR',
             wbtype='CLAS/CC',
-            description='just another class',
+            description='just another class & special char inside',
             locked=True,
             position='000001'
         )
@@ -422,7 +423,7 @@ class TestADTCTSWorkbenchRequestDelete(TestADTCTSWorkbenchRequestSetup):
                     body=f'''<?xml version="1.0" encoding="ASCII"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="NPLK007001" tm:useraction="removeobject">
   <tm:request>
-    <tm:abap_object tm:name="{self.object_1_1.name}" tm:obj_desc="{self.object_1_1.description}" tm:pgmid="{self.object_1_1.pgmid}" tm:type="{self.object_1_1.type}" tm:position="{self.object_1_1.position}"/>
+    <tm:abap_object tm:name="{self.object_1_1.name}" tm:obj_desc="{escape(self.object_1_1.description)}" tm:pgmid="{self.object_1_1.pgmid}" tm:type="{self.object_1_1.type}" tm:position="{self.object_1_1.position}"/>
   </tm:request>
 </tm:root>'''
                 ),
@@ -431,7 +432,7 @@ class TestADTCTSWorkbenchRequestDelete(TestADTCTSWorkbenchRequestSetup):
                     body=f'''<?xml version="1.0" encoding="ASCII"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="NPLK007001" tm:useraction="removeobject">
   <tm:request>
-    <tm:abap_object tm:name="{self.object_1_2.name}" tm:obj_desc="{self.object_1_2.description}" tm:pgmid="{self.object_1_2.pgmid}" tm:type="{self.object_1_2.type}" tm:position="{self.object_1_2.position}"/>
+    <tm:abap_object tm:name="{self.object_1_2.name}" tm:obj_desc="{escape(self.object_1_2.description)}" tm:pgmid="{self.object_1_2.pgmid}" tm:type="{self.object_1_2.type}" tm:position="{self.object_1_2.position}"/>
   </tm:request>
 </tm:root>'''
                 ),
@@ -441,7 +442,7 @@ class TestADTCTSWorkbenchRequestDelete(TestADTCTSWorkbenchRequestSetup):
                     body=f'''<?xml version="1.0" encoding="ASCII"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="NPLK007002" tm:useraction="removeobject">
   <tm:request>
-    <tm:abap_object tm:name="{self.object_2_1.name}" tm:obj_desc="{self.object_2_1.description}" tm:pgmid="{self.object_2_1.pgmid}" tm:type="{self.object_2_1.type}" tm:position="{self.object_2_1.position}"/>
+    <tm:abap_object tm:name="{self.object_2_1.name}" tm:obj_desc="{escape(self.object_2_1.description)}" tm:pgmid="{self.object_2_1.pgmid}" tm:type="{self.object_2_1.type}" tm:position="{self.object_2_1.position}"/>
   </tm:request>
 </tm:root>'''
                 ),
@@ -450,7 +451,7 @@ class TestADTCTSWorkbenchRequestDelete(TestADTCTSWorkbenchRequestSetup):
                     body=f'''<?xml version="1.0" encoding="ASCII"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="NPLK007002" tm:useraction="removeobject">
   <tm:request>
-    <tm:abap_object tm:name="{self.object_2_2.name}" tm:obj_desc="{self.object_2_2.description}" tm:pgmid="{self.object_2_2.pgmid}" tm:type="{self.object_2_2.type}" tm:position="{self.object_2_2.position}"/>
+    <tm:abap_object tm:name="{self.object_2_2.name}" tm:obj_desc="{escape(self.object_2_2.description)}" tm:pgmid="{self.object_2_2.pgmid}" tm:type="{self.object_2_2.type}" tm:position="{self.object_2_2.position}"/>
   </tm:request>
 </tm:root>'''
                 ),

@@ -3,6 +3,7 @@
 import re
 import xml.sax
 from xml.sax.handler import ContentHandler
+from xml.sax.saxutils import escape
 
 from typing import NamedTuple, Any, List
 
@@ -422,7 +423,7 @@ class WorkbenchTask(AbstractWorkbenchRequest):
             body=f'''<?xml version="1.0" encoding="ASCII"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="{self._number}" tm:useraction="removeobject">
   <tm:request>
-    <tm:abap_object tm:name="{obj.name}" tm:obj_desc="{obj.description}" tm:pgmid="{obj.pgmid}" tm:type="{obj.type}" tm:position="{obj.position}"/>
+    <tm:abap_object tm:name="{obj.name}" tm:obj_desc="{escape(obj.description)}" tm:pgmid="{obj.pgmid}" tm:type="{obj.type}" tm:position="{obj.position}"/>
   </tm:request>
 </tm:root>''')
 
