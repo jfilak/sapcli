@@ -27,7 +27,7 @@ class TestConnection(unittest.TestCase):
 
         con = Connection('SERVICE', 'HOST', 'PORT', 'CLIENT', 'USER', 'PASSWORD', True, True)
 
-        url = 'https://HOST:PORT/sap/opu/odata/UI5/SERVICE'
+        url = 'https://HOST:PORT/sap/opu/odata/SERVICE'
         self.assertEqual(con._base_url, url)
         self.assertEqual(con._query_args, 'sap-client=CLIENT&saml2=disabled')
         self.assertEqual(con._user, 'USER')
@@ -53,7 +53,7 @@ class TestConnection(unittest.TestCase):
 
         con = Connection('SERVICE', 'HOST', None, 'CLIENT', 'USER', 'PASSWORD', True, True)
 
-        self.assertEqual(con._base_url, 'https://HOST:443/sap/opu/odata/UI5/SERVICE')
+        self.assertEqual(con._base_url, 'https://HOST:443/sap/opu/odata/SERVICE')
         request_patch.assert_called_once()
         client_patch.assert_called_once()
 
@@ -68,7 +68,7 @@ class TestConnection(unittest.TestCase):
 
         con = Connection('SERVICE', 'HOST', None, 'CLIENT', 'USER', 'PASSWORD', False, True)
 
-        self.assertEqual(con._base_url, 'http://HOST:80/sap/opu/odata/UI5/SERVICE')
+        self.assertEqual(con._base_url, 'http://HOST:80/sap/opu/odata/SERVICE')
         request_patch.assert_called_once()
         client_patch.assert_called_once()
 
