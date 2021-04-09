@@ -19,10 +19,12 @@ Nothing else because ADT works on level HTTP.
 ### Ubuntu
 
 ```bash
-sudo apt-get install git python3 python3-requests python3-openssl
-
+sudo apt-get install -y git python3 python3-requests python3-openssl python3-venv
 git clone https://github.com/jfilak/sapcli.git
 cd sapcli
+python3 -m venv ve
+. ve/bin/activate
+pip install -r requirements.txt
 ./sapcli --help
 ```
 
