@@ -243,5 +243,19 @@ class TestClassAttributes(unittest.TestCase):
                                                  call('Package    : $IAMTHEKING')])
 
 
+class TestClassExecute(unittest.TestCase):
+
+    def test_class_execute_output(self):
+        expected = 'Output from executed class'
+        conn = Connection([Response(text=expected, status_code=200, headers={'Content-Type': 'text/plain'})])
+
+        args = parse_args(['execute', 'ZCL_HELLO_WORLD'])
+        with patch('sap.cli.abapclass.print', newcallable=StringIO) as fake_print:
+            args.execute(conn, args)
+
+        self.assertEqual(len(conn.execs), 1)
+        self.assertEqual(fake_print.mock_calls, [call(expected)])
+
+
 if __name__ == '__main__':
     unittest.main()
