@@ -168,6 +168,15 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual(clas.modeled, False)
         self.assertEqual(clas.fix_point_arithmetic, True)
 
+    def test_adt_class_execute(self):
+        expected = 'Output from executed class'
+
+        conn = Connection([Response(text=expected, status_code=200, headers={'Content-Type': 'text/plain'})])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+
+        actual = clas.execute()
+        self.assertEqual(actual, expected)
+
 
 if __name__ == '__main__':
     unittest.main()
