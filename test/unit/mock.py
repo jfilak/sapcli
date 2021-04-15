@@ -25,6 +25,7 @@ class Response:
                 self.headers = {}
 
             self.headers['Content-Type'] = content_type
+            self.headers['content-type'] = content_type
 
     def json(self):
         if self._json is None:
