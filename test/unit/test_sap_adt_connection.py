@@ -6,7 +6,10 @@ from unittest.mock import Mock, patch
 import sap.adt
 import sap.adt.errors
 
+from mock import Request, Response, Connection
+
 from fixtures_adt import ERROR_XML_PACKAGE_ALREADY_EXISTS, DISCOVERY_ADT_XML
+
 
 class TestADTConnection(unittest.TestCase):
     """Connection(host, client, user, password, port=None, ssl=True)"""
@@ -266,6 +269,54 @@ class TestADTConnection(unittest.TestCase):
 
             act_types = self.connection.get_collection_types(basepath, mimetype)
             self.assertEqual(act_types, exp_mimetypes)
+
+    @patch('sap.adt.core._get_collection_accepts')
+    @patch('sap.adt.core.Connection._retrieve')
+    def test_execute_session_new(self, fake_retrieve, fake_accepts):
+        dummy_conn = Connection(responses=[
+            Response(status_code=200, headers={'x-csrf-token': 'first'}),
+            Response(status_code=200, headers={'x-csrf-token': 'second'}),
+            Response(status_code=200, text='success')
+        ])
+
+        fake_retrieve.side_effect = dummy_conn._retrieve
+
+        resp = self.connection.execute('GET', 'test')
+
+        self.assertEqual(resp.text, 'success')
+
+    @patch('sap.adt.core._get_collection_accepts')
+    @patch('sap.adt.core.Connection._retrieve')
+    def test_execute_session_new_forbidden(self, fake_retrieve, fake_accepts):
+        dummy_conn = Connection(responses=[
+            Response(text='''<?xml version="1.0" encoding="utf-8"?><mock type=test/>''',
+                     status_code=403,
+                     content_type='application/xml')
+        ])
+
+        fake_retrieve.side_effect = dummy_conn._retrieve
+
+        with self.assertRaises(sap.rest.errors.HTTPRequestError):
+            self.connection.execute('GET', 'test')
+
+    @patch('sap.adt.core._get_collection_accepts')
+    @patch('sap.adt.core.Connection._retrieve')
+    def test_execute_session_refetch_csfr(self, fake_retrieve, fake_accepts):
+        dummy_conn = Connection(responses=[
+            Response(status_code=200, headers={'x-csrf-token': 'first'}),
+            Response(status_code=200, headers={'x-csrf-token': 'second'}),
+            Response(text='''<?xml version="1.0" encoding="utf-8"?><mock type=test/>''',
+                     status_code=403,
+                     content_type='application/xml'),
+            Response(status_code=200, headers={'x-csrf-token': 'third'}),
+            Response(status_code=200, text='success')
+        ])
+
+        fake_retrieve.side_effect = dummy_conn._retrieve
+
+        resp = self.connection.execute('GET', 'test')
+        self.assertEqual(resp.text, 'success')
+
 
 
 if __name__ == '__main__':

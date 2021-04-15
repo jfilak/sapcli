@@ -189,6 +189,22 @@ class Connection:
 
         req, res = self._retrieve(session, method, url, params=params, headers=headers, body=body)
 
+        if res.status_code == 403 and (not headers or headers['x-csrf-token'] != 'Fetch'):
+            mod_log().debug('Re-Fetching CSRF token')
+
+            del session.headers['x-csrf-token']
+
+            response = self._execute_with_session(
+                session,
+                'GET',
+                self._build_adt_url('discovery'),
+                headers={'x-csrf-token': 'Fetch'}
+            )
+
+            session.headers['x-csrf-token'] = response.headers['x-csrf-token']
+
+            req, res = self._retrieve(session, method, url, params=params, headers=headers, body=body)
+
         if res.status_code >= 400:
             self._handle_http_error(req, res)
 
