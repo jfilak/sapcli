@@ -4,7 +4,12 @@ import unittest
 
 import sap.adt.errors
 
-from fixtures_adt import ERROR_XML_PACKAGE_ALREADY_EXISTS, ERROR_XML_MADEUP_PROBLEM
+from fixtures_adt import (
+    ERROR_XML_PACKAGE_ALREADY_EXISTS,
+    ERROR_XML_PROGRAM_ALREADY_EXISTS,
+    ERROR_XML_MADEUP_PROBLEM
+)
+
 from fixtures_adt_package import GET_PACKAGE_ADT_XML_NOT_FOUND
 
 
@@ -24,6 +29,18 @@ class TestADTError(unittest.TestCase):
         self.assertEqual(str(error), error.message)
         self.assertEqual(repr(error), 'com.sap.adt.ExceptionResourceAlreadyExists')
         self.assertIsInstance(error, sap.adt.errors.ExceptionResourceAlreadyExists)
+
+    def test_parse_existing_program(self):
+        error = sap.adt.errors.new_adt_error_from_xml(ERROR_XML_PROGRAM_ALREADY_EXISTS)
+
+        self.assertEqual(error.namespace, 'com.sap.adt')
+        self.assertEqual(error.type, 'ExceptionResourceCreationFailure')
+        self.assertEqual(error.message, 'A program or include already exists with the name SAPCLI_TEST_REPORT.')
+
+        self.assertEqual(str(error), error.message)
+        self.assertEqual(repr(error), 'com.sap.adt.ExceptionResourceCreationFailure')
+        self.assertIsInstance(error, sap.adt.errors.ExceptionResourceCreationFailure)
+
 
     def test_parse_not_found_package(self):
         error = sap.adt.errors.new_adt_error_from_xml(GET_PACKAGE_ADT_XML_NOT_FOUND)

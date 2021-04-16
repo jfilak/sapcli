@@ -110,6 +110,10 @@ GET_DUMMY_OBJECT_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
 
 ERROR_XML_PACKAGE_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceAlreadyExists"/><message lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</message><localizedMessage lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</localizedMessage><properties/></exc:exception>'''
 
+
+ERROR_XML_PROGRAM_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceCreationFailure"/><message lang="EN">A program or include already exists with the name SAPCLI_TEST_REPORT.</message><localizedMessage lang="EN">A program or include already exists with the name SAPCLI_TEST_REPORT.</localizedMessage><properties/></exc:exception>'''
+
+
 ERROR_XML_MADEUP_PROBLEM='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="org.example.whatever"/><type id="UnitTestSAPCLI"/><message lang="EN">Made up problem.</message><localizedMessage lang="EN">Made up problem.</localizedMessage><properties/></exc:exception>'''
 
 DISCOVERY_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
