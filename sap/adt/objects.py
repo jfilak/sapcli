@@ -485,8 +485,7 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         text_uri = self.objtype.get_uri_for_type('text/plain')
 
-        return self._connection.get_text('{objuri}{text_uri}'.format(
-            objuri=self.uri, text_uri=text_uri))
+        return self._connection.get_text(f'{self.uri}{text_uri}').replace('\r\n', '\n')
 
     @xml_attribute('adtcore:version')
     def active(self):

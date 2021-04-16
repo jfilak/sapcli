@@ -296,6 +296,19 @@ class TestADTObject(unittest.TestCase):
 <adtcore:packageRef/>
 </win:dummies>''')
 
+    def test_text_single_line(self):
+        connection = Connection([Response(status_code=200, text='content')])
+        victory = DummyADTObject(connection=connection, name='SOFTWARE_ENGINEER')
+        self.assertEqual(victory.text, 'content')
+
+    def test_text_mixed_endings(self):
+        connection = Connection([Response(status_code=200,
+                                          text='first\nsecond\r\nthird\r\n')
+        ])
+
+        victory = DummyADTObject(connection=connection, name='SOFTWARE_ENGINEER')
+        self.assertEqual(victory.text, 'first\nsecond\nthird\n')
+
 
 class TestADTObjectType(unittest.TestCase):
 
