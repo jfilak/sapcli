@@ -189,7 +189,7 @@ class Connection:
 
         req, res = self._retrieve(session, method, url, params=params, headers=headers, body=body)
 
-        if res.status_code == 403 and (not headers or headers['x-csrf-token'] != 'Fetch'):
+        if res.status_code == 403 and (not headers or headers.get('x-csrf-token', '') != 'Fetch'):
             mod_log().debug('Re-Fetching CSRF token')
 
             del session.headers['x-csrf-token']
