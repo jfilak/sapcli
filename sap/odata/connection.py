@@ -1,11 +1,17 @@
 """OData connection helpers"""
 
 import pyodata
+from pyodata.exceptions import HttpError
+from pyodata.vendor.SAP import BusinessGatewayError
+
 import requests
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger, config_get
 from sap.odata.errors import HTTPRequestError, UnauthorizedError, TimedOutRequestError
+
+
+HttpError.VendorType = BusinessGatewayError
 
 
 # pylint: disable=too-many-instance-attributes,too-few-public-methods
