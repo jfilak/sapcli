@@ -2,6 +2,7 @@
 
 import os
 import pyodata
+from pyodata.v2.model import PolicyIgnore, Config
 from pyodata.exceptions import HttpError
 from pyodata.vendor.SAP import BusinessGatewayError
 
@@ -88,6 +89,8 @@ class Connection:
 
         token = res.headers.get('x-csrf-token', '')
         self._session.headers.update({'x-csrf-token': token})
+
+        custom_config = Config(default_error_policy=PolicyIgnore())
 
         # instance of the service
         self.client = pyodata.Client(self._base_url, self._session)
