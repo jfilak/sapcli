@@ -69,8 +69,15 @@ def upload(connection, args):
         request.execute()
     except pyodata.exceptions.HttpError as ex:
         res = json.loads(ex.response.text)
-        get_logger().info(pprint.pformat(res))
-        raise ex
+        if hasattr(ex, 'errordetails'):
+            for msg in ex.errordetails:
+                console.printerr('[ server ]', msg)
+
+                if msg in ['* Done *']:
+                    break
+        else:
+            console.printerr(str(res))
+        return 1
 
     console.printout(f'The file {args.app} has been successfully deployed as the BSP application {args.bsp}')
     return 0
