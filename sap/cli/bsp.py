@@ -33,6 +33,8 @@ def upload(connection, args):
        * table /IWFND/C_CONFIG je 'GATEWAY_VIRUSCAN_PROFILE'='-'
     """
 
+    console = sap.cli.core.get_console()
+
     # load zipped application from filesystem
     with open(args.app, 'rb') as file:
         app_data_archive = file.read()
@@ -44,10 +46,11 @@ def upload(connection, args):
     try:
         connection.client.entity_sets.Repositories.get_entity(Name=args.bsp).execute()
         request = connection.client.entity_sets.Repositories.update_entity(Name=args.bsp)
+        console.printout(f'The existing BSP application {args.bsp} will be updated')
     except pyodata.exceptions.HttpError as ex:
         if ex.response.status_code != 404:
             raise ex
-        get_logger().info('New BSP application will be created')
+        console.printout(f'A New BSP application named {args.bsp} will be created')
         request = connection.client.entity_sets.Repositories.create_entity()
 
     app_data = {
@@ -61,6 +64,7 @@ def upload(connection, args):
         .custom('client', args.client) \
         .set(**app_data)
 
+    console.printout(f'Uploading the file {args.app}')
     try:
         request.execute()
     except pyodata.exceptions.HttpError as ex:
@@ -68,7 +72,8 @@ def upload(connection, args):
         get_logger().info(pprint.pformat(res))
         raise ex
 
-    get_logger().info('BSP application successfully uploaded')
+    console.printout(f'The file {args.app} has been successfully deployed as the BSP application {args.bsp}')
+    return 0
 
 
 @CommandGroup.argument('--bsp', type=str, required=True, help='BSP ID')
