@@ -82,10 +82,10 @@ def stat(connection, args):
     try:
         bsp = connection.client.entity_sets.Repositories.get_entity(Name=args.bsp).execute()
     except pyodata.exceptions.HttpError as ex:
-        if ex.response.status_code == 404:
-            return sap.cli.core.EXIT_CODE_NOT_FOUND
-        else:
+        if ex.response.status_code != 404:
             raise ex
+
+        return sap.cli.core.EXIT_CODE_NOT_FOUND
 
     console.printout(f'Name                   :{bsp.Name}')
     console.printout(f'Package                :{bsp.Package}')
