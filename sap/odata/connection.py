@@ -1,5 +1,6 @@
 """OData connection helpers"""
 
+import os
 import pyodata
 from pyodata.exceptions import HttpError
 from pyodata.vendor.SAP import BusinessGatewayError
@@ -12,6 +13,12 @@ from sap.odata.errors import HTTPRequestError, UnauthorizedError, TimedOutReques
 
 
 HttpError.VendorType = BusinessGatewayError
+
+
+def mod_log():
+    """ADT Module logger"""
+
+    return get_logger()
 
 
 # pylint: disable=too-many-instance-attributes,too-few-public-methods
@@ -50,7 +57,17 @@ class Connection:
         self._timeout = config_get('http_timeout')
 
         self._session = requests.Session()
-        self._session.verify = verify
+
+        # requests.session.verify is either boolean or path to CA to use!
+        self._session.verify = os.environ.get('SAP_SSL_SERVER_CERT', self._session.verify)
+        if self._session.verify is not True:
+            mod_log().info('Using custom SSL Server cert path: SAP_SSL_SERVER_CERT = %s', self._session.verify)
+        elif verify is False:
+            import urllib3
+            urllib3.disable_warnings()
+            mod_log().info('SSL Server cert will not be verified: SAP_SSL_VERIFY = no')
+            self._session.verify = False
+
         self._session.auth = (user, password)
 
         # csrf token handling for all future "create" requests
