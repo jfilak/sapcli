@@ -1,5 +1,7 @@
 """gCTS REST calls"""
 
+# ABAP Package: SCTS_ABAP_AND_VCS
+
 from sap import get_logger
 
 from sap.errors import SAPCliError
@@ -412,3 +414,17 @@ def simple_delete(connection, name):
     """Deletes the given repository on the give system"""
 
     return Repository(connection, name).delete()
+
+
+def simple_set_user_api_token(connection, api_url, token):
+    """Set Token for the currently logged in user"""
+
+    body = {
+        'endpoint': api_url,
+        'user': '',
+        'password': '',
+        'token': token,
+        'type': 'token'
+    }
+
+    connection.post_obj_as_json('user/credentials', body)

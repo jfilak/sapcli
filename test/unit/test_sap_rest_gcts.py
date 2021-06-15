@@ -703,3 +703,27 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         response = sap.rest.gcts.simple_pull(None, repo=fake_instance)
         self.assertEqual(response, 'probe')
+
+    def test_simple_set_user_api_token(self):
+        connection = RESTConnection()
+
+        api_url = 'https://api.url/'
+        token = 'THETOKEN'
+        response = sap.rest.gcts.simple_set_user_api_token(connection, api_url, token)
+
+        self.assertEqual(connection.mock_methods(), [('POST', 'user/credentials')])
+        connection.execs[0].assertEqual(
+            Request.post_json(
+                uri='user/credentials',
+                body={
+                    'endpoint': api_url,
+                    'user': '',
+                    'password': '',
+                    'token': token,
+                    'type': 'token'
+                }
+            ),
+            self
+        )
+
+        self.assertEqual(response, None)

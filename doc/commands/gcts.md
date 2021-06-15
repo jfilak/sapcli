@@ -9,6 +9,7 @@ sapcli's implementation forces use of packages as git repositories.
 5. [pull](#pull)
 6. [delete](#delete)
 7. [config](#config)
+8. [user set-credentials](#user-set-credentials)
 
 ## repolist
 
@@ -78,3 +79,15 @@ sapcli gcts config [-l|--list] PACKAGE
 
 **Parameters:**:
 - `--list`: Lists all configuration options for the specified repository
+
+## user set-credentials
+
+Set credentials of the logged in user
+
+```bash
+sapcli gcts user set-credentials --api-url [URL] --token [TOKEN]
+```
+
+**Parameters:**:
+- `--api-url [URL]`: API URL
+- `--token [TOKEN]`: The secret token

@@ -68,6 +68,22 @@ def print_gcts_commit(console, commit):
     console.printout('\n   ', commit['message'])
 
 
+class UserCommandGroup(sap.cli.core.CommandGroup):
+    """Container for user commands."""
+
+    def __init__(self):
+        super().__init__('user')
+
+
+@UserCommandGroup.argument('-t', '--token')
+@UserCommandGroup.argument('-a', '--api-url')
+@UserCommandGroup.command('set-credentials')
+def user_credentials(connection, args):
+    """Set user credentials"""
+
+    sap.rest.gcts.simple_set_user_api_token(connection, args.api_url, args.token)
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Adapter converting command line parameters to sap.rest.gcts
        methods calls.
@@ -75,6 +91,14 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
     def __init__(self):
         super().__init__('gcts')
+
+        self.user_grp = UserCommandGroup()
+
+    def install_parser(self, arg_parser):
+        gcts_group = super().install_parser(arg_parser)
+
+        user_parser = gcts_group.add_parser(self.user_grp.name)
+        self.user_grp.install_parser(user_parser)
 
 
 @CommandGroup.command()
