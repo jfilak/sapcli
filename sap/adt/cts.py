@@ -401,6 +401,8 @@ class WorkbenchTask(AbstractWorkbenchRequest):
         xml.sax.parseString(xml_data, xml_handler)
 
         self._copy(xml_handler.adt_task)
+        # pylint: disable=protected-access
+        self._objects = xml_handler.adt_task._objects
         self._transport = builder.transports[0].number
 
     def _release_children(self):

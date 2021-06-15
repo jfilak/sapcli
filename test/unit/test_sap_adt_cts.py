@@ -8,7 +8,7 @@ import xml.sax
 from xml.sax.saxutils import escape
 
 import sap.adt.cts
-from sap.adt.cts import Element
+from sap.adt.cts import Element, WorkbenchABAPObject
 
 from mock import Connection, Response, Request
 from fixtures_adt import (
@@ -589,6 +589,7 @@ class TestADTCTSWorkbenchRequestFetch(TestADTCTSWorkbenchRequestSetup):
         self.assertEqual(task.transport, TRANSPORT_NUMBER)
         self.assertEqual(task.description, 'Task Description')
         self.assertEqual(task.owner, 'FILAK')
+        self.assertEqual(task.objects, [WorkbenchABAPObject(pgmid='LIMU', type='FUNC', name='TR_REQ_CHECK_OBJECTS_AND_KEYS', wbtype='FUGR/FF', description='Prüfe Objekte und Schlüssel in einem Auftrag', locked=True, position='000001')])
         self.assertEqual(task._status, 'D')
 
         self.assertIsNone(task.target)

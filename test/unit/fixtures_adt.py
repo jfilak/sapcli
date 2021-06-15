@@ -98,6 +98,9 @@ SHORTENED_TASK_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
     <tm:request tm:number="{TRANSPORT_NUMBER}" tm:parent="" tm:owner="FILAK" tm:desc="Transport Description" tm:type="K" tm:status="D" tm:status_text="Modifiable" tm:target="CTS_TARGET" tm:target_desc="Target Description" tm:cts_project="" tm:cts_project_desc="" tm:source_client="123" tm:lastchanged_timestamp="20200810125235" tm:uri="/sap/bc/adt/cts/transportrequests/{TRANSPORT_NUMBER}">
     </tm:request>
     <tm:task tm:number="{TASK_NUMBER}" tm:parent="{TRANSPORT_NUMBER}" tm:owner="FILAK" tm:desc="Task Description" tm:type="Unclassified" tm:status="D" tm:status_text="Modifiable" tm:target=""    tm:target_desc="" tm:cts_project="" tm:cts_project_desc="" tm:source_client="123" tm:lastchanged_timestamp="20200810125235" tm:uri="/sap/bc/adt/cts/transportrequests/{TASK_NUMBER}">
+      <tm:abap_object tm:pgmid="LIMU" tm:type="FUNC" tm:name="TR_REQ_CHECK_OBJECTS_AND_KEYS" tm:wbtype="FUGR/FF" tm:dummy_uri="/sap/bc/adt/cts/transportrequests/reference?obj_name=TR_REQ_CHECK_OBJECTS_AND_KEYS&amp;obj_wbtype=FUNC&amp;pgmid=LIMU" tm:obj_info="Function Module" tm:obj_desc="Prüfe Objekte und Schlüssel in einem Auftrag" tm:position="000001" tm:lock_status="X" tm:img_activity="">
+        <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="/sap/bc/adt/cts/transportrequests/C50K000058" rel="http://www.sap.com/cts/relations/removeobject" type="application/xml" title="Transport Organizer Remove Locked Object"/>
+      </tm:abap_object>
     </tm:task>
 </tm:root>
 '''
