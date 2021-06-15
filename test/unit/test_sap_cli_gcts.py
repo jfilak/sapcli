@@ -6,6 +6,8 @@ from unittest.mock import MagicMock, patch, Mock, PropertyMock
 import sap.cli.gcts
 
 from mock import (
+    RESTConnection,
+    Request,
     ConsoleOutputTestCase,
     PatcherTestCase,
     GCTSLogBuilder,
@@ -479,3 +481,63 @@ the_key_two=two
         self.assertEqual(exit_code, 1)
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+
+class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = RESTConnection()
+
+    def commit_cmd(self, *args, **kwargs):
+        return parse_args('commit', *args, **kwargs)
+
+    def test_commit_transport_full(self):
+        repo_name = 'the_repo'
+        corrnr = 'CORRNR'
+        message = 'Message'
+        description = 'Description'
+
+        commit_cmd = self.commit_cmd(repo_name, corrnr, '-m', message, '--description', description)
+        commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.fake_connection.execs[0].assertEqual(
+            Request.post_json(
+                uri=f'repository/{repo_name}/commit',
+                body={
+                    'message': message,
+                    'autoPush': 'true',
+                    'objects': [{'object': corrnr, 'type': 'TRANSPORT'}],
+                    'description': description
+                }
+            ),
+            self
+        )
+
+        self.assertConsoleContents(self.console, stdout=f'''The transport "{corrnr}" has been committed\n''')
+
+    def test_commit_transport_short(self):
+        repo_name = 'the_repo'
+        corrnr = 'CORRNR'
+
+        commit_cmd = self.commit_cmd(repo_name, corrnr)
+        commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.fake_connection.execs[0].assertEqual(
+            Request.post_json(
+                uri=f'repository/{repo_name}/commit',
+                body={
+                    'message': f'Transport {corrnr}',
+                    'autoPush': 'true',
+                    'objects': [{'object': corrnr, 'type': 'TRANSPORT'}]
+                }
+            ),
+            self
+        )
+
+        self.assertConsoleContents(self.console, stdout=f'''The transport "{corrnr}" has been committed\n''')

@@ -59,13 +59,13 @@ def dump_gcts_messages(console, messages):
         console.printerr(str(messages))
 
 
-def print_gcts_commit(console, commit):
+def print_gcts_commit(console, commit_data):
     """Prints out gCTS commit description"""
 
-    console.printout('commit', commit['id'])
-    console.printout('Author:', commit['author'], f'<{commit["authorMail"]}>')
-    console.printout('Date:  ', commit['date'])
-    console.printout('\n   ', commit['message'])
+    console.printout('commit', commit_data['id'])
+    console.printout('Author:', commit_data['author'], f'<{commit_data["authorMail"]}>')
+    console.printout('Date:  ', commit_data['date'])
+    console.printout('\n   ', commit_data['message'])
 
 
 class UserCommandGroup(sap.cli.core.CommandGroup):
@@ -248,12 +248,12 @@ def gcts_log(connection, args):
 
     commit_iter = iter(commits)
 
-    commit = next(commit_iter)
-    print_gcts_commit(console, commit)
+    commit_item = next(commit_iter)
+    print_gcts_commit(console, commit_item)
 
-    for commit in commit_iter:
+    for commit_item in commit_iter:
         console.printout('')
-        print_gcts_commit(console, commit)
+        print_gcts_commit(console, commit_item)
 
     return 0
 
@@ -276,4 +276,28 @@ def pull(connection, args):
 
     console.printout(f'The repository "{args.package}" has been pulled')
     console.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
+    return 0
+
+
+@CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
+@CommandGroup.argument('--description', type=str, default=None)
+@CommandGroup.argument('-m', '--message', type=str, default=None)
+@CommandGroup.argument('corrnr')
+@CommandGroup.argument('package')
+@CommandGroup.command()
+def commit(connection, args):
+    """git commit
+    """
+
+    console = sap.cli.core.get_console()
+    repo = sap.rest.gcts.Repository(connection, args.package)
+
+    try:
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            repo.commit_transport(args.corrnr, args.message or f'Transport {args.corrnr}', args.description)
+    except sap.rest.gcts.GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+
+    console.printout(f'The transport "{args.corrnr}" has been committed')
     return 0

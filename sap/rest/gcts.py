@@ -334,6 +334,26 @@ class Repository:
         self.wipe_data()
         return response
 
+    def commit_transport(self, corrnr, message, description=None):
+        """Turns a transport into a commit"""
+
+        commit = {
+            'message': message,
+            'autoPush': 'true',
+            'objects': [{'object': corrnr, 'type': 'TRANSPORT'}]
+        }
+
+        if description:
+            commit['description'] = description
+
+        try:
+            response = self._connection.post_obj_as_json(f'repository/{self.name}/commit', commit)
+        except HTTPRequestError as ex:
+            raise exception_from_http_error(ex) from ex
+
+        self.wipe_data()
+        return response
+
 
 def simple_fetch_repos(connection):
     """Returns list of repositories in the target systems defined by the given

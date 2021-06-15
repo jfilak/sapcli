@@ -7,9 +7,10 @@ sapcli's implementation forces use of packages as git repositories.
 3. [checkout](#checkout)
 4. [log](#log)
 5. [pull](#pull)
-6. [delete](#delete)
-7. [config](#config)
-8. [user set-credentials](#user-set-credentials)
+6. [commit](#commit)
+7. [delete](#delete)
+8. [config](#config)
+9. [user set-credentials](#user-set-credentials)
 
 ## repolist
 
@@ -60,6 +61,20 @@ Pulls the repository on the system
 ```bash
 sapcli gcts pull PACKAGE
 ```
+
+## commit
+
+Commits & pushes a transport to the correspoding repository
+
+```bash
+sapcli gcts commit PACKAGE CORRNR [-m|--message MESSAGE] [--description DESCRIPTION]
+```
+
+**Parameters:**:
+- `PACKAGE`: Repository name
+- `CORRNR`: Transport number (e.g. from *sapcli cts list transport*)
+- `--message MESSAGE`: Short commit messsage
+- `--description DESCRIPTION`: Commit message body
 
 ## delete
 

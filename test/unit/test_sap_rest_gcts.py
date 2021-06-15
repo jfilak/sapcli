@@ -469,6 +469,29 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertIsNotNone(repo._data)
         self.assertEqual(str(caught.exception), 'gCTS exception: Pull Error')
 
+    def test_commit_transports(self):
+        corrnr = 'CORRNR'
+        message = 'Message'
+        description = 'Description'
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        response = repo.commit_transport(corrnr, message, description=description)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(
+                uri='repository/repo/commit',
+                body={
+                    'message': message,
+                    'autoPush': 'true',
+                    'objects': [{'object': corrnr, 'type': 'TRANSPORT'}],
+                    'description': description
+                }
+            ),
+            self
+        )
+
+        self.assertIsNone(repo._data)
+
 
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
