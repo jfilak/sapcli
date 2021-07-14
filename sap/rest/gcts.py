@@ -293,7 +293,7 @@ class Repository:
         return response.json()['result']
 
     def log(self):
-        """Pulls the repo on the configured system"""
+        """Returns commits of the repository"""
 
         url = f'repository/{self.rid}/getCommit'
 
