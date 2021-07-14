@@ -309,13 +309,8 @@ class Repository:
 
         url = f'repository/{self.rid}/pullByCommit'
 
-        params = None
-        commits = self.log()
-        if commits:
-            params = {'request': commits[0]['id']}
-
         try:
-            json_body = self._connection.get_json(url, params=params)
+            json_body = self._connection.get_json(url)
         except HTTPRequestError as ex:
             raise exception_from_http_error(ex) from ex
 

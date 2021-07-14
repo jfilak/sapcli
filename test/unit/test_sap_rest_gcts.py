@@ -411,16 +411,13 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertIsNotNone(repo._data)
         self.assertEqual(str(caught.exception), 'gCTS exception: Log Error')
 
-    def test_pull_no_log_commits(self):
+    def test_pull(self):
         exp_log = {
             'fromCommit': '123',
             'toCommit': '456'
         }
 
         self.conn.set_responses(
-            Response.with_json(status_code=200, json={
-                'commits': []
-            }),
             Response.with_json(status_code=200, json=exp_log )
         )
 
@@ -430,35 +427,12 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertIsNone(repo._data)
         self.assertEqual(act_log, exp_log)
 
-        self.assertEqual(len(self.conn.execs), 2)
-        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/pullByCommit'), self)
-
-    def test_pull_log_commits(self):
-        exp_log = {
-            'fromCommit': '123',
-            'toCommit': '456'
-        }
-
-        self.conn.set_responses(
-            Response.with_json(status_code=200, json={
-                'commits': [{'id': '123'}]
-            }),
-            Response.with_json(status_code=200, json=exp_log)
-        )
-
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
-        act_log = repo.pull()
-
-        self.assertIsNone(repo._data)
-        self.assertEqual(act_log, exp_log)
-
-        self.assertEqual(len(self.conn.execs), 2)
-        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/pullByCommit', params={'request': '123'}), self)
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/pullByCommit'), self)
 
     def test_pull_error(self):
         messages = LogBuilder(exception='Pull Error').get_contents()
         self.conn.set_responses(
-            Response.with_json(status_code=200, json={'commits': []}),
             Response.with_json(status_code=500, json=messages)
         )
 
