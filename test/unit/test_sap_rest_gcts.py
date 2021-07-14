@@ -107,7 +107,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
     def test_ctor_no_data(self):
         repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
-        self.assertEqual(repo._connection, self.conn)
+        self.assertEqual(repo._http.connection, self.conn)
         self.assertEqual(repo.name, self.repo_name)
         self.assertIsNone(repo._data)
 
@@ -116,7 +116,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         repo = sap.rest.gcts.Repository(None, self.repo_name, data=data)
 
-        self.assertIsNone(repo._connection)
+        self.assertIsNone(repo._http.connection)
         self.assertEqual(repo.name, self.repo_name)
         self.assertIsNotNone(repo._data)
 

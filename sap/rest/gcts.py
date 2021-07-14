@@ -93,21 +93,73 @@ def _config_dict_to_list(config):
     return [{'key': key, 'value': value} for key, value in config.items()]
 
 
+def _http_to_gcts_error(func):
+
+    def try_except_wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except HTTPRequestError as ex:
+            raise exception_from_http_error(ex) from ex
+
+    return try_except_wrapper
+
+
+class _RepositoryHttpProxy:
+
+    def __init__(self, connection, name):
+        self.url_prefix = f'repository/{name}'
+        self.connection = connection
+
+    def _build_url(self, path):
+        url = self.url_prefix
+        if path is not None:
+            url = f'{url}/{path}'
+
+        return url
+
+    @_http_to_gcts_error
+    def get(self, path=None, params=None):
+        """Execute HTTP GET."""
+
+        return self.connection.execute('GET', self._build_url(path), params=params)
+
+    @_http_to_gcts_error
+    def get_json(self, path=None):
+        """Execute HTTP GET with Accept: application/json and get only the JSON part."""
+
+        return self.connection.get_json(self._build_url(path))
+
+    @_http_to_gcts_error
+    def post(self, path=None):
+        """Execute HTTP POST"""
+
+        return self.connection.execute('POST', self._build_url(path))
+
+    @_http_to_gcts_error
+    def post_obj_as_json(self, path, json, accept=None):
+        """Execute HTTP POST with content of the given object formatted as JSON"""
+
+        return self.connection.post_obj_as_json(self._build_url(path), json, accept=accept)
+
+    @_http_to_gcts_error
+    def delete(self, path=None):
+        """Execute HTTP DELETE"""
+
+        return self.connection.execute('DELETE', self._build_url(path))
+
+
 class Repository:
     """A proxy to gCTS repository"""
 
     def __init__(self, connection, name, data=None):
-        self._connection = connection
+        self._http = _RepositoryHttpProxy(connection, name)
         self._name = name
         self._data = data
 
     def _fetch_data(self):
         mod_log().debug('Fetching data of the repository "%s"', self._name)
 
-        try:
-            response = self._connection.get_json(f'repository/{self._name}')
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
+        response = self._http.get_json()
 
         result = response['result']
 
@@ -210,7 +262,7 @@ class Repository:
         }
 
         try:
-            response = self._connection.post_obj_as_json('repository', create_request, accept='application/json')
+            response = self._http.connection.post_obj_as_json('repository', create_request, accept='application/json')
         except HTTPRequestError as ex:
             raise exception_from_http_error(ex) from ex
 
@@ -228,13 +280,10 @@ class Repository:
              GCTSRepoAlreadyExistsError
         """
 
-        try:
-            self._connection.post_obj_as_json(f'repository/{self.name}/config', {
-                'key': key,
-                'value': value
-            })
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
+        self._http.post_obj_as_json('config', {
+            'key': key,
+            'value': value
+        })
 
         self._update_configuration(key, value)
 
@@ -251,14 +300,8 @@ class Repository:
         if config is not None and key in config:
             return config[key]
 
-        try:
-            response = self._connection.execute('GET',
-                                                f'repository/{self.name}/config/{key}',
-                                                accept='application/json')
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
-
-        value = response.json()['result']['value']
+        response = self._http.get_json(f'config/{key}')
+        value = response['result']['value']
         config = self._update_configuration(key, value)
         return value
 
@@ -270,10 +313,7 @@ class Repository:
              GCTSRepoAlreadyExistsError
         """
 
-        try:
-            response = self._connection.execute('POST', f'repository/{self._name}/clone')
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
+        response = self._http.post('clone')
 
         self.wipe_data()
         return response
@@ -281,38 +321,22 @@ class Repository:
     def checkout(self, branch):
         """Checks out the given branch of the repo on the configured system"""
 
-        url = f'repository/{self.rid}/branches/{self.branch}/switch'
-
-        try:
-            response = self._connection.execute('GET', url, params={'branch': branch})
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
+        response = self._http.get(f'branches/{self.branch}/switch', params={'branch': branch})
 
         self.wipe_data()
-
         return response.json()['result']
 
     def log(self):
         """Returns commits of the repository"""
 
-        url = f'repository/{self.rid}/getCommit'
-
-        try:
-            json_body = self._connection.get_json(url)
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
+        json_body = self._http.get_json('getCommit')
 
         return json_body['commits']
 
     def pull(self):
         """Pulls the repo on the configured system"""
 
-        url = f'repository/{self.rid}/pullByCommit'
-
-        try:
-            json_body = self._connection.get_json(url)
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
+        json_body = self._http.get_json('pullByCommit')
 
         self.wipe_data()
 
@@ -321,10 +345,7 @@ class Repository:
     def delete(self):
         """Deletes the repo from the configured system"""
 
-        try:
-            response = self._connection.execute('DELETE', f'repository/{self.name}')
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
+        response = self._http.delete()
 
         self.wipe_data()
         return response
@@ -341,10 +362,7 @@ class Repository:
         if description:
             commit['description'] = description
 
-        try:
-            response = self._connection.post_obj_as_json(f'repository/{self.name}/commit', commit)
-        except HTTPRequestError as ex:
-            raise exception_from_http_error(ex) from ex
+        response = self._http.post_obj_as_json('commit', commit)
 
         self.wipe_data()
         return response
