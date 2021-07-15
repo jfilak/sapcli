@@ -214,6 +214,11 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
                 'branch': 'two_branch',
                 'url': 'two_url',
                 'currentCommit': '456'}),
+            sap.rest.gcts.Repository(conn, 'three', data={
+                'rid': 'third_rid',
+                'branch': 'third_branch',
+                'url': 'third_url',
+                'currentCommit': '7890'}),
         ]
 
         args = self.repolist()
@@ -221,8 +226,11 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_fetch_repos.assert_called_once_with(conn)
         self.assertConsoleContents(self.console, stdout=
-'''one one_branch 123 one_url
-two two_branch 456 two_url
+'''Name  | Branch       | Commit | URL      
+-----------------------------------------
+one   | one_branch   | 123    | one_url  
+two   | two_branch   | 456    | two_url  
+three | third_branch | 7890   | third_url
 ''')
 
     @patch('sap.cli.gcts.dump_gcts_messages')

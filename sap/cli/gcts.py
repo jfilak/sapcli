@@ -101,6 +101,39 @@ class CommandGroup(sap.cli.core.CommandGroup):
         self.user_grp.install_parser(user_parser)
 
 
+class TableWriter:
+    """A helper class for formatting a list of objects into a table"""
+
+    def __init__(self, data, attrs, headers):
+        self._headers = headers
+        self._widths = [len(h) for h in headers]
+        self._lines = []
+
+        for item in data:
+            line = []
+
+            for i, attr in enumerate(attrs):
+                val = str(getattr(item, attr))
+
+                if self._widths[i] < len(val):
+                    self._widths[i] = len(val)
+
+                line.append(val)
+
+            self._lines.append(line)
+
+    def printout(self, console, separator=" | "):
+        """Prints out the content"""
+
+        fmt = separator.join(('{:<%s}' % (w) for w in self._widths))
+
+        console.printout(fmt.format(*self._headers))
+        console.printout('-' * (sum(self._widths) + len(separator) * (len(self._headers) - 1)))
+
+        for line in self._lines:
+            console.printout(fmt.format(*line))
+
+
 @CommandGroup.command()
 # pylint: disable=unused-argument
 def repolist(connection, args):
@@ -114,8 +147,10 @@ def repolist(connection, args):
         dump_gcts_messages(console, ex.messages)
         return 1
 
-    for repo in response:
-        console.printout(repo.name, repo.branch, repo.head, repo.url)
+    columns = ('name', 'branch', 'head', 'url')
+    headers = ('Name', 'Branch', 'Commit', 'URL')
+
+    TableWriter(response, columns, headers).printout(console)
 
     return 0
 
