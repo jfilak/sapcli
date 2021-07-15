@@ -123,6 +123,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
     def test_properties_cached(self):
         repo = sap.rest.gcts.Repository(None, self.repo_name, data=self.repo_server_data)
 
+        self.assertEqual(repo.status, self.repo_server_data['status'])
         self.assertEqual(repo.rid, self.repo_server_data['rid'])
         self.assertEqual(repo.url, self.repo_server_data['url'])
         self.assertEqual(repo.branch, self.repo_server_data['branch'])
@@ -135,6 +136,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
 
+        self.assertEqual(repo.status, self.repo_server_data['status'])
         self.assertEqual(repo.rid, self.repo_server_data['rid'])
         self.assertEqual(repo.url, self.repo_server_data['url'])
         self.assertEqual(repo.branch, self.repo_server_data['branch'])

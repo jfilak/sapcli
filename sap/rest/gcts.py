@@ -203,11 +203,16 @@ class Repository:
         return self._get_item('rid')
 
     @property
-    def is_cloned(self):
-        """Returns the repository's RID"""
+    def status(self):
+        """Returns the repository's status"""
 
-        status = self._get_item('status')
-        return status != 'CREATED'
+        return self._get_item('status')
+
+    @property
+    def is_cloned(self):
+        """Returns True if the repository is cloned, otherwise False"""
+
+        return self.status != 'CREATED'
 
     @property
     def url(self):

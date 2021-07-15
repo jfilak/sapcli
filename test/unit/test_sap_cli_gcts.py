@@ -206,16 +206,19 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_simple_fetch_repos.return_value = [
             sap.rest.gcts.Repository(conn, 'one', data={
                 'rid': 'one_rid',
+                'status': 'CREATED',
                 'branch': 'one_branch',
                 'url': 'one_url',
                 'currentCommit': '123'}),
             sap.rest.gcts.Repository(conn, 'two', data={
                 'rid': 'two_rid',
+                'status': 'READY',
                 'branch': 'two_branch',
                 'url': 'two_url',
                 'currentCommit': '456'}),
             sap.rest.gcts.Repository(conn, 'three', data={
                 'rid': 'third_rid',
+                'status': 'CLONED',
                 'branch': 'third_branch',
                 'url': 'third_url',
                 'currentCommit': '7890'}),
@@ -226,11 +229,11 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_fetch_repos.assert_called_once_with(conn)
         self.assertConsoleContents(self.console, stdout=
-'''Name  | Branch       | Commit | URL      
------------------------------------------
-one   | one_branch   | 123    | one_url  
-two   | two_branch   | 456    | two_url  
-three | third_branch | 7890   | third_url
+'''Name  | Branch       | Commit | Status  | URL      
+---------------------------------------------------
+one   | one_branch   | 123    | CREATED | one_url  
+two   | two_branch   | 456    | READY   | two_url  
+three | third_branch | 7890   | CLONED  | third_url
 ''')
 
     @patch('sap.cli.gcts.dump_gcts_messages')
