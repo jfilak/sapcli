@@ -156,6 +156,10 @@ class Repository:
         self._name = name
         self._data = data
 
+        self._config = None
+        if self._data:
+            self._config = self._data.get('config', None)
+
     def _fetch_data(self):
         mod_log().debug('Fetching data of the repository "%s"', self._name)
 
@@ -168,13 +172,11 @@ class Repository:
         return result
 
     def _update_configuration(self, key, value):
-        if self._data is None:
-            self._data = {}
+        if self._config is None:
+            self._config = []
 
-        config = self._data.get('config', [])
-        config = _set_configuration_key(config, key, value)
-        self._data['config'] = config
-        return config
+        self._config = _set_configuration_key(self._config, key, value)
+        return self._config
 
     def _get_item(self, item, default=None, fetch=False):
         if self._data is None or fetch:
@@ -186,6 +188,7 @@ class Repository:
         """Clears cached data"""
 
         self._data = None
+        self._config = None
 
     @property
     def name(self):
@@ -228,7 +231,10 @@ class Repository:
     def configuration(self):
         """Returns the current repository configuration"""
 
-        return _config_list_to_dict(self._get_item('config'))
+        if self._config is None:
+            self._config = self._get_item('config')
+
+        return _config_list_to_dict(self._config)
 
     def create(self, url, vsid, config=None, role='SOURCE', typ='GITHUB'):
         """Creates the repository
@@ -302,7 +308,7 @@ class Repository:
 
         response = self._http.get_json(f'config/{key}')
         value = response['result']['value']
-        config = self._update_configuration(key, value)
+        self._update_configuration(key, value)
         return value
 
     def clone(self):
