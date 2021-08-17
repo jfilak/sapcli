@@ -168,8 +168,8 @@ def repolist(connection, args):
         dump_gcts_messages(console, ex.messages)
         return 1
 
-    columns = ('name', 'branch', 'head', 'status', 'url')
-    headers = ('Name', 'Branch', 'Commit', 'Status', 'URL')
+    columns = ('name', 'branch', 'head', 'status', 'vsid', 'url')
+    headers = ('Name', 'Branch', 'Commit', 'Status', 'vSID', 'URL')
 
     TableWriter(response, columns, headers).printout(console)
 

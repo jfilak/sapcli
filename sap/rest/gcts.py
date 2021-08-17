@@ -209,6 +209,12 @@ class Repository:
         return self._get_item('status')
 
     @property
+    def vsid(self):
+        """Returns the repository's vSID"""
+
+        return self._get_item('vsid')
+
+    @property
     def is_cloned(self):
         """Returns True if the repository is cloned, otherwise False"""
 
