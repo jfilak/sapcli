@@ -378,6 +378,16 @@ class Repository:
         self.wipe_data()
         return response
 
+    def set_url(self, url):
+        """Sets repository URL"""
+
+        data = self._fetch_data()
+        if data['url'] == url:
+            return None
+
+        data['url'] = url
+        return self._http.post_obj_as_json(None, data)
+
 
 def simple_fetch_repos(connection):
     """Returns list of repositories in the target systems defined by the given

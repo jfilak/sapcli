@@ -84,6 +84,23 @@ def user_credentials(connection, args):
     sap.rest.gcts.simple_set_user_api_token(connection, args.api_url, args.token)
 
 
+class RepoCommandGroup(sap.cli.core.CommandGroup):
+    """Container for repository commands."""
+
+    def __init__(self):
+        super().__init__('repo')
+
+
+@RepoCommandGroup.argument('url')
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command('set-url')
+def set_url(connection, args):
+    """Set repo URL"""
+
+    repo = sap.rest.gcts.Repository(connection, args.package)
+    sap.cli.core.printout(repo.set_url(args.url))
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Adapter converting command line parameters to sap.rest.gcts
        methods calls.
@@ -93,12 +110,16 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('gcts')
 
         self.user_grp = UserCommandGroup()
+        self.repo_grp = RepoCommandGroup()
 
     def install_parser(self, arg_parser):
         gcts_group = super().install_parser(arg_parser)
 
         user_parser = gcts_group.add_parser(self.user_grp.name)
         self.user_grp.install_parser(user_parser)
+
+        repo_parser = gcts_group.add_parser(self.repo_grp.name)
+        self.repo_grp.install_parser(repo_parser)
 
 
 class TableWriter:

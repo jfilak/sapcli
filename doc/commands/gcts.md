@@ -11,6 +11,7 @@ sapcli's implementation forces use of packages as git repositories.
 7. [delete](#delete)
 8. [config](#config)
 9. [user set-credentials](#user-set-credentials)
+9. [repo set-url](#repo-set-url)
 
 ## repolist
 
@@ -106,3 +107,16 @@ sapcli gcts user set-credentials --api-url [URL] --token [TOKEN]
 **Parameters:**:
 - `--api-url [URL]`: API URL
 - `--token [TOKEN]`: The secret token
+
+## repo set-url
+
+Change URL of the given repository identified by package name (sapcli tries to
+push users to map packages to repositories).
+
+```bash
+sapcli gcts repo set-url PACKAGE URL
+```
+
+**Parameters:**:
+- `PACKAGE`: The repository name
+- `URL`: The new url

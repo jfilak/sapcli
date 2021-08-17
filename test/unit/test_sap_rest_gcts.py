@@ -468,6 +468,53 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertIsNone(repo._data)
 
+    def test_set_url_change(self):
+        CALL_ID_FETCH_REPO_DATA = 0
+        CALL_ID_SET_URL = 1
+        NEW_URL = 'https://random.github.org/awesome/success'
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': self.repo_server_data}),
+            Response.ok()
+        )
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=None)
+        response = repo.set_url(NEW_URL)
+
+        self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(
+            Request.get_json(uri=f'repository/{self.repo_name}'),
+            self
+        )
+
+        request_with_url = dict(self.repo_server_data)
+        request_with_url['url'] = NEW_URL
+
+        self.conn.execs[CALL_ID_SET_URL].assertEqual(
+            Request.post_json(
+                uri=f'repository/{self.repo_name}',
+                body=request_with_url
+            ),
+            self
+        )
+
+    def test_set_url_nochange(self):
+        CALL_ID_FETCH_REPO_DATA = 0
+        NEW_URL = self.repo_server_data['url']
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': self.repo_server_data}),
+        )
+
+        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=None)
+        response = repo.set_url(NEW_URL)
+
+        self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(
+            Request.get_json(uri=f'repository/{self.repo_name}'),
+            self
+        )
+
+        self.assertIsNone(response)
+
 
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 

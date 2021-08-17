@@ -552,3 +552,28 @@ class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
         )
 
         self.assertConsoleContents(self.console, stdout=f'''The transport "{corrnr}" has been committed\n''')
+
+
+class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = None
+
+    def set_url_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'set-url', *args, **kwargs)
+
+    @patch('sap.rest.gcts.Repository.set_url')
+    def test_repo_set_url(self, fake_set_url):
+        repo_name = 'the_repo'
+        new_url = 'https://successful.test.org/fabulous/repo'
+
+        the_cmd = self.set_url_cmd(repo_name, new_url)
+        the_cmd.execute(self.fake_connection, the_cmd)
+
+        fake_set_url.assert_called_once_with(new_url)
