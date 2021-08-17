@@ -7,5 +7,8 @@ if [ $# -eq 1 ]; then
     fi
 fi
 
-cd ../../
+if [ ! -e README.md ]; then
+    cd ../../
+fi
+
 PYTHONPATH=./:test/unit ${PYTHON_BIN:-python3} -m unittest ${PARAMS}
