@@ -2,7 +2,6 @@
 
 import os
 import re
-import sys
 from collections import defaultdict
 from enum import Enum
 from xml.sax.saxutils import escape, quoteattr
@@ -40,20 +39,20 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('aunit')
 
 
-def print_aunit_human(run_results, stream):
+def print_aunit_human(run_results, console):
     """Print AUnit results in the human readable format"""
 
     for alert in run_results.alerts:
-        print(f'* [{alert.severity}] [{alert.kind}] - {alert.title}', file=stream)
+        console.printout(f'* [{alert.severity}] [{alert.kind}] - {alert.title}')
 
     successful = 0
     tolerable = 0
     critical = []
     for program in run_results.programs:
-        print(f'{program.name}', file=stream)
+        console.printout(f'{program.name}')
 
         for test_class in program.test_classes:
-            print(f'  {test_class.name}', file=stream)
+            console.printout(f'  {test_class.name}')
 
             for test_method in test_class.test_methods:
                 result = None
@@ -66,27 +65,27 @@ def print_aunit_human(run_results, stream):
                 else:
                     result = 'OK'
                     successful += 1
-                print(f'    {test_method.name} [{result}]', file=stream)
+                console.printout(f'    {test_method.name} [{result}]')
 
     if run_results.programs:
-        print('', file=stream)
+        console.printout('')
 
     for program, test_class, test_method in critical:
-        print(f'{program.name}=>{test_class.name}=>{test_method.name}', file=stream)
+        console.printout(f'{program.name}=>{test_class.name}=>{test_method.name}')
         for alert in test_method.alerts:
-            print(f'*  [{alert.severity}] [{alert.kind}] - {alert.title}', file=stream)
+            console.printout(f'*  [{alert.severity}] [{alert.kind}] - {alert.title}')
 
     if critical:
-        print('', file=stream)
+        console.printout('')
 
-    print(f'Successful: {successful}', file=stream)
-    print(f'Warnings:   {tolerable}', file=stream)
-    print(f'Errors:     {len(critical)}', file=stream)
+    console.printout(f'Successful: {successful}')
+    console.printout(f'Warnings:   {tolerable}')
+    console.printout(f'Errors:     {len(critical)}')
 
     return len(critical)
 
 
-def print_acoverage_human(node, stream, _indent_level=0):
+def print_acoverage_human(node, console, _indent_level=0):
     """Print ACoverage results in the human readable format"""
 
     ident = '  ' * _indent_level
@@ -100,66 +99,66 @@ def print_acoverage_human(node, stream, _indent_level=0):
                     coverage.executed / coverage.total * 100 if coverage.total else 0
                 )
 
-        print(f'{ident}{node.name} : {statement_coverage:.2f}%', file=stream)
+        console.printout(f'{ident}{node.name} : {statement_coverage:.2f}%')
 
-        print_acoverage_human(node, stream, _indent_level + 1)
+        print_acoverage_human(node, console, _indent_level + 1)
 
 
-def print_junit4_system_err(stream, details, elem_pad):
+def print_junit4_system_err(console, details, elem_pad):
     """Print AUnit Alert.Details in testcase/system-err"""
 
     if not details:
         return
 
-    print(f'{elem_pad}<system-err>', file=stream, end='')
+    console.printout(f'{elem_pad}<system-err>', end='')
 
     for detail in islice(details, len(details) - 1):
-        print(escape(detail), file=stream)
+        console.printout(escape(detail))
 
-    print(escape(details[-1]), file=stream, end='')
+    console.printout(escape(details[-1]), end='')
 
-    print('</system-err>', file=stream)
+    console.printout('</system-err>')
 
 
-def print_junit4_testcase_error(stream, alert, elem_pad):
+def print_junit4_testcase_error(console, alert, elem_pad):
     """Print AUnit Alert as JUnit4 testcase/error"""
 
-    print(f'{elem_pad}<error type={quoteattr(alert.kind)} message={quoteattr(alert.title)}',
-          file=stream, end='')
+    console.printout(f'{elem_pad}<error type={quoteattr(alert.kind)} message={quoteattr(alert.title)}',
+                     end='')
 
     if not alert.stack:
-        print('/>', file=stream)
+        console.printout('/>')
         return
 
-    print('>', file=stream, end='')
+    console.printout('>', end='')
 
     for frame in islice(alert.stack, len(alert.stack) - 1):
-        print(escape(frame), file=stream)
+        console.printout(escape(frame))
 
-    print(escape(alert.stack[-1]), file=stream, end='')
+    console.printout(escape(alert.stack[-1]), end='')
 
-    print('</error>', file=stream)
+    console.printout('</error>')
 
 
-def print_aunit_junit4(run_results, args, stream):
-    """Print results to stream in the form of JUnit"""
+def print_aunit_junit4(run_results, args, console):
+    """Print results to console in the form of JUnit"""
 
     testsuite_name = "|".join(args.name)
 
-    print('<?xml version="1.0" encoding="UTF-8" ?>', file=stream)
-    print(f'<testsuites name={quoteattr(testsuite_name)}>', file=stream)
+    console.printout('<?xml version="1.0" encoding="UTF-8" ?>')
+    console.printout(f'<testsuites name={quoteattr(testsuite_name)}>')
 
     critical = 0
     for program in run_results.programs:
         for test_class in program.test_classes:
-            print(f'  <testsuite name={quoteattr(test_class.name)} package={quoteattr(program.name)} \
-tests="{len(test_class.test_methods)}"', file=stream, end='')
+            console.printout(f'  <testsuite name={quoteattr(test_class.name)} package={quoteattr(program.name)} \
+tests="{len(test_class.test_methods)}"', end='')
 
             if not test_class.test_methods:
-                print('/>', file=stream)
+                console.printout('/>')
                 continue
 
-            print('>', file=stream)
+            console.printout('>')
 
             tc_class_name = test_class.name
             if program.name != test_class.name:
@@ -176,25 +175,25 @@ tests="{len(test_class.test_methods)}"', file=stream, end='')
                 else:
                     status = 'OK'
 
-                print(f'    <testcase name={quoteattr(test_method.name)} classname={quoteattr(tc_class_name)} \
-status={quoteattr(status)}',
-                      file=stream, end='')
+                console.printout(f'    <testcase name={quoteattr(test_method.name)} '
+                                 f'classname={quoteattr(tc_class_name)} status={quoteattr(status)}',
+                                 end='')
 
                 if not test_method.alerts:
-                    print('/>', file=stream)
+                    console.printout('/>')
                     continue
 
-                print('>', file=stream)
+                console.printout('>')
 
                 for alert in test_method.alerts:
-                    print_junit4_system_err(stream, alert.details, '      ')
-                    print_junit4_testcase_error(stream, alert, '      ')
+                    print_junit4_system_err(console, alert.details, '      ')
+                    print_junit4_testcase_error(console, alert, '      ')
 
-                print('    </testcase>', file=stream)
+                console.printout('    </testcase>')
 
-            print('  </testsuite>', file=stream)
+            console.printout('  </testsuite>')
 
-    print('</testsuites>', file=stream)
+    console.printout('</testsuites>')
 
     return critical
 
@@ -213,34 +212,34 @@ def find_testclass(package, program, testclass, file_required=False):
     return package + '/' + program + '=>' + testclass
 
 
-def print_sonar_alert(alert, stream):
+def print_sonar_alert(alert, console):
     """Print AUnit Alert as sonar message"""
 
     def print_alert():
         for line in alert.details:
-            print(escape(line), file=stream)
+            console.printout(escape(line))
 
         if alert.details and alert.stack:
-            print('', file=stream)
+            console.printout('')
 
         for frame in alert.stack:
-            print(escape(frame), file=stream)
+            console.printout(escape(frame))
 
     if alert.is_error:
-        print(f'      <error message={quoteattr(alert.title)}>', file=stream)
+        console.printout(f'      <error message={quoteattr(alert.title)}>')
         print_alert()
-        print('      </error>', file=stream)
+        console.printout('      </error>')
     elif alert.is_warning:
-        print(f'      <skipped message={quoteattr(alert.title)}>', file=stream)
+        console.printout(f'      <skipped message={quoteattr(alert.title)}>')
         print_alert()
-        print('      </skipped>', file=stream)
+        console.printout('      </skipped>')
 
 
-def print_aunit_sonar(run_results, args, stream):
-    """Print results to stream in the form of Sonar Generic Execution"""
+def print_aunit_sonar(run_results, args, console):
+    """Print results to console in the form of Sonar Generic Execution"""
 
-    print('<?xml version="1.0" encoding="UTF-8" ?>', file=stream)
-    print('<testExecutions version="1">', file=stream)
+    console.printout('<?xml version="1.0" encoding="UTF-8" ?>')
+    console.printout('<testExecutions version="1">')
 
     critical = 0
     for program in run_results.programs:
@@ -253,44 +252,44 @@ def print_aunit_sonar(run_results, args, stream):
                 package = args.name[0] if len(args.name) == 1 else 'UNKNOWN_PACKAGE'
                 filename = find_testclass(package, program.name, test_class.name, file_required=False)
 
-            print(f'  <file path={quoteattr(filename)}>', file=stream)
+            console.printout(f'  <file path={quoteattr(filename)}>')
 
             for test_method in test_class.test_methods:
-                print(f'    <testCase name={quoteattr(test_method.name)} duration="{test_method.duration}"',
-                      file=stream, end='')
+                console.printout(f'    <testCase name={quoteattr(test_method.name)} duration="{test_method.duration}"',
+                                 end='')
                 if not test_method.alerts:
-                    print('/>', file=stream)
+                    console.printout('/>')
                     continue
 
-                print('>', file=stream)
+                console.printout('>')
 
                 if any((alert.is_error for alert in test_method.alerts)):
                     critical += 1
 
                 for alert in test_method.alerts:
-                    print_sonar_alert(alert, stream)
+                    print_sonar_alert(alert, console)
 
-                print('    </testCase>', file=stream)
+                console.printout('    </testCase>')
 
             if test_class.alerts:
-                print(f'    <testCase name={quoteattr(test_class.name)} duration="0">', file=stream)
+                console.printout(f'    <testCase name={quoteattr(test_class.name)} duration="0">')
 
                 for alert in test_class.alerts:
-                    print_sonar_alert(alert, stream)
+                    print_sonar_alert(alert, console)
 
-                print('    </testCase>', file=stream)
+                console.printout('    </testCase>')
 
-            print('  </file>', file=stream)
+            console.printout('  </file>')
 
-    print('</testExecutions>', file=stream)
+    console.printout('</testExecutions>')
 
     return critical
 
 
-def print_aunit_raw(aunit_xml, run_results, stream):
+def print_aunit_raw(aunit_xml, run_results, console):
     """Prints out raw AUnit XML results"""
 
-    print(aunit_xml, file=stream)
+    console.printout(aunit_xml)
 
     critical = 0
     for program in run_results.programs:
@@ -302,10 +301,10 @@ def print_aunit_raw(aunit_xml, run_results, stream):
     return critical
 
 
-def print_acoverage_raw(acoverage_xml, stream):
+def print_acoverage_raw(acoverage_xml, console):
     """Prints out raw ACoverage XML results"""
 
-    print(acoverage_xml, file=stream)
+    console.printout(acoverage_xml)
 
 
 def get_line_and_column(location):
@@ -343,7 +342,7 @@ def get_method_lines_mapping(statement_responses):
     return result
 
 
-def _print_counters_jacoco(node, stream, indent, indent_level):
+def _print_counters_jacoco(node, console, indent, indent_level):
     # pylint: disable=invalid-name
     COVERAGE_COUNTER_TYPE_MAPPING = {
         'branch': 'BRANCH',
@@ -354,28 +353,27 @@ def _print_counters_jacoco(node, stream, indent, indent_level):
     for coverage in node.coverages:
         coverage_type = COVERAGE_COUNTER_TYPE_MAPPING[coverage.type]
         missed = coverage.total - coverage.executed
-        print(f'{indent * indent_level}<counter type="{coverage_type}" missed="{missed}" '
-              f'covered="{coverage.executed}"/>', file=stream)
+        console.printout(f'{indent * indent_level}<counter type="{coverage_type}" missed="{missed}" '
+                         f'covered="{coverage.executed}"/>')
 
 
-def _print_source_file_jacoco(file_name, lines_data, stream, indent, indent_level):
+def _print_source_file_jacoco(file_name, lines_data, console, indent, indent_level):
     file_level_indent = indent * indent_level
     line_level_indent = indent * (indent_level + 1)
 
-    print(f'{file_level_indent}<sourcefile name="{file_name}">', file=stream)
+    console.printout(f'{file_level_indent}<sourcefile name="{file_name}">')
     for line_number, is_covered in lines_data:
         covered_instructions = '1' if is_covered else '0'
         missed_instructions = '0' if is_covered else '1'
 
-        print(
-            f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" ci="{covered_instructions}"/>',
-            file=stream
+        console.printout(
+            f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" ci="{covered_instructions}"/>'
         )
 
-    print(f'{file_level_indent}</sourcefile>', file=stream)
+    console.printout(f'{file_level_indent}</sourcefile>')
 
 
-def _print_class_jacoco(node, method_lines_mapping, stream, indent, indent_level):
+def _print_class_jacoco(node, method_lines_mapping, console, indent, indent_level):
     class_level_indent = indent * indent_level
     method_level_indent = indent * (indent_level + 1)
 
@@ -384,51 +382,51 @@ def _print_class_jacoco(node, method_lines_mapping, stream, indent, indent_level
             node = node.nodes[0]
         else:
             class_name = node.name[:30].rstrip('=')
-            print(f'{class_level_indent}<class name="{class_name}" sourcefilename="{class_name}">', file=stream)
-            _print_counters_jacoco(node, stream, indent, indent_level + 1)
-            print(f'{class_level_indent}</class>', file=stream)
+            console.printout(f'{class_level_indent}<class name="{class_name}" sourcefilename="{class_name}">')
+            _print_counters_jacoco(node, console, indent, indent_level + 1)
+            console.printout(f'{class_level_indent}</class>')
             return
 
     lines_data = []
-    print(f'{class_level_indent}<class name="{node.name}" sourcefilename="{node.name}">', file=stream)
+    console.printout(f'{class_level_indent}<class name="{node.name}" sourcefilename="{node.name}">')
     for method in node.nodes:
         line, _ = get_line_and_column(method.uri)
-        print(f'{method_level_indent}<method name="{method.name}" line="{line}">', file=stream)
-        _print_counters_jacoco(method, stream, indent, indent_level + 2)
-        print(f'{method_level_indent}</method>', file=stream)
+        console.printout(f'{method_level_indent}<method name="{method.name}" line="{line}">')
+        _print_counters_jacoco(method, console, indent, indent_level + 2)
+        console.printout(f'{method_level_indent}</method>')
 
         lines_data += method_lines_mapping[(node.name, method.name)]
 
-    _print_counters_jacoco(node, stream, indent, indent_level + 1)
-    print(f'{class_level_indent}</class>', file=stream)
-    _print_source_file_jacoco(node.name, lines_data, stream, indent, indent_level)
+    _print_counters_jacoco(node, console, indent, indent_level + 1)
+    console.printout(f'{class_level_indent}</class>')
+    _print_source_file_jacoco(node.name, lines_data, console, indent, indent_level)
 
 
-def _print_package_jacoco(node, method_lines_mapping, stream, indent, indent_level):
+def _print_package_jacoco(node, method_lines_mapping, console, indent, indent_level):
     for package in node.nodes:
-        print(f'{indent}<package name="{package.name}">', file=stream)
+        console.printout(f'{indent}<package name="{package.name}">')
         for class_node in package.nodes:
-            _print_class_jacoco(class_node, method_lines_mapping, stream, indent, indent_level + 1)
-        _print_counters_jacoco(package, stream, indent, indent_level + 1)
-        print(f'{indent}</package>', file=stream)
+            _print_class_jacoco(class_node, method_lines_mapping, console, indent, indent_level + 1)
+        _print_counters_jacoco(package, console, indent, indent_level + 1)
+        console.printout(f'{indent}</package>')
 
-    _print_counters_jacoco(node, stream, indent, indent_level)
+    _print_counters_jacoco(node, console, indent, indent_level)
 
 
-def print_acoverage_jacoco(root_node, statement_responses, args, stream):
-    """Print results of ACoverage to stream in the form of JaCoCo"""
+def print_acoverage_jacoco(root_node, statement_responses, args, console):
+    """Print results of ACoverage to console in the form of JaCoCo"""
 
     method_lines_mapping = get_method_lines_mapping(statement_responses)
 
     # pylint: disable=invalid-name
     INDENT = '   '
-    print('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', file=stream)
-    print('<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">', file=stream)
+    console.printout('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
+    console.printout('<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">')
 
     report_name = "|".join(args.name)
-    print(f'<report name={quoteattr(report_name)}>', file=stream)
-    _print_package_jacoco(root_node, method_lines_mapping, stream, INDENT, 1)
-    print('</report>', file=stream)
+    console.printout(f'<report name={quoteattr(report_name)}>')
+    _print_package_jacoco(root_node, method_lines_mapping, console, INDENT, 1)
+    console.printout('</report>')
 
 
 def get_acoverage_statements(connection, coverage_identifier, statement_uris):
@@ -481,23 +479,25 @@ class TransportObjectSelector:
 
 
 def print_aunit_output(args, aunit_response, aunit_parsed_response):
-    """Prints AUnit output in selected format and stream"""
+    """Prints AUnit output in selected format and console"""
+
+    console = sap.cli.core.get_console()
 
     result = None
 
     run_results = aunit_parsed_response.run_results
 
     if args.output == 'human':
-        result = print_aunit_human(run_results, sys.stdout)
+        result = print_aunit_human(run_results, console)
 
     elif args.output == 'raw':
-        result = print_aunit_raw(aunit_response.text, run_results, sys.stdout)
+        result = print_aunit_raw(aunit_response.text, run_results, console)
 
     elif args.output == 'junit4':
-        result = print_aunit_junit4(run_results, args, sys.stdout)
+        result = print_aunit_junit4(run_results, args, console)
 
     elif args.output == 'sonar':
-        result = print_aunit_sonar(run_results, args, sys.stdout)
+        result = print_aunit_sonar(run_results, args, console)
     else:
         raise SAPCliError(f'Unsupported output type: {args.output}')
 
@@ -505,22 +505,30 @@ def print_aunit_output(args, aunit_response, aunit_parsed_response):
 
 
 def print_acoverage_output(args, acoverage_response, root_node, statement_responses):
-    """Prints ACoverage output in selected format and stream"""
+    """Prints ACoverage output in selected format and console"""
 
     if args.coverage_output not in ('raw', 'human', 'jacoco'):
         raise SAPCliError(f'Unsupported output type: {args.coverage_output}')
 
-    stream = open(args.coverage_filepath, 'w+') if args.coverage_filepath else sys.stdout
+    coverage_file = None
+    if args.coverage_filepath:
+        coverage_file = open(args.coverage_filepath, 'w+')
+        console = sap.cli.core.PrintConsole(
+            out_file=coverage_file,
+            err_file=coverage_file
+        )
+    else:
+        console = sap.cli.core.get_console()
 
     if args.coverage_output == 'raw':
-        print_acoverage_raw(acoverage_response.text, stream)
+        print_acoverage_raw(acoverage_response.text, console)
     elif args.coverage_output == 'human':
-        print_acoverage_human(root_node, stream)
+        print_acoverage_human(root_node, console)
     elif args.coverage_output == 'jacoco':
-        print_acoverage_jacoco(root_node, statement_responses, args, stream)
+        print_acoverage_jacoco(root_node, statement_responses, args, console)
 
-    if args.coverage_filepath:
-        stream.close()
+    if coverage_file is not None:
+        coverage_file.close()
 
 
 class ResultOptions(Enum):
