@@ -160,3 +160,21 @@ AUNIT_NO_EXECUTION_TIME_RESULTS_XML = '''<?xml version="1.0" encoding="UTF-8"?>
   </program>
 </aunit:runResult>
 '''
+
+AUNIT_SYNTAX_ERROR_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<aunit:runResult xmlns:aunit="http://www.sap.com/adt/aunit">
+  <program xmlns:adtcore="http://www.sap.com/adt/core" adtcore:uri="/sap/bc/adt/oo/classes/cl_foo" adtcore:type="CLAS/OC" adtcore:name="CL_FOO" uriType="semantic">
+    <alerts>
+      <alert aunit:hasSyntaxErrors="true" kind="warning" severity="critical">
+        <title>CL_FOO has syntax errors and cannot be analyzed for existence of unit tests</title>
+        <details>
+          <detail text="&quot;ME-&gt;MEMBER&quot; is not type-compatible with formal parameter &quot;BAR&quot;."/>
+        </details>
+        <stack>
+          <stackEntry adtcore:uri="/sap/bc/adt/oo/classes/cl_foo/includes/testclasses#start=428" adtcore:description="CL_FOO======CCAU:428"/>
+        </stack>
+      </alert>
+    </alerts>
+  </program>
+</aunit:runResult>
+'''

@@ -199,6 +199,28 @@ class PrintConsole:
         self._err.flush()
 
 
+class ConsoleErrorDecorator:
+    """Redirects Standard Output to Error Output"""
+
+    def __init__(self, decorated):
+        self.decorated = decorated
+
+    def printout(self, *objects, sep=' ', end='\n'):
+        """Prints out using the python's print function"""
+
+        self.decorated.printerr(*objects, sep=sep, end=end)
+
+    def printerr(self, *objects, sep=' ', end='\n'):
+        """Prints out an error message"""
+
+        self.decorated.printerr(*objects, sep=sep, end=end)
+
+    def flush(self):
+        """Flushes all streams"""
+
+        self.decorated.flush()
+
+
 _CONSOLE = None
 
 

@@ -74,6 +74,24 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
         self.assert_print_no_test_classes(mock_print)
 
+    def test_aunit_class_human_syntax_error(self):
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_SYNTAX_ERROR_XML, headers={}))
+
+        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+            retval = self.execute_run('class', 'yclass', '--output', 'human', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
+        self.assertEqual(mock_print.return_value.capout,
+'''* [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
+CL_FOO
+
+Successful: 0
+Warnings:   0
+Errors:     1
+''')
+        self.assertEqual(retval, 1)
+
     def test_aunit_package(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
 
@@ -196,6 +214,23 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
   </testsuite>
 </testsuites>
 ''')
+
+    def test_aunit_class_junit4_syntax_error(self):
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_SYNTAX_ERROR_XML, headers={}))
+
+        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+            retval = self.execute_run('class', 'yclass', '--output', 'junit4', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
+        self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="yclass">
+</testsuites>
+''')
+        self.assertEqual(mock_print.return_value.caperr,
+'''* [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
+''')
+        self.assertEqual(retval, 1)
 
     def test_aunit_package_with_results_sonar(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
@@ -323,6 +358,23 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
   </file>
 </testExecutions>
 ''')
+
+    def test_aunit_class_sonar_syntax_error(self):
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_SYNTAX_ERROR_XML, headers={}))
+
+        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+            retval = self.execute_run('class', 'yclass', '--output', 'sonar', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
+        self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
+<testExecutions version="1">
+</testExecutions>
+''')
+        self.assertEqual(mock_print.return_value.caperr,
+'''* [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
+''')
+        self.assertEqual(retval, 1)
 
     def test_print_acoverage_output_raises(self):
         with self.assertRaises(SAPCliError) as cm:

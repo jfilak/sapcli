@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from io import StringIO
 import sys
 import unittest
 from unittest.mock import call, patch, MagicMock
@@ -205,6 +206,22 @@ class TestPrintConsole(unittest.TestCase):
         console = sap.cli.core.PrintConsole(out_file='Foo', err_file='Bar')
         self.assertIs(console._out, 'Foo')
         self.assertIs(console._err, 'Bar')
+
+
+class TestConsoleErrorDecorator(unittest.TestCase):
+
+    def test_console_error_decorator_full(self):
+        out = StringIO()
+        err = StringIO()
+
+        console = sap.cli.core.ConsoleErrorDecorator(sap.cli.core.PrintConsole(out_file=out, err_file=err))
+
+        console.printout('OUT')
+        console.printerr('ERR')
+        console.flush()
+
+        self.assertEqual(out.getvalue(), "")
+        self.assertEqual(err.getvalue(), "OUT\nERR\n")
 
 
 if __name__ == '__main__':

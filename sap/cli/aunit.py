@@ -39,11 +39,23 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('aunit')
 
 
-def print_aunit_human(run_results, console):
-    """Print AUnit results in the human readable format"""
+def print_aunit_human_run_alerts(run_results, console):
+    """A helper method printing out alerts not linked to any test case
+       and returning number of critical errors.
+    """
+
+    errors = 0
 
     for alert in run_results.alerts:
         console.printout(f'* [{alert.severity}] [{alert.kind}] - {alert.title}')
+        errors = errors + 1 if alert.is_error else 0
+
+    return errors
+
+def print_aunit_human(run_results, console):
+    """Print AUnit results in the human readable format"""
+
+    errors = print_aunit_human_run_alerts(run_results, console)
 
     successful = 0
     tolerable = 0
@@ -78,11 +90,13 @@ def print_aunit_human(run_results, console):
     if critical:
         console.printout('')
 
+    errors = errors + len(critical)
+
     console.printout(f'Successful: {successful}')
     console.printout(f'Warnings:   {tolerable}')
-    console.printout(f'Errors:     {len(critical)}')
+    console.printout(f'Errors:     {errors}')
 
-    return len(critical)
+    return errors
 
 
 def print_acoverage_human(node, console, _indent_level=0):
@@ -145,10 +159,13 @@ def print_aunit_junit4(run_results, args, console):
 
     testsuite_name = "|".join(args.name)
 
+    # We must print alerts to STDERR because STDOUT is supposed
+    # to be the JUnit XML contents.
+    critical = print_aunit_human_run_alerts(run_results, sap.cli.core.ConsoleErrorDecorator(console))
+
     console.printout('<?xml version="1.0" encoding="UTF-8" ?>')
     console.printout(f'<testsuites name={quoteattr(testsuite_name)}>')
 
-    critical = 0
     for program in run_results.programs:
         for test_class in program.test_classes:
             console.printout(f'  <testsuite name={quoteattr(test_class.name)} package={quoteattr(program.name)} \
@@ -238,10 +255,13 @@ def print_sonar_alert(alert, console):
 def print_aunit_sonar(run_results, args, console):
     """Print results to console in the form of Sonar Generic Execution"""
 
+    # We must print alerts to STDERR because STDOUT is supposed
+    # to be the Sonar XML contents.
+    critical = print_aunit_human_run_alerts(run_results, sap.cli.core.ConsoleErrorDecorator(console))
+
     console.printout('<?xml version="1.0" encoding="UTF-8" ?>')
     console.printout('<testExecutions version="1">')
 
-    critical = 0
     for program in run_results.programs:
         for test_class in program.test_classes:
             for requested_name in args.name:
@@ -298,7 +318,7 @@ def print_aunit_raw(aunit_xml, run_results, console):
                 if any((alert.is_error for alert in test_method.alerts)):
                     critical += 1
 
-    return critical
+    return critical + sum((a.is_error for a in run_results.alerts))
 
 
 def print_acoverage_raw(acoverage_xml, console):
