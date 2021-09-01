@@ -14,7 +14,9 @@ from sap.rfc.strust import (
     SSLCertStorage,
     CLIENT_ANONYMOUS,
     CLIENT_STANDART,
+    SERVER_STANDARD,
     IDENTITY_MAPPING,
+    PSE_ALGORITHM_MAPPING,
     Identity,
     notify_icm_changed_pse,
     iter_storage_certificates
@@ -27,6 +29,55 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
     def __init__(self):
         super().__init__('strust')
+
+
+@CommandGroup.argument('--overwrite', help='Overwrite the existing PSE file', action='store_true', default=False)
+@CommandGroup.argument('-l', '--algorithm', type=str, help='PSE file Encryption algorithm', default='RSAwithSHA256',
+                       choices=PSE_ALGORITHM_MAPPING.keys())
+@CommandGroup.argument('-k', '--key-length', type=int, default=2048, help='Of PSE file')
+@CommandGroup.argument('--dn', type=str,
+                       help='Distinguished Name (LDAP DN) of PSE file if no other system info provided')
+@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
+                       choices=[SERVER_STANDARD, ])
+@CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
+@CommandGroup.command()
+def createpse(connection, args):
+    """Creates the specified PSE file.
+    """
+
+    identity = None
+
+    if args.storage and args.identity:
+        raise SAPCliError('User either -i or -s but not both.')
+
+    if args.storage:
+        identity = IDENTITY_MAPPING[args.storage]
+
+    if args.identity:
+        try:
+            identity = Identity(*args.identity.split('/'))
+        except (ValueError, TypeError):
+            # pylint: disable=raise-missing-from
+            raise SAPCliError(f'Invalid identity format: {args.identity}')
+
+    if identity is None:
+        raise SAPCliError('Neither -i nor -s was provided.')
+
+    ssl_storage = SSLCertStorage(connection, identity.pse_context, identity.pse_applic)
+
+    if ssl_storage.exists() and not args.overwrite:
+        sap.cli.core.printout(f'Nothing to do - the PSE {identity} already exists')
+        return 0
+
+    ssl_storage.create(
+        alg=PSE_ALGORITHM_MAPPING[args.algorithm],
+        keylen=args.key_length,
+        dn=args.dn,
+        replace=args.overwrite
+    )
+
+    sap.cli.core.printout(f'Done - the PSE {identity} has been created')
+    return 0
 
 
 @CommandGroup.argument('paths', type=str, nargs='+',
