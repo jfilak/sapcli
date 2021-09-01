@@ -1,15 +1,37 @@
 """SAP STRUST utilities"""
 
-from collections import namedtuple
 
-Identity = namedtuple('Identity', ['pse_context', 'pse_applic'])
+class Identity:
+    """PSE Identity tuple"""
 
+    def __init__(self, pse_context, pse_applic):
+        self.pse_context = pse_context
+        self.pse_applic = pse_applic
+
+    def __str__(self):
+        return f'{self.pse_context}/{self.pse_applic}'
+
+
+SERVER_STANDARD = 'server_standard'
 CLIENT_ANONYMOUS = 'client_anonymous'
 CLIENT_STANDART = 'client_standart'
 
+# SSFPSE_FILENAME
 IDENTITY_MAPPING = {
+    SERVER_STANDARD: Identity('SSLS', 'DFAULT'),
     CLIENT_ANONYMOUS: Identity('SSLC', 'ANONYM'),
     CLIENT_STANDART: Identity('SSLC', 'DFAULT')
+}
+
+# SSFPSE_CREATE
+PSE_ALGORITHM_MAPPING = {
+    'RSA': 'R',
+    'RSAwithSHA256': 'S',
+    'GOST_R_34.10-94': 'G',
+    'GOST_R_34.10-2001': 'H',
+    'CCL': 'X',  # This one accepts the CCLALG string (e.g. RSA:4096:SHA256)
+                 # but we cannot pass it via the RFC FM SSFR_PSE_CREATE
+    'DSA': 'D'
 }
 
 
