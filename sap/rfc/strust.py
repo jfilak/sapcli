@@ -164,6 +164,37 @@ class SSLCertStorage:
 
         return stat['ET_CERTIFICATELIST']
 
+    def get_csr(self):
+        """Returns Certificate Signing Request"""
+
+        csr_resp = self._connection.call(
+            'SSFR_GET_CERTREQUEST',
+            IS_STRUST_IDENTITY=self.identity
+        )
+
+        bapiret = BAPIReturn(csr_resp['ET_BAPIRET2'])
+        if bapire.is_error():
+            raise BAPIError(bapiret, csr_resp)
+
+        csr_contents = "\n".join(csr_resp['ET_CERTREQUEST'])
+
+        return csr_contents
+
+    def put_identity_cert(self, data):
+        """Uploads Identity Certificate signed by an Authority"""
+
+        csr_resp = self._connection.call(
+            'SSFR_PUT_CERTRESPONSE',
+            IS_STRUST_IDENTITY=self.identity,
+            IT_CERTRESPONSE='',
+            IV_CERTRESPONSE_LEN,
+            IV_PSEPIN
+        )
+
+        bapiret = BAPIReturn(csr_resp['ET_BAPIRET2'])
+        if bapire.is_error():
+            raise BAPIError(bapiret, csr_resp)
+
 
 def notify_icm_changed_pse(connection):
     """Informs ICM about changed PSE"""

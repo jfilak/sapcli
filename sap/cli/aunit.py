@@ -52,6 +52,7 @@ def print_aunit_human_run_alerts(run_results, console):
 
     return errors
 
+
 def print_aunit_human(run_results, console):
     """Print AUnit results in the human readable format"""
 
