@@ -5,3 +5,4 @@ ve/
 .coverage
 .htmlcov/
 .vscode/
+*openrc
