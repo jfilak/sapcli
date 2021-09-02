@@ -24,6 +24,29 @@ from sap.rfc.strust import (
 from sap.cli.core import printout
 
 
+def _get_ssl_storage_from_args(connection, args):
+
+    identity = None
+
+    if args.storage and args.identity:
+        raise SAPCliError('User either -i or -s but not both.')
+
+    if args.storage:
+        identity = IDENTITY_MAPPING[args.storage]
+
+    if args.identity:
+        try:
+            identity = Identity(*args.identity.split('/'))
+        except (ValueError, TypeError):
+            # pylint: disable=raise-missing-from
+            raise SAPCliError(f'Invalid identity format: {args.identity}')
+
+    if identity is None:
+        raise SAPCliError('Neither -i nor -s was provided.')
+
+    return SSLCertStorage(connection, identity.pse_context, identity.pse_applic)
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Commands for strust"""
 
@@ -45,25 +68,7 @@ def createpse(connection, args):
     """Creates the specified PSE file.
     """
 
-    identity = None
-
-    if args.storage and args.identity:
-        raise SAPCliError('User either -i or -s but not both.')
-
-    if args.storage:
-        identity = IDENTITY_MAPPING[args.storage]
-
-    if args.identity:
-        try:
-            identity = Identity(*args.identity.split('/'))
-        except (ValueError, TypeError):
-            # pylint: disable=raise-missing-from
-            raise SAPCliError(f'Invalid identity format: {args.identity}')
-
-    if identity is None:
-        raise SAPCliError('Neither -i nor -s was provided.')
-
-    ssl_storage = SSLCertStorage(connection, identity.pse_context, identity.pse_applic)
+    ssl_storage = _get_ssl_storage_from_args(connectoin, args)
 
     if ssl_storage.exists() and not args.overwrite:
         sap.cli.core.printout(f'Nothing to do - the PSE {identity} already exists')
@@ -77,6 +82,22 @@ def createpse(connection, args):
     )
 
     sap.cli.core.printout(f'Done - the PSE {identity} has been created')
+    return 0
+
+
+@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
+                       choices=[SERVER_STANDARD, ])
+@CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
+@CommandGroup.command()
+def getcsr(connection, args):
+    """Prints out Certificate Signing Request
+    """
+
+    ssl_storage = _get_ssl_storage_from_args(connection, args)
+
+    csr = ssl_storage.get_csr()
+
+    sap.cli.core.printout(csr)
     return 0
 
 
