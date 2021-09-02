@@ -8,3 +8,4 @@ ve/
 build/
 dist/
 sapcli.egg-info/
+*openrc
