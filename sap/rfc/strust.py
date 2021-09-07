@@ -1,5 +1,10 @@
 """SAP STRUST utilities"""
 
+from sap.rfc.bapi import (
+    BAPIReturn,
+    BAPIError
+)
+
 
 class Identity:
     """PSE Identity tuple"""
@@ -54,6 +59,46 @@ class PutCertificateError(UploadCertError):
 
     # pylint: disable=unnecessary-pass
     pass
+
+
+class PKCResponseABAPData:
+    """Represents Public Key Certificate/Identy Certificate data in the form
+       suitable RFC.
+    """
+
+    def __init__(self):
+        self.data = []
+        self.length = 0
+
+    def add_file(self, file_object):
+        """Adds content of the give file object to the PKC response"""
+
+        last_line = ""
+
+        if self.data and len(self.data[-1]) != 80:
+            # if we already have a cert in the data
+            # which means that we are going to append another
+            # certificate to the PKC response,
+            # then remove the last line to re-add it latter
+            # on but alligned to 80 characters
+            #
+            # BTW: we don't need to do anything, if the last line
+            # already has 80 characters - unlikely but possible
+            last_line = self.data[-1]
+            self.data = self.data[:-1]
+
+        # read the give file line by line and make sure
+        # we store them in memory aligned to 80 characters
+        for line in file_object:
+            line = line.rstrip('\n')
+            last_line += line
+            self.length += len(line)
+
+            while len(last_line) >= 80:
+                self.data.append(last_line[:80])
+                last_line = last_line[80:]
+
+        self.data.append(last_line)
 
 
 class SSLCertStorage:
@@ -120,6 +165,39 @@ class SSLCertStorage:
         if ret:
             raise InvalidSSLStorage(str(ret))
 
+    def remove(self):
+        """Remove storage aka PSE"""
+
+        stat = self._connection.call(
+            'SSFR_PSE_CREATE',
+            IS_STRUST_IDENTITY=self.identity,
+        )
+
+        ret = stat['ET_BAPIRET2']
+        if ret:
+            raise InvalidSSLStorage(str(ret))
+
+    def upload(self, pse_data, replace=False, password=None):
+        """Upload PSE file"""
+
+        call_args = {
+            'IS_STRUST_IDENTITY': self.identity,
+            'IV_PSE_XSTRING': pse_data,
+            'IV_REPLACE_EXISTING_PSE': 'X' if replace else '-'
+        }
+
+        if password is not None:
+            call_args['IV_PSEPIN'] = password
+
+        stat = self._connection.call(
+            'SSFR_PSE_UPLOAD_XSTRING',
+            **call_args
+        )
+
+        ret = stat['ET_BAPIRET2']
+        if ret:
+            raise InvalidSSLStorage(str(ret))
+
     def put_certificate(self, cert: bytes):
         """Adds the passed certificate to the storage
 
@@ -177,27 +255,34 @@ class SSLCertStorage:
         )
 
         bapiret = BAPIReturn(csr_resp['ET_BAPIRET2'])
-        if bapire.is_error():
+        if bapiret.is_error:
             raise BAPIError(bapiret, csr_resp)
 
         csr_contents = "\n".join(csr_resp['ET_CERTREQUEST'])
 
         return csr_contents
 
-    def put_identity_cert(self, data):
-        """Uploads Identity Certificate signed by an Authority"""
+    def put_identity_cert(self, pkc_response: PKCResponseABAPData):
+        """Uploads Identity Certificate/Public Key Certificate signed by an Authority"""
 
         csr_resp = self._connection.call(
             'SSFR_PUT_CERTRESPONSE',
             IS_STRUST_IDENTITY=self.identity,
-            IT_CERTRESPONSE='',
-            IV_CERTRESPONSE_LEN,
-            IV_PSEPIN
+            IT_CERTRESPONSE=pkc_response.data,
+            IV_CERTRESPONSE_LEN=pkc_response.length,
+            IV_PSEPIN=''
         )
 
         bapiret = BAPIReturn(csr_resp['ET_BAPIRET2'])
-        if bapire.is_error():
+        if bapiret.is_error:
             raise BAPIError(bapiret, csr_resp)
+
+    def put_identity_cert_file(self, path):
+        """Uploads Identity Certificate signed by an Authority"""
+
+
+        self.put_identity_cert(cert_data, data_len=cert_len)
+
 
 
 def notify_icm_changed_pse(connection):
