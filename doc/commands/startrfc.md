@@ -3,7 +3,9 @@
 This command allows you to run an arbitrary RFC enabled Function Module.
 
 ```bash
-sapcli startrfc --output={human,json} RFC_FUNCTION_MODULE {JSON_PARAMETERS,-}
+sapcli startrfc --output={human,json} RFC_FUNCTION_MODULE {JSON_PARAMETERS,-} \
+                [-I|--integer param:value] [-S|--string param:value]
+                [-F|--file param:path]
 ```
 
 * _--output_ allows you to specify format of the output
@@ -14,6 +16,20 @@ sapcli startrfc --output={human,json} RFC_FUNCTION_MODULE {JSON_PARAMETERS,-}
 
 * _JSON\_PARAMETERS_ the call paremeters in the form of JSON object serialized
   into string; if - , then JSON string is read from standard input
+
+* -I | --integer:  allows you to pass a numeric parameter of the executed RFC
+  Function Module as a command line parameter. The value will overwrite value
+  provided in JSON\_PARAMETERS or will be added if the parameter is not in present
+  JSON\_PARAMETERS
+
+* -S | --string:  allows you to pass a text parameter of the executed RFC
+  Function Module as a command line parameter. The value will overwrite value
+  provided in JSON\_PARAMETERS or will be added if the parameter is not in present
+  JSON\_PARAMETERS
+
+* -F | --file:  allows you to pass a binary parameter of the executed RFC
+  Function Module as a command line parameter. The value path is used to open
+  a file and its contents will be used as value of the RFC param.
 
 ## Example: human readable output of STFC\_CONNECTION
 

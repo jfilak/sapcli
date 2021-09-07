@@ -8,7 +8,7 @@ import sys
 import types
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch, mock_open
 
 from mock import ConsoleOutputTestCase, PatcherTestCase, mod_pyrfc, TestRFCLibError
 
@@ -46,7 +46,7 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
     def tearDown(self):
         self.unpatch_all()
 
-    def execute_cmd(self, json_args_obj=None, exp_stdout=None, params=[], exp_stderr=''):
+    def execute_cmd(self, json_args_obj=None, exp_stdout=None, params=[], exp_stderr='', exp_params=None, exp_call=True):
 
         if json_args_obj is None:
             args = parse_args(self.rfc_function_module, *params)
@@ -57,9 +57,11 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
 
         exit_code = args.execute(self.rfc_connection, args)
 
-        if json_args_obj is None:
+        if exp_params is not None:
+            self.rfc_connection.call.assert_called_once_with(self.rfc_function_module, **exp_params)
+        elif json_args_obj is None and exp_call:
             self.rfc_connection.call.assert_called_once_with(self.rfc_function_module)
-        elif json_args_obj != '-':
+        elif json_args_obj != '-' and exp_call:
             self.rfc_connection.call.assert_called_once_with(self.rfc_function_module, **json_args_obj)
 
         if exp_stdout is None:
@@ -94,6 +96,86 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
         exit_code = self.execute_cmd(exp_stdout='', exp_stderr=f'''{self.rfc_function_module} failed:
 test startrfc
 ''')
+        self.assertEqual(1, exit_code)
+
+    def test_startrfc_with_args_params(self):
+        params=[
+            '-F', 'arg_file1:/some/path/one',
+            '-F', 'arg_file2:/some/path/two',
+            '-S', 'arg_string1:first',
+            '-S', 'arg_string2:second',
+            '-I', 'arg_integer1:1',
+            '-I', 'arg_integer2:2'
+        ]
+
+        with patch('sap.cli.startrfc.open', mock_open(read_data='source code')) as fake_open:
+            exit_code = self.execute_cmd(
+                params=params,
+                exp_params=dict(
+                    ARG_FILE1='source code',
+                    ARG_FILE2='source code',
+                    ARG_STRING1='first',
+                    ARG_STRING2='second',
+                    ARG_INTEGER1=1,
+                    ARG_INTEGER2=2,
+                ),
+            )
+
+        self.assertEqual(0, exit_code)
+
+    def test_startrfc_args_param_invalid_file(self):
+        params=['-F', 'arg_file1=/some/path/one']
+
+        exit_code = self.execute_cmd(
+            params=params,
+            exp_call=False,
+            exp_stdout='',
+            exp_stderr='''Error: Invalid parameter arg_file1=/some/path/one. File parameter must be NAME:VALUE.
+Exiting with error code because of invalid command line parameters.
+''')
+
+        self.assertEqual(1, exit_code)
+
+    def test_startrfc_args_param_file_cant_read(self):
+        params=['-F', 'arg_file1:/some/path/one']
+
+        with patch('sap.cli.startrfc.open', mock_open()) as fake_open:
+            fake_open.side_effect = OSError('No such file')
+
+            exit_code = self.execute_cmd(
+                params=params,
+                exp_call=False,
+                exp_stdout='',
+                exp_stderr='''Error: Cannot process the parameter arg_file1:/some/path/one: Failed to open/read: No such file
+Exiting with error code because of invalid command line parameters.
+''')
+
+        self.assertEqual(1, exit_code)
+
+    def test_startrfc_args_param_invalid_string(self):
+        params=['-S', 'arg_string1=first']
+
+        exit_code = self.execute_cmd(
+            params=params,
+            exp_call=False,
+            exp_stdout='',
+            exp_stderr='''Error: Invalid parameter arg_string1=first. String parameter must be NAME:VALUE.
+Exiting with error code because of invalid command line parameters.
+''')
+
+        self.assertEqual(1, exit_code)
+
+    def test_startrfc_args_param_invalid_int(self):
+        params=['-I', 'arg_integer1=1']
+
+        exit_code = self.execute_cmd(
+            params=params,
+            exp_call=False,
+            exp_stdout='',
+            exp_stderr='''Error: Invalid parameter arg_integer1=1. Integer parameter must be NAME:VALUE.
+Exiting with error code because of invalid command line parameters.
+''')
+
         self.assertEqual(1, exit_code)
 
 
