@@ -4,10 +4,12 @@ of remote servers
 """
 
 import logging
+from getpass import getpass
 
 import sap.cli.core
 from sap.errors import SAPCliError
 from sap.rfc.strust import (
+    PKCResponseABAPData,
     SSLCertStorage,
     CLIENT_ANONYMOUS,
     CLIENT_STANDART,
@@ -64,10 +66,10 @@ def createpse(connection, args):
     """Creates the specified PSE file.
     """
 
-    ssl_storage = _get_ssl_storage_from_args(connectoin, args)
+    ssl_storage = _get_ssl_storage_from_args(connection, args)
 
     if ssl_storage.exists() and not args.overwrite:
-        sap.cli.core.printout(f'Nothing to do - the PSE {identity} already exists')
+        sap.cli.core.printout(f'Nothing to do - the PSE {ssl_storage.identity} already exists')
         return 0
 
     ssl_storage.create(
@@ -77,7 +79,24 @@ def createpse(connection, args):
         replace=args.overwrite
     )
 
-    sap.cli.core.printout(f'Done - the PSE {identity} has been created')
+    notify_icm_changed_pse(connection)
+
+    sap.cli.core.printout(f'Done - the PSE {ssl_storage.identity} has been created')
+    return 0
+
+
+@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
+                       choices=[SERVER_STANDARD, ])
+@CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
+@CommandGroup.command()
+def removepse(connection, args):
+    """Prints out Certificate Signing Request
+    """
+
+    ssl_storage = _get_ssl_storage_from_args(connection, args)
+
+    ssl_storage.remove()
+
     return 0
 
 
@@ -94,6 +113,69 @@ def getcsr(connection, args):
     csr = ssl_storage.get_csr()
 
     sap.cli.core.printout(csr)
+    return 0
+
+
+@CommandGroup.argument('path', type=str, nargs='+',
+                       help='a file path containing X.509 Base64 certificate and issuer certificates if needed')
+@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
+                       choices=[SERVER_STANDARD, ])
+@CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
+@CommandGroup.command()
+def putpkc(connection, args):
+    """Uploads Identity Certificate
+    """
+
+    pkc_response = PKCResponseABAPData()
+
+    for cert_path in args.path:
+        if cert_path == '-':
+            pkc_response.add_file(sys.stdin)
+        else:
+            with open(cert_path, 'r') as cert_file:
+                pkc_response.add_file(cert_file)
+
+    if pkc_response.data is None:
+        raise SAPCliError('No PATH argument provided on command line')
+
+    ssl_storage = _get_ssl_storage_from_args(connection, args)
+    ssl_storage.put_identity_cert(pkc_response)
+
+    return 0
+
+
+@CommandGroup.argument('path', type=str,
+                       help='a PSE in the form of PKCS#12 - *.pfx')
+@CommandGroup.argument('--overwrite', help='Overwrite the existing PSE file', action='store_true', default=False)
+@CommandGroup.argument('--ask-pse-password', help='Ask for PSE export password', action='store_true', default=False)
+@CommandGroup.argument('--pse-password', help='PSE export password', default=None)
+@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
+                       choices=[SERVER_STANDARD, ])
+@CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
+@CommandGroup.command()
+def upload(connection, args):
+    """Uploads complete PSE file
+    """
+
+    with open(args.path, 'rb') as pse_file:
+        data = pse_file.read()
+
+    pse_password = args.pse_password
+    if not pse_password and args.ask_pse_password:
+        pse_password = getpass('PSE Export password')
+
+    ssl_storage = _get_ssl_storage_from_args(connection, args)
+
+    logging.info('Uploading PSE ... ')
+    ssl_storage.upload(
+        data,
+        replace=args.overwrite,
+        password=pse_password
+    )
+
+    logging.info('Notifying ICM ... ')
+    notify_icm_changed_pse(connection)
+
     return 0
 
 
