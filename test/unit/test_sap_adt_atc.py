@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import unittest
 from unittest.mock import Mock
 
@@ -13,7 +12,9 @@ from sap.adt.marshalling import Marshal
 from mock import Connection, Response, Request
 from fixtures_adt_atc import ADT_XML_ATC_CUSTOMIZING, ADT_XML_ATC_CUSTOMIZING_ATTRIBUTES, ADT_XML_ATC_RUN_REQUEST_CLASS, \
                              ADT_XML_ATC_RUN_RESPONSE_FAILURES, ADT_XML_ATC_RUN_RESPONSE_NO_OBJECTS, \
-                             ADT_XML_ATC_WORKLIST_EMPTY, ADT_XML_ATC_WORKLIST_CLASS, ADT_XML_ATC_RUN_REQUEST_PACKAGE
+                             ADT_XML_ATC_WORKLIST_EMPTY, ADT_XML_ATC_WORKLIST_CLASS, ADT_XML_ATC_RUN_REQUEST_PACKAGE, \
+                             ADT_XML_PROFILES_TABLE, ADT_XML_PROFILES_TRAN_TABLE, ADT_XML_PROFILES_CHECKS_TABLE, \
+                             ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE            
 
 
 HEADER_ACCEPT = f'application/xml, {sap.adt.atc.CUSTOMIZING_MIME_TYPE_V1}'
@@ -221,6 +222,172 @@ class TestATCRunner(unittest.TestCase):
 
         self.assertIsNotNone(results.run_response)
         self.assertIsNotNone(results.worklist)
+
+
+class TestATCProfiles(unittest.TestCase):
+
+    def test_fetch_profiles(self):
+        conn = Connection([Response(status_code=200,
+                                    text=ADT_XML_PROFILES_TABLE)])
+
+        profiles = sap.adt.atc.fetch_profiles(conn)
+
+        self.assertEqual(profiles, {
+            'PROFILE1': {
+                'changed': '20080415161735',
+                'changed_by': 'CHGUSER1',
+                'created': '20010309180000',
+                'created_by': 'CREUSER1'},
+            'PROFILE2': {
+                'changed': '00000000000000',
+                'changed_by': '',
+                'created': '20010328100000',
+                'created_by': 'CREUSER2'}
+            })
+
+    def test_dump_profiles(self):
+        conn = Connection([
+            Response(status_code=200, text=ADT_XML_PROFILES_TABLE),
+            Response(status_code=200, text=ADT_XML_PROFILES_TRAN_TABLE),
+            Response(status_code=200, text=ADT_XML_PROFILES_CHECKS_TABLE)
+        ])
+
+        dump = sap.adt.atc.dump_profiles(conn)
+
+        self.assertDictEqual(dump, {
+            'profiles': {
+                'PROFILE1': {
+                    'changed': '20080415161735',
+                    'changed_by': 'CHGUSER1',
+                    'created': '20010309180000',
+                    'created_by': 'CREUSER1',
+                    'checks': {
+                        'CHECK1_1': {
+                            'sequence_number': '00000001',
+                            'since': '00000091',
+                            'note': 'Note PRF1 CHK1'
+                        },
+                        'CHECK1_2': {
+                            'sequence_number': '00000002',
+                            'since': '00000092',
+                            'note': 'Note PRF1 CHK2'
+                        }
+                    },
+                    'trans': {
+                        'E': 'Standard Check Profile1 CheckMan 6.20'
+                    }
+                },
+                'PROFILE2': {
+                    'changed': '00000000000000',
+                    'changed_by': '',
+                    'created': '20010328100000',
+                    'created_by': 'CREUSER2',
+                    'checks': {
+                        'CHECK2_1': {
+                            'sequence_number': '00000003',
+                            'since': '00000093',
+                            'note': 'Note PRF2 CHK1'
+                        }
+                    },
+                    'trans': {
+                        'E': 'Standard Check Profile2 CheckMan 6.20'
+                    }
+                }
+            }
+        })
+
+    def test_dump_profiles_filtered(self):
+        conn = Connection([
+            Response(status_code=200, text=ADT_XML_PROFILES_TABLE),
+            Response(status_code=200, text=ADT_XML_PROFILES_TRAN_TABLE),
+            Response(status_code=200, text=ADT_XML_PROFILES_CHECKS_TABLE)
+        ])
+
+        dump = sap.adt.atc.dump_profiles(conn, ['PROFILE1'])
+
+        self.assertDictEqual(dump, {
+            'profiles': {
+                'PROFILE1': {
+                    'changed': '20080415161735',
+                    'changed_by': 'CHGUSER1',
+                    'created': '20010309180000',
+                    'created_by': 'CREUSER1',
+                    'checks': {
+                        'CHECK1_1': {
+                            'sequence_number': '00000001',
+                            'since': '00000091',
+                            'note': 'Note PRF1 CHK1'
+                        },
+                        'CHECK1_2': {
+                            'sequence_number': '00000002',
+                            'since': '00000092',
+                            'note': 'Note PRF1 CHK2'
+                        }
+                    },
+                    'trans': {
+                        'E': 'Standard Check Profile1 CheckMan 6.20'
+                    }
+                }
+            }
+        })
+
+    def test_dump_profiles_filtered_with_checkman(self):
+        conn = Connection([
+            Response(status_code=200, text=ADT_XML_PROFILES_TABLE),
+            Response(status_code=200, text=ADT_XML_PROFILES_TRAN_TABLE),
+            Response(status_code=200, text=ADT_XML_PROFILES_CHECKS_TABLE),
+            Response(status_code=200, text=ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE)
+        ])
+
+        self.maxDiff = None
+
+        dump = sap.adt.atc.dump_profiles(conn, ['PROFILE1'], True)
+
+        self.assertDictEqual(dump, {
+            'profiles': {
+                'PROFILE1': {
+                    'changed': '20080415161735',
+                    'changed_by': 'CHGUSER1',
+                    'created': '20010309180000',
+                    'created_by': 'CREUSER1',
+                    'checks': {
+                        'CHECK1_1': {
+                            'sequence_number': '00000001',
+                            'since': '00000091',
+                            'note': 'Note PRF1 CHK1'
+                        },
+                        'CHECK1_2': {
+                            'sequence_number': '00000002',
+                            'since': '00000092',
+                            'note': 'Note PRF1 CHK2'
+                        }
+                    },
+                    'trans': {
+                        'E': 'Standard Check Profile1 CheckMan 6.20'
+                    }
+                }
+            },
+            'checkman_messages_local': [
+                {
+                    'check_id': 'CHECK1_1',
+                    'check_message_id': '0001',
+                    'check_view': '',
+                    'deactivated': '',
+                    'local_prio': '2',
+                    'valid_id': '',
+                    'valid_to': '20250802'
+                },
+                {
+                    'check_id': 'CHECK1_2',
+                    'check_message_id': 'EHPW',
+                    'check_view': '',
+                    'deactivated': 'X',
+                    'local_prio': '4',
+                    'valid_id': 'Requested by Bob and Alice',
+                    'valid_to': '20250802'
+                }
+            ]
+        })
 
 
 if __name__ == '__main__':

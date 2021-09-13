@@ -10,6 +10,7 @@ from sap.adt.objects import OrderedClassMembers, ADTObjectType, XMLNamespace, xm
 from sap.adt.annotations import xml_element, XmlNodeProperty, xml_text_node_property, XmlContainer, \
     XmlNodeAttributeProperty
 from sap.adt.marshalling import Marshal
+from sap.adt.datapreview import DataPreview
 
 
 CUSTOMIZING_MIME_TYPE_V1 = 'application/vnd.sap.atc.customizing-v1+xml'
@@ -225,3 +226,97 @@ class ChecksRunner:
         Marshal.deserialize(resp.text, worklist)
 
         return WorkListRunResult(run_response, worklist)
+
+
+def dump_profiles(connection, profiles=None, checkman=False):
+    """Dump ATC profiles for the connected system"""
+
+    result = {}
+
+    # get list of profiles
+    profiles = fetch_profiles(connection, profiles)
+
+    # extend profiles of translations
+    sqlconsole = DataPreview(connection)
+    table = sqlconsole.execute("SELECT LANGU, CHKPRFID, TXTCHKPRF FROM CRMCHKPRFT", rows=99999)
+    for row in table:
+        profile_id = row['CHKPRFID']
+        # ignore tranlations for net existing profiles
+        if profile_id not in profiles:
+            continue
+
+        if 'trans' not in profiles[profile_id]:
+            profiles[profile_id]['trans'] = {}
+
+        profiles[profile_id]['trans'][row['LANGU']] = row['TXTCHKPRF']
+
+    # enhance profiles of checks
+    table = sqlconsole.execute("SELECT CHKPRFID, CHKID, SEQNBR, SINCE, NOTE FROM CRMCHKPRF", rows=99999)
+    for row in table:
+        profile_id = row['CHKPRFID']
+        # ignore tranlations for net existing profiles
+        if profile_id not in profiles:
+            continue
+
+        if 'checks' not in profiles[profile_id]:
+            profiles[profile_id]['checks'] = {}
+
+        profiles[profile_id]['checks'][row['CHKID']] = {
+            'sequence_number': row['SEQNBR'],
+            'since': row['SINCE'],
+            'note': row['NOTE']
+        }
+
+    result['profiles'] = profiles
+
+    if checkman:
+        # build set of all relevant check IDs
+        check_ids = set()
+        for profile in profiles.values():
+            for check_id in profile['checks']:
+                check_ids.add(check_id)
+
+        # fetch check priorities
+        result['checkman_messages_local'] = []
+        table = sqlconsole.execute("SELECT CHKID, CHKVIEW, CHKMSGID, LOCAL_PRIO, "
+                                   "DEACTIVATED, VALID_TO, VALID_ID FROM  CRMCHKMSG_LOCAL", rows=99999)
+        for row in table:
+            # skip records for not relevant check ids (not used in any profile)
+            if row['CHKID'] not in check_ids:
+                continue
+
+            result['checkman_messages_local'].append({
+                'check_id': row['CHKID'],
+                'check_view': row['CHKVIEW'],
+                'check_message_id': row['CHKMSGID'],
+                'local_prio': row['LOCAL_PRIO'],
+                'deactivated': row['DEACTIVATED'],
+                'valid_to': row['VALID_TO'],
+                'valid_id': row['VALID_ID']
+            })
+
+    return result
+
+
+def fetch_profiles(connection, profiles=None):
+    """Fetch ATC profiles for the connected system"""
+
+    sqlconsole = DataPreview(connection)
+    table = sqlconsole.execute("SELECT CHKPRFID, CRETSTAMP, CREUSER, CHGTSTAMP, CHGUSER FROM CRMCHKPRFH", rows=99999)
+
+    result = {}
+
+    for row in table:
+        # if profile filtering is active then check current profile id
+        # and skip all that are not part of filter
+        if profiles is not None and row['CHKPRFID'] not in profiles:
+            continue
+
+        result[row['CHKPRFID']] = {
+            "created": row['CRETSTAMP'],
+            "created_by": row['CREUSER'],
+            "changed": row['CHGTSTAMP'],
+            "changed_by": row['CHGUSER']
+        }
+
+    return result
