@@ -24,6 +24,14 @@ SEVERITY_MAPPING = {
 }
 
 
+class ProfileCommandGroup(sap.cli.core.CommandGroup):
+    """ATC profile commands
+    """
+
+    def __init__(self):
+        super().__init__('profile')
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Adapter converting command line parameters to sap.adt.Class methods
        calls.
@@ -31,6 +39,14 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
     def __init__(self):
         super().__init__('atc')
+
+        self.profile_grp = ProfileCommandGroup()
+
+    def install_parser(self, arg_parser):
+        atc_group = super().install_parser(arg_parser)
+
+        profile_parser = atc_group.add_parser(self.profile_grp.name)
+        self.profile_grp.install_parser(profile_parser)
 
 
 def print_worklists_to_stream(all_results, stream, error_level=99):
@@ -208,3 +224,51 @@ def run(connection, args):
         result = printer(results, sys.stdout, error_level=args.error_level)
 
     return result
+
+
+@ProfileCommandGroup.argument('-n', '--noheadings', action='store_true', default=False,
+                              help='suppress column headings (ignored for json output)')
+@ProfileCommandGroup.argument('-o', '--output', choices=['human', 'json'], default='human',
+                              help='output format')
+@ProfileCommandGroup.argument('-l', '--long', action='store_true', default=False,
+                              help='long listing (ignored for json output)')
+@ProfileCommandGroup.command('list')
+def profile_list(connection, args):
+    """Retrieves ATC profiles."""
+
+    result = sap.adt.atc.fetch_profiles(connection)
+
+    if args.output == 'json':
+        printout(json.dumps(result, indent=2))
+    else:
+        header_printed = args.noheadings
+        for (profile_id, profile) in result.items():
+
+            # print header as the first line of the output
+            if not header_printed:
+                printout('profile_id', end='')
+                if args.long:
+                    printout(' | ' + ' | '.join(profile.keys()))
+                else:
+                    printout('')
+                header_printed = True
+
+            # print individual profiles
+            printout(profile_id, end='')
+            if args.long:
+                printout(' | ' + ' | '.join(profile.values()))
+            else:
+                printout('')
+
+
+@ProfileCommandGroup.argument('-p', '--profiles', nargs='*',
+                              help='dump specific profiles (comman separated list)')
+@ProfileCommandGroup.argument('-c', '--checkman', action='store_true', default=False,
+                              help='possibility to dump checkman configuration (local priorities etc.)')
+@ProfileCommandGroup.command('dump')
+def profile_dump(connection, args):
+    """Dumps ATC profiles."""
+
+    result = sap.adt.atc.dump_profiles(connection, args.profiles, args.checkman)
+
+    printout(json.dumps(result, indent=2))

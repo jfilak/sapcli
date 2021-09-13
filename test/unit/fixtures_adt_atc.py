@@ -136,3 +136,193 @@ ADT_XML_ATC_WORKLIST_CLASS='''<?xml version="1.0" encoding="UTF-8"?>
     </atcobject:object>
   </atcworklist:objects>
 </atcworklist:worklist>'''
+
+# POST /sap/bc/adt/datapreview/freestyle?sap-client=500&saml2=disabled&rowNumber=99999&dataAging=true
+ADT_XML_PROFILES_TABLE='''<?xml version="1.0" encoding="utf-8"?>
+<dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+	<dataPreview:totalRows>23</dataPreview:totalRows>
+	<dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+	<dataPreview:executedQueryString>SELECT CHKPRFID, CRETSTAMP, CREUSER, CHGTSTAMP, CHGUSER FROM CRMCHKPRFH   INTO     TABLE @DATA(LT_RESULT)   UP TO 99999  ROWS   .</dataPreview:executedQueryString>
+	<dataPreview:queryExecutionTime>13.7210000</dataPreview:queryExecutionTime>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHKPRFID" dataPreview:type="C" dataPreview:description="CHKPRFID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>PROFILE1</dataPreview:data>
+			<dataPreview:data>PROFILE2</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CRETSTAMP" dataPreview:type="N" dataPreview:description="CRETSTAMP" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>20010309180000</dataPreview:data>
+			<dataPreview:data>20010328100000</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CREUSER" dataPreview:type="C" dataPreview:description="CREUSER" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>CREUSER1</dataPreview:data>
+			<dataPreview:data>CREUSER2</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHGTSTAMP" dataPreview:type="N" dataPreview:description="CHGTSTAMP" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>20080415161735</dataPreview:data>
+			<dataPreview:data>00000000000000</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHGUSER" dataPreview:type="C" dataPreview:description="CHGUSER" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>CHGUSER1</dataPreview:data>
+			<dataPreview:data />
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+</dataPreview:tableData>
+'''
+
+# POST /sap/bc/adt/datapreview/freestyle?sap-client=500&saml2=disabled&rowNumber=99999&dataAging=true
+ADT_XML_PROFILES_TRAN_TABLE='''<?xml version="1.0" encoding="utf-8"?>
+<dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+	<dataPreview:totalRows>134</dataPreview:totalRows>
+	<dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+	<dataPreview:executedQueryString>SELECT LANGU, CHKPRFID, TXTCHKPRF FROM CRMCHKPRFT   INTO     TABLE @DATA(LT_RESULT)   UP TO 99999  ROWS   .</dataPreview:executedQueryString>
+	<dataPreview:queryExecutionTime>5.6360000</dataPreview:queryExecutionTime>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="LANGU" dataPreview:type="C" dataPreview:description="LANGU" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>E</dataPreview:data>
+			<dataPreview:data>E</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHKPRFID" dataPreview:type="C" dataPreview:description="CHKPRFID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>PROFILE1</dataPreview:data>
+			<dataPreview:data>PROFILE2</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="TXTCHKPRF" dataPreview:type="C" dataPreview:description="TXTCHKPRF" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>Standard Check Profile1 CheckMan 6.20</dataPreview:data>
+			<dataPreview:data>Standard Check Profile2 CheckMan 6.20</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+</dataPreview:tableData>'''
+
+
+# POST /sap/bc/adt/datapreview/freestyle?sap-client=500&saml2=disabled&rowNumber=99999&dataAging=true
+ADT_XML_PROFILES_CHECKS_TABLE='''<?xml version="1.0" encoding="utf-8"?>
+<dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+	<dataPreview:totalRows>928</dataPreview:totalRows>
+	<dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+	<dataPreview:executedQueryString>SELECT CHKPRFID, CHKID, SEQNBR, SINCE, NOTE FROM CRMCHKPRF   INTO     TABLE @DATA(LT_RESULT)   UP TO 99999  ROWS   .</dataPreview:executedQueryString>
+	<dataPreview:queryExecutionTime>7.3740000</dataPreview:queryExecutionTime>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHKPRFID" dataPreview:type="C" dataPreview:description="CHKPRFID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>PROFILE1</dataPreview:data>
+			<dataPreview:data>PROFILE1</dataPreview:data>
+			<dataPreview:data>PROFILE2</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHKID" dataPreview:type="C" dataPreview:description="CHKID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>CHECK1_1</dataPreview:data>
+			<dataPreview:data>CHECK1_2</dataPreview:data>
+			<dataPreview:data>CHECK2_1</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="SEQNBR" dataPreview:type="N" dataPreview:description="SEQNBR" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>00000001</dataPreview:data>
+			<dataPreview:data>00000002</dataPreview:data>
+			<dataPreview:data>00000003</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="SINCE" dataPreview:type="D" dataPreview:description="SINCE" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+		<dataPreview:dataSet>
+			<dataPreview:data>00000091</dataPreview:data>
+			<dataPreview:data>00000092</dataPreview:data>
+			<dataPreview:data>00000093</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="NOTE" dataPreview:type="C" dataPreview:description="NOTE" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>Note PRF1 CHK1</dataPreview:data>
+			<dataPreview:data>Note PRF1 CHK2</dataPreview:data>
+			<dataPreview:data>Note PRF2 CHK1</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+</dataPreview:tableData>'''
+
+# POST /sap/bc/adt/datapreview/freestyle?sap-client=500&saml2=disabled&rowNumber=99999&dataAging=true
+ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE='''<?xml version="1.0" encoding="utf-8"?>
+<dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+	<dataPreview:totalRows>624</dataPreview:totalRows>
+	<dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+	<dataPreview:executedQueryString>SELECT CHKID, CHKVIEW, CHKMSGID, LOCAL_PRIO, DEACTIVATED, VALID_TO, VALID_ID FROM  CRMCHKMSG_LOCAL   INTO     TABLE @DATA(LT_RESULT)   UP TO 99999  ROWS   .</dataPreview:executedQueryString>
+	<dataPreview:queryExecutionTime>31.6760000</dataPreview:queryExecutionTime>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHKID" dataPreview:type="C" dataPreview:description="CHKID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>CHECK1_1</dataPreview:data>
+			<dataPreview:data>CHECK1_2</dataPreview:data>
+			<dataPreview:data>CHECK2_1</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHKVIEW" dataPreview:type="C" dataPreview:description="CHKVIEW" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data />
+			<dataPreview:data />
+			<dataPreview:data />
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="CHKMSGID" dataPreview:type="C" dataPreview:description="CHKMSGID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>0001</dataPreview:data>
+			<dataPreview:data>EHPW</dataPreview:data>
+			<dataPreview:data>NEXO</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="LOCAL_PRIO" dataPreview:type="N" dataPreview:description="LOCAL_PRIO" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>2</dataPreview:data>
+			<dataPreview:data>4</dataPreview:data>
+			<dataPreview:data>1</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="DEACTIVATED" dataPreview:type="C" dataPreview:description="DEACTIVATED" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data />
+			<dataPreview:data>X</dataPreview:data>
+			<dataPreview:data />
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="VALID_TO" dataPreview:type="D" dataPreview:description="VALID_TO" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data>20250802</dataPreview:data>
+			<dataPreview:data>20250802</dataPreview:data>
+			<dataPreview:data>20250802</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+	<dataPreview:columns>
+		<dataPreview:metadata dataPreview:name="VALID_ID" dataPreview:type="C" dataPreview:description="VALID_ID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false" />
+		<dataPreview:dataSet>
+			<dataPreview:data />
+			<dataPreview:data>Requested by Bob and Alice</dataPreview:data>
+			<dataPreview:data>Added 16/01/2020</dataPreview:data>
+		</dataPreview:dataSet>
+	</dataPreview:columns>
+</dataPreview:tableData>'''
