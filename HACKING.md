@@ -39,6 +39,13 @@ PYTHONPATH=$(pwd):$PYTHONPATH flake8 --config=.flake8 bin/sapcli
 python -m unittest discover -b -v -s test/unit
 ```
 
+You can also test subset (or single test case) by providing test case name
+pattern:
+
+```bash
+python -m unittest discover -b -v -s test/unit -k test-name-pattern
+```
+
 4. Check code coverage - run either `make report-coverage` or
 
 ```bash
