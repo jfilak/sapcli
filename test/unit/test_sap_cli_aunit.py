@@ -552,7 +552,7 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
                 '--coverage-filepath', coverage_filepath
             )
 
-        mock_file.assert_called_with(coverage_filepath, 'w+')
+        mock_file.assert_called_with(coverage_filepath, 'w+', encoding='utf8')
 
     def test_aunit_parser_results_global_class_tests_sonar_multiple_targets(self):
         results = sap.adt.aunit.parse_aunit_response(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML)

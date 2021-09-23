@@ -34,7 +34,7 @@ def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer,
     """Writes ABAP attributes to a file"""
 
     filename = build_filename(object_name, typsfx, 'xml', destdir=destdir)
-    with open(filename, 'w') as dest:
+    with open(filename, 'w', encoding='utf8') as dest:
         writer = XMLWriter(ag_serializer, dest)
 
         for attributes in abap_attributes:
@@ -52,7 +52,7 @@ def download_abap_source(object_name, source_object, typsfx, destdir=None):
         print(err, file=sys.stderr)
     else:
         filename = build_filename(object_name, typsfx, 'abap', destdir=destdir)
-        with open(filename, 'w') as dest:
+        with open(filename, 'w', encoding='utf8') as dest:
             dest.write(text)
 
 
@@ -208,7 +208,7 @@ def make_repo_dir_for_package(args):
     dot_abapgit = DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='/' + args.starting_folder + '/')
 
     repo_file = os.path.join(repo_dir, '.abapgit.xml')
-    with open(repo_file, 'w') as dest:
+    with open(repo_file, 'w', encoding='utf8') as dest:
         sap.platform.abap.to_xml(dot_abapgit, dest=dest, top_element='DATA')
 
     return repo_dir

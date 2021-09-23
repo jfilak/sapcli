@@ -213,7 +213,7 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
             args.execute(connection, args)
 
-        self.assertEqual(fake_open.call_args_list, [call('source.abap', 'r')])
+        self.assertEqual(fake_open.call_args_list, [call('source.abap', 'r', encoding='utf8')])
         self.group.open_editor_mock.write.assert_called_once_with('source code')
 
     def test_write_object_name_from_file(self):
@@ -227,7 +227,7 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
             args.execute(connection, args)
 
         self.group.instace_mock.assert_called_once_with(connection, 'objname', args, metadata=None)
-        self.assertEqual(fake_open.call_args_list, [call('objname.abap', 'r')])
+        self.assertEqual(fake_open.call_args_list, [call('objname.abap', 'r', encoding='utf8')])
 
     def test_write_object_text_stdin_corrnr(self):
         connection = MagicMock()
@@ -559,7 +559,7 @@ class TestWriteArgsToObjects(unittest.TestCase):
         with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
             objects = [obj_text for obj_text in sap.cli.object.write_args_to_objects(command, connection, args, metadata='metadata')]
 
-        fake_open.assert_called_once_with('zabap_object.abap', 'r')
+        fake_open.assert_called_once_with('zabap_object.abap', 'r', encoding='utf8')
         command.instance.assert_called_once_with(connection, 'zabap_object', args, metadata='metadata')
         self.assertEqual([('instance', ['source code'])], objects)
 
@@ -588,7 +588,7 @@ class TestWriteArgsToObjects(unittest.TestCase):
         with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
             objects = [obj_text for obj_text in sap.cli.object.write_args_to_objects(command, connection, args, metadata='metadata')]
 
-        self.assertEqual(fake_open.call_args_list, [call('zabap_object.abap', 'r'), call('zanother_object.abap', 'r')])
+        self.assertEqual(fake_open.call_args_list, [call('zabap_object.abap', 'r', encoding='utf8'), call('zanother_object.abap', 'r', encoding='utf8')])
         self.assertEqual(command.instance_from_file_path.call_args_list, [call(connection, 'zabap_object.abap', args, metadata='metadata'),
                                                                           call(connection, 'zanother_object.abap', args, metadata='metadata')])
         self.assertEqual(objects, [('instance', ['source code']),

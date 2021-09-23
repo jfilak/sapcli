@@ -82,7 +82,7 @@ class CommandsCache:
                     (rfc_connection_from_args, sap.cli.user.CommandGroup())
                 ]
             else:
-                CommandsCache.rfc = list()
+                CommandsCache.rfc = []
 
         if CommandsCache.odata is None:
             CommandsCache.odata = [

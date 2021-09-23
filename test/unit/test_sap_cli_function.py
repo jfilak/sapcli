@@ -105,7 +105,7 @@ class TestFunctionModuleWrite(unittest.TestCase):
         with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open:
             args.execute(connection, args)
 
-        fake_open.assert_called_once_with('./src/zfg_hello_world.fugr.z_fn_hello_world.abap', 'r')
+        fake_open.assert_called_once_with('./src/zfg_hello_world.fugr.z_fn_hello_world.abap', 'r', encoding='utf8')
 
         self.assertEqual([(e.method, e.adt_uri) for e in connection.execs],
                           [('POST', '/sap/bc/adt/functions/groups/zfg_hello_world/fmodules/z_fn_hello_world'),

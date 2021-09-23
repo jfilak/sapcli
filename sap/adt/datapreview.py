@@ -21,7 +21,7 @@ class FreeStyleTableXMLHandler(ContentHandler):
 
         self.table = None
         self._column = None
-        self._known_columns = list()
+        self._known_columns = []
         self._row = None
         self._datahandler = lambda x: x
         self._iter = None
@@ -30,11 +30,11 @@ class FreeStyleTableXMLHandler(ContentHandler):
         self._rows = rows
 
     def _initrows(self, content):
-        self.table = list()
+        self.table = []
         i = 0
         rows = min(self._rows, int(content))
         while i < rows:
-            self.table.append(dict())
+            self.table.append({})
             i += 1
 
     def _assigncolumn(self, content):

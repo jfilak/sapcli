@@ -11,7 +11,7 @@ def _create_service(connection):
 
 
 def _load_config(path):
-    with open(path, 'r') as stream:
+    with open(path, 'r', encoding='utf8') as stream:
         return yaml.safe_load(stream)
 
 

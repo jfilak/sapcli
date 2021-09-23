@@ -304,7 +304,7 @@ class AUnitResponseHandler(ContentHandler):
     def __init__(self):
         super().__init__()
 
-        self.run_results = RunResults(list(), list())
+        self.run_results = RunResults([], [])
         self.coverage_identifier = None
         self._program = None
         self._test_class = None

@@ -240,7 +240,7 @@ def check(connection, args):
 
     checks = 0
     reports = []
-    index = dict()
+    index = {}
     for obj in all_objects:
         index[obj.uri] = obj
 

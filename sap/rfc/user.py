@@ -45,7 +45,7 @@ def copy_dict_or_new(original: dict) -> dict:
     """
 
     if original is None:
-        return dict()
+        return {}
 
     return dict(original)
 
@@ -173,7 +173,7 @@ class UserBuilder:
     def build_rfc_params(self) -> RFCParams:
         """Creates RFC parameters for Creating users"""
 
-        params = dict()
+        params = {}
 
         self._rfc_params_add_username(params)
 
@@ -199,7 +199,7 @@ class UserBuilder:
     def build_change_rfc_params(self) -> RFCParams:
         """Create RFC parameters fro Updating user"""
 
-        params = dict()
+        params = {}
         self._rfc_params_add_username(params)
 
         if self._password:
@@ -214,7 +214,7 @@ class UserRoleAssignmentBuilder:
 
     def __init__(self, user):
         self._user = user
-        self._roles = list()
+        self._roles = []
 
     def add_roles(self, role_names: List[str]):
         """Set assigned roles name"""
@@ -249,7 +249,7 @@ class UserProfileAssignmentBuilder:
 
     def __init__(self, user):
         self._user = user
-        self._profiles = list()
+        self._profiles = []
 
     def add_profiles(self, profile_names: List[str]):
         """Set assigned profiles name"""

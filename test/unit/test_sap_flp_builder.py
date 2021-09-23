@@ -20,7 +20,7 @@ class TestFlpBuilder(unittest.TestCase):
         instance = Builder(connection, "config")
 
         self.assertDictEqual(instance._config, yaml.safe_load(FLP_BUILDER_CONFIG))
-        open.assert_called_with("config", "r")
+        open.assert_called_with('config', 'r', encoding='utf8')
 
     def test_cleanup_ok(self):
         def get_catalogs():
