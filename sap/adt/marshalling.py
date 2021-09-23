@@ -189,7 +189,7 @@ class ElementHandler:
     def load_definitions(self, obj):
         """Examines annotations of the current object"""
 
-        attributes = dict()
+        attributes = {}
         for attr_name in obj.__class__.__ordered__:
             if attr_name.startswith('__'):
                 continue
@@ -239,7 +239,7 @@ class ADTObjectSAXHandler(ContentHandler):
     def __init__(self, elements):
         super().__init__()
 
-        self.stack = list()
+        self.stack = []
         self.current = ''
         self.elements = elements
         self.handler = None
@@ -302,7 +302,7 @@ class Marshal:
 
         name = '/' + adt_object_to_element_name(adt_object)
 
-        elements = dict()
+        elements = {}
         handler = ElementHandler(name, elements, lambda: adt_object)
         elements[name] = handler
 

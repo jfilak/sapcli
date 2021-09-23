@@ -52,6 +52,7 @@ def print_aunit_human_run_alerts(run_results, console):
 
     return errors
 
+
 def print_aunit_human(run_results, console):
     """Print AUnit results in the human readable format"""
 
@@ -532,7 +533,8 @@ def print_acoverage_output(args, acoverage_response, root_node, statement_respon
 
     coverage_file = None
     if args.coverage_filepath:
-        coverage_file = open(args.coverage_filepath, 'w+')
+        # pylint: disable=consider-using-with
+        coverage_file = open(args.coverage_filepath, 'w+', encoding='utf8')
         console = sap.cli.core.PrintConsole(
             out_file=coverage_file,
             err_file=coverage_file

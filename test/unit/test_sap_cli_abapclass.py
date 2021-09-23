@@ -89,7 +89,7 @@ class TestClassWrite(unittest.TestCase):
         with patch('sap.cli.object.open', mock_open(read_data='class file definition')) as m:
             args.execute(conn, args)
 
-        m.assert_called_once_with('zcl_class.abap', 'r')
+        m.assert_called_once_with('zcl_class.abap', 'r', encoding='utf8')
 
         self.assertEqual(len(conn.execs), 3)
 
@@ -103,7 +103,7 @@ class TestClassWrite(unittest.TestCase):
         with patch('sap.cli.object.open', mock_open(read_data='class file definition')) as m:
             args.execute(conn, args)
 
-        m.assert_called_once_with('zcl_class.clas.abap', 'r')
+        m.assert_called_once_with('zcl_class.clas.abap', 'r', encoding='utf8')
 
         self.assertEqual(len(conn.execs), 3)
         self.assertEqual(conn.execs[1].adt_uri, '/sap/bc/adt/oo/classes/zcl_class/source/main')

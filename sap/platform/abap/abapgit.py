@@ -90,7 +90,7 @@ class AGXMLObjectAdapter:
         self.body_types = body_types
         self.body_type_index = 0
 
-        self.results = dict()
+        self.results = {}
 
         self.current_body_type = self.body_types[self.body_type_index]
         self.current_body_name = self.current_body_type.__name__

@@ -53,7 +53,7 @@ def write_args_to_objects(command, connection, args, metadata=None):
 
             obj = command.instance_from_file_path(connection, filepath, args, metadata=metadata)
 
-            with open(filepath, 'r') as filesrc:
+            with open(filepath, 'r', encoding='utf8') as filesrc:
                 text_lines = filesrc.readlines()
 
             yield (obj, text_lines)
@@ -62,7 +62,7 @@ def write_args_to_objects(command, connection, args, metadata=None):
         if args.source[0] == '-':
             text_lines = sys.stdin.readlines()
         else:
-            with open(args.source[0], 'r') as filesrc:
+            with open(args.source[0], 'r', encoding='utf8') as filesrc:
                 text_lines = filesrc.readlines()
 
         yield (command.instance(connection, args.name, args, metadata=metadata), text_lines)

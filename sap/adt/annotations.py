@@ -196,7 +196,7 @@ class XmlListNodeProperty(XmlElementProperty):
 
         items = self._get_list(obj)
         if items is None:
-            items = list()
+            items = []
             obj.__dict__[self.attr] = items
 
         items.append(value)
@@ -216,7 +216,7 @@ class XmlContainerMeta(OrderedClassMembers):
         """
 
         items_property = XmlListNodeProperty(item_element_name, deserialize=True, factory=item_factory,
-                                             value=list(), kind=XmlElementKind.OBJECT, version=version)
+                                             value=[], kind=XmlElementKind.OBJECT, version=version)
 
         return type(f'XMLContainer_{item_factory.__name__}', (cls,), dict(items=items_property))
 

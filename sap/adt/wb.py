@@ -132,7 +132,7 @@ class IOCList(metaclass=OrderedClassMembers):
     """List of entries"""
 
     def __init__(self):
-        self.entries = list()
+        self.entries = []
 
     # pylint: disable=no-self-use
     @property

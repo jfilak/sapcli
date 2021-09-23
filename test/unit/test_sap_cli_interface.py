@@ -79,7 +79,7 @@ class TestInterfaceWrite(unittest.TestCase):
         with patch('sap.cli.object.open', mock_open(read_data='iface file definition')) as m:
             args.execute(conn, args)
 
-        m.assert_called_once_with('zif_iface.abap', 'r')
+        m.assert_called_once_with('zif_iface.abap', 'r', encoding='utf8')
 
         self.assertEqual(len(conn.execs), 3)
 

@@ -19,9 +19,9 @@ class NodeStructureXMLHandler(ContentHandler):
     def __init__(self):
         super().__init__()
 
-        self.tree_content = list()
-        self.categories = list()
-        self.object_types = list()
+        self.tree_content = []
+        self.categories = []
+        self.object_types = []
 
         self._lists = {
             'SEU_ADT_REPOSITORY_OBJ_NODE': self.tree_content,

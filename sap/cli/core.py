@@ -21,7 +21,7 @@ class CommandDeclaration:
     def __init__(self, handler, name):
         self.handler = handler
         self.name = name
-        self.arguments = list()
+        self.arguments = []
 
     def append_argument(self, *args, **kwargs):
         """Declares a new ArgParser argument at the end of the list"""

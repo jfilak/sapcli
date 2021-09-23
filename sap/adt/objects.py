@@ -818,7 +818,7 @@ class ADTObjectReferences(metaclass=OrderedClassMembers):
         """
 
         if self._refs is None:
-            self._refs = list()
+            self._refs = []
 
         return self._refs
 

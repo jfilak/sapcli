@@ -55,7 +55,7 @@ class TestIncludeWrite(unittest.TestCase):
         with patch('sap.cli.object.open', mock_open(read_data=FIXTURE_FILE_REPORT_SRC)) as m:
             args.execute(conn, args)
 
-        m.assert_called_once_with('zinclude.abap', 'r')
+        m.assert_called_once_with('zinclude.abap', 'r', encoding='utf8')
 
         self.assertEqual(len(conn.execs), 3)
 
