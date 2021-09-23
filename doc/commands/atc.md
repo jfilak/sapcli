@@ -2,6 +2,8 @@
 
 1. [customizing](#customizing)
 1. [run](#run)
+1. [profile list](#profile-list)
+1. [profile dump](#profile-dump)
 
 ## customizing
 
@@ -93,4 +95,114 @@ numbers (1-5) and values hold Checkstyle severity values - error, warning, info.
 The default configuration in JSON is the following:
 ```json
 {"1": "error", "2": "error", "3": "warning", "4": "warning", "5": "info"}
+```
+
+## profile list
+
+Fetches and prints all ATC profiles.
+
+```bash
+sapcli atc profile list
+```
+Default output - list of profile names:
+```bash
+profile_id
+PROFILE1
+PROFILE2
+```
+
+Long output:
+```bash
+sapcli atc profile list -l
+```
+```bash
+profile_id | created | created_by | changed | changed_by
+PROFILE1 | 20010309180000 | ALICE | 20080415161735 | BOB 
+PROFILE2 | 20210309180000 | BOB| 20080415161735 | BOB 
+```
+
+Json output:
+```bash
+sapcli atc profile list --output json
+```
+```json
+{
+  "PROFILE1": {
+    "created": "20010309180000",
+    "created_by": "ALICE",
+    "changed": "20080415161735",
+    "changed_by": "BOB"
+  },
+  "PROFILE2": {
+    "created": "20210309180000",
+    "created_by": "BOB",
+    "changed": "20080415161735",
+    "changed_by": "BOB"
+  }
+}
+```
+
+## profile dump
+
+Fetches and dumps complete content of ATC profiles, including checkman
+priorities. The output is always in json format with following structure:
+
+```json
+{
+  "profiles": {
+    "profile-name": {
+      "created": "timestamp",
+      "created_by": "userid",
+      "changed": "timestamp",
+      "changed_by": "userid",
+      "trans": {
+        "D": "Profile description in German",
+        "?": "..."
+      },
+      "checks": {
+        "first check name": {
+          "sequence_number": "number",
+          "since": "timestamp",
+          "note": ""
+        },
+        "next check": {"..."}
+      }
+    }
+  }
+}
+```
+
+It is possible to limit dump to specific profiles. The output is
+same, but content is stripped. Only data relevant to selected
+profiles are printed out.
+
+```bash
+sapcli atc profile dump -p PROFILE1 PROFILE2
+```
+
+Use flag `--checkman` to include checkman priorities:
+
+```bash
+sapcli atc profile dump --checkman
+```
+The output json will contain additional key on root level called
+`checkman_messages_local` and it's content will have following
+structure:
+
+```json
+{
+  "profiles": "see above",
+  "checkman_messages_local": [
+    {
+      "check_id": "CHECK1",
+      "check_view": "",
+      "check_message_id": "EHPW",
+      "local_prio": "3",
+      "deactivated": "",
+      "valid_to": "timestamp",
+      "valid_id": "some comment"
+    },
+    {"..."}
+   ]
+}
 ```
