@@ -94,6 +94,7 @@ class TestUserBuilder(unittest.TestCase):
         password = 'Password'
         alias = 'HTTP_ALIAS'
         typ = 'S'
+        group = 'DEVELOPER'
         start_date = '20200101'
         end_date = '20201231'
 
@@ -104,6 +105,7 @@ class TestUserBuilder(unittest.TestCase):
         self.assertEqual(self.builder, self.builder.set_password(password))
         self.assertEqual(self.builder, self.builder.set_alias(alias))
         self.assertEqual(self.builder, self.builder.set_type(typ))
+        self.assertEqual(self.builder, self.builder.set_group(group))
         self.assertEqual(self.builder, self.builder.set_valid_from(start_date))
         self.assertEqual(self.builder, self.builder.set_valid_to(end_date))
 
@@ -124,6 +126,7 @@ class TestUserBuilder(unittest.TestCase):
             },
             'LOGONDATA': {
                 'USTYP': typ,
+                'CLASS': group,
                 'GLTGV': start_date,
                 'GLTGB': end_date
             }

@@ -142,6 +142,12 @@ class UserBuilder:
         self._logondata_data['USTYP'] = typ
         return self
 
+    def set_group(self, group: str):
+        """Sets user group"""
+
+        self._logondata_data['CLASS'] = group
+        return self
+
     def set_valid_from(self, start_date: Union[str]):
         """Sets user's start validity date"""
 
