@@ -249,6 +249,28 @@ def print_junit4_testcase_error(xml_writer, alert):
         xml_writer.text(alert.stack[-1])
 
 
+def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
+    """Prints XML content for the give alerts and returns number of errors."""
+
+    critical = 0
+    status = None
+
+    if any((alert.is_error for alert in alerts)):
+        critical += 1
+        status = 'ERR'
+    elif any((alert.is_warning for alert in alerts)):
+        status = 'SKIP'
+    else:
+        status = 'OK'
+
+    with xml_writer.element('testcase', name=method_name, classname=test_class, status=status):
+        for alert in alerts:
+            print_junit4_system_err(xml_writer, alert.details)
+            print_junit4_testcase_error(xml_writer, alert)
+
+    return critical
+
+
 def print_aunit_junit4(run_results, args, console):
     """Print results to console in the form of JUnit"""
 
@@ -273,26 +295,10 @@ def print_aunit_junit4(run_results, args, console):
                         tc_class_name = f'{program.name}=>{test_class.name}'
 
                     for test_method in test_class.test_methods:
-                        status = None
-
-                        if any((alert.is_error for alert in test_method.alerts)):
-                            critical += 1
-                            status = 'ERR'
-                        elif any((alert.is_warning for alert in test_method.alerts)):
-                            status = 'SKIP'
-                        else:
-                            status = 'OK'
-
-                        with xml_writer.element('testcase',
-                                                 name=test_method.name,
-                                                 classname=tc_class_name,
-                                                 status=status):
-                            if not test_method.alerts:
-                                continue
-
-                            for alert in test_method.alerts:
-                                print_junit4_system_err(xml_writer, alert.details)
-                                print_junit4_testcase_error(xml_writer, alert)
+                        critical += print_junit4_testcase(xml_writer,
+                                                          tc_class_name,
+                                                          test_method.name,
+                                                          test_method.alerts)
 
     return critical
 
