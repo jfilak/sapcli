@@ -31,10 +31,13 @@ class TestAUnitWrite(unittest.TestCase):
     def assert_print_no_test_classes(self, mock_print):
         self.assertEqual(
             mock_print.return_value.capout,
-            '* [tolerable] [noTestClasses] - The task definition does not refer to any test\n'
             'Successful: 0\n'
             'Warnings:   0\n'
             'Errors:     0\n')
+
+        self.assertEqual(
+            mock_print.return_value.caperr,
+            '* [tolerable] [noTestClasses] - The task definition does not refer to any test\n')
 
     def test_aunit_invalid(self):
         with self.assertRaises(SAPCliError) as cm:
@@ -83,8 +86,8 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
         self.assertEqual(mock_print.return_value.capout,
-'''* [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
-CL_FOO
+'''CL_FOO
+* [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
 
 Successful: 0
 Warnings:   0
@@ -143,12 +146,12 @@ ZEXAMPLE_TESTS
     DO_THE_TEST [OK]
 
 ZCL_THEKING_MANUAL_HARDCORE=>LTCL_TEST=>DO_THE_FAIL
-*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'
+* [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'
 ZCL_THEKING_MANUAL_HARDCORE=>LTCL_TEST_HARDER=>DO_THE_FAIL
-*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'
+* [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'
 ZEXAMPLE_TESTS=>LTCL_TEST=>DO_THE_FAIL
-*  [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'
-*  [critical] [failedAssertion] - Error<LOAD_PROGRAM_CLASS_MISMATCH>
+* [critical] [failedAssertion] - Critical Assertion Error: \'I am supposed to fail\'
+* [critical] [failedAssertion] - Error<LOAD_PROGRAM_CLASS_MISMATCH>
 
 Successful: 3
 Warnings:   1
@@ -223,12 +226,17 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
+        self.maxDiff = None
         self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="yclass"/>
+<testsuites name="yclass">
+  <testcase name="CL_FOO" classname="CL_FOO" status="ERR">
+    <system-err>"ME-&gt;MEMBER" is not type-compatible with formal parameter "BAR".</system-err>
+    <error type="warning" message="CL_FOO has syntax errors and cannot be analyzed for existence of unit tests">CL_FOO======CCAU:428</error>
+  </testcase>
+</testsuites>
 ''')
         self.assertEqual(mock_print.return_value.caperr,
-'''* [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
-''')
+'''''')
         self.assertEqual(retval, 1)
 
     def test_aunit_package_with_results_sonar(self):
@@ -366,13 +374,20 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
+        self.maxDiff = None
         self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
 <testExecutions version="1">
+    <testCase name="CL_FOO" duration="0">
+      <error message="CL_FOO has syntax errors and cannot be analyzed for existence of unit tests">
+"ME-&gt;MEMBER" is not type-compatible with formal parameter "BAR".
+
+CL_FOO======CCAU:428
+      </error>
+    </testCase>
 </testExecutions>
 ''')
         self.assertEqual(mock_print.return_value.caperr,
-'''* [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
-''')
+'''''')
         self.assertEqual(retval, 1)
 
     def test_print_acoverage_output_raises(self):

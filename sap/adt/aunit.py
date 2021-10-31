@@ -246,6 +246,7 @@ class Program(NamedTuple):
 
     name: str
     test_classes: List
+    alerts: List
 
 
 # pylint: disable=too-few-public-methods
@@ -320,7 +321,7 @@ class AUnitResponseHandler(ContentHandler):
     def startElement(self, name, attrs):
         mod_log().debug('XML: %s', name)
         if name == 'program':
-            self._program = Program(name=attrs.get('adtcore:name'), test_classes=[])
+            self._program = Program(name=attrs.get('adtcore:name'), test_classes=[], alerts=[])
             self.run_results.programs.append(self._program)
             mod_log().debug('XML: %s: %s', name, self._program.name)
         elif name == 'testClass':
@@ -377,6 +378,8 @@ class AUnitResponseHandler(ContentHandler):
                 self._test_method.alerts.append(alert)
             elif self._test_class is not None:
                 self._test_class.alerts.append(alert)
+            elif self._program is not None:
+                self._program.alerts.append(alert)
             else:
                 self.run_results.alerts.append(alert)
 

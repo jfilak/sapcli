@@ -15,6 +15,9 @@ import sap.adt.aunit
 import sap.adt.objects
 import sap.adt.cts
 import sap.cli.core
+from sap.cli.core import (
+    ConsoleErrorDecorator
+)
 import sap.adt.acoverage
 from sap.adt.acoverage_statements import (
     ACoverageStatements,
@@ -40,14 +43,14 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('aunit')
 
 
-def print_aunit_human_run_alerts(run_results, console):
+def print_aunit_human_alerts(console, alerts):
     """A helper method printing out alerts not linked to any test case
        and returning number of critical errors.
     """
 
     errors = 0
 
-    for alert in run_results.alerts:
+    for alert in alerts:
         console.printout(f'* [{alert.severity}] [{alert.kind}] - {alert.title}')
         errors = errors + 1 if alert.is_error else 0
 
@@ -57,13 +60,16 @@ def print_aunit_human_run_alerts(run_results, console):
 def print_aunit_human(run_results, console):
     """Print AUnit results in the human readable format"""
 
-    errors = print_aunit_human_run_alerts(run_results, console)
+    errors = print_aunit_human_alerts(ConsoleErrorDecorator(console),
+                                      run_results.alerts)
 
     successful = 0
     tolerable = 0
     critical = []
     for program in run_results.programs:
         console.printout(f'{program.name}')
+
+        errors += print_aunit_human_alerts(console, program.alerts)
 
         for test_class in program.test_classes:
             console.printout(f'  {test_class.name}')
@@ -86,8 +92,7 @@ def print_aunit_human(run_results, console):
 
     for program, test_class, test_method in critical:
         console.printout(f'{program.name}=>{test_class.name}=>{test_method.name}')
-        for alert in test_method.alerts:
-            console.printout(f'*  [{alert.severity}] [{alert.kind}] - {alert.title}')
+        print_aunit_human_alerts(console, test_method.alerts)
 
     if critical:
         console.printout('')
@@ -278,10 +283,17 @@ def print_aunit_junit4(run_results, args, console):
 
     # We must print alerts to STDERR because STDOUT is supposed
     # to be the JUnit XML contents.
-    critical = print_aunit_human_run_alerts(run_results, sap.cli.core.ConsoleErrorDecorator(console))
+    critical = print_aunit_human_alerts(ConsoleErrorDecorator(console),
+                                        run_results.alerts)
 
     with XMLWriter(console, 'testsuites', name=testsuite_name) as xml_writer:
         for program in run_results.programs:
+            if program.alerts:
+                critical += print_junit4_testcase(xml_writer,
+                                                  program.name,
+                                                  program.name,
+                                                  program.alerts)
+
             for test_class in program.test_classes:
                 with xml_writer.element('testsuite',
                                         name=test_class.name,
@@ -345,12 +357,24 @@ def print_aunit_sonar(run_results, args, console):
 
     # We must print alerts to STDERR because STDOUT is supposed
     # to be the Sonar XML contents.
-    critical = print_aunit_human_run_alerts(run_results, sap.cli.core.ConsoleErrorDecorator(console))
+    critical = print_aunit_human_alerts(ConsoleErrorDecorator(console),
+                                        run_results.alerts)
 
     console.printout('<?xml version="1.0" encoding="UTF-8" ?>')
     console.printout('<testExecutions version="1">')
 
     for program in run_results.programs:
+        if program.alerts:
+            console.printout(f'    <testCase name={quoteattr(program.name)} duration="0">')
+
+            for alert in program.alerts:
+                if alert.is_error:
+                    critical += 1
+
+                print_sonar_alert(alert, console)
+
+            console.printout('    </testCase>')
+
         for test_class in program.test_classes:
             for requested_name in args.name:
                 filename = find_testclass(requested_name, program.name, test_class.name, file_required=True)
