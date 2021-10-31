@@ -6,6 +6,7 @@ from collections import defaultdict
 from enum import Enum
 from xml.sax.saxutils import escape, quoteattr
 from itertools import islice
+from dataclasses import dataclass
 
 import sap
 
@@ -119,40 +120,133 @@ def print_acoverage_human(node, console, _indent_level=0):
         print_acoverage_human(node, console, _indent_level + 1)
 
 
-def print_junit4_system_err(console, details, elem_pad):
+#pylint: disable=too-few-public-methods
+@dataclass
+class XMLElementContext:
+    """XML Element context for a naive XML recursive writer"""
+
+    tag: str
+    indent: str
+    empty: bool
+
+
+class XMLWriter:
+    """A naive implementation of a recursive XML writer
+       which quickly and efficiently writes JUnit XML to a console.
+
+       The class abuses ContextMangers the following way:
+
+         with xml_writer.root('parent', bar='grc'):
+            with xml_writer.element('child', attr='value'):
+                with xml_writer.element('sub-child'):
+                    xml_writer.text('first line', end='\n')
+                    xml_writer.text('second line')
+
+                xml_writer.element('another-sub-child', attr='empty-elem').close()
+
+       Result:
+         <?xml version="1.0" encoding="UTF-8" ?>
+         <parent bar="grc">
+           <child attr="value">
+             <sub-child>first line
+second-line</sub-child>
+           </child>
+         </parent>
+    """
+
+    def __init__(self, console, root_tag, **attrs):
+        self._console = console
+
+        # New line to simplify generation of text where
+        # the closing tag must be on the same line.
+        # We cannot print new line after the opening tag
+        # because of text too - text must start on the same line.
+        self._indent = '  '
+        self._stack = []
+        self._top = None
+
+        self._console.printout('<?xml version="1.0" encoding="UTF-8" ?>', end='')
+        self.element(root_tag, **attrs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def _terminate_opening_tag(self):
+        if self._top.empty:
+            self._console.printout('>', end='')
+
+    def close(self):
+        """Closes open element - i.e. adds closing tag"""
+
+        if self._top.empty:
+            self._console.printout('/>', end='')
+        else:
+            self._console.printout(f'{self._top.indent}</{self._top.tag}>', end='')
+
+        try:
+            self._top = self._stack.pop()
+        except IndexError:
+            # We are closing the XML document
+            self._top = None
+            # so print new line at the end
+            self._console.printout('')
+
+    def element(self, tag: str, **attrs):
+        """Starts new element - i.e. adds opening tag"""
+
+        if self._top is not None:
+            indent = self._top.indent + self._indent
+            self._terminate_opening_tag()
+            self._top.empty = False
+            self._stack.append(self._top)
+        else:
+            indent = '\n'
+
+        self._console.printout(f'{indent}<{tag}', end='')
+
+        for key, value in attrs.items():
+            self._console.printout(f' {key}={quoteattr(value)}', end='')
+
+        self._top = XMLElementContext(tag, indent, True)
+
+        return self
+
+    def text(self, lines, end=''):
+        """Adds text data to the currently written element"""
+
+        self._terminate_opening_tag()
+        self._top.empty = False
+        self._top.indent = ''
+        self._console.printout(escape(lines), end=end)
+
+
+def print_junit4_system_err(xml_writer, details):
     """Print AUnit Alert.Details in testcase/system-err"""
 
     if not details:
         return
 
-    console.printout(f'{elem_pad}<system-err>', end='')
+    with xml_writer.element('system-err'):
+        for detail in islice(details, len(details) - 1):
+            xml_writer.text(detail, end='\n')
 
-    for detail in islice(details, len(details) - 1):
-        console.printout(escape(detail))
-
-    console.printout(escape(details[-1]), end='')
-
-    console.printout('</system-err>')
+        xml_writer.text(details[-1])
 
 
-def print_junit4_testcase_error(console, alert, elem_pad):
+def print_junit4_testcase_error(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/error"""
 
-    console.printout(f'{elem_pad}<error type={quoteattr(alert.kind)} message={quoteattr(alert.title)}',
-                     end='')
+    with xml_writer.element('error', type=alert.kind, message=alert.title):
+        if not alert.stack:
+            return
 
-    if not alert.stack:
-        console.printout('/>')
-        return
+        for frame in islice(alert.stack, len(alert.stack) - 1):
+            xml_writer.text(frame, end='\n')
 
-    console.printout('>', end='')
-
-    for frame in islice(alert.stack, len(alert.stack) - 1):
-        console.printout(escape(frame))
-
-    console.printout(escape(alert.stack[-1]), end='')
-
-    console.printout('</error>')
+        xml_writer.text(alert.stack[-1])
 
 
 def print_aunit_junit4(run_results, args, console):
@@ -164,54 +258,41 @@ def print_aunit_junit4(run_results, args, console):
     # to be the JUnit XML contents.
     critical = print_aunit_human_run_alerts(run_results, sap.cli.core.ConsoleErrorDecorator(console))
 
-    console.printout('<?xml version="1.0" encoding="UTF-8" ?>')
-    console.printout(f'<testsuites name={quoteattr(testsuite_name)}>')
+    with XMLWriter(console, 'testsuites', name=testsuite_name) as xml_writer:
+        for program in run_results.programs:
+            for test_class in program.test_classes:
+                with xml_writer.element('testsuite',
+                                        name=test_class.name,
+                                        package=program.name,
+                                        tests=str(len(test_class.test_methods))):
+                    if not test_class.test_methods:
+                        continue
 
-    for program in run_results.programs:
-        for test_class in program.test_classes:
-            console.printout(f'  <testsuite name={quoteattr(test_class.name)} package={quoteattr(program.name)} \
-tests="{len(test_class.test_methods)}"', end='')
+                    tc_class_name = test_class.name
+                    if program.name != test_class.name:
+                        tc_class_name = f'{program.name}=>{test_class.name}'
 
-            if not test_class.test_methods:
-                console.printout('/>')
-                continue
+                    for test_method in test_class.test_methods:
+                        status = None
 
-            console.printout('>')
+                        if any((alert.is_error for alert in test_method.alerts)):
+                            critical += 1
+                            status = 'ERR'
+                        elif any((alert.is_warning for alert in test_method.alerts)):
+                            status = 'SKIP'
+                        else:
+                            status = 'OK'
 
-            tc_class_name = test_class.name
-            if program.name != test_class.name:
-                tc_class_name = f'{program.name}=>{test_class.name}'
+                        with xml_writer.element('testcase',
+                                                 name=test_method.name,
+                                                 classname=tc_class_name,
+                                                 status=status):
+                            if not test_method.alerts:
+                                continue
 
-            for test_method in test_class.test_methods:
-                status = None
-
-                if any((alert.is_error for alert in test_method.alerts)):
-                    critical += 1
-                    status = 'ERR'
-                elif any((alert.is_warning for alert in test_method.alerts)):
-                    status = 'SKIP'
-                else:
-                    status = 'OK'
-
-                console.printout(f'    <testcase name={quoteattr(test_method.name)} '
-                                 f'classname={quoteattr(tc_class_name)} status={quoteattr(status)}',
-                                 end='')
-
-                if not test_method.alerts:
-                    console.printout('/>')
-                    continue
-
-                console.printout('>')
-
-                for alert in test_method.alerts:
-                    print_junit4_system_err(console, alert.details, '      ')
-                    print_junit4_testcase_error(console, alert, '      ')
-
-                console.printout('    </testcase>')
-
-            console.printout('  </testsuite>')
-
-    console.printout('</testsuites>')
+                            for alert in test_method.alerts:
+                                print_junit4_system_err(xml_writer, alert.details)
+                                print_junit4_testcase_error(xml_writer, alert)
 
     return critical
 

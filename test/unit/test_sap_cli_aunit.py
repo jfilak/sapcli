@@ -224,8 +224,7 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
         self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="yclass">
-</testsuites>
+<testsuites name="yclass"/>
 ''')
         self.assertEqual(mock_print.return_value.caperr,
 '''* [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
