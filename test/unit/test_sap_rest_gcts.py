@@ -6,6 +6,8 @@ from unittest.mock import Mock, call, patch, PropertyMock
 from sap.rest.errors import HTTPRequestError, UnauthorizedError
 
 import sap.rest.gcts
+import sap.rest.gcts.remote_repo
+import sap.rest.gcts.simple
 
 from mock import Request, Response, RESTConnection, make_gcts_log_error
 from mock import GCTSLogBuilder as LogBuilder
@@ -27,7 +29,7 @@ class TestGCSTRequestError(unittest.TestCase):
     def test_str_and_repr(self):
         log_builder = LogBuilder()
         messages = log_builder.log_error(make_gcts_log_error('Exists')).log_exception('Message', 'EEXIST').get_contents()
-        ex = sap.rest.gcts.GCTSRequestError(messages)
+        ex = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         self.assertEqual(str(ex), 'gCTS exception: Message')
         self.assertEqual(repr(ex), 'gCTS exception: Message')
@@ -40,7 +42,7 @@ class TestGCTSExceptionFactory(unittest.TestCase):
         res = Response(status_code=401, text='Not JSON')
 
         orig_error = UnauthorizedError(req, res, 'foo')
-        new_error = sap.rest.gcts.exception_from_http_error(orig_error)
+        new_error = sap.rest.gcts.errors.exception_from_http_error(orig_error)
 
         self.assertEqual(new_error, orig_error)
 
@@ -50,9 +52,9 @@ class TestGCTSExceptionFactory(unittest.TestCase):
         res = Response.with_json(status_code=500, json=messages)
 
         orig_error = HTTPRequestError(req, res)
-        new_error = sap.rest.gcts.exception_from_http_error(orig_error)
+        new_error = sap.rest.gcts.errors.exception_from_http_error(orig_error)
 
-        expected_error = sap.rest.gcts.GCTSRepoNotExistsError(messages)
+        expected_error = sap.rest.gcts.errors.GCTSRepoNotExistsError(messages)
 
         self.assertEqual(str(new_error), str(expected_error))
 
@@ -101,12 +103,12 @@ class GCTSTestSetUp:
 class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
     def test_wipe_data(self):
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data={})
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data={})
         repo.wipe_data()
         self.assertIsNone(repo._data)
 
     def test_ctor_no_data(self):
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
         self.assertEqual(repo._http.connection, self.conn)
         self.assertEqual(repo.name, self.repo_name)
         self.assertIsNone(repo._data)
@@ -114,14 +116,14 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
     def test_ctor_with_data(self):
         data = {}
 
-        repo = sap.rest.gcts.Repository(None, self.repo_name, data=data)
+        repo = sap.rest.gcts.remote_repo.Repository(None, self.repo_name, data=data)
 
         self.assertIsNone(repo._http.connection)
         self.assertEqual(repo.name, self.repo_name)
         self.assertIsNotNone(repo._data)
 
     def test_properties_cached(self):
-        repo = sap.rest.gcts.Repository(None, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(None, self.repo_name, data=self.repo_server_data)
 
         self.assertEqual(repo.status, self.repo_server_data['status'])
         self.assertEqual(repo.rid, self.repo_server_data['rid'])
@@ -134,7 +136,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.conn.set_responses([Response.with_json(json=response, status_code=200)])
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
 
         self.assertEqual(repo.status, self.repo_server_data['status'])
         self.assertEqual(repo.rid, self.repo_server_data['rid'])
@@ -148,8 +150,8 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         messages = LogBuilder(exception='Get Repo Error').get_contents()
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
             unused = repo.rid
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Get Repo Error')
@@ -159,7 +161,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=201, json={'repository': self.repo_server_data})
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
         repo.create(self.repo_url, self.repo_vsid)
 
         self.assertEqual(len(self.conn.execs), 1)
@@ -171,7 +173,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=201, json={'repository': self.repo_server_data})
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
         repo.create(self.repo_url, self.repo_vsid, config={'THE_KEY': 'THE_VALUE'})
 
         repo_request = dict(self.repo_request)
@@ -188,7 +190,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=201, json={'repository': self.repo_server_data})
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data={
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data={
             'config': [
                 {'key': 'first_key', 'value': 'first_value'},
                 {'key': 'third_key', 'value': 'third_value'}
@@ -214,7 +216,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=201, json={'repository': self.repo_server_data})
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
 
         repo.create(self.repo_url, self.repo_vsid, role='TARGET', typ='GIT')
 
@@ -236,7 +238,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
     #    pass
 
     def test_set_config_success(self):
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
         repo.set_config('THE_KEY', 'the value')
         self.assertEqual(repo.get_config('THE_KEY'), 'the value')
 
@@ -244,7 +246,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.conn.execs[0].assertEqual(Request.post_json(uri=f'repository/{self.repo_name}/config', body={'key': 'THE_KEY', 'value': 'the value'}), self, json_body=True)
 
     def test_set_config_success_overwrite(self):
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         repo.set_config('VCS_CONNECTION', 'git')
         self.assertEqual(repo.get_config('VCS_CONNECTION'), 'git')
 
@@ -255,15 +257,15 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         messages = LogBuilder(exception='Set Config Error').get_contents()
 
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
 
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
             repo.set_config('THE_KEY', 'the value')
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Set Config Error')
 
     def test_get_config_cached_ok(self):
-        repo = sap.rest.gcts.Repository(None, self.repo_name, data={
+        repo = sap.rest.gcts.remote_repo.Repository(None, self.repo_name, data={
             'config': [
                 {'key': 'THE_KEY', 'value': 'the value', 'category': 'connection'}
             ]
@@ -275,7 +277,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
     def test_get_config_no_config_ok(self):
         self.conn.set_responses(Response.with_json(status_code=200, json={'result':self.repo_server_data}))
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
 
         # This will fetch repo data from the server
         value = repo.get_config('VCS_CONNECTION')
@@ -291,7 +293,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
     def test_get_config_no_key_ok(self):
         self.conn.set_responses(Response.with_json(status_code=200, json={'result': {'value': 'the value'}}))
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
 
         # This will fetch the configruation key value from the server
         value = repo.get_config('THE_KEY')
@@ -312,15 +314,15 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         messages = LogBuilder(exception='Get Config Error').get_contents()
 
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
 
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
             repo.get_config('THE_KEY')
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Get Config Error')
 
     def test_clone_ok(self):
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         repo.clone()
 
         self.assertIsNone(repo._data)
@@ -332,8 +334,8 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         messages = LogBuilder(exception='Clone Error').get_contents()
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
             repo.clone()
 
         self.assertIsNotNone(repo._data)
@@ -345,7 +347,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             'toCommit': '456'
         }}))
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         repo.checkout('the_other_branch')
 
         self.assertIsNone(repo._data)
@@ -357,15 +359,15 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         messages = LogBuilder(exception='Checkout Error').get_contents()
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
             repo.checkout('the_other_branch')
 
         self.assertIsNotNone(repo._data)
         self.assertEqual(str(caught.exception), 'gCTS exception: Checkout Error')
 
     def test_delete_ok(self):
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         repo.delete()
 
         self.assertIsNone(repo._data)
@@ -377,8 +379,8 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         messages = LogBuilder(exception='Delete Error').get_contents()
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
             repo.delete()
 
         self.assertIsNotNone(repo._data)
@@ -393,7 +395,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             })
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         act_commits = repo.log()
 
         self.assertIsNotNone(repo._data)
@@ -406,8 +408,8 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         messages = LogBuilder(exception='Log Error').get_contents()
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
             repo.log()
 
         self.assertIsNotNone(repo._data)
@@ -423,7 +425,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json=exp_log )
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         act_log = repo.pull()
 
         self.assertIsNone(repo._data)
@@ -438,8 +440,8 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=500, json=messages)
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
             repo.pull()
 
         self.assertIsNotNone(repo._data)
@@ -450,7 +452,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         message = 'Message'
         description = 'Description'
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         response = repo.commit_transport(corrnr, message, description=description)
 
         self.conn.execs[0].assertEqual(
@@ -478,7 +480,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             Response.ok()
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=None)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=None)
         response = repo.set_url(NEW_URL)
 
         self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(
@@ -505,7 +507,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json={'result': self.repo_server_data}),
         )
 
-        repo = sap.rest.gcts.Repository(self.conn, self.repo_name, data=None)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=None)
         response = repo.set_url(NEW_URL)
 
         self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(
@@ -530,7 +532,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.ok()
         )
 
-        sap.rest.gcts.simple_clone(
+        sap.rest.gcts.simple.clone(
             self.conn,
             self.repo_url,
             self.repo_name,
@@ -553,8 +555,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.conn.execs[CALL_ID_CREATE].assertEqual(Request.post_json(uri='repository', body=request_load, accept='application/json'), self, json_body=True)
         self.conn.execs[CALL_ID_CLONE].assertEqual(Request.post(uri=f'repository/{self.repo_name}/clone'), self)
 
-    @patch('sap.rest.gcts.Repository.is_cloned', new_callable=PropertyMock)
-    @patch('sap.rest.gcts.Repository.create')
+    @patch('sap.rest.gcts.remote_repo.Repository.is_cloned', new_callable=PropertyMock)
+    @patch('sap.rest.gcts.remote_repo.Repository.create')
     def test_simple_clone_passing_parameters(self, fake_create, fake_is_cloned):
         fake_is_cloned.return_value = True
 
@@ -566,7 +568,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         fake_create.side_effect = assertPassedParameters
 
-        sap.rest.gcts.simple_clone(
+        sap.rest.gcts.simple.clone(
             self.conn,
             self.repo_url,
             self.repo_name,
@@ -583,8 +585,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         self.conn.set_responses([Response.with_json(status_code=500, json=messages)])
 
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
-            sap.rest.gcts.simple_clone(self.conn, self.repo_url, self.repo_name)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            sap.rest.gcts.simple.clone(self.conn, self.repo_url, self.repo_name)
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Message')
 
@@ -596,8 +598,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         self.conn.set_responses([Response.with_json(status_code=500, json=messages)])
 
-        with self.assertRaises(sap.rest.gcts.GCTSRepoAlreadyExistsError) as caught:
-            sap.rest.gcts.simple_clone(self.conn, self.repo_url, self.repo_name)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRepoAlreadyExistsError) as caught:
+            sap.rest.gcts.simple.clone(self.conn, self.repo_url, self.repo_name)
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Cannot create')
 
@@ -618,7 +620,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.ok()
         ])
 
-        repo = sap.rest.gcts.simple_clone(self.conn, self.repo_url, self.repo_name, error_exists=False)
+        repo = sap.rest.gcts.simple.clone(self.conn, self.repo_url, self.repo_name, error_exists=False)
         self.assertIsNotNone(repo)
         self.assertEqual(len(self.conn.execs), 3)
         self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}'), self)
@@ -638,7 +640,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json={'result': self.repo_server_data}),
         ])
 
-        repo = sap.rest.gcts.simple_clone(self.conn, self.repo_url, self.repo_name, error_exists=False)
+        repo = sap.rest.gcts.simple.clone(self.conn, self.repo_url, self.repo_name, error_exists=False)
         self.assertIsNotNone(repo)
 
         self.assertEqual(len(self.conn.execs), 2)
@@ -649,7 +651,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json={})
         )
 
-        repos = sap.rest.gcts.simple_fetch_repos(self.conn)
+        repos = sap.rest.gcts.simple.fetch_repos(self.conn)
         self.assertEqual(len(repos), 0)
 
     def test_simple_fetch_ok(self):
@@ -667,7 +669,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             })
         )
 
-        repos = sap.rest.gcts.simple_fetch_repos(self.conn)
+        repos = sap.rest.gcts.simple.fetch_repos(self.conn)
 
         self.assertEqual(len(repos), 2)
         self.assertEqual(repos[REPO_ONE_ID].name, 'one')
@@ -681,43 +683,43 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         messages = LogBuilder(exception='Fetch Error').get_contents()
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
 
-        with self.assertRaises(sap.rest.gcts.GCTSRequestError) as caught:
-            sap.rest.gcts.simple_fetch_repos(self.conn)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            sap.rest.gcts.simple.fetch_repos(self.conn)
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Fetch Error')
 
-    @patch('sap.rest.gcts.Repository')
+    @patch('sap.rest.gcts.simple.Repository')
     def test_simple_checkout_ok(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
         fake_instance.checkout = Mock()
         fake_instance.checkout.return_value = 'probe'
 
-        response = sap.rest.gcts.simple_checkout(self.conn, 'the_new_branch', name=self.repo_name)
+        response = sap.rest.gcts.simple.checkout(self.conn, 'the_new_branch', name=self.repo_name)
         fake_repository.assert_called_once_with(self.conn, self.repo_name)
         fake_instance.checkout.assert_called_once_with('the_new_branch')
         self.assertEqual(response, 'probe')
 
-    @patch('sap.rest.gcts.Repository')
+    @patch('sap.rest.gcts.simple.Repository')
     def test_simple_delete_ok(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
         fake_instance.delete = Mock()
         fake_instance.delete.return_value = 'probe'
 
-        response = sap.rest.gcts.simple_delete(self.conn, self.repo_name)
+        response = sap.rest.gcts.simple.delete(self.conn, self.repo_name)
         fake_repository.assert_called_once_with(self.conn, self.repo_name)
         fake_instance.delete.assert_called_once_with()
         self.assertEqual(response, 'probe')
 
-    @patch('sap.rest.gcts.Repository')
+    @patch('sap.rest.gcts.simple.Repository')
     def test_simple_log_name(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
         fake_instance.log = Mock()
         fake_instance.log.return_value = 'probe'
 
-        response = sap.rest.gcts.simple_log(self.conn, name=self.repo_name)
+        response = sap.rest.gcts.simple.log(self.conn, name=self.repo_name)
         fake_repository.assert_called_once_with(self.conn, self.repo_name)
         fake_instance.log.assert_called_once_with()
         self.assertEqual(response, 'probe')
@@ -727,17 +729,17 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         fake_instance.log = Mock()
         fake_instance.log.return_value = 'probe'
 
-        response = sap.rest.gcts.simple_log(None, repo=fake_instance)
+        response = sap.rest.gcts.simple.log(None, repo=fake_instance)
         self.assertEqual(response, 'probe')
 
-    @patch('sap.rest.gcts.Repository')
+    @patch('sap.rest.gcts.simple.Repository')
     def test_simple_pull_name(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
         fake_instance.pull = Mock()
         fake_instance.pull.return_value = 'probe'
 
-        response = sap.rest.gcts.simple_pull(self.conn, name=self.repo_name)
+        response = sap.rest.gcts.simple.pull(self.conn, name=self.repo_name)
         fake_repository.assert_called_once_with(self.conn, self.repo_name)
         fake_instance.pull.assert_called_once_with()
         self.assertEqual(response, 'probe')
@@ -747,7 +749,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         fake_instance.pull = Mock()
         fake_instance.pull.return_value = 'probe'
 
-        response = sap.rest.gcts.simple_pull(None, repo=fake_instance)
+        response = sap.rest.gcts.simple.pull(None, repo=fake_instance)
         self.assertEqual(response, 'probe')
 
     def test_simple_set_user_api_token(self):
@@ -755,7 +757,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         api_url = 'https://api.url/'
         token = 'THETOKEN'
-        response = sap.rest.gcts.simple_set_user_api_token(connection, api_url, token)
+        response = sap.rest.gcts.simple.set_user_api_token(connection, api_url, token)
 
         self.assertEqual(connection.mock_methods(), [('POST', 'user/credentials')])
         connection.execs[0].assertEqual(

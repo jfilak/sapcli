@@ -16,6 +16,10 @@ from mock import (
     make_gcts_log_error
 )
 
+from fixtures_sap_rest_gcts import (
+    GCTS_RESPONSE_REPO_NOT_EXISTS
+)
+
 from infra import generate_parse_args
 
 
@@ -92,10 +96,10 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_simple_clone = self.patch('sap.rest.gcts.simple_clone')
+        self.fake_simple_clone = self.patch('sap.rest.gcts.simple.clone')
 
         self.conn = Mock()
-        self.fake_simple_clone.return_value = sap.rest.gcts.Repository(self.conn, 'sample', data={
+        self.fake_simple_clone.return_value = sap.rest.gcts.remote_repo.Repository(self.conn, 'sample', data={
             'url': 'https://example.org/repo/git/sample.git',
             'branch': 'main',
             'currentCommit': 'FEDBCA9876543210'
@@ -177,7 +181,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
     def test_clone_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_simple_clone.return_value = None
-        self.fake_simple_clone.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+        self.fake_simple_clone.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         args = self.clone('url')
         exit_code = args.execute(None, args)
@@ -195,7 +199,7 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_simple_fetch_repos = self.patch('sap.rest.gcts.simple_fetch_repos')
+        self.fake_simple_fetch_repos = self.patch('sap.rest.gcts.simple.fetch_repos')
 
     def repolist(self, *args, **kwargs):
         return parse_args('repolist', *args, **kwargs)
@@ -204,21 +208,21 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
         conn = Mock()
 
         self.fake_simple_fetch_repos.return_value = [
-            sap.rest.gcts.Repository(conn, 'one', data={
+            sap.rest.gcts.remote_repo.Repository(conn, 'one', data={
                 'rid': 'one_rid',
                 'status': 'CREATED',
                 'branch': 'one_branch',
                 'url': 'one_url',
                 'vsid': 'vS1D',
                 'currentCommit': '123'}),
-            sap.rest.gcts.Repository(conn, 'two', data={
+            sap.rest.gcts.remote_repo.Repository(conn, 'two', data={
                 'rid': 'two_rid',
                 'status': 'READY',
                 'branch': 'two_branch',
                 'url': 'two_url',
                 'vsid': 'vS2D',
                 'currentCommit': '456'}),
-            sap.rest.gcts.Repository(conn, 'three', data={
+            sap.rest.gcts.remote_repo.Repository(conn, 'three', data={
                 'rid': 'third_rid',
                 'status': 'CLONED',
                 'branch': 'third_branch',
@@ -242,7 +246,7 @@ three | third_branch | 7890   | CLONED  | vS3D | third_url
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_repolist_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        self.fake_simple_fetch_repos.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+        self.fake_simple_fetch_repos.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         args = self.repolist()
         exit_code = args.execute(None, args)
@@ -260,7 +264,7 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_simple_delete = self.patch('sap.rest.gcts.simple_delete')
+        self.fake_simple_delete = self.patch('sap.rest.gcts.simple.delete')
 
     def delete(self, *args, **kwargs):
         return parse_args('delete', *args, **kwargs)
@@ -279,7 +283,7 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_delete_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        self.fake_simple_delete.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+        self.fake_simple_delete.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         args = self.delete('a_repo')
         exit_code = args.execute(None, args)
@@ -297,8 +301,8 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_simple_checkout = self.patch('sap.rest.gcts.simple_checkout')
-        self.fake_repository = self.patch('sap.rest.gcts.Repository')
+        self.fake_simple_checkout = self.patch('sap.rest.gcts.simple.checkout')
+        self.fake_repository = self.patch('sap.cli.gcts.Repository')
         self.repo = Mock()
         self.fake_repository.return_value = self.repo
 
@@ -322,7 +326,7 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_checkout_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        self.fake_simple_checkout.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+        self.fake_simple_checkout.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         args = self.checkout('a_repo', 'a_branch')
         exit_code = args.execute(None, args)
@@ -340,7 +344,7 @@ class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_simple_log = self.patch('sap.rest.gcts.simple_log')
+        self.fake_simple_log = self.patch('sap.rest.gcts.simple.log')
 
     def log(self, *args, **kwargs):
         return parse_args('log', *args, **kwargs)
@@ -393,7 +397,7 @@ Date:   2020-10-02
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_log_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        self.fake_simple_log.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+        self.fake_simple_log.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         args = self.log('a_repo')
         exit_code = args.execute(None, args)
@@ -411,7 +415,7 @@ class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_simple_pull = self.patch('sap.rest.gcts.simple_pull')
+        self.fake_simple_pull = self.patch('sap.rest.gcts.simple.pull')
 
     def pull(self, *args, **kwargs):
         return parse_args('pull', *args, **kwargs)
@@ -435,7 +439,7 @@ class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_pull_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        self.fake_simple_pull.side_effect = sap.rest.gcts.GCTSRequestError(messages)
+        self.fake_simple_pull.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         args = self.pull('a_repo')
         exit_code = args.execute(None, args)
@@ -453,7 +457,7 @@ class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_repository = self.patch('sap.rest.gcts.Repository')
+        self.fake_repository = self.patch('sap.cli.gcts.Repository')
         self.fake_instance = Mock()
         self.fake_repository.return_value = self.fake_instance
 
@@ -488,7 +492,7 @@ the_key_two=two
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_config_list_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        type(self.fake_instance).configuration = PropertyMock(side_effect=sap.rest.gcts.GCTSRequestError(messages))
+        type(self.fake_instance).configuration = PropertyMock(side_effect=sap.rest.gcts.errors.GCTSRequestError(messages))
 
         args = self.config('a_repo', '-l')
         exit_code = args.execute(None, args)
@@ -556,6 +560,17 @@ class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertConsoleContents(self.console, stdout=f'''The transport "{corrnr}" has been committed\n''')
 
+    def test_commit_with_error(self):
+        repo_name = 'the_repo'
+        corrnr = 'CORRNR'
+
+        self.fake_connection.set_responses(GCTS_RESPONSE_REPO_NOT_EXISTS)
+
+        commit_cmd = self.commit_cmd(repo_name, corrnr)
+        commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertConsoleContents(self.console, stderr=f'''Exception:\n  Repository does not exist\n''')
+
 
 class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -571,7 +586,7 @@ class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
     def set_url_cmd(self, *args, **kwargs):
         return parse_args('repo', 'set-url', *args, **kwargs)
 
-    @patch('sap.rest.gcts.Repository.set_url')
+    @patch('sap.cli.gcts.Repository.set_url')
     def test_repo_set_url(self, fake_set_url):
         repo_name = 'the_repo'
         new_url = 'https://successful.test.org/fabulous/repo'
@@ -580,3 +595,28 @@ class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
         the_cmd.execute(self.fake_connection, the_cmd)
 
         fake_set_url.assert_called_once_with(new_url)
+
+
+class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = None
+
+    def set_credentials_cmd(self, *args, **kwargs):
+        return parse_args('user', 'set-credentials', *args, **kwargs)
+
+    @patch('sap.rest.gcts.simple.set_user_api_token')
+    def test_repo_set_url(self, fake_set_credentials):
+        api_url = 'https://api.github.com/v3/'
+        token = 'ATOKEN'
+
+        the_cmd = self.set_credentials_cmd("-a", api_url, "-t", token)
+        the_cmd.execute(self.fake_connection, the_cmd)
+
+        fake_set_credentials.assert_called_once_with(self.fake_connection, api_url, token)
