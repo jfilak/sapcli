@@ -2,7 +2,13 @@
 
 import sap.cli.core
 import sap.cli.helpers
-import sap.rest.gcts
+import sap.rest.gcts.simple
+from sap.rest.gcts.remote_repo import (
+    Repository
+)
+from sap.rest.gcts.errors import (
+    GCTSRequestError
+)
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -81,7 +87,7 @@ class UserCommandGroup(sap.cli.core.CommandGroup):
 def user_credentials(connection, args):
     """Set user credentials"""
 
-    sap.rest.gcts.simple_set_user_api_token(connection, args.api_url, args.token)
+    sap.rest.gcts.simple.set_user_api_token(connection, args.api_url, args.token)
 
 
 class RepoCommandGroup(sap.cli.core.CommandGroup):
@@ -97,7 +103,7 @@ class RepoCommandGroup(sap.cli.core.CommandGroup):
 def set_url(connection, args):
     """Set repo URL"""
 
-    repo = sap.rest.gcts.Repository(connection, args.package)
+    repo = Repository(connection, args.package)
     sap.cli.core.printout(repo.set_url(args.url))
 
 
@@ -163,8 +169,8 @@ def repolist(connection, args):
     console = sap.cli.core.get_console()
 
     try:
-        response = sap.rest.gcts.simple_fetch_repos(connection)
-    except sap.rest.gcts.GCTSRequestError as ex:
+        response = sap.rest.gcts.simple.fetch_repos(connection)
+    except GCTSRequestError as ex:
         dump_gcts_messages(console, ex.messages)
         return 1
 
@@ -199,14 +205,14 @@ def clone(connection, args):
 
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            repo = sap.rest.gcts.simple_clone(connection, args.url, package,
+            repo = sap.rest.gcts.simple.clone(connection, args.url, package,
                                               start_dir=args.starting_folder,
                                               vcs_token=args.vcs_token,
                                               vsid=args.vsid,
                                               error_exists=not args.no_fail_exists,
                                               role=args.role,
                                               typ=args.type)
-    except sap.rest.gcts.GCTSRequestError as ex:
+    except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
@@ -228,11 +234,11 @@ def config(connection, args):
     console = sap.cli.core.get_console()
 
     if args.list:
-        repo = sap.rest.gcts.Repository(connection, args.package)
+        repo = Repository(connection, args.package)
 
         try:
             configuration = repo.configuration
-        except sap.rest.gcts.GCTSRequestError as ex:
+        except GCTSRequestError as ex:
             dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
             return 1
 
@@ -252,8 +258,8 @@ def delete(connection, args):
     """
 
     try:
-        sap.rest.gcts.simple_delete(connection, args.package)
-    except sap.rest.gcts.GCTSRequestError as ex:
+        sap.rest.gcts.simple.delete(connection, args.package)
+    except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
@@ -269,15 +275,15 @@ def checkout(connection, args):
     """git checkout <branch>
     """
 
-    repo = sap.rest.gcts.Repository(connection, args.package)
+    repo = Repository(connection, args.package)
     old_branch = repo.branch
 
     console = sap.cli.core.get_console()
 
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            response = sap.rest.gcts.simple_checkout(connection, args.branch, repo=repo)
-    except sap.rest.gcts.GCTSRequestError as ex:
+            response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
+    except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
@@ -294,8 +300,8 @@ def gcts_log(connection, args):
 
     console = sap.cli.core.get_console()
     try:
-        commits = sap.rest.gcts.simple_log(connection, name=args.package)
-    except sap.rest.gcts.GCTSRequestError as ex:
+        commits = sap.rest.gcts.simple.log(connection, name=args.package)
+    except GCTSRequestError as ex:
         dump_gcts_messages(console, ex.messages)
         return 1
 
@@ -325,8 +331,8 @@ def pull(connection, args):
 
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            response = sap.rest.gcts.simple_pull(connection, name=args.package)
-    except sap.rest.gcts.GCTSRequestError as ex:
+            response = sap.rest.gcts.simple.pull(connection, name=args.package)
+    except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
@@ -346,12 +352,12 @@ def commit(connection, args):
     """
 
     console = sap.cli.core.get_console()
-    repo = sap.rest.gcts.Repository(connection, args.package)
+    repo = Repository(connection, args.package)
 
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
             repo.commit_transport(args.corrnr, args.message or f'Transport {args.corrnr}', args.description)
-    except sap.rest.gcts.GCTSRequestError as ex:
+    except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
 
