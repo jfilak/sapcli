@@ -125,7 +125,7 @@ def print_acoverage_human(node, console, _indent_level=0):
         print_acoverage_human(node, console, _indent_level + 1)
 
 
-#pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods
 @dataclass
 class XMLElementContext:
     """XML Element context for a naive XML recursive writer"""
@@ -352,6 +352,7 @@ def print_sonar_alert(alert, console):
         console.printout('      </skipped>')
 
 
+# pylint: disable=too-many-branches
 def print_aunit_sonar(run_results, args, console):
     """Print results to console in the form of Sonar Generic Execution"""
 

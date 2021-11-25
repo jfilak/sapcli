@@ -74,9 +74,7 @@ class SSLCertStorage:
             return False
 
         if msgtype != 'S':
-            raise InvalidSSLStorage(
-                'The {0} is broken: {1}'.format(str(self), ret[0]['MESSAGE'])
-            )
+            raise InvalidSSLStorage(f'The {str(self)} is broken: {ret[0]["MESSAGE"]}')
 
         return True
 
@@ -127,9 +125,7 @@ class SSLCertStorage:
                    f'probably already exists (check manually): {message}'
 
         raise PutCertificateError(
-            'Failed to put the CERT to the {0}: {1}'.format(
-                str(self),
-                ret[0]['MESSAGE'])
+            f'Failed to put the CERT to the {str(self)}: {ret[0]["MESSAGE"]}'
         )
 
     def get_certificates(self):

@@ -37,7 +37,7 @@ class NodeStructureXMLHandler(ContentHandler):
         if name in ['asx:abap', 'asx:values', 'DATA', 'TREE_CONTENT', 'CATEGORIES', 'OBJECT_TYPES']:
             return
 
-        if name in self._lists.keys():
+        if name in self._lists:
             mod_log().debug('XML: new object: %s', name)
             self._object = SimpleNamespace()
         else:
