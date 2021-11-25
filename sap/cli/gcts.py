@@ -152,7 +152,7 @@ class TableWriter:
     def printout(self, console, separator=" | "):
         """Prints out the content"""
 
-        fmt = separator.join(('{:<%s}' % (w) for w in self._widths))
+        fmt = separator.join((f'{{:<{w}}}' for w in self._widths))
 
         console.printout(fmt.format(*self._headers))
         console.printout('-' * (sum(self._widths) + len(separator) * (len(self._headers) - 1)))

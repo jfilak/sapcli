@@ -502,6 +502,7 @@ class WorkbenchBuilder:
 
         description = attributes.get('tm:obj_desc', attributes.get('tm:obj_info', None))
         if description is None:
+            # pylint: disable=consider-using-f-string
             description = '(PGMID={},TYPE={},NAME={})'.format(attributes.get('tm:pgmid', '*'),
                                                               attributes.get('tm:type', '*'),
                                                               attributes.get('tm:name', '*'))

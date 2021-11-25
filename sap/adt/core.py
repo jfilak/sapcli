@@ -118,10 +118,8 @@ class Connection:
         self._ssl_verify = verify
 
         self._adt_uri = 'sap/bc/adt'
-        self._base_url = '{protocol}://{host}:{port}/{adt_uri}'.format(
-            protocol=protocol, host=host, port=port, adt_uri=self._adt_uri)
-        self._query_args = 'sap-client={client}&saml2=disabled'.format(
-            client=client)
+        self._base_url = f'{protocol}://{host}:{port}/{self._adt_uri}'
+        self._query_args = f'sap-client={client}&saml2=disabled'
         self._user = user
         self._auth = HTTPBasicAuth(user, password)
         self._session = None
@@ -145,9 +143,7 @@ class Connection:
            where the fragment usually refers to an ADT object
         """
 
-        return '{base_url}/{adt_uri}?{query_args}'.format(
-            base_url=self._base_url, adt_uri=adt_uri,
-            query_args=self._query_args)
+        return f'{self._base_url}/{adt_uri}?{self._query_args}'
 
     def _handle_http_error(self, req, res):
         """Raise the correct exception based on response content."""

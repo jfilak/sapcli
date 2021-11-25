@@ -74,11 +74,8 @@ class Connection:
 
         self._ssl_verify = verify
 
-        self._base_url = '{protocol}://{host}:{port}/{icf_path}'.format(
-            protocol=protocol, host=host, port=port, icf_path=icf_path)
-
-        self._query_args = 'sap-client={client}&saml2=disabled'.format(
-            client=client)
+        self._base_url = f'{protocol}://{host}:{port}/{icf_path}'
+        self._query_args = f'sap-client={client}&saml2=disabled'
 
         self._user = user
         self._auth = HTTPBasicAuth(user, password)
@@ -96,9 +93,7 @@ class Connection:
         """Creates complete URL from the path part
         """
 
-        return '{base_url}/{uri_path}?{query_args}'.format(
-            base_url=self._base_url, uri_path=uri_path,
-            query_args=self._query_args)
+        return f'{self._base_url}/{uri_path}?{self._query_args}'
 
     def _handle_http_error(self, req, res):
         """Raise the correct exception based on response content."""

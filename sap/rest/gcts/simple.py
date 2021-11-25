@@ -29,7 +29,7 @@ def fetch_repos(connection):
 
 # pylint: disable=too-many-arguments
 def clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
-                 role='SOURCE', typ='GITHUB'):
+          role='SOURCE', typ='GITHUB'):
     """Creates and clones the repository in the target systems"""
 
     config = {}
