@@ -178,5 +178,106 @@ Exiting with error code because of invalid command line parameters.
 
         self.assertEqual(1, exit_code)
 
+    def test_startrfc_args_result_checker_bapi_for_non_bapi_result(self):
+        params=['--result-checker', 'bapi']
+
+        exit_code = self.execute_cmd(
+            params=params,
+            exp_call=False,
+            exp_stdout='',
+            exp_stderr='''It was requested to evaluate response from STFC_CONNECTION as bapi result, but \
+response does not contain required key RETURN. Raw response:
+{ 'ECHOTXT': 'whatever',
+  'PARAMS': {'TABLE': ['A', 'B', 'C']},
+  'RESPONSE': 'SAP NW 751 anzeiger'}
+''')
+
+        self.assertEqual(1, exit_code)
+
+    def test_startrfc_args_result_checker_bapi_for_invalid_bapi_result(self):
+        params=['--result-checker', 'bapi']
+
+        self.rfc_connection.call.return_value = {
+            'RETURN': 'whatever'
+        }
+
+        exit_code = self.execute_cmd(
+            params=params,
+            exp_call=False,
+            exp_stdout='',
+            exp_stderr='''Parsing BAPI response returned from STFC_CONNECTION failed:
+Neither dict nor list BAPI return type: str
+Raw response:
+{'RETURN': 'whatever'}
+''')
+
+        self.assertEqual(1, exit_code)
+
+    def test_startrfc_args_result_checker_bapi_for_positive_bapi_result(self):
+        params=['--result-checker', 'bapi']
+
+        self.rfc_connection.call.return_value = {
+            'FORBIDDEN_OBJECTS': [],
+            'RETURN': [
+                 {
+                    'FIELD': '',
+                    'ID': 'CICD_GCTS_TR',
+                    'LOG_MSG_NO': '000000',
+                    'LOG_NO': '',
+                    'MESSAGE': 'List of ABAP repository objects (piece list) is empty',
+                    'MESSAGE_V1': '',
+                    'MESSAGE_V2': '',
+                    'MESSAGE_V3': '',
+                    'MESSAGE_V4': '',
+                    'NUMBER': '045',
+                    'PARAMETER': '',
+                    'ROW': 0,
+                    'SYSTEM': '',
+                    'TYPE': 'W'
+                }
+            ]
+        }
+
+        exit_code = self.execute_cmd(
+            params=params,
+            exp_call=False,
+            exp_stdout='Warning(CICD_GCTS_TR|045): List of ABAP repository objects (piece list) is empty\n',
+            exp_stderr='')
+
+        self.assertEqual(0, exit_code)
+
+    def test_startrfc_args_result_checker_bapi_for_negative_bapi_result(self):
+        params=['--result-checker', 'bapi']
+
+        self.rfc_connection.call.return_value = {
+            'FORBIDDEN_OBJECTS': [],
+            'RETURN': [
+                 {
+                    'FIELD': '',
+                    'ID': 'CICD_GCTS_TR',
+                    'LOG_MSG_NO': '000000',
+                    'LOG_NO': '',
+                    'MESSAGE': 'List of ABAP repository objects (piece list) is empty',
+                    'MESSAGE_V1': '',
+                    'MESSAGE_V2': '',
+                    'MESSAGE_V3': '',
+                    'MESSAGE_V4': '',
+                    'NUMBER': '045',
+                    'PARAMETER': '',
+                    'ROW': 0,
+                    'SYSTEM': '',
+                    'TYPE': 'E'
+                }
+            ]
+        }
+
+        exit_code = self.execute_cmd(
+            params=params,
+            exp_call=False,
+            exp_stdout='',
+            exp_stderr='Error(CICD_GCTS_TR|045): List of ABAP repository objects (piece list) is empty\n')
+
+        self.assertEqual(1, exit_code)
+
 
 del sys.modules['pyrfc']
