@@ -16,6 +16,10 @@ FORMATTERS = {
     'json': json.dumps
 }
 
+RESULT_CHECKER_RAW = 'raw'
+RESULT_CHECKER_BAPI = 'bapi'
+RESULT_CHECKERS = [RESULT_CHECKER_RAW, RESULT_CHECKER_BAPI]
+
 
 def _parse_args_rfc_param(param_type_name, args_rfc_param, type_conv=None):
     name_value = args_rfc_param.split(':', 1)
@@ -72,6 +76,7 @@ def _get_call_rfc_params_from_args(args):
 
 def startrfc(connection, args):
     """Run whatever RFC enabled Function Module users want"""
+    # pylint: disable=too-many-return-statements
 
     console = sap.cli.core.get_console()
 
@@ -89,9 +94,42 @@ def startrfc(connection, args):
         console.printerr(f'{args.RFC_FUNCTION_MODULE} failed:')
         console.printerr(str(ex))
         return 1
-    else:
-        console.printout(FORMATTERS[args.output](resp))
+
+    # rfc call passed, it is time for analysis of the returned response
+
+    # if bapi checker  is enabled
+    if args.result_checker == RESULT_CHECKER_BAPI:
+        # first check of the response to be sure it fits to BAPI response structure
+        try:
+            return_value = resp['RETURN']
+        except KeyError:
+            console.printerr(f"It was requested to evaluate response from {args.RFC_FUNCTION_MODULE} "
+                             "as bapi result, but response does not contain required key RETURN. "
+                             "Raw response:")
+            console.printerr(FORMATTERS[args.output](resp))
+            return 1
+
+        # try to parse response as "bapi return value"
+        try:
+            bapi_return = sap.rfc.bapi.BAPIReturn(return_value)
+        except ValueError as ex:
+            console.printerr(f'Parsing BAPI response returned from {args.RFC_FUNCTION_MODULE} failed:')
+            console.printerr(str(ex))
+            console.printerr("Raw response:")
+            console.printerr(FORMATTERS[args.output](resp))
+            return 1
+
+        # response is parsed, we can decide if the response represents error or possitive status + info message
+        if bapi_return.is_error:
+            console.printerr(bapi_return.error_message)
+            return 1
+
+        # this is what we do if response represents positive status
+        console.printout("\n".join(bapi_return.message_lines()))
         return 0
+
+    console.printout(FORMATTERS[args.output](resp))
+    return 0
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -115,6 +153,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
         arg_parser.add_argument('-F', '--param-file', type=str, action='append',
                                 help='For parameters containing an entire file.'
                                      ' Pass it in the form "PARAM_NAME:FILE_PATH"')
+        arg_parser.add_argument('-c', '--result-checker', choices=RESULT_CHECKERS, default=RESULT_CHECKER_RAW,
+                                help='Result checker')
         arg_parser.set_defaults(execute=startrfc)
 
         # Intentionally return None as this command groups does not support
