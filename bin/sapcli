@@ -8,7 +8,6 @@ import logging
 from argparse import ArgumentParser
 import getpass
 
-
 import sap
 import sap.cli
 import sap.adt
@@ -72,6 +71,21 @@ def parse_command_line(argv):
         '--password', dest='password', type=str, default=None,
         help='Password')
 
+    arg_parser.add_argument("--mshost", default=os.getenv("SAP_MSHOST"), help="Message server address (if connecting "
+                                                                              "via a load balancer)")
+    arg_parser.add_argument("--msserv", default=os.getenv("SAP_MSSERV"), help="Message server port")
+    arg_parser.add_argument("--sysid", default=os.getenv("SAP_SYSID"), help="System ID (use if connecting via a "
+                                                                            "message server")
+    arg_parser.add_argument("--group", default=os.getenv("SAP_GROUP"), help="Group (use if connecting via a message "
+                                                                            "server")
+    arg_parser.add_argument("--snc_qop", default=os.getenv("SNC_QOP"), help="SAP Secure Login Client QOP")
+    arg_parser.add_argument("--snc_myname", default=os.getenv("SNC_MYNAME"), help="SAP Secure Login Client MyName")
+    arg_parser.add_argument("--snc_partnername",
+                            default=os.getenv("SNC_PARTNERNAME"), help="SAP Secure Login Client Partner name")
+    arg_parser.add_argument("--snc_lib", default=os.getenv("SNC_LIB"),
+                            help="SAP Secure Login Client library (e.g. "
+                                 "/Applications/Secure Login Client.app/Contents/MacOS/lib/libsapcrypto.dylib")
+
     subparsers = arg_parser.add_subparsers()
     # pylint: disable=not-an-iterable
     for connection, cmd in sap.cli.get_commands():
@@ -89,23 +103,28 @@ def parse_command_line(argv):
 
     sap.cli.resolve_default_connection_values(args)
 
-    if not args.ashost:
+    if not args.ashost and not args.mshost:
         report_args_error_and_exit(
-            arg_parser,
-            ': '.join(('No SAP Application Server Host name provided',
-                       'use the option --ashost or the environment variable SAP_ASHOST')))
+            arg_parser, ': '.join((
+                'No SAP Application Server Host name provided',
+                'use the option --ashost or the environment variable SAP_ASHOST in case of direct connection via HTTP '
+                'or RFC',
+                'and use the option --mshost or the variable SAP_MSHOST in case of RFC or a load balancer'
+            )))
 
     if not args.client:
         report_args_error_and_exit(
-            arg_parser,
-            ': '.join(('No SAP Client provided',
-                       'use the option --client or the environment variable SAP_CLIENT')))
+            arg_parser, ': '.join((
+                'No SAP Client provided',
+                'use the option --client or the environment variable SAP_CLIENT'
+            )))
 
-    if not args.user:
-        args.user = input('Login:')
+    if not (args.snc_qop or args.snc_myname or args.snc_partnername):
+        if not args.user:
+            args.user = input('Login:')
 
-    if not args.password:
-        args.password = getpass.getpass()
+        if not args.password:
+            args.password = getpass.getpass()
 
     return args
 

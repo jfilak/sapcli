@@ -52,16 +52,13 @@ def rfc_is_available():
     return SAPRFC_MODULE is not None
 
 
-def connect(host, sysnr, client, user, password):
-    """ADT Connection for HTTP communication built on top Python requests.
+def connect(**kwargs):
+    """SAP RFC Connection.
     """
 
     if not rfc_is_available():
-        raise sap.errors.SAPCliError('RFC functionality is not available(enabled)')
+        raise sap.errors.SAPCliError(
+            'RFC functionality is not available(enabled)')
 
-    mod_log().info('Connecting to HOST=%s SYSNR=%s CLIENT=%s as %s', host, sysnr, client, user)
-    return SAPRFC_MODULE.Connection(ashost=host,
-                                    sysnr=sysnr,
-                                    client=client,
-                                    user=user,
-                                    passwd=password)
+    mod_log().info('Connecting via SAP rfc with params %s', kwargs)
+    return SAPRFC_MODULE.Connection(**kwargs)

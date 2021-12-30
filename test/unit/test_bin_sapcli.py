@@ -18,10 +18,10 @@ sapcli = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sapcli)
 sys.modules['sapcli'] = sapcli
 
-
 ALL_PARAMETERS = [
-    'sapcli', '--ashost', 'fixtures', '--sysnr', '69', '--client', '975', '--port', '3579',
-    '--no-ssl', '--skip-ssl-validation', '--user', 'fantomas', '--password', 'Down1oad'
+    'sapcli', '--ashost', 'fixtures', '--sysnr', '69', '--client', '975',
+    '--port', '3579', '--no-ssl', '--skip-ssl-validation', '--user',
+    'fantomas', '--password', 'Down1oad', '--snc_lib', 'somelib.dylib'
 ]
 
 
@@ -38,9 +38,25 @@ class TestParseCommandLine(unittest.TestCase):
         args = sapcli.parse_command_line(params)
 
         self.assertEqual(
-            vars(args),
-            {'ashost':'fixtures', 'sysnr':'69', 'client':'975', 'ssl':False, 'port':3579,
-             'user':'fantomas', 'password':'Down1oad', 'verify':False, 'verbose_count':0})
+            vars(args), {
+                'ashost': 'fixtures',
+                'sysnr': '69',
+                'client': '975',
+                'ssl': False,
+                'port': 3579,
+                'user': 'fantomas',
+                'password': 'Down1oad',
+                'verify': False,
+                'verbose_count': 0,
+                'group': None,
+                'mshost': None,
+                'msserv': None,
+                'snc_myname': None,
+                'snc_partnername': None,
+                'snc_qop': None,
+                'snc_lib': "somelib.dylib",
+                'sysid': None,
+            })
 
     def test_args_no_ashost(self):
         test_params = ALL_PARAMETERS.copy()
