@@ -71,18 +71,16 @@ class CommandsCache:
             ]
 
         if CommandsCache.rfc is None:
-            if rfc.rfc_is_available():
-                import sap.cli.startrfc
-                import sap.cli.strust
-                import sap.cli.user
+            import sap.cli.startrfc
+            import sap.cli.strust
+            import sap.cli.user
 
-                CommandsCache.rfc = [
+            CommandsCache.rfc = [
                     (rfc_connection_from_args, sap.cli.startrfc.CommandGroup()),
                     (rfc_connection_from_args, sap.cli.strust.CommandGroup()),
                     (rfc_connection_from_args, sap.cli.user.CommandGroup())
-                ]
-            else:
-                CommandsCache.rfc = []
+            ]
+
 
         if CommandsCache.odata is None:
             CommandsCache.odata = [
@@ -108,7 +106,17 @@ def rfc_connection_from_args(args):
     """Returns RFC connection constructed from the passed args (Namespace)
     """
 
-    return rfc.connect(args.ashost, args.sysnr, args.client, args.user, args.password)
+    rfc_args_name = [
+        "ashost", "sysnr", "client", "user", "password", "mshost", "msserv",
+        "sysid", "group", "snc_qop", "snc_myname", "snc_partnername", "snc_lib"
+    ]
+
+    rfc_args = {
+        name if name != "password" else "passwd": getattr(args, name)
+        for name in rfc_args_name if name in args and getattr(args, name)
+    }
+
+    return rfc.connect(**rfc_args)
 
 
 def gcts_connection_from_args(args):

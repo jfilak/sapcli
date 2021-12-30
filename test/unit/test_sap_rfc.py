@@ -34,16 +34,29 @@ class TestRFCCore(unittest.TestCase):
             with patch('importlib.__import__') as fake_import:
                 fake_import.side_effect = ImportError('mock error')
 
-                sap.rfc.core.connect('ashost', '00', '100', 'anzeiger', 'display')
+                sap.rfc.core.connect(ashost='ashost',
+                                     sysnr='00',
+                                     client='100',
+                                     user='anzeiger',
+                                     password='display')
 
-        self.assertEqual(str(caught.exception), 'RFC functionality is not available(enabled)')
+        self.assertEqual(str(caught.exception),
+                         'RFC functionality is not available(enabled)')
 
     def test_connect_available(self):
         fake_pyrfc = MagicMock()
 
         with patch.dict('sys.modules', pyrfc=fake_pyrfc):
-            conn = sap.rfc.core.connect('ashost', '00', '100', 'anzeiger', 'display')
+            conn = sap.rfc.core.connect(ashost='ashost',
+                                        sysnr='00',
+                                        client='100',
+                                        user='anzeiger',
+                                        passwd='display')
 
         self.assertIsNotNone(conn)
         self.assertEqual(conn, fake_pyrfc.Connection.return_value)
-        fake_pyrfc.Connection.assert_called_once_with(ashost='ashost', sysnr='00', client='100', user='anzeiger', passwd='display')
+        fake_pyrfc.Connection.assert_called_once_with(ashost='ashost',
+                                                      sysnr='00',
+                                                      client='100',
+                                                      user='anzeiger',
+                                                      passwd='display')
