@@ -2,7 +2,7 @@
 
 import datetime
 
-from typing import Dict, Union, List
+from typing import Dict, Optional, Union, List
 
 from sap.rfc.core import RFCParams
 from sap.rfc.bapi import (
@@ -179,7 +179,7 @@ class UserBuilder:
     def build_rfc_params(self) -> RFCParams:
         """Creates RFC parameters for Creating users"""
 
-        params = {}
+        params: RFCParams = {}
 
         self._rfc_params_add_username(params)
 
@@ -205,7 +205,7 @@ class UserBuilder:
     def build_change_rfc_params(self) -> RFCParams:
         """Create RFC parameters fro Updating user"""
 
-        params = {}
+        params: RFCParams = {}
         self._rfc_params_add_username(params)
 
         if self._password:
@@ -228,7 +228,7 @@ class UserRoleAssignmentBuilder:
         self._roles = role_names
         return self
 
-    def build_rfc_params(self) -> RFCParams:
+    def build_rfc_params(self) -> Optional[RFCParams]:
         """Creates RFC parameters"""
 
         if not self._roles:
@@ -263,7 +263,7 @@ class UserProfileAssignmentBuilder:
         self._profiles = profile_names
         return self
 
-    def build_rfc_params(self) -> RFCParams:
+    def build_rfc_params(self) -> Optional[RFCParams]:
         """Creates RFC parameters"""
 
         if not self._profiles:
@@ -303,13 +303,13 @@ class UserManager:
                                       'BAPI_USER_GET_DETAIL',
                                       {'USERNAME': username})
 
-    def create_user(self, connection, user_builder: UserBuilder) -> UserId:
+    def create_user(self, connection, user_builder: UserBuilder) -> BAPIReturn:
         """Creates a new user for the given user data"""
 
         rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CREATE1', user_builder.build_rfc_params())
         return BAPIReturn(rfc_ret['RETURN'])
 
-    def change_user(self, connection, user_builder: UserBuilder) -> UserId:
+    def change_user(self, connection, user_builder: UserBuilder) -> BAPIReturn:
         """Updates user with the given user data"""
 
         rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CHANGE', user_builder.build_change_rfc_params())

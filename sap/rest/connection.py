@@ -37,10 +37,12 @@ def setup_keepalive():
 
     # Special thanks to: https://www.finbourne.com/blog/the-mysterious-hanging-client-tcp-keep-alives
     # This may cause problems in Windows!
-    HTTPConnection.default_socket_options = HTTPConnection.default_socket_options + [
-        (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
-        (socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
-    ]
+    if "TCP_KEEPIDLE" in dir(socket):
+        # pylint: disable=no-member
+        HTTPConnection.default_socket_options = HTTPConnection.default_socket_options + [
+            (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+            (socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+        ]
 
 
 # pylint: disable=too-many-instance-attributes
