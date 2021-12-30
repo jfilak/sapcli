@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import sap.cli.object
 
-from mock import Connection, Response, patch_get_print_console_with_buffer
+from mock import patch_get_print_console_with_buffer
 from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, OBJECT_METADATA
 from fixtures_adt_wb import MessageBuilder
 
