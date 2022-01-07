@@ -9,7 +9,7 @@ TESTS_UNIT_FILES=$(shell find $(TESTS_UNIT_DIR) -type f -name '*.py')
 
 PYTHON_BIN=python3
 
-COVERAGE_BIN=coverage3
+COVERAGE_BIN=coverage
 COVERAGE_CMD_RUN=$(COVERAGE_BIN) run
 COVERAGE_CMD_REPORT=$(COVERAGE_BIN) report
 COVERAGE_REPORT_ARGS=--skip-covered
@@ -21,11 +21,11 @@ COVERAGE_REPORT_FILES=$(PYTHON_BINARIES) $(PYTHON_MODULE_FILES)
 PYTEST_MODULE=unittest
 PYTEST_PARAMS=discover -b -v -s $(TESTS_UNIT_DIR)
 
-PYLINT_BIN ?= pylint-3
+PYLINT_BIN ?= pylint
 PYLINT_RC_FILE=.pylintrc
 PYLINT_PARAMS=--output-format=parseable --reports=no
 
-FLAKE8_BIN ?= flake8-3
+FLAKE8_BIN ?= flake8
 FLAKE8_CONFIG_FILE=.flake8
 FLAKE8_PARAMS=
 
