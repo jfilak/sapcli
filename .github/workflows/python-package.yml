@@ -31,9 +31,9 @@ jobs:
         python -m pip install -r requirements.txt
     - name: Lint
       run: |
-        make lint PYLINT_BIN=pylint FLAKE8_BIN=flake8
+        make lint
     - name: Test
       run: |
-        make test report-coverage COVERAGE_BIN=coverage
+        make test report-coverage
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v1
