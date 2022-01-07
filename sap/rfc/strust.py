@@ -138,6 +138,15 @@ class SSLCertStorage:
 
         return stat['ET_CERTIFICATELIST']
 
+    def parse_certificate(self, xcert):
+        """Parse certificate from binary X.509 format to python structure"""
+        cert = self._connection.call(
+            'SSFR_PARSE_CERTIFICATE',
+            IV_CERTIFICATE=xcert
+        )
+
+        return cert
+
 
 def notify_icm_changed_pse(connection):
     """Informs ICM about changed PSE"""

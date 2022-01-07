@@ -195,6 +195,19 @@ class TestSSLCertStorage(unittest.TestCase):
                                                         'PSE_APPLIC': 'TEST'},
                                     IV_CERTIFICATE=u'plain old data')])
 
+    def test_parse_certificate(self):
+        mock_connection = Mock()
+        mock_connection.call.return_value = {'EV_SUBJECT': 'cert subject'}
+
+        ssl_storage = SSLCertStorage(mock_connection, 'PUTOK', 'TEST')
+
+        result = ssl_storage.parse_certificate(b'binary cert data')
+
+        self.assertEqual(mock_connection.call.call_args_list,
+                         [mock.call('SSFR_PARSE_CERTIFICATE',
+                                    IV_CERTIFICATE=b'binary cert data')])
+
+        self.assertEqual(result, {'EV_SUBJECT': 'cert subject'})
 
 if __name__ == '__main__':
     unittest.main()

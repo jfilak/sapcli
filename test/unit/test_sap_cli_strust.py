@@ -1,11 +1,14 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch, mock_open, call, Mock
+from mock import (
+    ConsoleOutputTestCase,
+    PatcherTestCase
+)
 
 import sap.cli.strust
 from sap.errors import SAPCliError
 from sap.rfc.strust import CLIENT_ANONYMOUS, CLIENT_STANDART
-
 
 from infra import generate_parse_args
 
@@ -148,7 +151,7 @@ class TestAddAllFiles(unittest.TestCase):
                     identity=['foo']
                 ))
 
-        self.assertEqual('Invalid identity format', str(caught.exception))
+        self.assertEqual('Invalid identity format: foo', str(caught.exception))
 
     def test_with_pse_file_params(self):
         args = parse_args('putcertificate',
@@ -172,6 +175,146 @@ class TestAddAllFiles(unittest.TestCase):
                                  IV_DN='ou=sapcli'
                                 )
                         )
+
+
+class TestArgumentsToStores(unittest.TestCase):
+
+    def test_invalid_storage(self):
+        mock_connection = Mock()
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.cli.strust.ssl_storages_from_arguments(
+                mock_connection, SimpleNamespace(
+                    storage=['foo'],
+                    identity=[]
+                ))
+
+        self.assertEqual('Unknown storage: foo', str(caught.exception))
+
+    def test_invalid_identity(self):
+        mock_connection = Mock()
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.cli.strust.ssl_storages_from_arguments(
+                mock_connection, SimpleNamespace(
+                    storage=[CLIENT_ANONYMOUS],
+                    identity=['foo']
+                ))
+
+        self.assertEqual('Invalid identity format: foo', str(caught.exception))
+
+class TestListAndDumpStrustCerts(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.mock_connection = Mock()
+        self.fixture_nice_dn = 'CN=SuccessfulExists, OU=Victory, O=Cool, C=CZ'
+
+    def list_certs(self, *test_args):
+        cmd_args = parse_args('listcertificates', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def dump_certs(self, *test_args):
+        cmd_args = parse_args('dumpcertificates', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def test_storage_invalid(self):
+        with self.assertRaises(SystemExit):
+            self.list_certs("-s", "invalidstorage")
+        with self.assertRaises(SystemExit):
+            self.dump_certs("-s", "invalidstorage")
+
+    def test_identity_invalid(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.list_certs("-i", "foo/bar/blah")
+        self.assertEqual('Invalid identity format: foo/bar/blah', str(caught.exception))
+
+        with self.assertRaises(SAPCliError) as caught:
+            self.dump_certs("-i", "foo/bar/blah")
+        self.assertEqual('Invalid identity format: foo/bar/blah', str(caught.exception))
+
+    @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=False)
+
+    def test_unknown_storage(self, fake_exists):
+        with self.assertRaises(SAPCliError) as caught:
+            self.list_certs("-i", "x/y")
+        self.assertEqual(
+            "Storage for identity {'PSE_CONTEXT': 'x', 'PSE_APPLIC': 'y'} does not exist",
+            str(caught.exception)
+        )
+
+        with self.assertRaises(SAPCliError) as caught:
+            self.dump_certs("-i", "x/y")
+        self.assertEqual(
+            "Storage for identity {'PSE_CONTEXT': 'x', 'PSE_APPLIC': 'y'} does not exist",
+            str(caught.exception)
+        )
+
+    def test_neither_identity_nor_storage(self):
+        # This is valid case, no need to specify anythig for listing - the output 
+        # will be empty.
+        self.list_certs()
+        self.assertConsoleContents(self.console, stdout='', stderr='')
+
+        self.dump_certs()
+        self.assertConsoleContents(self.console, stdout='', stderr='')
+
+    @patch('sap.rfc.strust.SSLCertStorage.parse_certificate', return_value={"EV_SUBJECT": "cert1"})
+    @patch('sap.rfc.strust.SSLCertStorage.get_certificates', return_value=["cert1"])
+    @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=True)
+    def test_list_certs_single(self, fake_exists, fake_get_certificates, fake_parse_certificate):
+        self.list_certs("-s", "client_anonymous")
+
+        fake_exists.assert_called_once()
+        fake_get_certificates.assert_called_once()
+        fake_parse_certificate.assert_called_with("cert1")
+
+        self.assertConsoleContents(self.console, stdout='* cert1\n')
+
+    @patch('sap.rfc.strust.SSLCertStorage.parse_certificate', side_effect=(lambda cert: {"EV_SUBJECT": cert}))
+    @patch('sap.rfc.strust.SSLCertStorage.get_certificates', return_value=["cert1", "cert2"])
+    @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=True)
+    def test_list_certs_multiple(self, fake_exists, fake_get_certificates, fake_parse_certificate):
+
+        self.list_certs("-s", "client_anonymous")
+
+        fake_exists.assert_called_once()
+        fake_get_certificates.assert_called_once()
+
+        self.assertConsoleContents(self.console, stdout='* cert1\n* cert2\n')
+
+    @patch('sap.rfc.strust.SSLCertStorage.get_certificates', return_value=[b"cert1"])
+    @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=True)
+    def test_dump_certs_single(self, fake_exists, fake_get_certificates):
+        self.dump_certs("-s", "client_anonymous")
+
+        fake_exists.assert_called_once()
+        fake_get_certificates.assert_called_once()
+
+        self.assertConsoleContents(self.console, stdout='''-----BEGIN CERTIFICATE-----
+Y2VydDE=
+-----END CERTIFICATE-----
+''')
+
+    @patch('sap.rfc.strust.SSLCertStorage.get_certificates', return_value=[b"cert1", b"cert2"])
+    @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=True)
+    def test_dump_certs_single(self, fake_exists, fake_get_certificates):
+        self.dump_certs("-s", "client_anonymous")
+
+        fake_exists.assert_called_once()
+        fake_get_certificates.assert_called_once()
+
+        self.assertConsoleContents(self.console, stdout='''-----BEGIN CERTIFICATE-----
+Y2VydDE=
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+Y2VydDI=
+-----END CERTIFICATE-----
+''')
 
 
 if __name__ == '__main__':
