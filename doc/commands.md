@@ -19,3 +19,4 @@
 17. [bsp](commands/bsp.md) - Management of BSP applications
 18. [flp](commands/flp.md) - Fiori Launchpad
 19. [rap](commands/businessservice.md) - RAP Business Services
+20. [strust](commands/strust.md) - SSL Certificates
