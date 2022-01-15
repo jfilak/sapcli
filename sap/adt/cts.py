@@ -5,7 +5,7 @@ import xml.sax
 from xml.sax.handler import ContentHandler
 from xml.sax.saxutils import escape
 
-from typing import NamedTuple, Any, List
+from typing import NamedTuple, Any, List, Tuple
 
 from sap import get_logger
 from sap.errors import SAPCliError
@@ -169,7 +169,7 @@ class AbstractWorkbenchRequest:
 
         return f'cts/transportrequests/{self._number}'
 
-    def _create_request(self) -> (str, str):
+    def _create_request(self) -> Tuple[str, str]:
         """Returns a tuple (CTS URI request, XML content)"""
 
         raise NotImplementedError

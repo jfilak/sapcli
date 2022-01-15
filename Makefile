@@ -29,6 +29,10 @@ FLAKE8_BIN ?= flake8
 FLAKE8_CONFIG_FILE=.flake8
 FLAKE8_PARAMS=
 
+MYPY_BIN ?= mypy
+MYPY_CONFIG_FILE=mypy.ini
+MYPY_PARAMS=
+
 .PHONY: run_pylint
 run_pylint:
 	$(PYLINT_BIN) --rcfile=$(PYLINT_RC_FILE) $(PYLINT_PARAMS) $(PYTHON_MODULE)
@@ -39,8 +43,12 @@ run_flake8:
 	$(FLAKE8_BIN) --config=$(FLAKE8_CONFIG_FILE) $(FLAKE8_PARAMS) $(PYTHON_MODULE)
 	PYTHONPATH=$(PYTHON_MODULE_DIR):$$PYTHONPATH $(FLAKE8_BIN) --config=$(FLAKE8_CONFIG_FILE) $(FLAKE8_PARAMS) $(PYTHON_BINARIES)
 
+.PHONY: run_mypy
+run_mypy:
+	PYTHONPATH=$(PYTHON_MODULE_DIR):$$PYTHONPATH $(MYPY_BIN) --config-file=$(MYPY_CONFIG_FILE) $(MYPY_PARAMS) $(PYTHON_BINARIES) $(PYTHON_MODULE_FILES)
+
 .PHONY: lint
-lint: run_pylint run_flake8
+lint: run_pylint run_flake8 run_mypy
 	@ echo "*** Linters done ***"
 
 .PHONY: test

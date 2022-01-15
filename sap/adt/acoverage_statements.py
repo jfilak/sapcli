@@ -1,7 +1,7 @@
 """ABAP Unit Test Coverage framework code highlighting wrappers"""
 import xml
 from typing import NamedTuple, List
-from xml.sax import ContentHandler
+from xml.sax.handler import ContentHandler
 
 from sap import get_logger
 from sap.adt.annotations import OrderedClassMembers, xml_attribute, xml_element
