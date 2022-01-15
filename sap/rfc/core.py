@@ -1,14 +1,14 @@
 """Base RFC functionality"""
 
 
-from typing import Dict
+from typing import Any, Dict
 
 import sap
 import sap.errors
 
 
-RFCParams = Dict[str, str]
-RFCResponse = Dict[str, str]
+RFCParams = Dict[str, Any]
+RFCResponse = Dict[str, Any]
 
 
 SAPRFC_MODULE = None
