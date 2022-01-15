@@ -120,7 +120,7 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
     @property
     def group(self):
-        return sefl.__class__.group
+        return self.__class__.group
 
     def setUp(self):
         self.group._init_mocks()
@@ -429,7 +429,7 @@ class TestCommandGroupObjectMaster(unittest.TestCase):
 
     @property
     def group(self):
-        return sefl.__class__.group
+        return self.__class__.group
 
     def setUp(self):
         self.group._init_mocks()
