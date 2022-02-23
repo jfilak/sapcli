@@ -7,9 +7,17 @@ from argparse import ArgumentParser
 
 import sap.cli.include
 
-from mock import Connection
+from mock import (
+    ConsoleOutputTestCase,
+    Connection,
+    PatcherTestCase,
+    Response
+)
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
-
+from fixtures_adt_program import (
+    GET_INCLUDE_PROGRAM_ADT_XML,
+    GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML
+)
 
 FIXTURE_STDIN_REPORT_SRC='* from stdin'
 FIXTURE_FILE_REPORT_SRC='* from file'
@@ -91,6 +99,39 @@ class TestIncludeActivate(unittest.TestCase):
 
         self.assertEqual(len(conn.execs), 1)
         self.assertRegex(conn.execs[0].body, '.*adtcore:uri=[^?]*test_activation\?context=[^"]*master_report".*')
+
+
+class TestIncludeAttributes(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+
+    def test_attributes_with_context(self):
+        conn = Connection(
+            [Response(status_code=200, text=GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML)]
+        )
+
+        args = parse_args('attributes', 'ZHELLO_INCLUDE')
+        args.execute(conn, args)
+
+        self.assertConsoleContents(self.console, stdout='''
+''')
+
+    def test_attributes_without_context(self):
+        conn = Connection(
+            [Response(status_code=200, text=GET_INCLUDE_PROGRAM_ADT_XML)]
+        )
+
+        args = parse_args('attributes', 'ZHELLO_INCLUDE')
+        args.execute(conn, args)
+
+        self.assertConsoleContents(self.console, stdout='''
+''')
 
 
 if __name__ == '__main__':

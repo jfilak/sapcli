@@ -2,6 +2,7 @@
 
 import sap.adt
 import sap.cli.object
+import sap.cli.core
 
 
 class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
@@ -30,3 +31,27 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         activate_cmd.append_argument('-m', '--master', nargs='?', default=None, help='Master program')
 
         return activate_cmd
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def attributes(connection, args):
+    """Prints out some attributes of the given include.
+    """
+
+    proginc = sap.adt.Include(connection, args.name)
+    proginc.fetch()
+
+    console = sap.cli.core.get_console()
+
+    console.printout(f'Name       : {proginc.name}')
+    console.printout(f'Description: {proginc.description}')
+    console.printout(f'Responsible: {proginc.responsible}')
+    # pylint: disable=no-member
+    console.printout(f'Package    : {proginc.reference.name}')
+
+    context = proginc.context
+    if context is not None:
+        console.printout(f'Main       : {context.name} ({context.typ})')
+    else:
+        console.printout(f'Main       :')

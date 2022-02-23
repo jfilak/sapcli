@@ -7,7 +7,11 @@ import sap.adt
 from mock import Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 
-from fixtures_adt_program import CREATE_INCLUDE_PROGRAM_ADT_XML, GET_INCLUDE_PROGRAM_ADT_XML
+from fixtures_adt_program import (
+    CREATE_INCLUDE_PROGRAM_ADT_XML,
+    GET_INCLUDE_PROGRAM_ADT_XML,
+    GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML
+)
 
 FIXTURE_INCLUDE_CODE='types: my_boolean type abap_bool.'
 
@@ -94,6 +98,13 @@ class TestADTInclude(unittest.TestCase):
         self.assertEqual(include.master_language, 'EN')
         self.assertEqual(include.description, 'Hello include!')
         self.assertEqual(include.fix_point_arithmetic, False)
+
+    def test_adt_include_fetch_with_master(self):
+        conn = Connection([Response(text=GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML, status_code=200, headers={})])
+        include = sap.adt.Include(conn, 'ZHELLO_INCLUDE')
+        include.fetch()
+
+        self.assertEqual(include.master, 'ZJAKUB_IS_HANDSOME_GENIUS')
 
 
 if __name__ == '__main__':

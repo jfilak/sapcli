@@ -4,7 +4,14 @@ import urllib
 
 # pylint: disable=unused-import
 from sap.adt.objects import OrderedClassMembers
-from sap.adt.objects import ADTObjectType, ADTObject, ADTCoreData, ADTObjectSourceEditor, xmlns_adtcore_ancestor
+from sap.adt.objects import (
+    ADTObjectType,
+    ADTObject,
+    ADTObjectReference,
+    ADTCoreData,
+    ADTObjectSourceEditor,
+    xmlns_adtcore_ancestor
+)
 from sap.adt.annotations import xml_attribute, xml_element
 
 
@@ -116,7 +123,10 @@ class Include(BaseProgram):
     def __init__(self, connection, name, package=None, metadata=None, master=None):
         super().__init__(connection, name, package=package, metadata=metadata)
 
-        self._master = master
+        if master is not None:
+            self._context = ADTObjectReference(name=master)
+        else:
+            self._context = None
 
     @property
     def uri(self):
@@ -135,10 +145,30 @@ class Include(BaseProgram):
     def master(self):
         """Returns name of the master program of this include"""
 
-        return self._master
+        if self._context is not None:
+            return self._context.name
 
     @master.setter
     def master(self, value):
         """Sets name of the master program of this include"""
 
-        self._master = value
+        if self._context is None:
+            self._context = ADTObjectReference()
+
+        self._context.name = value
+
+    @xml_element('include:contextRef', factory=ADTObjectReference, ignore_empty=True)
+    def context(self):
+        """Returns the object holding the inforation about reference to the corresponding
+           main program.
+        """
+
+        return self._context
+
+    @context.setter
+    def context(self, value):
+        """Sets the object holding the inforation about reference to the corresponding
+           main program.
+        """
+
+        self._context = value

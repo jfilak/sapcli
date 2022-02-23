@@ -42,3 +42,16 @@ GET_INCLUDE_PROGRAM_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
   <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24test" adtcore:type="DEVC/K" adtcore:name="$TEST"/>
 </include:abapInclude>
 '''
+
+
+GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<include:abapInclude xmlns:include="http://www.sap.com/adt/programs/includes" include:contextRefCount="0" abapsource:sourceUri="source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="FILAK" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:name="ZHELLO_INCLUDE" adtcore:type="PROG/I" adtcore:changedAt="2019-03-31T19:07:43Z" adtcore:version="inactive" adtcore:createdAt="2019-03-31T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:description="Hello include!" adtcore:descriptionTextLimit="70" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="source/main/versions" rel="http://www.sap.com/adt/relations/versions"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="source/main" rel="http://www.sap.com/adt/relations/source" type="text/plain" etag="201903311907430001"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="source/main" rel="http://www.sap.com/adt/relations/source" type="text/html" etag="201903311907430001"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="/sap/bc/adt/vit/wb/object_type/progpx/object_name/Z_INCLUDE_ONE" rel="http://www.sap.com/adt/relations/sources/textelements" type="application/vnd.sap.sapgui" title="Text Elements"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="/sap/bc/adt/programs/includes/z_include_one?version=active" rel="http://www.sap.com/adt/relations/objectstates" title="Reference to active or inactive version"/>
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24test" adtcore:type="DEVC/K" adtcore:name="$TEST"/>
+  <include:contextRef adtcore:uri="/sap/bc/adt/programs/programs/zjakub_is_handsome_genius" adtcore:type="PROG/P" adtcore:name="ZJAKUB_IS_HANDSOME_GENIUS" adtcore:packageName="$TEST" adtcore:description="The ultimate truth"/>
+</include:abapInclude>
+'''
