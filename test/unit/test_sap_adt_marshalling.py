@@ -435,6 +435,24 @@ class DummyADTObjectWithVersions(ADTObject):
         self._attrverall = value
 
 
+class DummyWithEmptyElements(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'empty')
+
+    @xml_element('empty_elem')
+    def empty(self):
+        return None
+
+    @xml_element('not_empty_elem', ignore_empty=True)
+    def not_empty(self):
+        return None
+
+
 class TestADTAnnotation(unittest.TestCase):
 
 
@@ -819,6 +837,18 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(obj.elemverfst, 'de-elem-fst')
         self.assertEqual(obj.elemverboth, 'de-elem-both')
         self.assertEqual(obj.elemverall, 'de-elem-all')
+
+    def test_serialize_with_empty_ignored(self):
+        obj = DummyWithEmptyElements()
+        marshal = Marshal()
+        xml = marshal.serialize(obj)
+
+        self.maxDiff = None
+
+        self.assertEqual(xml, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:empty xmlns:mock="https://example.org/mock">
+<empty_elem/>
+</mock:empty>''')
 
 
 if __name__ == '__main__':

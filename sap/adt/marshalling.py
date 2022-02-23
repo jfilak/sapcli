@@ -26,6 +26,10 @@ def _attr_supports_version(attr, version):
     raise TypeError(f'Version cannot be of the type {type(version).__name__}')
 
 
+def _attr_element_content_serializable(attr, content):
+    return content or not attr.ignore_empty
+
+
 class MarshallingError(FatalError):
     """Base Marshalling error for generic problems"""
 
@@ -404,6 +408,10 @@ class Marshal:
                     continue
 
                 child = getattr(obj, attr_name)
+                if not _attr_element_content_serializable(attr, child):
+                    get_logger().debug('NOT Serializing Child Element %s (%s) because of its value', attr.name, attr_name)
+                    continue
+
                 get_logger().debug('Serializing Child Element %s (%s)', attr.name, attr_name)
                 self._serialize_object_to_node(root, attr.name, child, declared_ns, attr.kind)
             elif isinstance(attr, XmlAttributeProperty):

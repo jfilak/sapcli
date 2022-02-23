@@ -87,7 +87,7 @@ class XmlElementProperty(property):
     NAME_FROM_OBJECT = None
 
     def __init__(self, name, fget, fset=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT,
-                 version=None):
+                 version=None, ignore_empty=False):
         super().__init__(fget, fset)
 
         self.name = name
@@ -95,10 +95,11 @@ class XmlElementProperty(property):
         self.factory = factory
         self.kind = kind
         self.version = version
+        self.ignore_empty = ignore_empty
 
     def setter(self, fset):
         return type(self)(self.name, self.fget, fset, deserialize=self.deserialize, factory=self.factory,
-                          kind=self.kind)
+                          kind=self.kind, ignore_empty=self.ignore_empty)
 
 
 class XmlPropertyImpl:
@@ -131,9 +132,9 @@ class XmlNodeProperty(XmlElementProperty, XmlPropertyImpl):
        get/set when absolutely not necessary.
     """
 
-    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
+    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None, ignore_empty=False):
         super().__init__(name, self.get, fset=self.set, deserialize=deserialize, factory=factory,
-                         kind=kind, version=version)
+                         kind=kind, version=version, ignore_empty=ignore_empty)
         XmlPropertyImpl.__init__(self, name, default_value=value, version=version)
 
     def setter(self, fset):
@@ -243,13 +244,13 @@ class XmlContainer(metaclass=XmlContainerMeta):
         return self.items.__len__()
 
 
-def xml_text_node_property(name, value=None, deserialize=True, version=None):
+def xml_text_node_property(name, value=None, deserialize=True, version=None, ignore_empty=False):
     """A factory method returning a descriptor property XML Element holding
        the value in a text node.
     """
 
     return XmlNodeProperty(name, value=value, deserialize=deserialize, factory=None, kind=XmlElementKind.TEXT,
-                           version=version)
+                           version=version, ignore_empty=ignore_empty)
 
 
 def xml_attribute(name, deserialize=True, version=None):
@@ -263,12 +264,12 @@ def xml_attribute(name, deserialize=True, version=None):
     return decorator
 
 
-def xml_element(name, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
+def xml_element(name, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None, ignore_empty=False):
     """Mark the given property as a XML element of the given name"""
 
     def decorator(meth):
         """Creates a property object"""
 
-        return XmlElementProperty(name, meth, deserialize=deserialize, factory=factory, kind=kind, version=version)
+        return XmlElementProperty(name, meth, deserialize=deserialize, factory=factory, kind=kind, version=version, ignore_empty=ignore_empty)
 
     return decorator

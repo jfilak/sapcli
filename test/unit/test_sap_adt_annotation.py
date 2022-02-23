@@ -41,6 +41,10 @@ class ElementClass:
     def readonly(self):
         return self._dummy
 
+    @xml_element('noempty', ignore_empty=True)
+    def noempty(self):
+        return self._dummy
+
 
 DummyList = XmlContainer.define('dummyitem', DummyClass)
 DummyListConfigured = XmlContainer.define('dummyitemconfigured', DummyClass, version='v2')
@@ -147,15 +151,17 @@ class TestADTAnnotation(unittest.TestCase):
         self.assertEqual(node.factory, template.factory)
         self.assertEqual(node.deserialize, template.deserialize)
         self.assertEqual(node.version, template.version)
+        self.assertEqual(node.ignore_empty, template.ignore_empty)
 
         node = XmlNodeProperty('element', value='value', deserialize=False, factory=str, kind=XmlElementKind.TEXT,
-                               version='v2')
+                               version='v2', ignore_empty=True)
         self.assertEqual(node.default_value, 'value')
         self.assertEqual(node.name, 'element')
         self.assertEqual(node.kind, XmlElementKind.TEXT)
         self.assertEqual(node.factory, str)
         self.assertFalse(node.deserialize)
         self.assertEqual(node.version, 'v2')
+        self.assertTrue(node.ignore_empty)
 
     def test_xml_node_property_get_set(self):
         node = XmlNodeProperty('element', value='value')
