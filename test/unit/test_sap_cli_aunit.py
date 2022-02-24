@@ -14,6 +14,7 @@ from fixtures_adt_aunit import (
     AUNIT_RESULTS_NO_TEST_METHODS_XML,
     AUNIT_SYNTAX_ERROR_XML
 )
+from fixtures_adt_program import GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML
 from fixtures_adt_coverage import ACOVERAGE_RESULTS_XML, ACOVERAGE_STATEMENTS_RESULTS_XML
 from infra import generate_parse_args
 from mock import Connection, Response, BufferConsole
@@ -66,6 +67,38 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('programs/programs/yprogram', self.connection.execs[0].body)
         self.assert_print_no_test_classes(mock_print)
+
+    def test_aunit_program_include_fetch(self):
+        self.connection.set_responses(
+            Response(status_code=200, text=GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML, headers={}),
+            Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})
+        )
+
+        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+            self.execute_run('program-include', '--output', 'human', 'ZHELLO_INCLUDE', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(len(self.connection.execs), 2)
+        self.assertIn('programs/includes/zhello_include?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzjakub_is_handsome_genius', self.connection.execs[1].body)
+        self.assert_print_no_test_classes(mock_print)
+
+    def test_aunit_program_include_explicit(self):
+        self.connection.set_responses(
+            Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})
+        )
+
+        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+            self.execute_run('program-include', '--output', 'human', 'mainprogram\someinclude', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(len(self.connection.execs), 1)
+        self.assertIn('programs/includes/someinclude?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fmainprogram', self.connection.execs[0].body)
+        self.assert_print_no_test_classes(mock_print)
+
+    def test_aunit_program_include_invalid(self):
+        with self.assertRaises(SAPCliError) as cm:
+            with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+                self.execute_run('program-include', '--output', 'human', 'invali\\mainprogram\\someinclude', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(str(cm.exception), 'Program include name can be: INCLUDE or MAIN\\INCLUDE')
 
     def test_aunit_class_human(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
