@@ -10,10 +10,11 @@ The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests if _unit_ included in the result.
 
 ```bash
-sapcli aunit run {package,class,program,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH]
+sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH]
 ```
 
 - _transport_ : if you use transport, NAME is Transport Number
+- _program-include_: sapcli will try to automatically determine the corresponding main program. If it cannot be done, it is possible to define the main program by prepending the main program's name to the parameter NAME the following way: "MAIN\_PROGRAM\_NAME\\NAME".
 - _--as4user_ : used only for transports to be able to select the transport
 - _--result_: desired result to be displayed
 - _--coverage-filepath_: path where coverage output will be stored if one of _coverage_ or _all_ is selected as _result_

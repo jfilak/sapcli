@@ -673,10 +673,29 @@ class ResultOptions(Enum):
     ALL = 'all'
 
 
+def _produce_program_include_object(conn, name):
+    """Either splits include name into main\include
+       or fetches the include's data from the remote system
+    """
+
+    name_parts = name.split('\\')
+
+    if len(name_parts) == 1:
+        theobject = sap.adt.Include(conn, name)
+        theobject.fetch()
+    elif len(name_parts) == 2:
+        theobject = sap.adt.Include(conn, name_parts[1], master=name_parts[0])
+    else:
+        raise SAPCliError('Program include name can be: INCLUDE or MAIN\\INCLUDE')
+
+    # To get the main program.
+    return theobject
+
+
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
 @CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'sonar'], default='human')
 @CommandGroup.argument('name', nargs='+', type=str)
-@CommandGroup.argument('type', choices=['program', 'class', 'package', 'transport'])
+@CommandGroup.argument('type', choices=['program', 'program-include', 'class', 'package', 'transport'])
 @CommandGroup.argument('--result',
                        choices=[
                            ResultOptions.ONLY_UNIT.value,
@@ -702,6 +721,7 @@ def run(connection, args):
 
     types = {
         'program': sap.adt.Program,
+        'program-include': _produce_program_include_object,
         'class': sap.adt.Class,
         'package': sap.adt.Package,
         'transport': TransportObjectSelector
