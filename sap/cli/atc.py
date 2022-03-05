@@ -8,6 +8,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 import sap.adt
 import sap.adt.atc
+import sap.cli.core
 from sap.cli.core import printout
 from sap.errors import SAPCliError
 

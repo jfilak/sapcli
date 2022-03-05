@@ -119,7 +119,11 @@ class TestIncludeAttributes(PatcherTestCase, ConsoleOutputTestCase):
         args = parse_args('attributes', 'ZHELLO_INCLUDE')
         args.execute(conn, args)
 
-        self.assertConsoleContents(self.console, stdout='''
+        self.assertConsoleContents(self.console, stdout='''Name       : ZHELLO_INCLUDE
+Description: Hello include!
+Responsible: FILAK
+Package    : $TEST
+Main       : ZJAKUB_IS_HANDSOME_GENIUS (PROG/P)
 ''')
 
     def test_attributes_without_context(self):
@@ -130,7 +134,11 @@ class TestIncludeAttributes(PatcherTestCase, ConsoleOutputTestCase):
         args = parse_args('attributes', 'ZHELLO_INCLUDE')
         args.execute(conn, args)
 
-        self.assertConsoleContents(self.console, stdout='''
+        self.assertConsoleContents(self.console, stdout='''Name       : ZHELLO_INCLUDE
+Description: Hello include!
+Responsible: FILAK
+Package    : $TEST
+Main       :
 ''')
 
 

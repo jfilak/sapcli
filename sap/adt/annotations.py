@@ -132,7 +132,8 @@ class XmlNodeProperty(XmlElementProperty, XmlPropertyImpl):
        get/set when absolutely not necessary.
     """
 
-    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None, ignore_empty=False):
+    def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None,
+                 ignore_empty=False):
         super().__init__(name, self.get, fset=self.set, deserialize=deserialize, factory=factory,
                          kind=kind, version=version, ignore_empty=ignore_empty)
         XmlPropertyImpl.__init__(self, name, default_value=value, version=version)
@@ -270,6 +271,7 @@ def xml_element(name, deserialize=True, factory=None, kind=XmlElementKind.OBJECT
     def decorator(meth):
         """Creates a property object"""
 
-        return XmlElementProperty(name, meth, deserialize=deserialize, factory=factory, kind=kind, version=version, ignore_empty=ignore_empty)
+        return XmlElementProperty(name, meth, deserialize=deserialize, factory=factory, kind=kind, version=version,
+                                  ignore_empty=ignore_empty)
 
     return decorator

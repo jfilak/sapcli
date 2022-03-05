@@ -54,4 +54,4 @@ def attributes(connection, args):
     if context is not None:
         console.printout(f'Main       : {context.name} ({context.typ})')
     else:
-        console.printout(f'Main       :')
+        console.printout('Main       :')

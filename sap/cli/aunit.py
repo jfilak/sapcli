@@ -674,7 +674,7 @@ class ResultOptions(Enum):
 
 
 def _produce_program_include_object(conn, name):
-    """Either splits include name into main\include
+    """Either splits include name into main\\include
        or fetches the include's data from the remote system
     """
 

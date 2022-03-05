@@ -148,6 +148,8 @@ class Include(BaseProgram):
         if self._context is not None:
             return self._context.name
 
+        return None
+
     @master.setter
     def master(self, value):
         """Sets name of the master program of this include"""
