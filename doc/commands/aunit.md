@@ -4,7 +4,14 @@
 
 ## run
 
-Execute `sapcli` with the parameters `aunit run {package|class|program|transport} OBJECT_NAME [OBJECT_NAME | ...]`.
+Execute `sapcli` with the parameters `aunit run OBJECT_TYPE OBJECT_NAME [OBJECT_NAME | ...]`.
+
+**Supported object types (OBJECT_TYPE)**:
+- package
+- class
+- program
+- program-include
+- transport
 
 The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests if _unit_ included in the result.
