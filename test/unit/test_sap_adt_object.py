@@ -1,6 +1,7 @@
 #!/bin/python
 
 import unittest
+from types import SimpleNamespace
 
 from sap.errors import SAPCliError
 import sap.adt
@@ -354,6 +355,36 @@ class TestMIMEVersion(unittest.TestCase):
         for mime, exp_version in known_mime_variants:
             act_version = sap.adt.objects.mimetype_to_version(mime)
             self.assertEqual(act_version, exp_version, mime)
+
+
+class TestADTObjectSets(unittest.TestCase):
+
+    def setUp(self):
+        self.sets = sap.adt.objects.ADTObjectSets()
+
+        self.sample_object = SimpleNamespace(
+            full_adt_uri='full/adt/uri',
+            name='Included_Name'
+        )
+
+    def assertSetsContents(self):
+        self.assertEqual(len(self.sets.inclusive.references.references), 1)
+
+        act_ref = self.sets.inclusive.references.references[0]
+        self.assertEqual(act_ref.uri, self.sample_object.full_adt_uri)
+        self.assertEqual(act_ref.name, self.sample_object.name.upper())
+
+    def test_include_object(self):
+        self.sets.include_object(self.sample_object)
+        self.assertSetsContents()
+
+    def test_include_single_object(self):
+        self.sets.include(self.sample_object)
+        self.assertSetsContents()
+
+    def test_include_list(self):
+        self.sets.include([self.sample_object])
+        self.assertSetsContents()
 
 
 if __name__ == '__main__':

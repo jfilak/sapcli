@@ -2,7 +2,7 @@
 """Objects ADT functionality module"""
 
 import re
-from typing import NamedTuple
+from typing import NamedTuple, Union, List, cast
 from urllib.parse import quote_plus
 
 from sap.adt.core import mod_log
@@ -934,6 +934,21 @@ class ADTObjectSets(metaclass=OrderedClassMembers):
             self._inclusive = ADTObjectSet.new_inclusive()
 
         return self._inclusive.add_object(adt_object)
+
+    def include(self, object_or_list: Union[ADTObject, List[ADTObject]]):
+        """Includes the give ADT Object or List of ADT Objects
+
+           :param object_or_list: ADTObject or list of ADTObjects
+           :rtype: None
+        """
+
+        try:
+            iterator = iter(cast(List[ADTObject], object_or_list))
+        except TypeError:
+            self.include_object(object_or_list)
+        else:
+            for item in iterator:
+                self.include_object(item)
 
 
 class OOADTObjectBase(ADTObject):
