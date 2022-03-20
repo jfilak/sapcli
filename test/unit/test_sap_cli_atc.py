@@ -2,6 +2,7 @@
 import os
 import sys
 import unittest
+import contextlib
 from unittest.mock import patch, Mock, call
 from argparse import ArgumentParser
 from types import SimpleNamespace
@@ -83,10 +84,12 @@ class TestRun(unittest.TestCase):
     def test_invalid_type(self):
         connection = Mock()
 
-        with self.assertRaises(SAPCliError) as caught:
-            sap.cli.atc.run(connection, SimpleNamespace(type='foo', name='bar'))
+        errors = StringIO()
+        with self.assertRaises(SystemExit) as caught, contextlib.redirect_stderr(errors):
+            self.execute_run('foo', 'bar')
 
-        self.assertEqual('Unknown type: foo', str(caught.exception))
+        self.assertEqual('2', str(caught.exception))
+        self.assertRegex(errors.getvalue(), r".*invalid choice: 'foo'.*")
 
     def test_invalid_format(self):
         connection = Mock()

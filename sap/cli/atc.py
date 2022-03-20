@@ -7,6 +7,7 @@ import sys
 from xml.sax.saxutils import escape, quoteattr
 
 import sap.adt
+import sap.adt.object_factory
 import sap.adt.atc
 import sap.cli.core
 from sap.cli.core import printout
@@ -167,7 +168,7 @@ def customizing(connection, _):
 @CommandGroup.argument('-e', '--error-level', default=2, type=int,
                        help='Exit with non zero if a finding with this or higher prio returned')
 @CommandGroup.argument('name', nargs='+', type=str)
-@CommandGroup.argument('type', choices=['program', 'class', 'package'])
+@CommandGroup.argument('type', choices=['program', 'program-include', 'class', 'package'])
 @CommandGroup.argument('-o', '--output', default='human', choices=['human', 'html', 'checkstyle'],
                        help='Output format in which checks will be printed')
 @CommandGroup.argument('-s', '--severity-mapping', default=None, type=str,
@@ -181,12 +182,6 @@ def run(connection, args):
            - when the given type does not belong to the type white list
            - when severity_maping argument has invalid format
     """
-
-    types = {'program': sap.adt.Program, 'class': sap.adt.Class, 'package': sap.adt.Package}
-    try:
-        typ = types[args.type]
-    except KeyError as ex:
-        raise SAPCliError(f'Unknown type: {args.type}') from ex
 
     printer_format_mapping = {
         'human': print_worklists_to_stream,
@@ -211,11 +206,14 @@ def run(connection, args):
         settings = sap.adt.atc.fetch_customizing(connection)
         args.variant = settings.system_check_variant
 
+    obj_factory = sap.adt.object_factory.human_names_factory(connection)
+
     results = []
     for objname in args.name:
         checks = sap.adt.atc.ChecksRunner(connection, args.variant)
         objects = sap.adt.objects.ADTObjectSets()
-        objects.include_object(typ(connection, objname))
+        obj = obj_factory.make(args.type, objname)
+        objects.include_object(obj)
         atcResult = checks.run_for(objects, max_verdicts=args.max_verdicts)
         results.append(atcResult.worklist)
 

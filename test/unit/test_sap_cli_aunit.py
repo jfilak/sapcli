@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import sys
+import contextlib
 import unittest
+from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch, call, Mock, mock_open
 
@@ -29,6 +31,10 @@ class TestAUnitWrite(unittest.TestCase):
     def setUp(self):
         self.connection = Connection()
 
+    def execute_run(self, *args, **kwargs):
+        cmd_args = parse_args('run', *args, **kwargs)
+        return cmd_args.execute(self.connection, cmd_args)
+
     def assert_print_no_test_classes(self, mock_print):
         self.assertEqual(
             mock_print.return_value.capout,
@@ -41,10 +47,12 @@ class TestAUnitWrite(unittest.TestCase):
             '* [tolerable] [noTestClasses] - The task definition does not refer to any test\n')
 
     def test_aunit_invalid(self):
-        with self.assertRaises(SAPCliError) as cm:
-            sap.cli.aunit.run('wrongconn', SimpleNamespace(type='foo', output='human'))
+        errors = StringIO()
+        with self.assertRaises(SystemExit) as caught, contextlib.redirect_stderr(errors):
+            self.execute_run('foo', 'bar')
 
-        self.assertEqual(str(cm.exception), 'Unknown type: foo')
+        self.assertRegex(errors.getvalue(), r".*invalid choice: 'foo'.*")
+        self.assertEqual('2', str(caught.exception))
 
     def test_print_aunit_output_raises(self):
         with self.assertRaises(SAPCliError) as cm:
@@ -94,11 +102,11 @@ class TestAUnitWrite(unittest.TestCase):
         self.assert_print_no_test_classes(mock_print)
 
     def test_aunit_program_include_invalid(self):
-        with self.assertRaises(SAPCliError) as cm:
-            with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
-                self.execute_run('program-include', '--output', 'human', 'invali\\mainprogram\\someinclude', '--result', ResultOptions.ONLY_UNIT.value)
+        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+            ret = self.execute_run('program-include', '--output', 'human', 'invali\\mainprogram\\someinclude', '--result', ResultOptions.ONLY_UNIT.value)
 
-        self.assertEqual(str(cm.exception), 'Program include name can be: INCLUDE or MAIN\\INCLUDE')
+        self.assertEqual(mock_print.return_value.caperr, 'Program include name can be: INCLUDE or MAIN\\INCLUDE\n')
+        self.assertEqual(ret, 1)
 
     def test_aunit_class_human(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
@@ -624,16 +632,17 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 
 class TestAUnitCommandRunTransport(unittest.TestCase):
 
+    @patch('sap.cli.core.printerr')
     @patch('sap.adt.cts.Workbench.fetch_transport_request')
-    def test_not_found_transport(self, fake_fetch_transports):
+    def test_not_found_transport(self, fake_fetch_transports, fake_printerr):
         fake_fetch_transports.return_value = None
 
         connection = Mock()
         args = parse_args('run', 'transport', 'NPLK123456')
-        with self.assertRaises(sap.errors.SAPCliError) as caught:
-            args.execute(connection, args)
+        ret = args.execute(connection, args)
 
-        self.assertEqual(str(caught.exception), 'The transport was not found: NPLK123456')
+        fake_printerr.assert_called_once_with('The transport was not found: NPLK123456')
+        self.assertEqual(ret, 1)
 
     @patch('sap.cli.core.printerr')
     @patch('sap.adt.cts.Workbench.fetch_transport_request')

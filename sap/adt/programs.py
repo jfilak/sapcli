@@ -3,6 +3,7 @@
 import urllib
 
 # pylint: disable=unused-import
+import sap.errors
 from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import (
     ADTObjectType,
@@ -174,3 +175,21 @@ class Include(BaseProgram):
         """
 
         self._context = value
+
+
+def make_program_include_object(connection, name):
+    """Either splits include name into main\\include
+       or fetches the include's data from the remote system
+    """
+
+    name_parts = name.split('\\')
+
+    if len(name_parts) == 1:
+        theobject = Include(connection, name)
+        theobject.fetch()
+        return theobject
+
+    if len(name_parts) == 2:
+        return Include(connection, name_parts[1], master=name_parts[0])
+
+    raise sap.errors.SAPCliError('Program include name can be: INCLUDE or MAIN\\INCLUDE')

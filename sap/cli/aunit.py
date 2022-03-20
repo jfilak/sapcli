@@ -4,13 +4,15 @@ import os
 import re
 from collections import defaultdict
 from enum import Enum
+from functools import partial
 from xml.sax.saxutils import escape, quoteattr
 from itertools import islice
 from dataclasses import dataclass
+from typing import List
 
 import sap
-
 import sap.adt
+import sap.adt.object_factory
 import sap.adt.aunit
 import sap.adt.objects
 import sap.adt.cts
@@ -611,6 +613,22 @@ class TransportObjectSelector:
         return result
 
 
+def objects_of_transport(as4user: str, connection: sap.adt.core.Connection,
+                         corrnr: str) -> List[sap.adt.objects.ADTObject]:
+    """Fetches transports by corrnr and the user and returns a list of testable
+       objects.
+    """
+
+    transport = TransportObjectSelector(connection, corrnr)
+
+    testable = transport.get_testable_objects(as4user)
+
+    if not testable:
+        raise SAPCliError('No testable objects found')
+
+    return testable
+
+
 def print_aunit_output(args, aunit_response, aunit_parsed_response):
     """Prints AUnit output in selected format and console"""
 
@@ -673,25 +691,6 @@ class ResultOptions(Enum):
     ALL = 'all'
 
 
-def _produce_program_include_object(conn, name):
-    """Either splits include name into main\\include
-       or fetches the include's data from the remote system
-    """
-
-    name_parts = name.split('\\')
-
-    if len(name_parts) == 1:
-        theobject = sap.adt.Include(conn, name)
-        theobject.fetch()
-    elif len(name_parts) == 2:
-        theobject = sap.adt.Include(conn, name_parts[1], master=name_parts[0])
-    else:
-        raise SAPCliError('Program include name can be: INCLUDE or MAIN\\INCLUDE')
-
-    # To get the main program.
-    return theobject
-
-
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
 @CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'sonar'], default='human')
 @CommandGroup.argument('name', nargs='+', type=str)
@@ -719,35 +718,17 @@ def run(connection, args):
 
     result = None
 
-    types = {
-        'program': sap.adt.Program,
-        'program-include': _produce_program_include_object,
-        'class': sap.adt.Class,
-        'package': sap.adt.Package,
-        'transport': TransportObjectSelector
-    }
-
-    try:
-        typ = types[args.type]
-    except KeyError as ex:
-        raise SAPCliError(f'Unknown type: {args.type}') from ex
+    objfactory = sap.adt.object_factory.human_names_factory(connection)
+    objfactory.register('transport', partial(objects_of_transport, args.as4user))
 
     sets = sap.adt.objects.ADTObjectSets()
 
     for objname in args.name:
-        obj = typ(connection, objname)
-
-        if args.type == 'transport':
-            testable = obj.get_testable_objects(args.as4user)
-
-            if not testable:
-                sap.cli.core.printerr('No testable objects found')
-                return 1
-
-            for tr_obj in testable:
-                sets.include_object(tr_obj)
-        else:
-            sets.include_object(obj)
+        try:
+            sets.include(objfactory.make(args.type, objname))
+        except SAPCliError as ex:
+            sap.cli.core.printerr(str(ex))
+            return 1
 
     aunit = sap.adt.AUnit(connection)
     activate_coverage = args.result in (ResultOptions.ONLY_COVERAGE.value, ResultOptions.ALL.value)
