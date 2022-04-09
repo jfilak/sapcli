@@ -343,7 +343,7 @@ class TextElementADTObject(metaclass=OrderedClassMembers):
                                      'application/xml',
                                      None,
                                      'have_child_with_text')
-        self._text = 'content'
+        self._text = 'content with <tag>'
 
     @xml_element('mock:holdstext', kind=XmlElementKind.TEXT)
     def text(self):
@@ -480,9 +480,13 @@ class TestADTAnnotation(unittest.TestCase):
         elem = Element('root')
         elem.add_attribute('one', '1')
         elem.add_attribute('two', '2')
+        elem.add_attribute('three', 'quoted &')
         child = elem.add_child('child')
         xml = marshal._tree_to_xml(elem)
-        self.assertEqual(xml, '<?xml version="1.0" encoding="UTF-8"?>\n<root one="1" two="2">\n<child/>\n</root>')
+        self.assertEqual(xml, '''<?xml version="1.0" encoding="UTF-8"?>
+<root one="1" two="2" three="quoted &amp;">
+<child/>
+</root>''')
 
     def test_element_handler(self):
         adt_object = DummyWithSetters()
@@ -588,7 +592,7 @@ class TestADTAnnotation(unittest.TestCase):
 
         self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
 <mock:have_child_with_text xmlns:mock="https://example.org/mock">
-<mock:holdstext>content</mock:holdstext>
+<mock:holdstext>content with &lt;tag&gt;</mock:holdstext>
 </mock:have_child_with_text>''')
 
     def test_deserialize_with_elem_text(self):
