@@ -9,7 +9,13 @@ from sap.adt.core import mod_log
 from sap.errors import SAPCliError
 
 import sap.adt.marshalling
-from sap.adt.annotations import xml_attribute, xml_element, XmlElementProperty, OrderedClassMembers
+from sap.adt.annotations import (
+    xml_attribute,
+    xml_element,
+    XmlElementProperty,
+    XmlListNodeProperty,
+    OrderedClassMembers
+)
 
 
 LOCK_ACCESS_MODE_MODIFY = 'MODIFY'
@@ -784,10 +790,16 @@ class ADTObjectReference(metaclass=OrderedClassMembers):
 class ADTObjectReferences(metaclass=OrderedClassMembers):
     """List of ADT Object references"""
 
+    # Beware: the setter appends the value :(
+    references = XmlListNodeProperty('adtcore:objectReference',
+                                     factory=ADTObjectReference,
+                                     value=[])
+
     def __init__(self, references=None):
         """:param references: A list of :clas:`ADTObjectReferences`"""
 
-        self._refs = references
+        if references:
+            self.references.extend(references)
 
     # pylint: disable=no-self-use
     @property
@@ -801,35 +813,13 @@ class ADTObjectReferences(metaclass=OrderedClassMembers):
                              None,
                              'objectReferences')
 
-    @xml_element('adtcore:objectReference')
-    def references(self):
-        """Get references
-
-           :rtype: A list of :clas:`ADTObjectReferences`
-        """
-
-        return self._refs
-
-    @property
-    def _references(self):
-        """A private property which intialiazes the returned list.
-
-           The public property must not initialize the list because that could
-           confuse the XML generator.
-        """
-
-        if self._refs is None:
-            self._refs = []
-
-        return self._refs
-
     def add_reference(self, object_reference):
         """Adds the given reference.
 
            :param object_reference:
         """
 
-        self._references.append(object_reference)
+        self.references.append(object_reference)
 
         return object_reference
 
