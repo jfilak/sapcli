@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import sap.adt
 
-from mock import Connection
+from mock import ConnectionViaHTTP as Connection
 
 from fixtures_adt_repository import (PACKAGE_ROOT_NODESTRUCTURE_OK_RESPONSE,
                                      PACKAGE_ROOT_REQUEST_XML,

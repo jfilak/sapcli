@@ -4,7 +4,7 @@ import unittest
 
 from sap.adt.search import ADTSearch
 
-from mock import Connection, Response, Request
+from mock import ConnectionViaHTTP as Connection, Response, Request
 
 
 FIXTURE_ADT_SEARCH_RESPONSE_FOUND="""<?xml version="1.0" encoding="UTF-8"?>

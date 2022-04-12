@@ -12,7 +12,7 @@ from sap.errors import SAPCliError
 import sap.cli.atc
 from sap.adt.objects import ADTObjectSets
 
-from mock import Connection, Response
+from mock import ConnectionViaHTTP as Connection
 
 from infra import generate_parse_args
 

@@ -56,6 +56,7 @@ class TestParseCommandLine(unittest.TestCase):
                 'snc_qop': None,
                 'snc_lib': "somelib.dylib",
                 'sysid': None,
+                'rest_over_rfc': False
             })
 
     def test_args_no_ashost(self):

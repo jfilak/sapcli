@@ -4,7 +4,7 @@ from sap.rfc.strust import SSLCertStorage, InvalidSSLStorage, PutCertificateErro
 
 import unittest
 from unittest import mock
-from mock import Connection
+from mock import ConnectionViaHTTP as Connection
 
 
 class TestSSLCertStorage(unittest.TestCase):

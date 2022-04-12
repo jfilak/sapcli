@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 
 import sap.cli.datapreview
 
-from mock import Connection, Response
+from mock import ConnectionViaHTTP as Connection, Response
 from fixtures_adt_datapreview import ADT_XML_FREESTYLE_TABLE_T000_ONE_ROW
 
 

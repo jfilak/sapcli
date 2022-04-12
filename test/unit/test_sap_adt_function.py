@@ -6,7 +6,7 @@ from unittest.mock import Mock, PropertyMock, patch
 from sap.errors import SAPCliError
 import sap.adt.wb
 
-from mock import Connection, Response
+from mock import ConnectionViaHTTP as Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, OBJECT_METADATA
 
 from fixtures_adt_function import (

@@ -216,7 +216,7 @@ class RESTConnection(sap.rest.Connection):
         return  [(e.method, e.adt_uri) for e in self.execs]
 
 
-class Connection(sap.adt.Connection):
+class ConnectionViaHTTP(sap.adt.ConnectionViaHTTP):
 
     def __init__(self, responses=None, user='ANZEIGER', collections=None, asserter=None):
         """
@@ -225,7 +225,7 @@ class Connection(sap.adt.Connection):
                       if you want to automatically check the request. Ins such
                       case, you should also pass the argument asserter.
         """
-        super(Connection, self).__init__('mockhost', 'mockclient', user, 'mockpass')
+        super().__init__('mockhost', 'mockclient', user, 'mockpass')
 
         self.collections = collections
         self.execs = list()

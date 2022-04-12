@@ -7,7 +7,7 @@ from io import StringIO
 import sap.adt.wb
 import sap.cli.activation
 
-from mock import Connection, Response, GroupArgumentParser, patch_get_print_console_with_buffer
+from mock import GroupArgumentParser, patch_get_print_console_with_buffer
 
 from fixtures_adt_wb import RESPONSE_INACTIVE_OBJECTS_V1
 

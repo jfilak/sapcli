@@ -10,7 +10,7 @@ from xml.sax.saxutils import escape
 import sap.adt.cts
 from sap.adt.cts import Element, WorkbenchABAPObject
 
-from mock import Connection, Response, Request
+from mock import ConnectionViaHTTP as Connection, Response, Request
 from fixtures_adt import (
     TASK_NUMBER,
     TRANSPORT_NUMBER,

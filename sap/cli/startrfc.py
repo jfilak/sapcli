@@ -10,7 +10,6 @@ import pyrfc
 import sap.cli.core
 from sap.cli.core import InvalidCommandLineError
 
-
 FORMATTERS = {
     'human': pprint.PrettyPrinter(indent=2).pformat,
     'json': json.dumps

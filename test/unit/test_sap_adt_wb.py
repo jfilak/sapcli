@@ -8,7 +8,7 @@ import sap.adt.wb
 
 from sap.adt.objects import ADTObjectReferences
 
-from mock import Connection, Response, Request
+from mock import ConnectionViaHTTP as Connection, Response, Request
 from fixtures_adt import EMPTY_RESPONSE_OK
 from fixtures_adt_wb import ACTIVATION_REFERENCES_XML, INACTIVE_OBJECTS_XML, PREAUDIT_ACTIVATION_XML, \
          RESPONSE_INACTIVE_OBJECTS_V1, ACTIVATION_WARNING_XML, ACTIVATION_WITH_PROPERTIES_XML, \

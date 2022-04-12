@@ -96,9 +96,17 @@ def adt_connection_from_args(args):
 
     import sap.adt
 
-    return sap.adt.Connection(
-        args.ashost, args.client, args.user, args.password,
-        port=args.port, ssl=args.ssl, verify=args.verify)
+    if args.ashost and args.password and not args.rest_over_rfc:
+        return sap.adt.ConnectionViaHTTP(args.ashost,
+                                         args.client,
+                                         args.user,
+                                         args.password,
+                                         port=args.port,
+                                         ssl=args.ssl,
+                                         verify=args.verify)
+
+    rfc_connection = rfc_connection_from_args(args)
+    return sap.adt.ConnectionViaRFC(rfc_connection)
 
 
 def rfc_connection_from_args(args):
@@ -107,11 +115,14 @@ def rfc_connection_from_args(args):
 
     rfc_args_name = [
         "ashost", "sysnr", "client", "user", "password", "mshost", "msserv",
-        "sysid", "group", "snc_qop", "snc_myname", "snc_partnername", "snc_lib"
+        "sysid", "rfc_group", "snc_qop", "snc_myname", "snc_partnername",
+        "snc_lib"
     ]
 
+    name_rewrite = {"password": "passwd", "rfc_group": "group"}
+
     rfc_args = {
-        name if name != "password" else "passwd": getattr(args, name)
+        name_rewrite.get(name, name): getattr(args, name)
         for name in rfc_args_name if name in args and getattr(args, name)
     }
 

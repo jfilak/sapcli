@@ -9,7 +9,7 @@ import unittest.mock as mock
 import sap.errors
 import sap.adt.businessservice
 
-from mock import Connection, Response, Request
+from mock import ConnectionViaHTTP as Connection, Response, Request
 
 from fixtures_adt_businessservice import (
     SERVICE_DEFINITION_ADT_XML,

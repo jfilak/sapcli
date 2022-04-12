@@ -7,7 +7,7 @@ from io import StringIO
 
 import sap.cli.interface
 
-from mock import Connection
+from mock import ConnectionViaHTTP as Connection
 from fixtures_adt import EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK
 
 

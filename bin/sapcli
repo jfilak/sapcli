@@ -76,8 +76,11 @@ def parse_command_line(argv):
     arg_parser.add_argument("--msserv", default=os.getenv("SAP_MSSERV"), help="Message server port")
     arg_parser.add_argument("--sysid", default=os.getenv("SAP_SYSID"), help="System ID (use if connecting via a "
                                                                             "message server")
-    arg_parser.add_argument("--group", default=os.getenv("SAP_GROUP"), help="Group (use if connecting via a message "
-                                                                            "server")
+    arg_parser.add_argument(
+        "--rfc_group",  # name "group" is already in use
+        default=os.getenv("SAP_GROUP"),
+        help="Group (use if connecting via a message "
+        "server")
     arg_parser.add_argument("--snc_qop", default=os.getenv("SNC_QOP"), help="SAP Secure Login Client QOP")
     arg_parser.add_argument("--snc_myname", default=os.getenv("SNC_MYNAME"), help="SAP Secure Login Client MyName")
     arg_parser.add_argument("--snc_partnername",
@@ -85,6 +88,16 @@ def parse_command_line(argv):
     arg_parser.add_argument("--snc_lib", default=os.getenv("SNC_LIB"),
                             help="SAP Secure Login Client library (e.g. "
                                  "/Applications/Secure Login Client.app/Contents/MacOS/lib/libsapcrypto.dylib")
+
+    arg_parser.add_argument(
+        "--rest-over-rfc",
+        action='store_true',
+        dest="rest_over_rfc",
+        default=os.getenv("SAP_REST_OVER_RFC")
+        not in [None, 'n', 'no', 'false', 'off'],
+        help=
+        "Prefer doing rest call over SAP RFC client (to use SNC or if HTTP port is firewalled)"
+    )
 
     subparsers = arg_parser.add_subparsers()
     # pylint: disable=not-an-iterable

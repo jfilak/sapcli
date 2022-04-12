@@ -1,3 +1,5 @@
 requests>=2.20.0
 pyodata==1.7.0
 PyYAML==5.4.1
+
+urllib3~=1.26.7
