@@ -4,11 +4,10 @@ import sys
 import json
 import pprint
 
-# pylint: disable=import-error
-import pyrfc
-
 import sap.cli.core
 from sap.cli.core import InvalidCommandLineError
+import sap.rfc.bapi
+from sap.rfc.core import try_pyrfc_exception_type
 
 
 FORMATTERS = {
@@ -87,10 +86,12 @@ def startrfc(connection, args):
         console.printerr('Exiting with error code because of invalid command line parameters.')
         return 1
 
+    pyrfc_exception_type = try_pyrfc_exception_type()
+
     try:
         resp = connection.call(args.RFC_FUNCTION_MODULE.upper(), **rfc_params)
     # pylint: disable=protected-access
-    except pyrfc._exception.RFCLibError as ex:
+    except pyrfc_exception_type as ex:
         console.printerr(f'{args.RFC_FUNCTION_MODULE} failed:')
         console.printerr(str(ex))
         return 1
