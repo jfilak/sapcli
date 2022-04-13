@@ -52,13 +52,27 @@ def rfc_is_available():
     return SAPRFC_MODULE is not None
 
 
-def connect(**kwargs):
-    """SAP RFC Connection.
-    """
-
+def _assert_rfc_availability():
     if not rfc_is_available():
         raise sap.errors.SAPCliError(
             'RFC functionality is not available(enabled)')
 
+
+def connect(**kwargs):
+    """SAP RFC Connection.
+    """
+
+    _assert_rfc_availability()
+
     mod_log().info('Connecting via SAP rfc with params %s', kwargs)
     return SAPRFC_MODULE.Connection(**kwargs)
+
+
+def try_pyrfc_exception_type():
+    """SAP RFC Exception type.
+    """
+
+    _assert_rfc_availability()
+
+    # pylint: disable=protected-access
+    return SAPRFC_MODULE._exception.RFCLibError

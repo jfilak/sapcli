@@ -42,6 +42,8 @@ class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):
 
         self.rfc_connection = MagicMock()
         self.rfc_connection.call.return_value = self.response
+        self.patch('sap.rfc.core.rfc_is_available', return_value=True)
+        self.patch('sap.rfc.core.SAPRFC_MODULE', new=mod_pyrfc)
 
     def tearDown(self):
         self.unpatch_all()
