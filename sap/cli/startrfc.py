@@ -3,6 +3,7 @@
 import sys
 import json
 import pprint
+from os import path
 
 import sap.cli.core
 from sap.cli.core import InvalidCommandLineError
@@ -79,6 +80,12 @@ def startrfc(connection, args):
 
     console = sap.cli.core.get_console()
 
+    # we required new file to avoid security problems if executed
+    # under a user with escalated privileges
+    if args.response_file and path.exists(args.response_file):
+        console.printerr(f'The response file must not exist: {args.response_file}')
+        return 1
+
     try:
         rfc_params = _get_call_rfc_params_from_args(args)
     except InvalidCommandLineError as ex:
@@ -97,6 +104,22 @@ def startrfc(connection, args):
         return 1
 
     # rfc call passed, it is time for analysis of the returned response
+    response_formatted = FORMATTERS[args.output](resp)
+
+    # if the response file is given
+    if args.response_file:
+        try:
+            # try to dump the formatted response into a completely new file
+            with open(args.response_file, 'x', encoding='utf-8') as file_obj:
+                file_obj.write(response_formatted)
+        except FileExistsError:
+            console.printerr(f'Could not create and open the file: {args.response_file}')
+            console.printerr(response_formatted)
+            return 1
+        except (OSError, IOError) as ex:
+            console.printerr(f'Could not open the file {args.response_file}: {str(ex)}')
+            console.printerr(response_formatted)
+            return 1
 
     # if bapi checker  is enabled
     if args.result_checker == RESULT_CHECKER_BAPI:
@@ -129,7 +152,9 @@ def startrfc(connection, args):
         console.printout("\n".join(bapi_return.message_lines()))
         return 0
 
-    console.printout(FORMATTERS[args.output](resp))
+    # if result_checker == RESULT_CHECKER_RAW:
+    #   IOW no response analysis performed by 'sapcli startrfc'
+    console.printout(response_formatted)
     return 0
 
 
@@ -144,6 +169,10 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
         arg_parser.add_argument('-o', '--output', choices=FORMATTERS.keys(), default=next(iter(FORMATTERS.keys())),
                                 help='Output format')
+        arg_parser.add_argument('-R', '--response-file', type=str, default=None,
+                                help=('Dump the entire response to the given file ',
+                                      'which must not exist. The content format '
+                                      'matches the paramter --output.'))
         arg_parser.add_argument('RFC_FUNCTION_MODULE')
         arg_parser.add_argument('JSON_PARAMETERS', nargs='?', default='{}',
                                 help='JSON string or - for reading the parameters from stdin')

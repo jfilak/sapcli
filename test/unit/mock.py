@@ -452,3 +452,17 @@ class TestRFCLibError(Exception):
 
 mod_exception = types.SimpleNamespace(RFCLibError=TestRFCLibError)
 mod_pyrfc = types.SimpleNamespace(_exception=mod_exception)
+
+
+class RetainedStringIO(StringIO):
+    """Because the parent StringIO raises an error if you call
+       getvalue() after the call to close().
+    """
+
+    def __init__(self):
+        self.finalvalue = None
+        super().__init__()
+
+    def close(self):
+        self.finalvalue = self.getvalue()
+        super().close()
