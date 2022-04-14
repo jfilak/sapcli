@@ -8,9 +8,13 @@ import sys
 import types
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch, mock_open
+from unittest.mock import Mock, MagicMock, patch, mock_open, call
 
-from mock import ConsoleOutputTestCase, PatcherTestCase, mod_pyrfc, TestRFCLibError
+from mock import ConsoleOutputTestCase, PatcherTestCase, mod_pyrfc, TestRFCLibError, RetainedStringIO
+from fixtures_rfc import (
+    BAPIRET2_WARNING,
+    BAPIRET2_ERROR
+)
 
 sys.modules['pyrfc'] = mod_pyrfc
 
@@ -220,24 +224,7 @@ Raw response:
 
         self.rfc_connection.call.return_value = {
             'FORBIDDEN_OBJECTS': [],
-            'RETURN': [
-                 {
-                    'FIELD': '',
-                    'ID': 'CICD_GCTS_TR',
-                    'LOG_MSG_NO': '000000',
-                    'LOG_NO': '',
-                    'MESSAGE': 'List of ABAP repository objects (piece list) is empty',
-                    'MESSAGE_V1': '',
-                    'MESSAGE_V2': '',
-                    'MESSAGE_V3': '',
-                    'MESSAGE_V4': '',
-                    'NUMBER': '045',
-                    'PARAMETER': '',
-                    'ROW': 0,
-                    'SYSTEM': '',
-                    'TYPE': 'W'
-                }
-            ]
+            'RETURN': [BAPIRET2_WARNING]
         }
 
         exit_code = self.execute_cmd(
@@ -253,24 +240,7 @@ Raw response:
 
         self.rfc_connection.call.return_value = {
             'FORBIDDEN_OBJECTS': [],
-            'RETURN': [
-                 {
-                    'FIELD': '',
-                    'ID': 'CICD_GCTS_TR',
-                    'LOG_MSG_NO': '000000',
-                    'LOG_NO': '',
-                    'MESSAGE': 'List of ABAP repository objects (piece list) is empty',
-                    'MESSAGE_V1': '',
-                    'MESSAGE_V2': '',
-                    'MESSAGE_V3': '',
-                    'MESSAGE_V4': '',
-                    'NUMBER': '045',
-                    'PARAMETER': '',
-                    'ROW': 0,
-                    'SYSTEM': '',
-                    'TYPE': 'E'
-                }
-            ]
+            'RETURN': [BAPIRET2_ERROR]
         }
 
         exit_code = self.execute_cmd(
@@ -280,6 +250,72 @@ Raw response:
             exp_stderr='Error(CICD_GCTS_TR|045): List of ABAP repository objects (piece list) is empty\n')
 
         self.assertEqual(1, exit_code)
+
+    @patch('sap.cli.startrfc.path.exists', return_value=True)
+    def test_startrfc_args_response_file_exists(self, fake_exists):
+        params=['--response-file', './the/file/exists']
+
+        exit_code = self.execute_cmd(
+            params=params,
+            exp_call=False,
+            exp_stdout='',
+            exp_stderr='The response file must not exist: ./the/file/exists\n')
+
+        self.assertEqual(fake_exists.mock_calls[-1], call('./the/file/exists'))
+        self.assertEqual(1, exit_code)
+
+    @patch('sap.cli.startrfc.path.exists', return_value=False)
+    def do_startrfc_args_response_file_error_at_open(self, exception, message, fake_exists):
+        params=['--response-file', './the_file']
+
+        self.rfc_connection.call.return_value = {
+            'STATUS': 'Super cool!'
+        }
+
+        with patch('sap.cli.startrfc.open', side_effect=exception) as m:
+            exit_code = self.execute_cmd(
+                params=params,
+                exp_call=False,
+                exp_stdout='',
+                exp_stderr='\n'.join([message, '{\'STATUS\': \'Super cool!\'}', ''])
+            )
+
+        m.assert_called_once_with('./the_file', 'x', encoding='utf-8')
+        self.assertEqual(1, exit_code)
+
+    def test_startrfc_args_response_file_at_open_exists(self):
+        self.do_startrfc_args_response_file_error_at_open(
+            FileExistsError,
+            'Could not create and open the file: ./the_file'
+        )
+
+    def test_startrfc_args_response_fle_at_open_permissions(self):
+        self.do_startrfc_args_response_file_error_at_open(
+            IOError('permissions'),
+            'Could not open the file ./the_file: permissions'
+        )
+
+    @patch('sap.cli.startrfc.path.exists', return_value=False)
+    def test_startrfc_args_response_file_full_success(self, fake_exists):
+        params=['--response-file', './the_file']
+
+        self.rfc_connection.call.return_value = {
+            'STATUS': 'Super cool!'
+        }
+
+        buffer = RetainedStringIO()
+        with patch('sap.cli.startrfc.open', mock_open(), create=True) as m:
+            m.return_value = buffer
+            exit_code = self.execute_cmd(
+                params=params,
+                exp_call=False,
+                exp_stdout='\n'.join(['{\'STATUS\': \'Super cool!\'}', '']),
+                exp_stderr=''
+            )
+
+        m.assert_called_once_with('./the_file', 'x', encoding='utf-8')
+        self.assertEqual(buffer.finalvalue, '{\'STATUS\': \'Super cool!\'}')
+        self.assertEqual(0, exit_code)
 
 
 del sys.modules['pyrfc']

@@ -31,6 +31,19 @@ sapcli startrfc --output={human,json} RFC_FUNCTION_MODULE {JSON_PARAMETERS,-} \
   Function Module as a command line parameter. The value path is used to open
   a file and its contents will be used as value of the RFC param.
 
+* -c | --result-checker:  enables analysis of returned response
+  * _raw_ the default value which does not do any analysis, just prints out the
+     formatted response
+  * _bapi_ stops printing out the retrieved response and instead tries to get
+    the member *RETURN* from the response, expects the value is a table of the
+    ABAP type *bapiret2* and prints out messages - if error message is
+    found, only the error message is printed out and the process exists with
+    non-0 exit code.
+
+* -R | --response-file:  holds a file path where the complete response of the
+  executed function module will be stored regardles of the result-checker's
+  verdict. The format of the file is taken from the parameter '--output'.
+
 ## Example: human readable output of STFC\_CONNECTION
 
 Run the function module checking connection to ABAP Trial system deployed in
