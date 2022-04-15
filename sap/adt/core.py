@@ -11,13 +11,15 @@ from xml.sax.handler import ContentHandler
 
 import requests
 from requests.auth import HTTPBasicAuth
-import urllib3
 
 from sap import get_logger, config_get
 from sap.rest.connection import setup_keepalive
 from sap.adt.errors import new_adt_error_from_xml
-from sap.rest.errors import (HTTPRequestError, UnexpectedResponseContent,
-                             UnauthorizedError, TimedOutRequestError)
+from sap.rest.errors import (
+    HTTPRequestError,
+    UnexpectedResponseContent,
+    UnauthorizedError,
+    TimedOutRequestError)
 
 
 def mod_log():
@@ -230,14 +232,7 @@ class ConnectionViaHTTP(Connection):
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self,
-                 host,
-                 client,
-                 user,
-                 password,
-                 port=None,
-                 ssl=True,
-                 verify=True):
+    def __init__(self, host, client, user, password, port=None, ssl=True, verify=True):
         """Parameters:
             - host: string host name
             - client: string SAP client
@@ -292,20 +287,10 @@ class ConnectionViaHTTP(Connection):
         raise HTTPRequestError(req, res)
 
     # pylint: disable=no-self-use
-    def _retrieve(self,
-                  session,
-                  method,
-                  url,
-                  params=None,
-                  headers=None,
-                  body=None):
+    def _retrieve(self, session, method, url, params=None, headers=None, body=None):
         """A helper method for easier testing."""
 
-        req = requests.Request(method.upper(),
-                               url,
-                               params=params,
-                               data=body,
-                               headers=headers)
+        req = requests.Request(method.upper(), url, params=params, data=body, headers=headers)
         req = session.prepare_request(req)
 
         mod_log().info('Executing %s %s', method, url)
@@ -315,31 +300,18 @@ class ConnectionViaHTTP(Connection):
         except requests.exceptions.ConnectTimeout as ex:
             raise TimedOutRequestError(req, self._timeout) from ex
 
-        mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url,
-                        res.text)
+        mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
 
         return (req, res)
 
-    def _execute_with_session(self,
-                              session,
-                              method,
-                              url,
-                              params=None,
-                              headers=None,
-                              body=None):
+    def _execute_with_session(self, session, method, url, params=None, headers=None, body=None):
         """Executes the given URL using the given method in
            the common HTTP session.
         """
 
-        req, res = self._retrieve(session,
-                                  method,
-                                  url,
-                                  params=params,
-                                  headers=headers,
-                                  body=body)
+        req, res = self._retrieve(session, method, url, params=params, headers=headers, body=body)
 
-        if res.status_code == 403 and (
-                not headers or headers.get('x-csrf-token', '') != 'Fetch'):
+        if res.status_code == 403 and (not headers or headers.get('x-csrf-token', '') != 'Fetch'):
             mod_log().debug('Re-Fetching CSRF token')
 
             del session.headers['x-csrf-token']
@@ -348,16 +320,12 @@ class ConnectionViaHTTP(Connection):
                 session,
                 'GET',
                 self._build_adt_url('discovery'),
-                headers={'x-csrf-token': 'Fetch'})
+                headers={'x-csrf-token': 'Fetch'}
+            )
 
             session.headers['x-csrf-token'] = response.headers['x-csrf-token']
 
-            req, res = self._retrieve(session,
-                                      method,
-                                      url,
-                                      params=params,
-                                      headers=headers,
-                                      body=body)
+            req, res = self._retrieve(session, method, url, params=params, headers=headers, body=body)
 
         if res.status_code >= 400:
             self._handle_http_error(req, res)
@@ -374,18 +342,14 @@ class ConnectionViaHTTP(Connection):
             self._session = requests.Session()
             self._session.auth = self._auth
             # requests.session.verify is either boolean or path to CA to use!
-            self._session.verify = os.environ.get('SAP_SSL_SERVER_CERT',
-                                                  self._session.verify)
+            self._session.verify = os.environ.get('SAP_SSL_SERVER_CERT', self._session.verify)
 
             if self._session.verify is not True:
-                mod_log().info(
-                    'Using custom SSL Server cert path: SAP_SSL_SERVER_CERT = %s',
-                    self._session.verify)
+                mod_log().info('Using custom SSL Server cert path: SAP_SSL_SERVER_CERT = %s', self._session.verify)
             elif self._ssl_verify is False:
+                import urllib3
                 urllib3.disable_warnings()
-                mod_log().info(
-                    'SSL Server cert will not be verified: SAP_SSL_VERIFY = no'
-                )
+                mod_log().info('SSL Server cert will not be verified: SAP_SSL_VERIFY = no')
                 self._session.verify = False
 
             discovery_headers = {'x-csrf-token': 'Fetch'}
@@ -393,8 +357,7 @@ class ConnectionViaHTTP(Connection):
             url = self._build_adt_url('core/discovery')
 
             try:
-                response = self._execute_with_session(
-                    self._session, 'GET', url, headers=discovery_headers)
+                response = self._execute_with_session(self._session, 'GET', url, headers=discovery_headers)
                 discovery_headers = {}
                 csrf_token = response.headers['x-csrf-token']
             except HTTPRequestError as ex:
@@ -402,10 +365,7 @@ class ConnectionViaHTTP(Connection):
                     raise ex
 
             url = self._build_adt_url('discovery')
-            response = self._execute_with_session(self._session,
-                                                  'GET',
-                                                  url,
-                                                  headers=discovery_headers)
+            response = self._execute_with_session(self._session, 'GET', url, headers=discovery_headers)
             self._collection_types = _get_collection_accepts(response.text)
 
             if csrf_token is None:
