@@ -77,7 +77,7 @@ def parse_command_line(argv):
     arg_parser.add_argument("--sysid", default=os.getenv("SAP_SYSID"), help="System ID (use if connecting via a "
                                                                             "message server")
     arg_parser.add_argument("--rfc_group",  # name "group" is already in use
-                            default=os.getenv("SAP_GROUP"), help="Group (use if connecting via a message server")
+                            default=os.getenv("SAP_GROUP"), help="Group (use if connecting via a message server)")
     arg_parser.add_argument("--snc_qop", default=os.getenv("SNC_QOP"), help="SAP Secure Login Client QOP")
     arg_parser.add_argument("--snc_myname", default=os.getenv("SNC_MYNAME"), help="SAP Secure Login Client MyName")
     arg_parser.add_argument("--snc_partnername",
