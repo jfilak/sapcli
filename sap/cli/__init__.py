@@ -136,6 +136,9 @@ def gcts_connection_from_args(args):
 
     import sap.rest
 
+    if args.rest_over_rfc:
+        raise NotImplementedError
+
     return sap.rest.Connection('sap/bc/cts_abapvcs', 'system', args.ashost, args.client,
                                args.user, args.password, port=args.port, ssl=args.ssl,
                                verify=args.verify)
@@ -146,6 +149,10 @@ def odata_connection_from_args(service_name, args):
     """
 
     import sap.odata
+
+    if args.rest_over_rfc:
+        raise NotImplementedError
+
     return sap.odata.Connection(service_name, args.ashost, args.port,
                                 args.client, args.user, args.password, args.ssl,
                                 args.verify)
