@@ -124,7 +124,6 @@ class Connection(ABC):
 
         return f'{self._base_url}/{adt_uri}?{self._query_args}'
 
-
     @abstractmethod
     def _execute_raw(self, method: str, uri: str, params: Optional[dict[str,
                                                                         str]],

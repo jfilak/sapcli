@@ -88,8 +88,8 @@ def parse_command_line(argv):
 
     arg_parser.add_argument("--rest-over-rfc", action='store_true', dest="rest_over_rfc",
                             default=os.getenv("SAP_REST_OVER_RFC") not in [None, 'n', 'no', 'false', 'off'],
-                            help="Prefer doing rest call over SAP RFC client (to use SNC or if HTTP port is firewalled)"
-    )
+                            help="Prefer doing rest call over SAP RFC client "
+                                 "(to use SNC or if HTTP port is firewalled)")
 
     subparsers = arg_parser.add_subparsers()
     # pylint: disable=not-an-iterable
