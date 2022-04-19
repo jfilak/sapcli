@@ -97,6 +97,9 @@ The default configuration in JSON is the following:
 {"1": "error", "2": "error", "3": "warning", "4": "warning", "5": "info"}
 ```
 
+References:
+- [checkstyle SeverityLevels](https://checkstyle.sourceforge.io/apidocs/com/puppycrawl/tools/checkstyle/api/SeverityLevel.html)
+
 ## profile list
 
 Fetches and prints all ATC profiles.
