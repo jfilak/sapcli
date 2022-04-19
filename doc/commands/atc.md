@@ -13,6 +13,13 @@ Fetches and prints out ATC configuration.
 sapcli atc customizing
 ```
 
+To be able to use Code Inspector variants, you must set the user parameter
+**SATC_CI_MODE** to **X**; otherwise the default value **''** means
+**Checkman** mode.
+
+User parameters are configured in the transaction **SU01** or in the table
+**USR05**.
+
 ## run
 
 Executes ATC Checks on the given object and exits with non-zero code,
