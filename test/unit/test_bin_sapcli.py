@@ -48,7 +48,7 @@ class TestParseCommandLine(unittest.TestCase):
                 'password': 'Down1oad',
                 'verify': False,
                 'verbose_count': 0,
-                'group': None,
+                'rfc_group': None,
                 'mshost': None,
                 'msserv': None,
                 'snc_myname': None,

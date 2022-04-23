@@ -3,7 +3,7 @@
 import os
 import urllib
 from abc import ABC, abstractmethod
-from typing import Any, NoReturn, Optional, Union
+from typing import Any, NoReturn, Optional, Union, Dict
 from dataclasses import dataclass
 
 import xml.sax
@@ -95,7 +95,7 @@ class Response:
     """Response Dataclass
     It abstracts from requests Response class and can also be used for RFC requests"""
     text: str
-    headers: dict[str, str]
+    headers: Dict[str, str]
     status_code: int
     status_line: str = ""
 
@@ -125,9 +125,9 @@ class Connection(ABC):
         return f'{self._base_url}/{adt_uri}?{self._query_args}'
 
     @abstractmethod
-    def _execute_raw(self, method: str, uri: str, params: Optional[dict[str,
+    def _execute_raw(self, method: str, uri: str, params: Optional[Dict[str,
                                                                         str]],
-                     headers: Optional[dict[str, str]],
+                     headers: Optional[Dict[str, str]],
                      body: Optional[str]) -> Response:
         pass
 
@@ -135,8 +135,8 @@ class Connection(ABC):
     def execute(self,
                 method: str,
                 adt_uri: str,
-                params: Optional[dict[str, str]] = None,
-                headers: Optional[dict[str, str]] = None,
+                params: Optional[Dict[str, str]] = None,
+                headers: Optional[Dict[str, str]] = None,
                 body: Optional[str] = None,
                 accept: Optional[Union[str, list[str]]] = None,
                 content_type: Optional[str] = None) -> Response:
@@ -374,9 +374,9 @@ class ConnectionViaHTTP(Connection):
 
         return self._session
 
-    def _execute_raw(self, method: str, uri: str, params: Optional[dict[str,
+    def _execute_raw(self, method: str, uri: str, params: Optional[Dict[str,
                                                                         str]],
-                     headers: Optional[dict[str, str]], body: Optional[str]):
+                     headers: Optional[Dict[str, str]], body: Optional[str]):
 
         session = self._get_session()
 
@@ -400,16 +400,16 @@ class ConnectionViaRFC(Connection):
         super().__init__()
         self.rfc_conn = rfc_conn
 
-    def _make_request(self, method: str, uri: str, params: Optional[dict[str,
+    def _make_request(self, method: str, uri: str, params: Optional[Dict[str,
                                                                          str]],
-                      headers: Optional[dict[str, str]],
-                      body: Optional[str]) -> dict[str, Any]:
+                      headers: Optional[Dict[str, str]],
+                      body: Optional[str]) -> Dict[str, Any]:
         if params:
             params_encoded = "?" + urllib.parse.urlencode(params)
         else:
             params_encoded = ""
 
-        req: dict[str, Any] = {
+        req: Dict[str, Any] = {
             "REQUEST_LINE": {
                 "METHOD": method,
                 "URI": f"/{self._adt_uri}{uri}{params_encoded}",
@@ -442,9 +442,9 @@ class ConnectionViaRFC(Connection):
                         status_code=status_code,
                         status_line=status_line)
 
-    def _execute_raw(self, method: str, uri: str, params: Optional[dict[str,
+    def _execute_raw(self, method: str, uri: str, params: Optional[Dict[str,
                                                                         str]],
-                     headers: Optional[dict[str, str]],
+                     headers: Optional[Dict[str, str]],
                      body: Optional[str]) -> Response:
         req = self._make_request(method=method,
                                  uri=uri,
