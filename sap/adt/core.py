@@ -3,7 +3,7 @@
 import os
 import urllib
 from abc import ABC, abstractmethod
-from typing import Any, NoReturn, Optional, Union, Dict
+from typing import Any, NoReturn, Optional, Union, Dict, List
 from dataclasses import dataclass
 
 import xml.sax
@@ -138,7 +138,7 @@ class Connection(ABC):
                 params: Optional[Dict[str, str]] = None,
                 headers: Optional[Dict[str, str]] = None,
                 body: Optional[str] = None,
-                accept: Optional[Union[str, list[str]]] = None,
+                accept: Optional[Union[str, List[str]]] = None,
                 content_type: Optional[str] = None) -> Response:
         """Executes the given ADT URI as an HTTP request and returns
            the requests response object
