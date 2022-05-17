@@ -1,6 +1,7 @@
 """User management over RFC"""
 
 import datetime
+from copy import deepcopy
 
 from typing import Dict, Optional, Union, List
 
@@ -39,6 +40,19 @@ def add_to_dict_if_not_present(target_dict, target_key, value):
     return True
 
 
+def add_to_dict_or_merge(target_dict, target_key, value_dict):
+    """Adds the given value to the give dict as the given key
+       if the key is not in the give target dict, otherwise
+       assume the dict value is a dictionary and attempt to merge
+       wit the give value.
+    """
+
+    try:
+        target_dict[target_key].update(value_dict)
+    except KeyError:
+        target_dict[target_key] = value_dict
+
+
 def copy_dict_or_new(original: dict) -> dict:
     """Makes a copy of the original dict if not None;
        otherwise returns an empty dict.
@@ -65,7 +79,8 @@ def today_sap_date() -> str:
 class UserBuilder:
     """An utility class for building SAP user parameters"""
 
-    def __init__(self):
+    def __init__(self, template: RFCParams=None):
+        self._template = template
         self._username = None
         self._address = None
         self._logondata = None
@@ -100,6 +115,19 @@ class UserBuilder:
 
         return self._logondata
 
+    def set_template(self, template: RFCParams):
+        """Sets the default RFC params"""
+
+        old = self._template
+        self._template = template
+        return old
+
+    @property
+    def username(self) -> str:
+        """Returns user name for logon"""
+
+        return self._username
+
     def set_username(self, username: str):
         """Sets user name for logon"""
 
@@ -133,7 +161,11 @@ class UserBuilder:
     def set_alias(self, alias: str):
         """Sets user's alias for HTTP authentication"""
 
+        if alias is None:
+            alias = ""
+
         self._alias_data['USERALIAS'] = alias
+
         return self
 
     def set_type(self, typ: str):
@@ -179,7 +211,7 @@ class UserBuilder:
     def build_rfc_params(self) -> RFCParams:
         """Creates RFC parameters for Creating users"""
 
-        params: RFCParams = {}
+        params = dict() if self._template is None else deepcopy(self._template)
 
         self._rfc_params_add_username(params)
 
@@ -187,18 +219,18 @@ class UserBuilder:
         add_to_dict_if_not_present(address, 'FIRSTNAME', '')
         add_to_dict_if_not_present(address, 'LASTNAME', '')
         add_to_dict_if_not_present(address, 'E_MAIL', '')
-        params['ADDRESS'] = address
+        add_to_dict_or_merge(params, 'ADDRESS', address)
 
         self._rfc_params_add_password(params)
 
         alias = copy_dict_or_new(self._alias)
         add_to_dict_if_not_present(alias, 'USERALIAS', '')
-        params['ALIAS'] = alias
+        add_to_dict_or_merge(params, 'ALIAS', alias)
 
         logondata = copy_dict_or_new(self._logondata_data)
         add_to_dict_if_not_present(logondata, 'GLTGV', today_sap_date())
         add_to_dict_if_not_present(logondata, 'GLTGB', '20991231')
-        params['LOGONDATA'] = logondata
+        add_to_dict_or_merge(params, 'LOGONDATA', logondata)
 
         return params
 
@@ -228,7 +260,14 @@ class UserRoleAssignmentBuilder:
         self._roles = role_names
         return self
 
-    def build_rfc_params(self) -> Optional[RFCParams]:
+    @staticmethod
+    def get_rfc_call_dict(user, rfc_roles) -> RFCParams:
+        return {
+            'USERNAME': user,
+            'ACTIVITYGROUPS': rfc_roles
+        }
+
+    def build_rfc_params(self) -> RFCParams:
         """Creates RFC parameters"""
 
         if not self._roles:
@@ -244,10 +283,7 @@ class UserRoleAssignmentBuilder:
 
             rfc_table.append(table_row)
 
-        return {
-            'USERNAME': self._user,
-            'ACTIVITYGROUPS': rfc_table
-        }
+        return UserRoleAssignmentBuilder.get_rfc_call_dict(self._user, rfc_table)
 
 
 class UserProfileAssignmentBuilder:
@@ -263,7 +299,14 @@ class UserProfileAssignmentBuilder:
         self._profiles = profile_names
         return self
 
-    def build_rfc_params(self) -> Optional[RFCParams]:
+    @staticmethod
+    def get_rfc_call_dict(user, rfc_profiles) -> RFCParams:
+        return {
+            'USERNAME': user,
+            'PROFILES': rfc_profiles
+        }
+
+    def build_rfc_params(self) -> RFCParams:
         """Creates RFC parameters"""
 
         if not self._profiles:
@@ -275,10 +318,7 @@ class UserProfileAssignmentBuilder:
             table_row = {'BAPIPROF': profile_name}
             rfc_table.append(table_row)
 
-        return {
-            'USERNAME': self._user,
-            'PROFILES': rfc_table
-        }
+        return UserProfileAssignmentBuilder.get_rfc_call_dict(self._user, rfc_table)
 
 
 class UserManager:
@@ -303,17 +343,69 @@ class UserManager:
                                       'BAPI_USER_GET_DETAIL',
                                       {'USERNAME': username})
 
-    def create_user(self, connection, user_builder: UserBuilder) -> BAPIReturn:
+    def _create_user_with_params(self, connection, params: RFCParams):
         """Creates a new user for the given user data"""
 
-        rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CREATE1', user_builder.build_rfc_params())
+        rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CREATE1', params)
         return BAPIReturn(rfc_ret['RETURN'])
 
-    def change_user(self, connection, user_builder: UserBuilder) -> BAPIReturn:
+    def create_user(self, connection, user_builder: UserBuilder) -> UserId:
+        """Creates a new user for the given user data"""
+
+        return self._create_user_with_params(connection, user_builder.build_rfc_params())
+
+    def change_user(self, connection, user_builder: UserBuilder) -> UserId:
         """Updates user with the given user data"""
 
         rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CHANGE', user_builder.build_change_rfc_params())
         return BAPIReturn(rfc_ret['RETURN'])
+
+    def copy_user(self, connection, orig_name: UserId, user_builder: UserBuilder):
+        """Fetches the user orig_name and creates the user new_name
+        """
+
+        orig_data = self.fetch_user_details(connection, orig_name)
+
+        del orig_data['ADMINDATA']
+        del orig_data['IDENTITY']
+        del orig_data['ISLOCKED']
+        del orig_data['LASTMODIFIED']
+        del orig_data['SYSTEMS']
+        del orig_data['UCLASSSYS']
+
+        logondata = orig_data['LOGONDATA']
+        del logondata['PASSCODE']
+        del logondata['PWDSALTEDHASH']
+
+        roles = orig_data['ACTIVITYGROUPS']
+        del orig_data['ACTIVITYGROUPS']
+
+        profiles = orig_data['PROFILES']
+        del orig_data['PROFILES']
+
+        user_builder.set_template(orig_data)
+
+        bapi_ret = self.create_user(connection, user_builder)
+
+        if bapi_ret.is_error:
+            return bapi_ret
+
+        if roles:
+            self._call_assign_roles(
+                connection,
+                UserRoleAssignmentBuilder.get_rfc_call_dict(
+                    user_builder.username,
+                    roles
+                ))
+
+        if profiles:
+            self._call_assign_profiles(
+                connection,
+                UserProfileAssignmentBuilder.get_rfc_call_dict(
+                    user_builder.username,
+                    profiles
+                ))
+
 
     # pylint: disable=no-self-use
     def user_role_assignment_builder(self, username: str) -> UserRoleAssignmentBuilder:
@@ -321,10 +413,15 @@ class UserManager:
 
         return UserRoleAssignmentBuilder(username)
 
+    def _call_assign_roles(self, connection, roles: RFCParams) -> None:
+        """Assigns roles"""
+
+        self._call_bapi_method(connection, 'BAPI_USER_ACTGROUPS_ASSIGN', roles)
+
     def assign_roles(self, connection, roles_builder: UserRoleAssignmentBuilder) -> None:
         """Assigns roles"""
 
-        self._call_bapi_method(connection, 'BAPI_USER_ACTGROUPS_ASSIGN', roles_builder.build_rfc_params())
+        self._call_bapi_method(connection, roles_builder.build_rfc_params())
 
     # pylint: disable=no-self-use
     def user_profile_assignment_builder(self, username: str) -> UserProfileAssignmentBuilder:
@@ -332,7 +429,12 @@ class UserManager:
 
         return UserProfileAssignmentBuilder(username)
 
+    def _call_assign_profiles(self, connection, profiles: RFCParams) -> None:
+        """Assigns profiles"""
+
+        self._call_bapi_method(connection, 'BAPI_USER_PROFILES_ASSIGN', profiles)
+
     def assign_profiles(self, connection, profiles_builder: UserProfileAssignmentBuilder) -> None:
         """Assigns profiles"""
 
-        self._call_bapi_method(connection, 'BAPI_USER_PROFILES_ASSIGN', profiles_builder.build_rfc_params())
+        self._call_bapi_method(connection, profiles_builder.build_rfc_params())
