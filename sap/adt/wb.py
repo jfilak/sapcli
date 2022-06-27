@@ -134,7 +134,6 @@ class IOCList(metaclass=OrderedClassMembers):
     def __init__(self):
         self.entries = []
 
-    # pylint: disable=no-self-use
     @property
     def objtype(self):
         """Monkey Patch ADTObject"""

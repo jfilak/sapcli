@@ -178,7 +178,6 @@ class PrintConsole:
         self._out = out_file if out_file is not None else sys.stdout
         self._err = err_file if err_file is not None else sys.stderr
 
-    # pylint: disable=no-self-use
     def _do_print(self, objects, file, sep=' ', end='\n'):
         print(*objects, sep=sep, end=end, file=file)
 

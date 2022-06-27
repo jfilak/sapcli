@@ -160,7 +160,6 @@ class Connection:
 
         raise HTTPRequestError(req, res)
 
-    # pylint: disable=no-self-use
     def _retrieve(self, session, method, url, params=None, headers=None, body=None):
         """A helper method for easier testing."""
 

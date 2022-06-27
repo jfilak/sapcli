@@ -86,14 +86,12 @@ class Program(BaseProgram):
 
         self._program_type = types[value]
 
-    # pylint: disable=no-self-use
     @property
     def case_sensitive(self):
         """True if the program is case sensitive"""
 
         return True
 
-    # pylint: disable=no-self-use
     @property
     def application_database(self):
         """Application database"""

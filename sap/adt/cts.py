@@ -494,7 +494,6 @@ class WorkbenchBuilder:
 
         return task
 
-    # pylint: disable=no-self-use
     def process_abap_object_xml(self, object_elem):
         """Converts Object XML into a python object"""
 

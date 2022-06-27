@@ -244,7 +244,6 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         obj = self.instance(connection, args.name, args)
         print(obj.text)
 
-    # pylint: disable=no-self-use
     def build_activator(self, args):
         """For children to customize"""
 

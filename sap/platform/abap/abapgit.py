@@ -107,7 +107,6 @@ class AGXMLObjectAdapter:
 
         return self.current_body_type
 
-    # pylint: disable=no-self-use
     def start(self, name, attrs):
         """Would open Element"""
 
@@ -131,7 +130,6 @@ class AGXMLObjectAdapter:
         self.current_body_name = self.current_body_type.__name__
         mod_log().debug('Moving pointer the object: %s', name)
 
-    # pylint: disable=no-self-use
     def end(self, name, _):
         """Would close Elemen"""
 

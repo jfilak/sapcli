@@ -17,9 +17,9 @@ SUBC_EXECUTABLE_PROGRAM = '1'
 SUBC_INCLUDE = 'I'
 
 
-# pylint: disable=invalid-name
 # pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
 class VSEOCLASS(Structure):
     """Class metadata"""
 
@@ -113,9 +113,9 @@ class PROGDIR(Structure):
     DBNA: str
 
 
-# pylint: disable=invalid-name
 # pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
 class TPOOL_LINE(Structure):
     """Program texts"""
 

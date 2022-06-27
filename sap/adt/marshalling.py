@@ -142,6 +142,7 @@ class ElementHandler:
             raise MarshallingError()
 
         try:
+            # pylint: disable=unnecessary-dunder-call
             self.attributes[attr_name].__set__(self.obj, value)
             get_logger().debug('Set XML attribute property: %s', attr_name)
         except AttributeError as ex:
@@ -190,6 +191,7 @@ class ElementHandler:
             get_logger().debug('The property is not a text node')
             return
 
+        # pylint: disable=unnecessary-dunder-call
         self.textproperty.__set__(self.obj, self._textvalue)
 
     def load_definitions(self, obj):
@@ -332,7 +334,6 @@ class Marshal:
         self._build_tree(root, adt_object, declared_ns)
         return root
 
-    # pylint: disable=no-self-use
     def _declare_xmlns(self, root, xmlns, declared_ns=None):
         """Adds the xmlns attribute if such a Namespace hasn't already been
            declared any parent nodes.

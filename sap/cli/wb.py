@@ -67,7 +67,6 @@ class ObjectActivationWorker:
 
         self._warnings_as_errors = value
 
-    # pylint: disable=no-self-use
     def begin(self, count):
         """Reports start of activation"""
 
@@ -76,7 +75,6 @@ class ObjectActivationWorker:
         else:
             printout(f'Activating {count} objects:')
 
-    # pylint: disable=no-self-use
     def start_object(self, name, index, count):
         """Reports start of object activation"""
 
@@ -86,7 +84,6 @@ class ObjectActivationWorker:
 
         printout('*', name, end=end)
 
-    # pylint: disable=no-self-use
     def handle_message(self, msg):
         """Reports an activation message"""
 

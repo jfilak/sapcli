@@ -679,7 +679,6 @@ class ADTObjectEditor:
 class ADTObjectSourceEditor(ADTObjectEditor):
     """Source Code actions"""
 
-    # pylint: disable=no-self-use
     def get_headers(self):
         """Returns Request HTTP headers"""
 
@@ -801,7 +800,6 @@ class ADTObjectReferences(metaclass=OrderedClassMembers):
         if references:
             self.references.extend(references)
 
-    # pylint: disable=no-self-use
     @property
     def objtype(self):
         """Monkey Patch ADTObject"""

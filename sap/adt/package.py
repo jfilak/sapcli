@@ -109,7 +109,6 @@ class Package(ADTObject):
         self._metadata.package_reference.name = name
         self._appcomp = Reference()
 
-    # pylint: disable=no-self-use
     @xml_attribute('adtcore:version', deserialize=False)
     def active(self):
         """Version in regards of activation"""
@@ -130,7 +129,6 @@ class Package(ADTObject):
         return self._superpkg
 
     @xml_element('pak:applicationComponent')
-    # pylint: disable=no-self-use
     def app_component(self):
         """The package's application component
         """
@@ -145,7 +143,6 @@ class Package(ADTObject):
         return self._transport
 
     @xml_element('pak:translation', deserialize=False)
-    # pylint: disable=no-self-use
     def translation(self):
         """The package's translation flag
         """
@@ -153,7 +150,6 @@ class Package(ADTObject):
         return None
 
     @xml_element('pak:useAccesses', deserialize=False)
-    # pylint: disable=no-self-use
     def use_accesses(self):
         """The package's Use Accesses
         """
@@ -161,7 +157,6 @@ class Package(ADTObject):
         return None
 
     @xml_element('pak:packageInterfaces', deserialize=False)
-    # pylint: disable=no-self-use
     def package_interfaces(self):
         """The package's Interfaces
         """
@@ -169,7 +164,6 @@ class Package(ADTObject):
         return None
 
     @xml_element('pak:subPackages', deserialize=False)
-    # pylint: disable=no-self-use
     def sub_packages(self):
         """The package's sub-packages
         """

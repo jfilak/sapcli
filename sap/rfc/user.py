@@ -284,13 +284,11 @@ class UserProfileAssignmentBuilder:
 class UserManager:
     """Proxy to SAP API managing Users"""
 
-    # pylint: disable=no-self-use
     def _call_bapi_method(self, connection, method_name, kwargs):
         resp = connection.call(method_name, **kwargs)
         BAPIError.raise_for_error(resp['RETURN'], resp)
         return resp
 
-    # pylint: disable=no-self-use
     def user_builder(self) -> UserBuilder:
         """Returns instance of User Parameters builder"""
 
@@ -315,7 +313,6 @@ class UserManager:
         rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CHANGE', user_builder.build_change_rfc_params())
         return BAPIReturn(rfc_ret['RETURN'])
 
-    # pylint: disable=no-self-use
     def user_role_assignment_builder(self, username: str) -> UserRoleAssignmentBuilder:
         """Returns instance of User Role Assignment builder"""
 
@@ -326,7 +323,6 @@ class UserManager:
 
         self._call_bapi_method(connection, 'BAPI_USER_ACTGROUPS_ASSIGN', roles_builder.build_rfc_params())
 
-    # pylint: disable=no-self-use
     def user_profile_assignment_builder(self, username: str) -> UserProfileAssignmentBuilder:
         """Returns instance of User Profile Assignment builder"""
 
