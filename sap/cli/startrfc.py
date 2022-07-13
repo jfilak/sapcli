@@ -10,7 +10,6 @@ from sap.cli.core import InvalidCommandLineError
 import sap.rfc.bapi
 from sap.rfc.core import try_pyrfc_exception_type
 
-
 FORMATTERS = {
     'human': pprint.PrettyPrinter(indent=2).pformat,
     'json': json.dumps

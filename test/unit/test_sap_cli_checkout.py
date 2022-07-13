@@ -12,7 +12,7 @@ import sap.cli.checkout
 import sap.platform.abap
 import sap.platform.abap.abapgit
 
-from mock import Connection
+from mock import ConnectionViaHTTP as Connection
 
 
 def parse_args(argv):

@@ -9,12 +9,12 @@ import sap.adt.atc
 import sap.adt.objects
 from sap.adt.marshalling import Marshal
 
-from mock import Connection, Response, Request
+from mock import ConnectionViaHTTP as Connection, Response, Request
 from fixtures_adt_atc import ADT_XML_ATC_CUSTOMIZING, ADT_XML_ATC_CUSTOMIZING_ATTRIBUTES, ADT_XML_ATC_RUN_REQUEST_CLASS, \
                              ADT_XML_ATC_RUN_RESPONSE_FAILURES, ADT_XML_ATC_RUN_RESPONSE_NO_OBJECTS, \
                              ADT_XML_ATC_WORKLIST_EMPTY, ADT_XML_ATC_WORKLIST_CLASS, ADT_XML_ATC_RUN_REQUEST_PACKAGE, \
                              ADT_XML_PROFILES_TABLE, ADT_XML_PROFILES_TRAN_TABLE, ADT_XML_PROFILES_CHECKS_TABLE, \
-                             ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE            
+                             ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE
 
 
 HEADER_ACCEPT = f'application/xml, {sap.adt.atc.CUSTOMIZING_MIME_TYPE_V1}'

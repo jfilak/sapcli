@@ -7,7 +7,7 @@ from io import StringIO
 
 import sap.cli.function
 
-from mock import Connection, Response
+from mock import ConnectionViaHTTP as Connection, Response
 from fixtures_adt import EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK
 from fixtures_adt_function import (
         CLI_CREATE_FUNCTION_GROUP_ADT_XML,

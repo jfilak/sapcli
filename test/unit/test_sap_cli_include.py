@@ -9,7 +9,7 @@ import sap.cli.include
 
 from mock import (
     ConsoleOutputTestCase,
-    Connection,
+    ConnectionViaHTTP as Connection,
     PatcherTestCase,
     Response
 )

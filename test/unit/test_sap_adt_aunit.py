@@ -14,7 +14,7 @@ from fixtures_adt_aunit import (
     AUNIT_NO_EXECUTION_TIME_RESULTS_XML
 )
 
-from mock import Connection
+from mock import ConnectionViaHTTP as Connection
 
 
 class TestAUnit(unittest.TestCase):

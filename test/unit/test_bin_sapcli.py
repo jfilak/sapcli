@@ -48,7 +48,7 @@ class TestParseCommandLine(unittest.TestCase):
                 'password': 'Down1oad',
                 'verify': False,
                 'verbose_count': 0,
-                'group': None,
+                'rfc_group': None,
                 'mshost': None,
                 'msserv': None,
                 'snc_myname': None,
@@ -56,6 +56,7 @@ class TestParseCommandLine(unittest.TestCase):
                 'snc_qop': None,
                 'snc_lib': "somelib.dylib",
                 'sysid': None,
+                'rest_over_rfc': False
             })
 
     def test_args_no_ashost(self):

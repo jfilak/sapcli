@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 
 import sap.cli.program
 
-from mock import Connection
+from mock import ConnectionViaHTTP as Connection
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 
 

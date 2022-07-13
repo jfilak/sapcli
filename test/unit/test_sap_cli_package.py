@@ -13,7 +13,7 @@ from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionResourceNotF
 import sap.cli.package
 import sap.cli.core
 
-from mock import Connection, Response, ConsoleOutputTestCase, PatcherTestCase
+from mock import ConnectionViaHTTP as Connection, Response, ConsoleOutputTestCase, PatcherTestCase
 from fixtures_adt import EMPTY_RESPONSE_OK, ERROR_XML_PACKAGE_ALREADY_EXISTS
 from fixtures_adt_package import GET_PACKAGE_ADT_XML, GET_PACKAGE_ADT_XML_NOT_FOUND
 

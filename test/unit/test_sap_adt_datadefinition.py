@@ -5,7 +5,7 @@ import unittest
 import sap.adt
 import sap.adt.wb
 
-from mock import Connection, Response
+from mock import ConnectionViaHTTP as Connection, Response
 
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 

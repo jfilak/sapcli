@@ -15,7 +15,7 @@ import sap.cli.rap
 
 from infra import generate_parse_args
 
-from mock import Connection, Response, Request
+from mock import ConnectionViaHTTP as Connection, Request
 from fixtures_adt_wb import RESPONSE_ACTIVATION_OK
 
 parse_args = generate_parse_args(sap.cli.rap.CommandGroup())

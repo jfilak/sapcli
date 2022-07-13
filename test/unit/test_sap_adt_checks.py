@@ -9,7 +9,7 @@ import sap.adt
 import sap.adt.checks
 from sap.adt.marshalling import Marshal
 
-from mock import Connection, Response, Request
+from mock import ConnectionViaHTTP as Connection, Response
 from fixtures_adt_checks import ADT_XML_CHECK_REPORTERS, ADT_XML_RUN_CHECK_2_REPORTERS
 
 

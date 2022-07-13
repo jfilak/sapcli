@@ -1,6 +1,6 @@
 """Base classes for ADT functionality modules"""
 
-from sap.adt.core import Connection  # noqa: F401
+from sap.adt.core import ConnectionViaHTTP, ConnectionViaRFC, Connection  # noqa: F401
 from sap.adt.function import FunctionGroup, FunctionModule  # noqa: F401
 from sap.adt.objects import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers  # noqa: F401
 from sap.adt.objects import Class, Interface, DataDefinition  # noqa: F401

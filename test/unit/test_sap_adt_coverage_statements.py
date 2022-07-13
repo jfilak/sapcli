@@ -3,7 +3,7 @@
 import unittest
 
 from fixtures_adt_coverage import ACOVERAGE_STATEMENTS_RESULTS_XML
-from mock import Connection
+from mock import ConnectionViaHTTP as Connection
 from sap.adt.acoverage_statements import parse_statements_response, ACoverageStatements, StatementRequest, StatementsBulkRequest
 
 

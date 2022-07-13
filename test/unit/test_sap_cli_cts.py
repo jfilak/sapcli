@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from sap.errors import SAPCliError
 import sap.cli.cts
 
-from mock import Connection, Response, ConsoleOutputTestCase, PatcherTestCase
+from mock import ConnectionViaHTTP as Connection, Response, ConsoleOutputTestCase, PatcherTestCase
 from fixtures_adt import (
     TASK_NUMBER,
     TRANSPORT_NUMBER,

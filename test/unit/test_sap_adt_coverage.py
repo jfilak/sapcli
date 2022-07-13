@@ -11,7 +11,7 @@ from sap.adt.objects import ADTObjectSets
 from fixtures_adt import DummyADTObject
 from fixtures_adt_aunit import AUNIT_RESULTS_XML, AUNIT_NO_TEST_RESULTS_XML
 
-from mock import Connection
+from mock import ConnectionViaHTTP as Connection
 
 
 class TestACoverage(unittest.TestCase):

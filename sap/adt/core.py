@@ -1,6 +1,10 @@
 """Base ADT functionality module"""
 
 import os
+import urllib
+from abc import ABC, abstractmethod
+from typing import Any, NoReturn, Optional, Union, Dict, List
+from dataclasses import dataclass
 
 import xml.sax
 from xml.sax.handler import ContentHandler
@@ -15,8 +19,7 @@ from sap.rest.errors import (
     HTTPRequestError,
     UnexpectedResponseContent,
     UnauthorizedError,
-    TimedOutRequestError
-)
+    TimedOutRequestError)
 
 
 def mod_log():
@@ -87,9 +90,144 @@ def _get_collection_accepts(discovery_xml):
     return xml_handler.result
 
 
+@dataclass
+class Response:
+    """Response Dataclass
+    It abstracts from requests Response class and can also be used for RFC requests"""
+    text: str
+    headers: Dict[str, str]
+    status_code: int
+    status_line: str = ""
+
+
 # pylint: disable=too-many-instance-attributes
-class Connection:
-    """ADT Connection for HTTP communication built on top Python requests.
+class Connection(ABC):
+    """Base class for ADT Connection for HTTP communication.
+    """
+
+    def __init__(self):
+        self._adt_uri = 'sap/bc/adt'
+        self._query_args = ''
+        self._base_url = ''
+        self._collection_types = None
+
+    @property
+    def uri(self) -> str:
+        """ADT path for building URLs (e.g. sap/bc/adt)"""
+
+        return self._adt_uri
+
+    def _build_adt_url(self, adt_uri) -> str:
+        """Creates complete URL from a fragment of ADT URI
+           where the fragment usually refers to an ADT object
+        """
+
+        return f'{self._base_url}/{adt_uri}?{self._query_args}'
+
+    @abstractmethod
+    def _execute_raw(self, method: str, uri: str, params: Optional[Dict[str,
+                                                                        str]],
+                     headers: Optional[Dict[str, str]],
+                     body: Optional[str]) -> Response:
+        pass
+
+    # pylint: disable=too-many-arguments
+    def execute(self,
+                method: str,
+                adt_uri: str,
+                params: Optional[Dict[str, str]] = None,
+                headers: Optional[Dict[str, str]] = None,
+                body: Optional[str] = None,
+                accept: Optional[Union[str, List[str]]] = None,
+                content_type: Optional[str] = None) -> Response:
+        """Executes the given ADT URI as an HTTP request and returns
+           the requests response object
+        """
+
+        url = self._build_adt_url(adt_uri)
+
+        if headers is None:
+            headers = {}
+
+        if accept is not None:
+            if isinstance(accept, list):
+                headers['Accept'] = ', '.join(accept)
+            else:
+                headers['Accept'] = accept
+
+        if content_type is not None:
+            headers['Content-Type'] = content_type
+
+        if not headers:
+            headers = None
+
+        method = method.upper()
+
+        resp = self._execute_raw(method, url, params, headers, body)
+
+        if accept:
+            resp_content_type = resp.headers['Content-Type']
+
+            if isinstance(accept, str):
+                accept = [accept]
+
+            if not any((resp_content_type.startswith(accepted)
+                        for accepted in accept)):
+                raise UnexpectedResponseContent(accept, resp_content_type,
+                                                resp.text)
+
+        return resp
+
+    def get_text(self, relativeuri):
+        """Executes a GET HTTP request with the headers Accept = text/plain.
+        """
+
+        return self.execute('GET',
+                            relativeuri,
+                            headers={
+                                'Accept': 'text/plain'
+                            }).text
+
+    @property
+    def collection_types(self):
+        """Returns dictionary of Object type URI fragment and list of
+           supported MIME types.
+        """
+
+        if self._collection_types is None:
+            response = self.execute('GET', 'discovery')
+            self._collection_types = _get_collection_accepts(response.text)
+
+        return self._collection_types
+
+    def get_collection_types(self, basepath, default_mimetype):
+        """Returns the accepted object XML format - mime type"""
+
+        uri = f'/{self._adt_uri}/{basepath}'
+        try:
+            return self.collection_types[uri]
+        except KeyError:
+            return [default_mimetype]
+
+    def _handle_http_error(self, req, res: Response) -> NoReturn:
+        """Raise the correct exception based on response content."""
+
+        if res.headers['content-type'] == 'application/xml':
+            error = new_adt_error_from_xml(res.text)
+
+            if error is not None:
+                raise error
+
+        # else - unformatted text
+        if res.status_code == 401:
+            user = getattr(self, "_user", default="")  # type: ignore
+            raise UnauthorizedError(req, res, user)
+
+        raise HTTPRequestError(req, res)
+
+
+class ConnectionViaHTTP(Connection):
+    """ADT Connection using requests and standard HTTP protocol.
     """
 
     # pylint: disable=too-many-arguments
@@ -104,6 +242,7 @@ class Connection:
             - ssl: boolean to switch between http and https
             - verify: boolean to switch SSL validation on/off
         """
+        super().__init__()
 
         setup_keepalive()
 
@@ -123,7 +262,6 @@ class Connection:
         self._user = user
         self._auth = HTTPBasicAuth(user, password)
         self._session = None
-        self._collection_types = None
         self._timeout = config_get('http_timeout')
 
     @property
@@ -131,19 +269,6 @@ class Connection:
         """Connected user"""
 
         return self._user
-
-    @property
-    def uri(self):
-        """ADT path for building URLs (e.g. sap/bc/adt)"""
-
-        return self._adt_uri
-
-    def _build_adt_url(self, adt_uri):
-        """Creates complete URL from a fragment of ADT URI
-           where the fragment usually refers to an ADT object
-        """
-
-        return f'{self._base_url}/{adt_uri}?{self._query_args}'
 
     def _handle_http_error(self, req, res):
         """Raise the correct exception based on response content."""
@@ -248,66 +373,89 @@ class Connection:
 
         return self._session
 
-    def execute(self, method, adt_uri, params=None, headers=None, body=None, accept=None, content_type=None):
-        """Executes the given ADT URI as an HTTP request and returns
-           the requests response object
-        """
+    def _execute_raw(self, method: str, uri: str, params: Optional[Dict[str,
+                                                                        str]],
+                     headers: Optional[Dict[str, str]], body: Optional[str]):
 
         session = self._get_session()
 
-        url = self._build_adt_url(adt_uri)
+        resp = self._execute_with_session(session,
+                                          method,
+                                          uri,
+                                          params=params,
+                                          headers=headers,
+                                          body=body)
 
-        if headers is None:
-            headers = {}
+        return Response(text=resp.text or "",
+                        headers=resp.headers or {},
+                        status_code=resp.status_code,
+                        status_line="")
 
-        if accept is not None:
-            if isinstance(accept, list):
-                headers['Accept'] = ', '.join(accept)
-            else:
-                headers['Accept'] = accept
 
-        if content_type is not None:
-            headers['Content-Type'] = content_type
+class ConnectionViaRFC(Connection):
+    """ConnetionViaRFC is a ADT Connection that dispatches the HTTP requests via SAP's RFC connector"""
 
-        if not headers:
-            headers = None
+    def __init__(self, rfc_conn):
+        super().__init__()
+        self.rfc_conn = rfc_conn
 
-        resp = self._execute_with_session(session, method, url, params=params, headers=headers, body=body)
+    def _make_request(self, method: str, uri: str, params: Optional[Dict[str,
+                                                                         str]],
+                      headers: Optional[Dict[str, str]],
+                      body: Optional[str]) -> Dict[str, Any]:
+        if params:
+            params_encoded = "?" + urllib.parse.urlencode(params)
+        else:
+            params_encoded = ""
 
-        if accept:
-            resp_content_type = resp.headers['Content-Type']
+        req: Dict[str, Any] = {
+            "REQUEST_LINE": {
+                "METHOD": method,
+                "URI": f"/{self._adt_uri}{uri}{params_encoded}",
+            }
+        }
 
-            if isinstance(accept, str):
-                accept = [accept]
+        if headers:
+            req['HEADER_FIELDS'] = [{
+                "NAME": name,
+                "VALUE": value
+            } for name, value in headers.items()]
 
-            if not any((resp_content_type.startswith(accepted) for accepted in accept)):
-                raise UnexpectedResponseContent(accept, resp_content_type, resp.text)
+        if body:
+            req["MESSAGE_BODY"] = body.encode("utf-8")
 
-        return resp
+        return req
 
-    def get_text(self, relativeuri):
-        """Executes a GET HTTP request with the headers Accept = text/plain.
-        """
+    @staticmethod
+    def _parse_response(resp) -> Response:
+        status_code = int(resp["STATUS_LINE"]["STATUS_CODE"])
+        status_line = resp['STATUS_LINE']['REASON_PHRASE']
 
-        return self.execute('GET', relativeuri, headers={'Accept': 'text/plain'}).text
+        body = resp["MESSAGE_BODY"].decode("utf-8", "strict")
+        headers = {}
+        for field in resp["HEADER_FIELDS"]:
+            headers[field["NAME"].lower()] = field["VALUE"]
 
-    @property
-    def collection_types(self):
-        """Returns dictionary of Object type URI fragment and list of
-           supported MIME types.
-        """
+        return Response(text=body,
+                        headers=headers,
+                        status_code=status_code,
+                        status_line=status_line)
 
-        if self._collection_types is None:
-            response = self.execute('GET', 'discovery')
-            self._collection_types = _get_collection_accepts(response.text)
+    def _execute_raw(self, method: str, uri: str, params: Optional[Dict[str,
+                                                                        str]],
+                     headers: Optional[Dict[str, str]],
+                     body: Optional[str]) -> Response:
+        req = self._make_request(method=method,
+                                 uri=uri,
+                                 params=params,
+                                 headers=headers,
+                                 body=body)
+        mod_log().info('Executing RFC request line %s', req)
+        resp = self.rfc_conn.call("SADT_REST_RFC_ENDPOINT", REQUEST=req)
+        mod_log().info('Got response %s', resp)
+        parsed_resp = self._parse_response(resp["RESPONSE"])
 
-        return self._collection_types
+        if parsed_resp.status_code >= 400:
+            self._handle_http_error(req, parsed_resp)
 
-    def get_collection_types(self, basepath, default_mimetype):
-        """Returns the accepted object XML format - mime type"""
-
-        uri = f'/{self._adt_uri}/{basepath}'
-        try:
-            return self.collection_types[uri]
-        except KeyError:
-            return [default_mimetype]
+        return parsed_resp

@@ -7,7 +7,7 @@ from io import StringIO
 
 import sap.cli.abapclass
 
-from mock import Connection, Response
+from mock import ConnectionViaHTTP as Connection, Response
 from fixtures_adt import (EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 from fixtures_adt_clas import GET_CLASS_ADT_XML

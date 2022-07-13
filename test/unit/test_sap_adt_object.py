@@ -9,7 +9,7 @@ import sap.adt.objects
 import sap.adt.wb
 
 from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, GET_DUMMY_OBJECT_ADT_XML
-from mock import Response, Connection
+from mock import Response, ConnectionViaHTTP as Connection
 
 
 ACTIVATE_RESPONSE_FAILED='''<?xml version="1.0" encoding="utf-8"?>

@@ -83,6 +83,40 @@ Your SAP user's password.
 This parameter is mandatory and if you do not provided it on the command line
 or as the environment variable `SAP_PASSWORD`, sapcli will prompt you for it.
 
+### --mshost, --msport
+
+Message server address resp. port, if connecting via RFC to a Netweaver server via a load balancer.
+
+### --sysid
+
+System ID if connection via a message server.
+
+### --rfc_group
+
+Group used if connection via message server.
+
+### --snc_qop
+
+SAP Secure Login Client's quality of protection.
+
+### --snc_myname
+
+Your name on SAP Secure Login Client.
+
+Example: `"p:CN=I0123456, O=SAP-AG, C=DE"`
+
+### --snc_partnername
+
+SAP Secure Login Client Partner name
+
+### --snc_lib
+
+Location of SAP Secure Login Client Library. E.g., `/Applications/Secure Login Client.app/Contents/MacOS/lib/libsapcrypto.dylib` for mac.
+
+### --rest-over-rfc
+
+Use RFC connection to tunnel REST request to the Netweaver server. This is useful if the HTTP are firewalled of you want to use SAP Secure Login Client for authentication.
+
 ## Environment variables
 
 - `SAP_ASHOST` : default value for the command line parameter --ashost
@@ -100,3 +134,7 @@ or as the environment variable `SAP_PASSWORD`, sapcli will prompt you for it.
 - `SAPCLI_LOG_LEVEL` : pass the desired log level - the lower number the more
   messages (`CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10, NOTSET=0`)
 - `SAPCLI_HTTP_TIMEOUT` : floating point number representing timeout for HTTP requests; default=900s
+- `SAP_MSHOST`, `SAP_MSSERV` default values for command line parameters --mshost resp. --msserv.
+- `SAP_GROUP` default value for --rfc_group
+- `SNC_QOP`, `SNC_MYNAME`, `SNC_PARTNERNAME`, `SNC_LIB` default values for command line parameters of --snc_qop, --snc_myname, --snc_partnername, --snc_lib
+- `SAP_REST_OVER_RFC` default value for command line parameter --rest-over-rfc.
