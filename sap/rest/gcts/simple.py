@@ -1,5 +1,7 @@
 """Simple API for gCTS operations"""
 
+import json
+
 from sap import get_logger
 from sap.rest.errors import HTTPRequestError
 from sap.rest.gcts.remote_repo import Repository
@@ -94,6 +96,14 @@ def delete(connection, name):
     return Repository(connection, name).delete()
 
 
+def get_user_credentials(connection):
+    """Get Token for the currently logged in user"""
+
+    response = connection.get_json('user')
+    user_credentials = [cred for cred in response['user']['config'] if cred['key'] == 'USER_AUTH_CRED_ENDPOINTS']
+    return json.loads(user_credentials[0]['value'])
+
+
 def set_user_api_token(connection, api_url, token):
     """Set Token for the currently logged in user"""
 
@@ -103,6 +113,20 @@ def set_user_api_token(connection, api_url, token):
         'password': '',
         'token': token,
         'type': 'token'
+    }
+
+    connection.post_obj_as_json('user/credentials', body)
+
+
+def delete_user_credentials(connection, api_url):
+    """Delete Token for the currently logged in user"""
+
+    body = {
+        'endpoint': api_url,
+        'user': '',
+        'password': '',
+        'token': '',
+        'type': 'none'
     }
 
     connection.post_obj_as_json('user/credentials', body)

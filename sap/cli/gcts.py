@@ -74,6 +74,42 @@ def print_gcts_commit(console, commit_data):
     console.printout('\n   ', commit_data['message'])
 
 
+class TableWriter:
+    """A helper class for formatting a list of objects into a table"""
+
+    def __init__(self, data, attrs, headers):
+        self._headers = headers
+        self._widths = [len(h) for h in headers]
+        self._lines = []
+
+        for item in data:
+            line = []
+
+            for i, attr in enumerate(attrs):
+                if isinstance(item, dict):
+                    val = str(item[attr])
+                else:
+                    val = str(getattr(item, attr))
+
+                if self._widths[i] < len(val):
+                    self._widths[i] = len(val)
+
+                line.append(val)
+
+            self._lines.append(line)
+
+    def printout(self, console, separator=" | "):
+        """Prints out the content"""
+
+        fmt = separator.join((f'{{:<{w}}}' for w in self._widths))
+
+        console.printout(fmt.format(*self._headers))
+        console.printout('-' * (sum(self._widths) + len(separator) * (len(self._headers) - 1)))
+
+        for line in self._lines:
+            console.printout(fmt.format(*line))
+
+
 class UserCommandGroup(sap.cli.core.CommandGroup):
     """Container for user commands."""
 
@@ -81,13 +117,36 @@ class UserCommandGroup(sap.cli.core.CommandGroup):
         super().__init__('user')
 
 
+@UserCommandGroup.argument('-f', '--format', choices=['HUMAN', 'JSON'], default='HUMAN')
+@UserCommandGroup.command('get-credentials')
+def get_user_credentials(connection, args):
+    """Get user credentials"""
+
+    user_credentials = sap.rest.gcts.simple.get_user_credentials(connection)
+    console = sap.cli.core.get_console()
+    if args.format == 'JSON':
+        console.printout(user_credentials)
+    else:
+        columns = ('endpoint', 'type', 'state')
+        headers = ('Endpoint', 'Type', 'State')
+        TableWriter(user_credentials, columns, headers).printout(console)
+
+
 @UserCommandGroup.argument('-t', '--token')
 @UserCommandGroup.argument('-a', '--api-url')
 @UserCommandGroup.command('set-credentials')
-def user_credentials(connection, args):
+def set_user_credentials(connection, args):
     """Set user credentials"""
 
     sap.rest.gcts.simple.set_user_api_token(connection, args.api_url, args.token)
+
+
+@UserCommandGroup.argument('-a', '--api-url')
+@UserCommandGroup.command('delete-credentials')
+def delete_user_credentials(connection, args):
+    """Delete user credentials"""
+
+    sap.rest.gcts.simple.delete_user_credentials(connection, args.api_url)
 
 
 class RepoCommandGroup(sap.cli.core.CommandGroup):
@@ -126,39 +185,6 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
         repo_parser = gcts_group.add_parser(self.repo_grp.name)
         self.repo_grp.install_parser(repo_parser)
-
-
-class TableWriter:
-    """A helper class for formatting a list of objects into a table"""
-
-    def __init__(self, data, attrs, headers):
-        self._headers = headers
-        self._widths = [len(h) for h in headers]
-        self._lines = []
-
-        for item in data:
-            line = []
-
-            for i, attr in enumerate(attrs):
-                val = str(getattr(item, attr))
-
-                if self._widths[i] < len(val):
-                    self._widths[i] = len(val)
-
-                line.append(val)
-
-            self._lines.append(line)
-
-    def printout(self, console, separator=" | "):
-        """Prints out the content"""
-
-        fmt = separator.join((f'{{:<{w}}}' for w in self._widths))
-
-        console.printout(fmt.format(*self._headers))
-        console.printout('-' * (sum(self._widths) + len(separator) * (len(self._headers) - 1)))
-
-        for line in self._lines:
-            console.printout(fmt.format(*line))
 
 
 @CommandGroup.command()
