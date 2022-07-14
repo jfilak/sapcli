@@ -597,6 +597,48 @@ class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
         fake_set_url.assert_called_once_with(new_url)
 
 
+class TestqCTSUserGetCredentials(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = None
+        self.api_url = 'https://api.github.com/v3/'
+        self.fake_get_credentials = self.patch('sap.rest.gcts.simple.get_user_credentials')
+        self.fake_get_credentials.return_value = [{'endpoint': self.api_url, 'type': 'token', 'state': 'false'}]
+
+    def get_credentials_cmd(self, *args, **kwargs):
+        return parse_args('user', 'get-credentials', *args, **kwargs)
+
+    def test_get_user_credentials_json(self):
+        output_format = 'JSON'
+
+        the_cmd = self.get_credentials_cmd('-f', output_format)
+        the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertConsoleContents(self.console,
+                                   stdout=f"[{{'endpoint': '{self.api_url}', 'type': 'token', 'state': 'false'}}]\n")
+
+    def test_get_user_credentials_human(self):
+        output_format = 'HUMAN'
+
+        the_cmd = self.get_credentials_cmd('-f', output_format)
+        the_cmd.execute(self.fake_get_credentials, the_cmd)
+
+        self.assertConsoleContents(
+            self.console,
+            stdout=(
+                "Endpoint                   | Type  | State\n"
+                "------------------------------------------\n"
+                f"{self.api_url} | token | false\n"
+            )
+        )
+
+
 class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
     def setUp(self):
@@ -620,3 +662,27 @@ class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
         the_cmd.execute(self.fake_connection, the_cmd)
 
         fake_set_credentials.assert_called_once_with(self.fake_connection, api_url, token)
+
+
+class TestgCTSUserDeleteCredentials(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = None
+
+    def delete_credentials_cmd(self, *args, **kwargs):
+        return parse_args('user', 'delete-credentials', *args, **kwargs)
+
+    @patch('sap.rest.gcts.simple.delete_user_credentials')
+    def test_delete_user_credentials(self, fake_delete_credentials):
+        api_url = 'https://api.github.com/v3/'
+
+        the_cmd = self.delete_credentials_cmd('-a', api_url)
+        the_cmd.execute(self.fake_connection, the_cmd)
+
+        fake_delete_credentials.asser_called_once_with(self.fake_connection, api_url)

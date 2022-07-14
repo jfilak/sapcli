@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import unittest
 from unittest.mock import Mock, call, patch, PropertyMock
 
@@ -752,6 +753,28 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         response = sap.rest.gcts.simple.pull(None, repo=fake_instance)
         self.assertEqual(response, 'probe')
 
+    def test_simple_get_user_credentials(self):
+        user_credentials = [{"domain": "url", "endpointType": "THETYPE", "subDomain": "api.url",
+                             "endpoint": "https://api.url", "type": "token", "state": "false"}]
+
+        self.conn.set_responses([
+            Response.with_json(json={
+                'user': {
+                    'config': [{'key': 'USER_AUTH_CRED_ENDPOINTS', 'value': json.dumps(user_credentials)}]
+                }
+            })
+        ])
+
+        response = sap.rest.gcts.simple.get_user_credentials(self.conn)
+
+        self.assertEqual(self.conn.mock_methods(), [('GET', 'user')])
+        self.conn.execs[0].assertEqual(
+            Request.get_json(uri='user'),
+            self
+        )
+
+        self.assertEqual(response, user_credentials)
+
     def test_simple_set_user_api_token(self):
         connection = RESTConnection()
 
@@ -769,6 +792,27 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                     'password': '',
                     'token': token,
                     'type': 'token'
+                }
+            ),
+            self
+        )
+
+        self.assertEqual(response, None)
+
+    def test_simple_delete_user_credentials(self):
+        api_url = 'https://api.url'
+        response = sap.rest.gcts.simple.delete_user_credentials(self.conn, api_url)
+
+        self.assertEqual(self.conn.mock_methods(), [('POST', 'user/credentials')])
+        self.conn.execs[0].assertEqual(
+            Request.post_json(
+                uri='user/credentials',
+                body={
+                    'endpoint': api_url,
+                    'user': '',
+                    'password': '',
+                    'token': '',
+                    'type': 'none'
                 }
             ),
             self
