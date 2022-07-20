@@ -6,10 +6,11 @@ COPY . /opt/sapcli
 
 RUN cd /opt/sapcli &&\
 	python3 -m pip install -r requirements.txt &&\
-	chmod +x /opt/sapcli/sapcli &&\
-	echo '#!/bin/sh' > /usr/bin/sapcli &&\
-	echo 'python3  /opt/sapcli/sapcli "$@"' >> /usr/bin/sapcli &&\
-	chmod +x /usr/bin/sapcli
+	dos2unix /opt/sapcli/bin/sapcli &&\
+	chmod +x /opt/sapcli/bin/sapcli
+
+ENV PATH="/opt/sapcli/bin:${PATH}"
+ENV PYTHONPATH="/opt/sapcli:${PYTHONPATH}"
 
 WORKDIR /var/tmp
 
