@@ -5,8 +5,12 @@ import unittest
 import sap.adt
 import sap
 
-from fixtures_adt_datapreview import ADT_XML_FREESTYLE_TABLE_T000, ADT_XML_FREESTYLE_TABLE_T000_ONE_ROW, \
-                                     ADT_XML_FREESTYLE_TABLE_T000_4_ROWS_NO_TOTAL
+from fixtures_adt_datapreview import (
+    ADT_XML_FREESTYLE_TABLE_T000,
+    ADT_XML_FREESTYLE_TABLE_T000_ONE_ROW,
+    ADT_XML_FREESTYLE_TABLE_T000_4_ROWS_NO_TOTAL,
+    ADT_XML_FREESTYLE_COUNT_ZERO
+)
 
 
 class TestFreeStyleTableParseResults(unittest.TestCase):
@@ -59,6 +63,12 @@ class TestFreeStyleTableParseResults(unittest.TestCase):
         clients = sap.adt.datapreview.parse_freestyle_table(ADT_XML_FREESTYLE_TABLE_T000_4_ROWS_NO_TOTAL, rows=100)
 
         self.assertEqual(clients, [{'MANDT': '000'}, {'MANDT': '001'}, {'MANDT': '002'}, {'MANDT': '003'}])
+
+    def test_parse_count_zero(self):
+        clients = sap.adt.datapreview.parse_freestyle_table(ADT_XML_FREESTYLE_COUNT_ZERO, rows=1)
+
+        # Yes! ADT returns the trailing ' ' and I don't think it's OK to trim all values automatically.
+        self.assertEqual(clients, [{'COUNT': '0 '}])
 
 
 if __name__ == '__main__':

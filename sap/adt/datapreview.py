@@ -40,6 +40,11 @@ class FreeStyleTableXMLHandler(ContentHandler):
     def _assigncolumn(self, content):
         self._row[self._column] = content
 
+    def _grow_table_by_one_row(self):
+        extra_row = {}
+        self.table.append(extra_row)
+        return extra_row
+
     def startElement(self, name, attrs):
         mod_log().debug('XML: %s', name)
         if name == 'dataPreview:totalRows':
@@ -54,7 +59,10 @@ class FreeStyleTableXMLHandler(ContentHandler):
         elif name == 'dataPreview:data':
             self._cntr += 1
             self._datahandler = self._assigncolumn
-            self._row = next(self._iter)
+            try:
+                self._row = next(self._iter)
+            except StopIteration:
+                self._row = self._grow_table_by_one_row()
 
     def characters(self, content):
         mod_log().debug('XML: data: %s', content)

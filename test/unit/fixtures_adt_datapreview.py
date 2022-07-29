@@ -157,3 +157,17 @@ ADT_XML_FREESTYLE_TABLE_T000_4_ROWS_NO_TOTAL='''<?xml version="1.0" encoding="ut
         </dataPreview:dataSet>
     </dataPreview:columns>
 </dataPreview:tableData>'''
+
+ADT_XML_FREESTYLE_COUNT_ZERO='''<?xml version="1.0" encoding="utf-8"?>
+<dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+    <dataPreview:totalRows>0</dataPreview:totalRows>
+    <dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+    <dataPreview:executedQueryString>SELECT COUNT(*) FROM BGRFC_CUST_SUPER INTO @LS_RESULT.</dataPreview:executedQueryString>
+    <dataPreview:queryExecutionTime>0.1440000</dataPreview:queryExecutionTime>
+    <dataPreview:columns>
+        <dataPreview:metadata dataPreview:name="COUNT" dataPreview:type="8" dataPreview:description="COUNT" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+        <dataPreview:dataSet>
+            <dataPreview:data>0 </dataPreview:data>
+        </dataPreview:dataSet>
+    </dataPreview:columns>
+</dataPreview:tableData>'''
