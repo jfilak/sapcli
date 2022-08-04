@@ -10,8 +10,10 @@ sapcli's implementation forces use of packages as git repositories.
 6. [commit](#commit)
 7. [delete](#delete)
 8. [config](#config)
-9. [user set-credentials](#user-set-credentials)
-9. [repo set-url](#repo-set-url)
+9. [user get-credentials](#user-get-credentials)
+10. [user set-credentials](#user-set-credentials)
+11. [user delete-credentials](#user-delete-credentials)
+12. [repo set-url](#repo-set-url)
 
 ## repolist
 
@@ -96,6 +98,17 @@ sapcli gcts config [-l|--list] PACKAGE
 **Parameters:**:
 - `--list`: Lists all configuration options for the specified repository
 
+## user get-credentials
+
+Get credentials of the logged in user
+
+```bash
+sapcli gcts user get-credentials [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters:**
+- `--format`: The format of the command's output
+
 ## user set-credentials
 
 Set credentials of the logged in user
@@ -107,6 +120,17 @@ sapcli gcts user set-credentials --api-url [URL] --token [TOKEN]
 **Parameters:**:
 - `--api-url [URL]`: API URL
 - `--token [TOKEN]`: The secret token
+
+## user delete-credentials
+
+Delete credentials of the logged in user
+
+```bash
+sapcli gcts user delete-credentials --api-url [URL]
+```
+
+**Parameters:**
+- `--api-url [URL]`: API URL to delete
 
 ## repo set-url
 
