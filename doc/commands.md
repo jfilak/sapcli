@@ -20,3 +20,4 @@
 18. [flp](commands/flp.md) - Fiori Launchpad
 19. [rap](commands/businessservice.md) - RAP Business Services
 20. [strust](commands/strust.md) - SSL Certificates
+21. [table](commands/table.md) - ABAP DDIC transparent tables
