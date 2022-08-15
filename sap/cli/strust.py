@@ -7,6 +7,7 @@ of remote servers as well as to list all configured certificates
 
 import logging
 import base64
+import sys
 
 from getpass import getpass
 
@@ -64,7 +65,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 @CommandGroup.argument('--dn', type=str,
                        help='Distinguished Name (LDAP DN) of PSE file if no other system info provided')
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def createpse(connection, args):
@@ -91,7 +92,7 @@ def createpse(connection, args):
 
 
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def removepse(connection, args):
@@ -106,7 +107,7 @@ def removepse(connection, args):
 
 
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def getcsr(connection, args):
@@ -124,7 +125,7 @@ def getcsr(connection, args):
 @CommandGroup.argument('path', type=str, nargs='+',
                        help='a file path containing X.509 Base64 certificate and issuer certificates if needed')
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def putpkc(connection, args):
@@ -137,11 +138,11 @@ def putpkc(connection, args):
         if cert_path == '-':
             pkc_response.add_file(sys.stdin)
         else:
-            with open(cert_path, 'r') as cert_file:
+            with open(cert_path, 'rb') as cert_file:
                 pkc_response.add_file(cert_file)
 
-    if pkc_response.data is None:
-        raise SAPCliError('No PATH argument provided on command line')
+    if pkc_response.data == ['']:
+        raise SAPCliError('Unable to load certificate from the PATH')
 
     ssl_storage = _get_ssl_storage_from_args(connection, args)
     ssl_storage.put_identity_cert(pkc_response)
@@ -155,7 +156,7 @@ def putpkc(connection, args):
 @CommandGroup.argument('--ask-pse-password', help='Ask for PSE export password', action='store_true', default=False)
 @CommandGroup.argument('--pse-password', help='PSE export password', default=None)
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def upload(connection, args):
@@ -190,7 +191,7 @@ def upload(connection, args):
 @CommandGroup.argument('-k', '--key-length', type=int, default=2048, help='Of PSE file')
 @CommandGroup.argument('-d', '--dn', type=str, help='Distinguished Name of PSE file', default=None)
 @CommandGroup.argument('-s', '--storage', action='append', default=[],
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])
 @CommandGroup.command()
 def putcertificate(connection, args):
@@ -235,7 +236,7 @@ def putcertificate(connection, args):
 
 
 @CommandGroup.argument('-s', '--storage', action='append', default=[],
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])
 @CommandGroup.command()
 def listcertificates(connection, args):
@@ -261,7 +262,7 @@ def listcertificates(connection, args):
 
 
 @CommandGroup.argument('-s', '--storage', action='append', default=[],
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])
 @CommandGroup.command()
 def dumpcertificates(connection, args):

@@ -3,6 +3,7 @@ import sap.cli.strust
 
 from types import SimpleNamespace
 from unittest.mock import patch, mock_open, call, Mock
+from io import StringIO
 from sap.errors import SAPCliError
 from sap.rfc.strust import CLIENT_ANONYMOUS, CLIENT_STANDART
 
@@ -376,21 +377,32 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
     @patch('sap.rfc.strust.SSLCertStorage.create', side_effect=Exception)
     @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=True)
     def test_storage_ok_exists(self, fake_exists, fake_create):
+        identity = {
+            'PSE_CONTEXT': 'SSLS',
+            'PSE_APPLIC': 'DFAULT'
+        }
+
         self.createpse('-s', 'server_standard', '--dn', 'CN=SuccessfulExists')
 
         fake_exists.assert_called_once()
         fake_create.assert_not_called()
-        self.assertConsoleContents(console=self.console, stdout='Nothing to do - the PSE SSLS/DFAULT already exists\n')
+        self.assertConsoleContents(console=self.console, stdout=f'Nothing to do - the PSE {identity} already exists\n')
 
     @patch('sap.rfc.strust.SSLCertStorage.create', side_effect=Exception)
     @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=True)
     def test_identity_ok_exists(self, fake_exists, fake_create):
-        self.createpse('-i', 'SQRT/DNKROZ', '--dn', 'CN=SuccessfulExists')
+        identity = {
+            'PSE_CONTEXT': 'SQRT',
+            'PSE_APPLIC': 'DNKROZ'
+        }
+        identity_arg = '{PSE_CONTEXT}/{PSE_APPLIC}'.format(**identity)
+
+        self.createpse('-i', identity_arg, '--dn', 'CN=SuccessfulExists')
 
         fake_exists.assert_called_once()
         fake_create.assert_not_called()
 
-        self.assertConsoleContents(console=self.console, stdout='Nothing to do - the PSE SQRT/DNKROZ already exists\n')
+        self.assertConsoleContents(console=self.console, stdout=f'Nothing to do - the PSE {identity} already exists\n')
 
     @patch.object(sap.rfc.strust.SSLCertStorage, 'create', autospec=True)
     @patch.object(sap.rfc.strust.SSLCertStorage, 'exists', autospec=True)
@@ -439,6 +451,342 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
 
         self.createpse('-i', 'SSLS/DFAULT', '-l', 'RSA', '-k', '4096', '--dn', self.fixture_nice_dn)
         self.assert_defaults_for_server_standard(fake_exists, fake_create, alg='R', keylen=4096)
+
+
+class TestRemovePSE(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.mock_connection = Mock()
+
+    def removepse(self, *test_args):
+        cmd_args = parse_args('removepse', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def test_storage_invalid(self):
+        with self.assertRaises(SystemExit):
+            self.removepse('-s', 'something')
+
+    def test_identity_invalid(self):
+        identity = 'something'
+
+        with self.assertRaises(SAPCliError) as caught:
+            self.removepse('-i', identity)
+
+        self.assertEqual(f'Invalid identity format: {identity}', str(caught.exception))
+
+    def test_neither_identity_nor_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.removepse()
+
+        self.assertEqual('Neither -i nor -s was provided.', str(caught.exception))
+
+    def test_both_identity_and_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.removepse('-s', 'server_standard', '-i', 'identity')
+
+        self.assertEqual('User either -i or -s but not both.', str(caught.exception))
+
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'remove', autospec=True)
+    def test_storage_ok_remove(self, fake_remove):
+        self.removepse('-s', 'server_standard')
+
+        fake_remove.assert_called_once()
+
+        storage = fake_remove.call_args.args[0]
+        self.assertEqual(
+            storage.identity,
+            {
+                'PSE_CONTEXT': 'SSLS',
+                'PSE_APPLIC': 'DFAULT'
+            }
+        )
+
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'remove', autospec=True)
+    def test_identity_ok_remove(self, fake_remove):
+        identity = {
+            'PSE_CONTEXT': 'SQRT',
+            'PSE_APPLIC': 'DNKROZ'
+        }
+        identity_arg = '{PSE_CONTEXT}/{PSE_APPLIC}'.format(**identity)
+
+        self.removepse('-i', identity_arg)
+
+        fake_remove.assert_called_once()
+
+        storage = fake_remove.call_args.args[0]
+        self.assertEqual(
+            storage.identity,
+            identity
+        )
+
+
+class TestGetCSR(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.mock_connection = Mock()
+
+    def getcsr(self, *test_args):
+        cmd_args = parse_args('getcsr', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def test_storage_invalid(self):
+        with self.assertRaises(SystemExit):
+            self.getcsr('-s', 'something')
+
+    def test_identity_invalid(self):
+        identity = 'something'
+
+        with self.assertRaises(SAPCliError) as caught:
+            self.getcsr('-i', identity)
+
+        self.assertEqual(f'Invalid identity format: {identity}', str(caught.exception))
+
+    def test_neither_identity_nor_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.getcsr()
+
+        self.assertEqual('Neither -i nor -s was provided.', str(caught.exception))
+
+    def test_both_identity_and_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.getcsr('-s', 'server_standard', '-i', 'some/identity')
+
+        self.assertEqual('User either -i or -s but not both.', str(caught.exception))
+
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'get_csr', autospec=True)
+    def test_storage_ok_get(self, fake_get_csr):
+        self.getcsr('-s', 'server_standard')
+
+        fake_get_csr.assert_called_once()
+
+        storage = fake_get_csr.call_args.args[0]
+        self.assertEqual(
+            storage.identity,
+            {
+                'PSE_CONTEXT': 'SSLS',
+                'PSE_APPLIC': 'DFAULT'
+            }
+        )
+
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'get_csr', autospec=True)
+    def test_identity_ok_get(self, fake_get_csr):
+        identity = {
+            'PSE_CONTEXT': 'SQRT',
+            'PSE_APPLIC': 'DNKROZ'
+        }
+        identity_arg = '{PSE_CONTEXT}/{PSE_APPLIC}'.format(**identity)
+
+        self.getcsr('-i', identity_arg)
+
+        fake_get_csr.assert_called_once()
+
+        storage = fake_get_csr.call_args.args[0]
+        self.assertEqual(
+            storage.identity,
+            identity
+        )
+
+
+class TestPutPKC(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.mock_connection = Mock()
+
+        self.open_mock = patch('sap.cli.strust.open', mock_open(read_data='certificate')).start()
+
+    def putpkc(self, *test_args):
+        cmd_args = parse_args('putpkc', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def assert_response_and_storage(self, fake_put_cert, fake_add_file, mocked_input):
+        pkc_response = fake_add_file.call_args.args[0]
+        fake_add_file.assert_called_once_with(pkc_response, mocked_input)
+
+        storage = fake_put_cert.call_args.args[0]
+        self.assertEqual(
+            storage.identity,
+            {
+                'PSE_CONTEXT': 'SSLS',
+                'PSE_APPLIC': 'DFAULT'
+            }
+        )
+        fake_put_cert.assert_called_once_with(storage, pkc_response)
+
+    def test_storage_invalid(self):
+        with self.assertRaises(SystemExit):
+            self.putpkc('-s', 'something', 'certificate_path')
+
+    def test_identity_invalid(self):
+        identity = 'something'
+
+        with self.assertRaises(SAPCliError) as caught:
+            self.putpkc('-i', identity, 'certificate_path')
+
+        self.assertEqual(f'Invalid identity format: {identity}', str(caught.exception))
+
+    def test_neither_identity_nor_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.putpkc('certificate_path')
+
+        self.assertEqual('Neither -i nor -s was provided.', str(caught.exception))
+
+    def test_both_identity_and_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.putpkc('-s', 'server_standard', '-i', 'some/identity', 'certificate_path')
+
+        self.assertEqual('User either -i or -s but not both.', str(caught.exception))
+
+    def test_putpkc_without_path(self):
+        with self.assertRaises(SystemExit):
+            self.putpkc('-s', 'server_standard')
+
+    def test_putpkc_unable_to_load(self):
+        with self.assertRaises(SAPCliError) as caught:
+            with patch('sap.cli.strust.open', mock_open()):
+                self.putpkc('-s', 'server_standard', 'certificate_path')
+
+        self.assertEqual('Unable to load certificate from the PATH', str(caught.exception))
+
+    @patch.object(sap.rfc.strust.PKCResponseABAPData, 'add_file', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'put_identity_cert', autospec=True)
+    def test_storage_ok_putpkc_read_from_stdin(self, fake_put_cert, fake_add_file):
+        with patch('sys.stdin', StringIO('certificate')) as mocked_stdin:
+            self.putpkc('-s', 'server_standard', '-')
+
+        self.assert_response_and_storage(fake_put_cert, fake_add_file, mocked_stdin)
+
+    @patch.object(sap.rfc.strust.PKCResponseABAPData, 'add_file', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'put_identity_cert', autospec=True)
+    def test_storage_ok_putpkc_read_from_file(self, fake_put_cert, fake_add_file):
+        self.putpkc('-s', 'server_standard', 'certificate_path')
+
+        self.assert_response_and_storage(fake_put_cert, fake_add_file, self.open_mock.return_value)
+
+    @patch.object(sap.rfc.strust.PKCResponseABAPData, 'add_file', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'put_identity_cert', autospec=True)
+    def test_identity_ok_putpkc_read_from_stdin(self, fake_put_cert, fake_add_file):
+        with patch('sys.stdin', StringIO('certificate')) as mocked_stdin:
+            self.putpkc('-i', 'SSLS/DFAULT', '-')
+
+        self.assert_response_and_storage(fake_put_cert, fake_add_file, mocked_stdin)
+
+    @patch.object(sap.rfc.strust.PKCResponseABAPData, 'add_file', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'put_identity_cert', autospec=True)
+    def test_identity_ok_putpkc_read_from_file(self, fake_put_cert, fake_add_file):
+        self.putpkc('-i', 'SSLS/DFAULT', 'certificate_path')
+
+        self.assert_response_and_storage(fake_put_cert, fake_add_file, self.open_mock.return_value)
+
+
+class TestUpload(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.mock_connection = Mock()
+
+        self.pse_file_content = 'data'
+        patch('sap.cli.strust.open', mock_open(read_data=self.pse_file_content)).start()
+
+    def upload(self, *test_args):
+        cmd_args = parse_args('upload', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def assert_password_and_upload(self, fake_upload, expected_password, replace=False):
+        storage = fake_upload.call_args.args[0]
+        self.assertEqual(
+            storage.identity,
+            {
+                'PSE_CONTEXT': 'SSLS',
+                'PSE_APPLIC': 'DFAULT'
+            }
+        )
+        fake_upload.assert_called_once_with(
+            storage, self.pse_file_content, replace=replace, password=expected_password
+        )
+
+    def test_storage_invalid(self):
+        with self.assertRaises(SystemExit):
+            self.upload('-s', 'something', 'pse_path')
+
+    def test_identity_invalid(self):
+        identity = 'something'
+
+        with self.assertRaises(SAPCliError) as caught:
+            self.upload('-i', identity, 'pse_path')
+
+        self.assertEqual(f'Invalid identity format: {identity}', str(caught.exception))
+
+    def test_neither_identity_nor_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.upload('pse_path')
+
+        self.assertEqual('Neither -i nor -s was provided.', str(caught.exception))
+
+    def test_both_identity_and_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.upload('-s', 'server_standard', '-i', 'some/identity', 'pse_path')
+
+        self.assertEqual('User either -i or -s but not both.', str(caught.exception))
+
+    @patch.object(sap.cli.strust.SSLCertStorage, 'upload', autospec=True)
+    def test_upload_ask_password(self, fake_upload):
+        with patch('sap.cli.strust.getpass', return_value='password') as fake_getpass:
+            self.upload('-s', 'server_standard', '--ask-pse-password', 'pse_path')
+
+        fake_getpass.assert_called_once()
+
+        self.assert_password_and_upload(fake_upload, fake_getpass.return_value)
+
+    @patch.object(sap.cli.strust.SSLCertStorage, 'upload', autospec=True)
+    def test_upload_ask_password_with_password(self, fake_upload):
+        expected_password = 'password'
+
+        with patch('sap.cli.strust.getpass', return_value='not_used_password') as fake_getpass:
+            self.upload('-s', 'server_standard', '--ask-pse-password', '--pse-password', expected_password, 'pse_path')
+
+        fake_getpass.assert_not_called()
+
+        self.assert_password_and_upload(fake_upload, expected_password)
+
+    @patch.object(sap.cli.strust.SSLCertStorage, 'upload', autospec=True)
+    def test_upload_overwrite(self, fake_upload):
+        expected_password = 'password'
+        self.upload('-s', 'server_standard', '--pse-password', expected_password, '--overwrite', 'pse_path')
+
+        self.assert_password_and_upload(fake_upload, expected_password, replace=True)
+
+    @patch.object(sap.cli.strust.SSLCertStorage, 'upload', autospec=True)
+    def test_storage_ok_upload(self, fake_upload):
+        expected_password = 'password'
+        self.upload('-s', 'server_standard', '--pse-password', expected_password, 'pse_path')
+
+        self.assert_password_and_upload(fake_upload, expected_password)
+
+    @patch.object(sap.cli.strust.SSLCertStorage, 'upload', autospec=True)
+    def test_identity_ok_upload(self, fake_upload):
+        expected_password = 'password'
+        self.upload('-i', 'SSLS/DFAULT', '--pse-password', expected_password, 'pse_path')
+
+        self.assert_password_and_upload(fake_upload, expected_password)
 
 
 if __name__ == '__main__':
