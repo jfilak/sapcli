@@ -6,7 +6,7 @@ from io import StringIO
 from argparse import ArgumentParser
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import sap.adt
 import sap.cli.core
@@ -275,6 +275,27 @@ class Connection(sap.adt.Connection):
             return [default_mimetype]
 
         return self.collections[f'/{self._adt_uri}/{basepath}']
+
+
+def empty_rfc_responses():
+
+    while True:
+        yield {}
+
+
+class RFCConnection:
+
+    def __init__(self, responses=None):
+        self.responses = iter(responses) if responses else empty_rfc_responses()
+        self.execs = []
+
+    def call(self, remote_function, **kwargs):
+        self.execs.append((remote_function, kwargs))
+
+        return next(self.responses)
+
+    def set_responses(self, responses):
+        self.responses = iter(responses)
 
 
 class BufferConsole(sap.cli.core.PrintConsole):

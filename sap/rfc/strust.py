@@ -169,7 +169,7 @@ class SSLCertStorage:
         """Remove storage aka PSE"""
 
         stat = self._connection.call(
-            'SSFR_PSE_CREATE',
+            'SSFR_PSE_REMOVE',
             IS_STRUST_IDENTITY=self.identity,
         )
 
@@ -246,6 +246,7 @@ class SSLCertStorage:
         )
 
         return cert
+
     def get_csr(self):
         """Returns Certificate Signing Request"""
 
@@ -280,9 +281,11 @@ class SSLCertStorage:
     def put_identity_cert_file(self, path):
         """Uploads Identity Certificate signed by an Authority"""
 
+        pkc_response = PKCResponseABAPData()
+        with open(path, 'rb') as cert_file:
+            pkc_response.add_file(cert_file)
 
-        self.put_identity_cert(cert_data, data_len=cert_len)
-
+        self.put_identity_cert(pkc_response)
 
 
 def notify_icm_changed_pse(connection):
