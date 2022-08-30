@@ -3,7 +3,7 @@ from io import StringIO
 
 import sap.rfc.strust
 from sap.rfc.strust import SSLCertStorage, InvalidSSLStorage, PutCertificateError, PKCResponseABAPData, Identity,\
-    BAPIError
+    BAPIError, list_identities
 
 import unittest
 from mock import RFCConnection
@@ -374,6 +374,35 @@ class TestSSLCertStorage(unittest.TestCase):
         self.assertEqual(pkc_response.data, ['certificate_data'])
 
         fake_put_identity_cert.assert_called_with(storage, pkc_response)
+
+
+class TestListIdentities(unittest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        self.connection = RFCConnection()
+
+    def test_list_ok(self):
+        expected_identities = [{'PSE_CONTEXT': 'context', 'PSE_APPLIC': 'applic', 'SPRSL': 'sprsl',
+                                'PSE_DESCRIPT': 'description'}]
+        self.connection.set_responses([{'ET_BAPIRET2': [], 'ET_STRUST_IDENTITIES': expected_identities}])
+
+        result = list_identities(self.connection)
+
+        self.assertEqual(result, expected_identities)
+        self.assertEqual(self.connection.execs[0], ('SSFR_GET_ALL_STRUST_IDENTITIES', {}))
+
+    def test_list_raises(self):
+        self.connection.set_responses([{'ET_BAPIRET2': [
+            {'TYPE': 'E', 'ID': 1, 'NUMBER': 1, 'MESSAGE': 'Cannot get identities'}
+        ]}])
+
+        with self.assertRaises(BAPIError) as cm:
+            list_identities(self.connection)
+
+        self.assertEqual('Error(1|1): Cannot get identities', str(cm.exception))
+        self.assertEqual(self.connection.execs[0], ('SSFR_GET_ALL_STRUST_IDENTITIES', {}))
 
 
 if __name__ == '__main__':
