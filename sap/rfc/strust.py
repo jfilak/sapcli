@@ -294,6 +294,18 @@ def notify_icm_changed_pse(connection):
     connection.call('ICM_SSL_PSE_CHANGED')
 
 
+def list_identities(connection):
+    """List existing STRUST identities"""
+
+    stat = connection.call('SSFR_GET_ALL_STRUST_IDENTITIES')
+
+    bapiret = BAPIReturn(stat['ET_BAPIRET2'])
+    if bapiret.is_error:
+        raise BAPIError(bapiret, stat)
+
+    return stat['ET_STRUST_IDENTITIES']
+
+
 def iter_storage_certificates(ssl_storage: SSLCertStorage):
     """Returns the certificate list"""
 

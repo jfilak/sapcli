@@ -74,42 +74,6 @@ def print_gcts_commit(console, commit_data):
     console.printout('\n   ', commit_data['message'])
 
 
-class TableWriter:
-    """A helper class for formatting a list of objects into a table"""
-
-    def __init__(self, data, attrs, headers):
-        self._headers = headers
-        self._widths = [len(h) for h in headers]
-        self._lines = []
-
-        for item in data:
-            line = []
-
-            for i, attr in enumerate(attrs):
-                if isinstance(item, dict):
-                    val = str(item[attr])
-                else:
-                    val = str(getattr(item, attr))
-
-                if self._widths[i] < len(val):
-                    self._widths[i] = len(val)
-
-                line.append(val)
-
-            self._lines.append(line)
-
-    def printout(self, console, separator=" | "):
-        """Prints out the content"""
-
-        fmt = separator.join((f'{{:<{w}}}' for w in self._widths))
-
-        console.printout(fmt.format(*self._headers))
-        console.printout('-' * (sum(self._widths) + len(separator) * (len(self._headers) - 1)))
-
-        for line in self._lines:
-            console.printout(fmt.format(*line))
-
-
 class UserCommandGroup(sap.cli.core.CommandGroup):
     """Container for user commands."""
 
@@ -129,7 +93,7 @@ def get_user_credentials(connection, args):
     else:
         columns = ('endpoint', 'type', 'state')
         headers = ('Endpoint', 'Type', 'State')
-        TableWriter(user_credentials, columns, headers).printout(console)
+        sap.cli.helpers.TableWriter(user_credentials, columns, headers).printout(console)
 
 
 @UserCommandGroup.argument('-t', '--token')
@@ -203,7 +167,7 @@ def repolist(connection, args):
     columns = ('name', 'branch', 'head', 'status', 'vsid', 'url')
     headers = ('Name', 'Branch', 'Commit', 'Status', 'vSID', 'URL')
 
-    TableWriter(response, columns, headers).printout(console)
+    sap.cli.helpers.TableWriter(response, columns, headers).printout(console)
 
     return 0
 

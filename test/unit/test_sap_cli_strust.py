@@ -789,5 +789,48 @@ class TestUpload(PatcherTestCase, ConsoleOutputTestCase):
         self.assert_password_and_upload(fake_upload, expected_password)
 
 
+class TestListIdentities(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.mock_connection = Mock()
+        self.expected_identities = [{'PSE_CONTEXT': 'context', 'PSE_APPLIC': 'applic', 'SPRSL': 'sprsl',
+                                     'PSE_DESCRIPT': 'description'}]
+
+        self.fake_list_identities = self.patch('sap.cli.strust.list_identities')
+        self.fake_list_identities.return_value = self.expected_identities
+
+    def list(self, *test_args):
+        cmd_args = parse_args('list', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def test_list_identities_json(self):
+        output_format = 'JSON'
+
+        self.list('-f', output_format)
+
+        self.fake_list_identities.assert_called_once_with(self.mock_connection)
+        self.assertConsoleContents(self.console, f'{self.expected_identities}\n')
+
+    def test_list_identities_human(self):
+        output_format = 'HUMAN'
+
+        self.list('-f', output_format)
+
+        self.fake_list_identities.assert_called_once_with(self.mock_connection)
+        self.assertConsoleContents(
+            self.console,
+            stdout=(
+                'PSE Context | PSE Application | SPRSL | PSE Description\n'
+                '-------------------------------------------------------\n'
+                'context     | applic          | sprsl | description    \n'
+            )
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -23,9 +23,11 @@ from sap.rfc.strust import (
     PSE_ALGORITHM_MAPPING,
     Identity,
     notify_icm_changed_pse,
-    iter_storage_certificates
+    iter_storage_certificates,
+    list_identities
 )
 from sap.cli.core import printout
+from sap.cli.helpers import TableWriter
 
 
 def _get_ssl_storage_from_args(connection, args):
@@ -56,6 +58,23 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
     def __init__(self):
         super().__init__('strust')
+
+
+@CommandGroup.argument('-f', '--format', choices=['HUMAN', 'JSON'], default='HUMAN')
+@CommandGroup.command(cmd_name='list')
+def listidentities(connection, args):
+    """List existing STRUST identities.
+    """
+
+    identities = list_identities(connection)
+
+    if args.format == 'JSON':
+        printout(identities)
+    else:
+        console = sap.cli.core.get_console()
+        columns = ('PSE_CONTEXT', 'PSE_APPLIC', 'SPRSL', 'PSE_DESCRIPT')
+        headers = ('PSE Context', 'PSE Application', 'SPRSL', 'PSE Description')
+        TableWriter(identities, columns, headers).printout(console)
 
 
 @CommandGroup.argument('--overwrite', help='Overwrite the existing PSE file', action='store_true', default=False)

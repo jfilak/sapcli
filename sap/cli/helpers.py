@@ -92,3 +92,38 @@ class ConsoleHeartBeat:
             self._thread = None
 
         return False
+
+
+class TableWriter:
+    """A helper class for formatting a list of objects into a table"""
+
+    def __init__(self, data, attrs, headers):
+        self._headers = headers
+        self._widths = [len(h) for h in headers]
+        self._lines = []
+
+        for item in data:
+            line = []
+
+            for i, attr in enumerate(attrs):
+                if isinstance(item, dict):
+                    val = str(item[attr])
+                else:
+                    val = str(getattr(item, attr))
+
+                if self._widths[i] < len(val):
+                    self._widths[i] = len(val)
+
+                line.append(val)
+
+            self._lines.append(line)
+
+    def printout(self, console, separator=" | "):
+        """Prints out the content"""
+
+        fmt = separator.join((f'{{:<{w}}}' for w in self._widths))
+        console.printout(fmt.format(*self._headers))
+        console.printout('-' * (sum(self._widths) + len(separator) * (len(self._headers) - 1)))
+
+        for line in self._lines:
+            console.printout(fmt.format(*line))
