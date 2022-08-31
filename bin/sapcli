@@ -7,6 +7,7 @@ import sys
 import logging
 from argparse import ArgumentParser
 import getpass
+import warnings
 
 import sap
 import sap.cli
@@ -129,10 +130,17 @@ def parse_command_line(argv):
     return args
 
 
+def init_deprecation_warnings():
+    """Register default filter for deprecation warning."""
+
+    warnings.filterwarnings('default', category=DeprecationWarning, module='sap.cli')
+
+
 def main(argv):
     """Main function"""
 
     retval = 1
+    init_deprecation_warnings()
     try:
         args = parse_command_line(argv)
         connection = args.connection_factory(args)

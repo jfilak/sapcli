@@ -8,6 +8,7 @@ of remote servers as well as to list all configured certificates
 import logging
 import base64
 import sys
+import warnings
 
 from getpass import getpass
 
@@ -18,6 +19,7 @@ from sap.rfc.strust import (
     SSLCertStorage,
     CLIENT_ANONYMOUS,
     CLIENT_STANDART,
+    CLIENT_STANDARD,
     SERVER_STANDARD,
     IDENTITY_MAPPING,
     PSE_ALGORITHM_MAPPING,
@@ -30,6 +32,14 @@ from sap.cli.core import printout
 from sap.cli.helpers import TableWriter
 
 
+def storage_deprecation_warning():
+    """Raises Deprecation warning when 'client_standart' is used.
+    """
+
+    warnings.warn(message='Storage "client_standart" is deprecated and will be removed. Use "client_standard" instead.',
+                  category=DeprecationWarning)
+
+
 def _get_ssl_storage_from_args(connection, args):
 
     identity = None
@@ -38,6 +48,9 @@ def _get_ssl_storage_from_args(connection, args):
         raise SAPCliError('User either -i or -s but not both.')
 
     if args.storage:
+        if args.storage == CLIENT_STANDART:
+            storage_deprecation_warning()
+
         identity = IDENTITY_MAPPING[args.storage]
 
     if args.identity:
@@ -84,7 +97,7 @@ def listidentities(connection, args):
 @CommandGroup.argument('--dn', type=str,
                        help='Distinguished Name (LDAP DN) of PSE file if no other system info provided')
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def createpse(connection, args):
@@ -111,7 +124,7 @@ def createpse(connection, args):
 
 
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def removepse(connection, args):
@@ -126,7 +139,7 @@ def removepse(connection, args):
 
 
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def getcsr(connection, args):
@@ -144,7 +157,7 @@ def getcsr(connection, args):
 @CommandGroup.argument('path', type=str, nargs='+',
                        help='a file path containing X.509 Base64 certificate and issuer certificates if needed')
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def putpkc(connection, args):
@@ -175,7 +188,7 @@ def putpkc(connection, args):
 @CommandGroup.argument('--ask-pse-password', help='Ask for PSE export password', action='store_true', default=False)
 @CommandGroup.argument('--pse-password', help='PSE export password', default=None)
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
 @CommandGroup.command()
 def upload(connection, args):
@@ -210,7 +223,7 @@ def upload(connection, args):
 @CommandGroup.argument('-k', '--key-length', type=int, default=2048, help='Of PSE file')
 @CommandGroup.argument('-d', '--dn', type=str, help='Distinguished Name of PSE file', default=None)
 @CommandGroup.argument('-s', '--storage', action='append', default=[],
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])
 @CommandGroup.command()
 def putcertificate(connection, args):
@@ -255,7 +268,7 @@ def putcertificate(connection, args):
 
 
 @CommandGroup.argument('-s', '--storage', action='append', default=[],
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])
 @CommandGroup.command()
 def listcertificates(connection, args):
@@ -281,7 +294,7 @@ def listcertificates(connection, args):
 
 
 @CommandGroup.argument('-s', '--storage', action='append', default=[],
-                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, SERVER_STANDARD, ])
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])
 @CommandGroup.command()
 def dumpcertificates(connection, args):
@@ -315,7 +328,10 @@ def ssl_storages_from_arguments(connection, args):
     identities = []
 
     for storage in args.storage:
-        if storage in (CLIENT_ANONYMOUS, CLIENT_STANDART):
+        if storage in (CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD):
+            if storage == CLIENT_STANDART:
+                storage_deprecation_warning()
+
             identities.append(IDENTITY_MAPPING[storage])
         else:
             raise SAPCliError(f'Unknown storage: {storage}')
