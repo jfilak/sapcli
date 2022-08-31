@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch, mock_open, call, Mock
 from io import StringIO
 from sap.errors import SAPCliError
-from sap.rfc.strust import CLIENT_ANONYMOUS, CLIENT_STANDART
+from sap.rfc.strust import CLIENT_ANONYMOUS, CLIENT_STANDARD, CLIENT_STANDART
 
 from infra import generate_parse_args
 from mock import (
@@ -117,7 +117,7 @@ class TestAddAllFiles(unittest.TestCase):
     def test_smooth_run_storage(self):
         self.assert_smooth_run(SimpleNamespace(
             paths=['/path/1', '/path/2'],
-            storage=[CLIENT_STANDART, CLIENT_ANONYMOUS, ],
+            storage=[CLIENT_STANDARD, CLIENT_ANONYMOUS, ],
             identity=[]
         ))
 
@@ -203,6 +203,25 @@ class TestArgumentsToStores(unittest.TestCase):
                 ))
 
         self.assertEqual('Invalid identity format: foo', str(caught.exception))
+
+    def test_use_deprecated_storage(self):
+        mock_connection = Mock()
+
+        with self.assertWarns(DeprecationWarning):
+            sap.cli.strust._get_ssl_storage_from_args(
+                mock_connection, SimpleNamespace(
+                    storage=CLIENT_STANDART,
+                    identity=None
+                )
+            )
+
+        with self.assertWarns(DeprecationWarning):
+            sap.cli.strust.ssl_storages_from_arguments(
+                mock_connection, SimpleNamespace(
+                    storage=[CLIENT_STANDART],
+                    identity=[]
+                )
+            )
 
 
 class TestListAndDumpStrustCerts(PatcherTestCase, ConsoleOutputTestCase):

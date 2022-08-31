@@ -20,12 +20,14 @@ class Identity:
 SERVER_STANDARD = 'server_standard'
 CLIENT_ANONYMOUS = 'client_anonymous'
 CLIENT_STANDART = 'client_standart'
+CLIENT_STANDARD = 'client_standard'
 
 # SSFPSE_FILENAME
 IDENTITY_MAPPING = {
     SERVER_STANDARD: Identity('SSLS', 'DFAULT'),
     CLIENT_ANONYMOUS: Identity('SSLC', 'ANONYM'),
-    CLIENT_STANDART: Identity('SSLC', 'DFAULT')
+    CLIENT_STANDART: Identity('SSLC', 'DFAULT'),
+    CLIENT_STANDARD: Identity('SSLC', 'DFAULT')
 }
 
 # SSFPSE_CREATE
