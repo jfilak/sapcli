@@ -76,6 +76,8 @@ def print_aunit_human(run_results, console):
         for test_class in program.test_classes:
             console.printout(f'  {test_class.name}')
 
+            errors += print_aunit_human_alerts(console, test_class.alerts)
+
             for test_method in test_class.test_methods:
                 result = None
                 if any((alert.is_error for alert in test_method.alerts)):
@@ -301,6 +303,13 @@ def print_aunit_junit4(run_results, args, console):
                                         name=test_class.name,
                                         package=program.name,
                                         tests=str(len(test_class.test_methods))):
+
+                    if test_class.alerts:
+                        critical += print_junit4_testcase(xml_writer,
+                                                          test_class.name,
+                                                          test_class.name,
+                                                          test_class.alerts)
+
                     if not test_class.test_methods:
                         continue
 

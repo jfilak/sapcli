@@ -14,7 +14,8 @@ from fixtures_adt_aunit import (
     AUNIT_RESULTS_XML,
     GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML,
     AUNIT_RESULTS_NO_TEST_METHODS_XML,
-    AUNIT_SYNTAX_ERROR_XML
+    AUNIT_SYNTAX_ERROR_XML,
+    TEST_CLASS_WITH_SYS_ERROR_FOLLOWED_BY_GREEN_TEST_CLASS_AUNIT_RESULTS_XML
 )
 from fixtures_adt_program import GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML
 from fixtures_adt_coverage import ACOVERAGE_RESULTS_XML, ACOVERAGE_STATEMENTS_RESULTS_XML
@@ -351,6 +352,10 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="$TMP">
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
+    <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="SKIP">
+      <system-err>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-err>
+      <error type="warning" message="The global test class [ZCL_TEST_CLASS] is not abstract"/>
+    </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>
 </testsuites>
@@ -366,6 +371,10 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="$TMP|$LOCAL|$BAR">
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
+    <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="SKIP">
+      <system-err>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-err>
+      <error type="warning" message="The global test class [ZCL_TEST_CLASS] is not abstract"/>
+    </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>
 </testsuites>
@@ -629,6 +638,69 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 </testExecutions>
 ''')
 
+    def test_aunit_parser_results_junit4_test_class_with_sys_error_followed_by_green_test_class(self):
+        results = sap.adt.aunit.parse_aunit_response(TEST_CLASS_WITH_SYS_ERROR_FOLLOWED_BY_GREEN_TEST_CLASS_AUNIT_RESULTS_XML).run_results
+        output = BufferConsole()
+        sap.cli.aunit.print_aunit_junit4(results, SimpleNamespace(name=['$TMP']), output)
+
+        self.maxDiff = None
+        self.assertEqual(output.capout,
+'''<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="$TMP">
+  <testsuite name="ZCL_TEST_CLASS_GREEN" package="ZCL_TEST_CLASS_GREEN" tests="1">
+    <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS_GREEN" status="OK"/>
+  </testsuite>
+  <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="0">
+    <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="ERR">
+      <system-err>Some detail text</system-err>
+      <error type="failedAssertion" message="The global test class [ZCL_TEST_CLASS] is not abstract">Include: &lt;ZCL_TEST_CLASS=======CM010&gt; Line: &lt;1&gt;</error>
+    </testcase>
+  </testsuite>
+</testsuites>
+''')
+
+    def test_aunit_parser_results_sonar_test_class_with_sys_error_followed_by_green_test_class(self):
+        results = sap.adt.aunit.parse_aunit_response(TEST_CLASS_WITH_SYS_ERROR_FOLLOWED_BY_GREEN_TEST_CLASS_AUNIT_RESULTS_XML)
+        output = BufferConsole()
+        sap.cli.aunit.print_aunit_sonar(results.run_results, SimpleNamespace(name=['$TMP']), output)
+
+        self.maxDiff = None
+        self.assertEqual(output.capout,
+'''<?xml version="1.0" encoding="UTF-8" ?>
+<testExecutions version="1">
+  <file path="$TMP/ZCL_TEST_CLASS_GREEN=&gt;ZCL_TEST_CLASS_GREEN">
+    <testCase name="DO_THE_TEST" duration="0"/>
+  </file>
+  <file path="$TMP/ZCL_TEST_CLASS=&gt;ZCL_TEST_CLASS">
+    <testCase name="ZCL_TEST_CLASS" duration="0">
+      <error message="The global test class [ZCL_TEST_CLASS] is not abstract">
+Some detail text
+
+Include: &lt;ZCL_TEST_CLASS=======CM010&gt; Line: &lt;1&gt;
+      </error>
+    </testCase>
+  </file>
+</testExecutions>
+''')
+
+    def test_aunit_parser_results_human_test_class_with_sys_error_followed_by_green_test_class(self):
+        results = sap.adt.aunit.parse_aunit_response(TEST_CLASS_WITH_SYS_ERROR_FOLLOWED_BY_GREEN_TEST_CLASS_AUNIT_RESULTS_XML)
+        output = BufferConsole()
+        sap.cli.aunit.print_aunit_human(results.run_results, output)
+
+        self.maxDiff = None
+        self.assertEqual(output.capout,
+'''ZCL_TEST_CLASS_GREEN
+  ZCL_TEST_CLASS_GREEN
+    DO_THE_TEST [OK]
+ZCL_TEST_CLASS
+  ZCL_TEST_CLASS
+* [critical] [failedAssertion] - The global test class [ZCL_TEST_CLASS] is not abstract
+
+Successful: 1
+Warnings:   0
+Errors:     1
+''')
 
 class TestAUnitCommandRunTransport(unittest.TestCase):
 
