@@ -362,9 +362,9 @@ class AUnitResponseHandler(ContentHandler):
         mod_log().debug('XML: %s: CLOSING', name)
         if name == 'program':
             self._program = None
-        elif name == 'testclas':
+        elif name == 'testClas':
             self._test_class = None
-        elif name == 'testmethod':
+        elif name == 'testMethod':
             self._test_method = None
         elif name == 'title':
             self._alert_title = self._alert_title_part
