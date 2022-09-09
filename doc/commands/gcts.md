@@ -49,6 +49,9 @@ Checkout branch
 sapcli gcts checkout PACKAGE BRANCH
 ```
 
+**Parameters:**:
+- `PACKAGE`: Repository name or URL
+
 ## log
 
 Print out repository history log
@@ -57,6 +60,9 @@ Print out repository history log
 sapcli gcts log PACKAGE
 ```
 
+**Parameters:**:
+- `PACKAGE`: Repository name or URL
+
 ## pull
 
 Pulls the repository on the system
@@ -64,6 +70,9 @@ Pulls the repository on the system
 ```bash
 sapcli gcts pull PACKAGE
 ```
+
+**Parameters:**:
+- `PACKAGE`: Repository name or URL
 
 ## commit
 
@@ -74,7 +83,7 @@ sapcli gcts commit PACKAGE CORRNR [-m|--message MESSAGE] [--description DESCRIPT
 ```
 
 **Parameters:**:
-- `PACKAGE`: Repository name
+- `PACKAGE`: Repository name or URL
 - `CORRNR`: Transport number (e.g. from *sapcli cts list transport*)
 - `--message MESSAGE`: Short commit messsage
 - `--description DESCRIPTION`: Commit message body
@@ -87,6 +96,9 @@ Removes the repository not the package
 sapcli gcts delete PACKAGE
 ```
 
+**Parameters:**:
+- `PACKAGE`: Repository name or URL
+
 ## config
 
 Configure the given repository
@@ -96,6 +108,7 @@ sapcli gcts config [-l|--list] PACKAGE
 ```
 
 **Parameters:**:
+- `PACKAGE`: Repository name or URL
 - `--list`: Lists all configuration options for the specified repository
 
 ## user get-credentials

@@ -7,7 +7,8 @@ from sap.rest.gcts.remote_repo import (
     Repository
 )
 from sap.rest.gcts.errors import (
-    GCTSRequestError
+    GCTSRequestError,
+    SAPCliError,
 )
 
 
@@ -72,6 +73,24 @@ def print_gcts_commit(console, commit_data):
     console.printout('Author:', commit_data['author'], f'<{commit_data["authorMail"]}>')
     console.printout('Date:  ', commit_data['date'])
     console.printout('\n   ', commit_data['message'])
+
+
+def get_repository(connection, package):
+    """Get repository corresponding to the PACKAGE"""
+
+    if package.startswith(('http://', 'https://')):
+        repositories = sap.rest.gcts.simple.fetch_repos(connection)
+        repositories = [repo for repo in repositories if repo.url == package]
+
+        if not repositories:
+            raise SAPCliError(f'No repository found with the URL "{package}".')
+
+        if len(repositories) > 1:
+            raise SAPCliError(f'Cannot uniquely identify the package based on the URL "{package}".')
+
+        return repositories[0]
+
+    return Repository(connection, package)
 
 
 class UserCommandGroup(sap.cli.core.CommandGroup):
@@ -224,12 +243,14 @@ def config(connection, args):
     console = sap.cli.core.get_console()
 
     if args.list:
-        repo = Repository(connection, args.package)
-
         try:
+            repo = get_repository(connection, args.package)
             configuration = repo.configuration
         except GCTSRequestError as ex:
             dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+            return 1
+        except SAPCliError as ex:
+            console.printout(str(ex))
             return 1
 
         for key, value in configuration.items():
@@ -248,12 +269,16 @@ def delete(connection, args):
     """
 
     try:
-        sap.rest.gcts.simple.delete(connection, args.package)
+        repo = get_repository(connection, args.package)
+        sap.rest.gcts.simple.delete(connection, repo=repo)
     except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
+    except SAPCliError as ex:
+        sap.cli.core.printout(str(ex))
+        return 1
 
-    sap.cli.core.printout(f'The repository "{args.package}" has been deleted')
+    sap.cli.core.printout(f'The repository "{repo.name}" has been deleted')
     return 0
 
 
@@ -265,19 +290,20 @@ def checkout(connection, args):
     """git checkout <branch>
     """
 
-    repo = Repository(connection, args.package)
-    old_branch = repo.branch
-
     console = sap.cli.core.get_console()
-
     try:
+        repo = get_repository(connection, args.package)
+        old_branch = repo.branch
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
             response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
     except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
+    except SAPCliError as ex:
+        console.printout(str(ex))
+        return 1
 
-    console.printout(f'The repository "{args.package}" has been set to the branch "{args.branch}"')
+    console.printout(f'The repository "{repo.name}" has been set to the branch "{args.branch}"')
     console.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
     return 0
 
@@ -290,9 +316,13 @@ def gcts_log(connection, args):
 
     console = sap.cli.core.get_console()
     try:
-        commits = sap.rest.gcts.simple.log(connection, name=args.package)
+        repo = get_repository(connection, args.package)
+        commits = sap.rest.gcts.simple.log(connection, repo=repo)
     except GCTSRequestError as ex:
         dump_gcts_messages(console, ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printout(str(ex))
         return 1
 
     if not commits:
@@ -320,13 +350,17 @@ def pull(connection, args):
     console = sap.cli.core.get_console()
 
     try:
+        repo = get_repository(connection, args.package)
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            response = sap.rest.gcts.simple.pull(connection, name=args.package)
+            response = sap.rest.gcts.simple.pull(connection, repo=repo)
     except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
         return 1
+    except SAPCliError as ex:
+        console.printout(str(ex))
+        return 1
 
-    console.printout(f'The repository "{args.package}" has been pulled')
+    console.printout(f'The repository "{repo.name}" has been pulled')
     console.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
     return 0
 
@@ -342,13 +376,16 @@ def commit(connection, args):
     """
 
     console = sap.cli.core.get_console()
-    repo = Repository(connection, args.package)
 
     try:
+        repo = get_repository(connection, args.package)
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
             repo.commit_transport(args.corrnr, args.message or f'Transport {args.corrnr}', args.description)
     except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printout(str(ex))
         return 1
 
     console.printout(f'The transport "{args.corrnr}" has been committed')

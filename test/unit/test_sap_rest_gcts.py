@@ -702,15 +702,22 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(response, 'probe')
 
     @patch('sap.rest.gcts.simple.Repository')
-    def test_simple_delete_ok(self, fake_repository):
+    def test_simple_delete_name(self, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
         fake_instance.delete = Mock()
         fake_instance.delete.return_value = 'probe'
 
-        response = sap.rest.gcts.simple.delete(self.conn, self.repo_name)
+        response = sap.rest.gcts.simple.delete(self.conn, name=self.repo_name)
         fake_repository.assert_called_once_with(self.conn, self.repo_name)
         fake_instance.delete.assert_called_once_with()
+        self.assertEqual(response, 'probe')
+
+    def test_simple_delete_repo(self):
+        fake_instance = Mock()
+        fake_instance.delete.return_value = 'probe'
+
+        response = sap.rest.gcts.simple.delete(None, repo=fake_instance)
         self.assertEqual(response, 'probe')
 
     @patch('sap.rest.gcts.simple.Repository')

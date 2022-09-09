@@ -41,6 +41,18 @@ def dummy_gcts_error_log():
         return log_builder.get_contents()
 
 
+def mock_repository(fake_fetch_repos, **kwargs):
+    fake_repo = Mock()
+    fake_repo.__dict__.update(**kwargs)
+
+    if list(fake_fetch_repos.return_value):
+        fake_fetch_repos.return_value.append(fake_repo)
+    else:
+        fake_fetch_repos.return_value = [fake_repo]
+
+    return fake_repo
+
+
 class TestgCTSDumpError(ConsoleOutputTestCase, unittest.TestCase):
 
     def test_dump_first_level(self):
@@ -85,6 +97,67 @@ Exception:
   error
 ''')
 
+
+class TestgCTSGetRepository(PatcherTestCase, unittest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.connection = Mock()
+        self.fake_fetch_repos = self.patch('sap.rest.gcts.simple.fetch_repos')
+
+    def test_get_repository_name(self):
+        repo_name = 'the_repo'
+        repo = sap.cli.gcts.get_repository(self.connection, repo_name)
+
+        self.assertEqual(repo.name, repo_name)
+        self.fake_fetch_repos.assert_not_called()
+
+    def test_get_repository_url(self):
+        repo_name = 'the_repo'
+        repo_url = 'http://github.com/the_repo.git'
+
+        fake_repo = mock_repository(self.fake_fetch_repos, name=repo_name, url=repo_url)
+        repo = sap.cli.gcts.get_repository(self.connection, repo_url)
+
+        self.assertEqual(repo, fake_repo)
+        self.fake_fetch_repos.assert_called_once_with(self.connection)
+
+    def test_get_repository_url_https(self):
+        repo_name = 'the_repo'
+        repo_url = 'https://github.com/the_repo.git'
+
+        fake_repo = mock_repository(self.fake_fetch_repos, name=repo_name, url=repo_url)
+        repo = sap.cli.gcts.get_repository(self.connection, repo_url)
+
+        self.assertEqual(repo, fake_repo)
+        self.fake_fetch_repos.assert_called_once_with(self.connection)
+
+    def test_get_repository_url_not_found(self):
+        repo_url = 'http://github.com/the_repo.git'
+
+        with self.assertRaises(sap.cli.gcts.SAPCliError) as cm:
+            sap.cli.gcts.get_repository(self.connection, repo_url)
+
+        self.assertEqual(
+            f'No repository found with the URL "{repo_url}".',
+            str(cm.exception)
+        )
+        self.fake_fetch_repos.assert_called_once_with(self.connection)
+
+    def test_get_repository_url_not_unique(self):
+        repo_url = 'http://github.com/the_repo.git'
+
+        mock_repository(self.fake_fetch_repos, name='the_repo_1', url=repo_url)
+        mock_repository(self.fake_fetch_repos, name='the_repo_2', url=repo_url)
+
+        with self.assertRaises(sap.cli.gcts.SAPCliError) as cm:
+            sap.cli.gcts.get_repository(self.connection, repo_url)
+
+        self.assertEqual(
+            f'Cannot uniquely identify the package based on the URL "{repo_url}".',
+            str(cm.exception)
+        )
+        self.fake_fetch_repos.assert_called_once_with(self.connection)
 
 
 class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
@@ -271,11 +344,31 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
 
     def test_delete_no_params(self):
         conn = Mock()
+        repo_name = 'the_repo'
 
-        args = self.delete('the_repo')
+        args = self.delete(repo_name)
         args.execute(conn, args)
 
-        self.fake_simple_delete.assert_called_once_with(conn, 'the_repo')
+        repo = self.fake_simple_delete.call_args.kwargs['repo']
+        self.assertEqual(repo.name, repo_name)
+
+        self.fake_simple_delete.assert_called_once_with(conn, repo=repo)
+        self.assertConsoleContents(self.console, stdout=
+'''The repository "the_repo" has been deleted
+''')
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_delete_with_url(self, fake_fetch_repos):
+        conn = Mock()
+
+        repo_name = 'the_repo'
+        repo_url = 'http://github.com/the_repo.git'
+        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url, configuration={})
+
+        args = self.delete(repo_url)
+        args.execute(conn, args)
+
+        self.fake_simple_delete.assert_called_once_with(conn, repo=fake_repo)
         self.assertConsoleContents(self.console, stdout=
 '''The repository "the_repo" has been deleted
 ''')
@@ -291,6 +384,16 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_delete_url_error(self, _):
+        repo_url = 'http://github.com/the_repo.git'
+
+        args = self.delete(repo_url)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+
 
 class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -304,6 +407,7 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_simple_checkout = self.patch('sap.rest.gcts.simple.checkout')
         self.fake_repository = self.patch('sap.cli.gcts.Repository')
         self.repo = Mock()
+        self.repo.name = 'the_repo'
         self.fake_repository.return_value = self.repo
 
     def checkout(self, *args, **kwargs):
@@ -323,6 +427,26 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
 (old_branch:123) -> (the_branch:456)
 ''')
 
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_checkout_with_url(self, fake_fetch_repos):
+        conn = Mock()
+        checkout_branch = 'the_branch'
+
+        repo_name = 'the_repo'
+        repo_branch = 'old_branch'
+        repo_url = 'http://github.com/the_repo.git'
+        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, branch=repo_branch, url=repo_url)
+
+        self.fake_simple_checkout.return_value = {'fromCommit': '123', 'toCommit': '456'}
+        args = self.checkout(repo_url, checkout_branch)
+        args.execute(conn, args)
+
+        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
+        self.assertConsoleContents(self.console, stdout=
+f'''The repository "{repo_name}" has been set to the branch "{checkout_branch}"
+({repo_branch}:123) -> ({checkout_branch}:456)
+''')
+
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_checkout_error(self, fake_dumper):
         messages = {'exception': 'test'}
@@ -333,6 +457,16 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(exit_code, 1)
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_checkout_url_error(self, _):
+        repo_url = 'http://github.com/the_repo.git'
+
+        args = self.checkout(repo_url, 'a_branch')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
@@ -351,6 +485,7 @@ class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
 
     def test_log_no_params(self):
         conn = Mock()
+        repo_name = 'the_repo'
         self.fake_simple_log.return_value = [
             { 'id': '456',
               'author': 'Billy Lander',
@@ -366,10 +501,13 @@ class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
             },
         ]
 
-        args = self.log('the_repo')
+        args = self.log(repo_name)
         args.execute(conn, args)
 
-        self.fake_simple_log.assert_called_once_with(conn, name='the_repo')
+        repo = self.fake_simple_log.call_args.kwargs['repo']
+        self.assertEqual(repo.name, repo_name)
+
+        self.fake_simple_log.assert_called_once_with(conn, repo=repo)
         self.assertConsoleContents(self.console, stdout=
 '''commit 456
 Author: Billy Lander <billy.lander@example.com>
@@ -386,13 +524,31 @@ Date:   2020-10-02
 
     def test_log_no_params_no_commits(self):
         conn = Mock()
+        repo_name = 'the_repo'
         self.fake_simple_log.return_value = []
 
-        args = self.log('the_repo')
+        args = self.log(repo_name)
         args.execute(conn, args)
 
-        self.fake_simple_log.assert_called_once_with(conn, name='the_repo')
+        repo = self.fake_simple_log.call_args.kwargs['repo']
+        self.assertEqual(repo.name, repo_name)
+
+        self.fake_simple_log.assert_called_once_with(conn, repo=repo)
         self.assertConsoleContents(self.console)
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_log_with_url(self, fake_fetch_repos):
+        conn = Mock()
+        self.fake_simple_log.return_value = []
+
+        repo_name = 'the_repo'
+        repo_url = 'http://github.com/the_repo.git'
+        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url)
+
+        args = self.log(repo_url)
+        args.execute(conn, args)
+
+        self.fake_simple_log.assert_called_once_with(conn, repo=fake_repo)
 
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_log_error(self, fake_dumper):
@@ -404,6 +560,16 @@ Date:   2020-10-02
         self.assertEqual(exit_code, 1)
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_log_url_error(self, _):
+        repo_url = 'http://github.com/the_repo.git'
+
+        args = self.log(repo_url)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
@@ -422,19 +588,40 @@ class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
 
     def test_pull_no_params(self):
         conn = Mock()
+        repo_name = 'the_repo'
         self.fake_simple_pull.return_value = {
             'fromCommit': '123',
             'toCommit': '456'
         }
 
-        args = self.pull('the_repo')
+        args = self.pull(repo_name)
         args.execute(conn, args)
 
-        self.fake_simple_pull.assert_called_once_with(conn, name='the_repo')
+        repo = self.fake_simple_pull.call_args.kwargs['repo']
+        self.assertEqual(repo.name, repo_name)
+
+        self.fake_simple_pull.assert_called_once_with(conn, repo=repo)
         self.assertConsoleContents(self.console, stdout=
 '''The repository "the_repo" has been pulled
 123 -> 456
 ''')
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_pull_with_url(self, fake_fetch_repos):
+        conn = Mock()
+        self.fake_simple_pull.return_value = {
+            'fromCommit': '123',
+            'toCommit': '456'
+        }
+
+        repo_name = 'the_repo'
+        repo_url = 'http://github.com/the_repo.git'
+        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url)
+
+        args = self.pull(repo_url)
+        args.execute(conn, args)
+
+        self.fake_simple_pull.assert_called_once_with(conn, repo=fake_repo)
 
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_pull_error(self, fake_dumper):
@@ -446,6 +633,16 @@ class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(exit_code, 1)
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_pull_url_error(self, _):
+        repo_url = 'http://github.com/the_repo.git'
+
+        args = self.pull(repo_url)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
@@ -489,6 +686,27 @@ Run: sapcli gcts config --help
 the_key_two=two
 ''')
 
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_config_with_url(self, fake_fetch_repos):
+        conn = Mock()
+
+        repo_name = 'the_repo'
+        repo_url = 'http://github.com/the_repo.git'
+        repo_config = {
+            'the_key_one': 'one',
+            'the_key_two': 'two',
+        }
+
+        mock_repository(fake_fetch_repos, name=repo_name, url=repo_url, configuration=repo_config)
+
+        args = self.config('-l', repo_url)
+        args.execute(conn, args)
+
+        self.assertConsoleContents(self.console, stdout=
+'''the_key_one=one
+the_key_two=two
+''')
+
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_config_list_error(self, fake_dumper):
         messages = {'exception': 'test'}
@@ -499,6 +717,16 @@ the_key_two=two
         self.assertEqual(exit_code, 1)
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_config_url_error(self, _):
+        repo_url = 'http://github.com/the_repo.git'
+
+        args = self.config('-l', repo_url)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
@@ -560,6 +788,19 @@ class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertConsoleContents(self.console, stdout=f'''The transport "{corrnr}" has been committed\n''')
 
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_commit_with_url(self, fake_fetch_repos):
+        repo_name = 'the_repo'
+        repo_url = 'http://github.com/the_repo.git'
+        corrnr = 'CORRNR'
+
+        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url)
+
+        commit_cmd = self.commit_cmd(repo_url, corrnr)
+        commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        fake_repo.commit_transport.assert_called_once()
+
     def test_commit_with_error(self):
         repo_name = 'the_repo'
         corrnr = 'CORRNR'
@@ -570,6 +811,17 @@ class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
         commit_cmd.execute(self.fake_connection, commit_cmd)
 
         self.assertConsoleContents(self.console, stderr=f'''Exception:\n  Repository does not exist\n''')
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_commit_url_error(self, _):
+        repo_url = 'http://github.com/the_repo.git'
+        corrnr = 'CORRNR'
+
+        commit_cmd = self.commit_cmd(repo_url, corrnr)
+        exit_code = commit_cmd.execute(None, commit_cmd)
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
