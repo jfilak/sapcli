@@ -90,10 +90,13 @@ def pull(connection, name=None, repo=None):
     return repo.pull()
 
 
-def delete(connection, name):
+def delete(connection, name=None, repo=None):
     """Deletes the given repository on the give system"""
 
-    return Repository(connection, name).delete()
+    if repo is None:
+        repo = Repository(connection, name)
+
+    return repo.delete()
 
 
 def get_user_credentials(connection):
