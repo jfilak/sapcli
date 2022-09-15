@@ -282,6 +282,24 @@ def putcertificate(connection, args):
             logging.info('* %s', cert['EV_SUBJECT'])
 
 
+@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
+@CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
+@CommandGroup.command()
+def getowncert(connection, args):
+    """Prints out PEM encoded X.509 certificate of the requested PSE.
+    """
+
+    ssl_storage = _get_ssl_storage_from_args(connection, args)
+
+    cert = ssl_storage.get_own_certificate()
+    cert_x509 = base64.b64encode(cert).decode('ascii')
+
+    printout(PEM_HEADER)
+    printout(cert_x509)
+    printout(PEM_FOOTER)
+
+
 @CommandGroup.argument('-s', '--storage', action='append', default=[],
                        choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', action='append', default=[])

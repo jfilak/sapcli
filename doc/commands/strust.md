@@ -124,6 +124,18 @@ sapcli strust putcertificate [-i|--identity IDENTITY] [-s|--storage STORAGE] [-a
 - `PATH`: Path to the certificate files in the form PEM encoded X.509.
 - `-`: if the symbol dash is used instead of PATH, the certifate will be read from STDIN
 
+## getowncert
+
+Prints out PSE certificate in the form PEM encoded X.509.
+
+```bash
+sapcli strust getowncert [-i|--identity IDENTITY] [-s|--storage STORAGE]
+```
+
+**Parameters**:
+- `--identity`: STRUST identity (PSE context + PSE application). **(Mutually exclusive with the option --storage)**
+- `--storage`: Predefined STRUST identities. **(Mutually exclusive with the option --identity)**
+
 ## listcertificates
 
 Lists (briefly) all certificates from specified identities and stores.
