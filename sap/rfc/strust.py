@@ -230,6 +230,20 @@ class SSLCertStorage:
             f'Failed to put the CERT to the {str(self)}: {ret[0]["MESSAGE"]}'
         )
 
+    def get_own_certificate(self) -> bytes:
+        """Returns X.509 Base64 certificate"""
+
+        own_cert_resp = self._connection.call(
+            'SSFR_GET_OWNCERTIFICATE',
+            IS_STRUST_IDENTITY=self.identity,
+        )
+
+        bapiret = BAPIReturn(own_cert_resp['ET_BAPIRET2'])
+        if bapiret.is_error:
+            raise BAPIError(bapiret, own_cert_resp)
+
+        return own_cert_resp['EV_CERTIFICATE']
+
     def get_certificates(self):
         """Returns the certificate list"""
 

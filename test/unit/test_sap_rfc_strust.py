@@ -375,6 +375,26 @@ class TestSSLCertStorage(unittest.TestCase):
 
         fake_put_identity_cert.assert_called_with(storage, pkc_response)
 
+    def test_get_own_certificate(self):
+        expected_own_cert = b'test_get_own_certificate'
+        self.connection.set_responses([{'EV_CERTIFICATE': expected_own_cert, 'ET_BAPIRET2': []}])
+
+        result = self.ssl_storage.get_own_certificate()
+
+        self.assertEqual(result, expected_own_cert)
+        self.assert_rfc_call('SSFR_GET_OWNCERTIFICATE', **self.expected_storage_identity)
+
+    def test_get_own_certificate_raises(self):
+        self.connection.set_responses([{'ET_BAPIRET2': [
+            {'TYPE': 'E', 'ID': 1, 'NUMBER': 1, 'MESSAGE': 'Unit Test Error'}
+        ]}])
+
+        with self.assertRaises(BAPIError) as cm:
+            self.ssl_storage.get_own_certificate()
+
+        self.assertEqual('Error(1|1): Unit Test Error', str(cm.exception))
+        self.assert_rfc_call('SSFR_GET_OWNCERTIFICATE', **self.expected_storage_identity)
+
 
 class TestListIdentities(unittest.TestCase):
 

@@ -851,5 +851,56 @@ class TestListIdentities(PatcherTestCase, ConsoleOutputTestCase):
         )
 
 
+class TestGetOwnCertificate(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.mock_connection = Mock()
+
+    def getowncert(self, *test_args):
+        cmd_args = parse_args('getowncert', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def test_storage_invalid(self):
+        with self.assertRaises(SystemExit):
+            self.getowncert('-s', 'invalidstorage')
+
+    def test_identity_invalid(self):
+        identity = 'foo/bar/blah'
+
+        with self.assertRaises(SAPCliError) as caught:
+            self.getowncert('-i', identity)
+        
+        self.assertEqual(f'Invalid identity format: {identity}', str(caught.exception))
+
+    def test_neither_identity_nor_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.getowncert()
+
+        self.assertEqual('Neither -i nor -s was provided.', str(caught.exception))
+
+    def test_both_identity_and_storage(self):
+        with self.assertRaises(SAPCliError) as caught:
+            self.getowncert('-s', 'server_standard', '-i', 'some/identity')
+
+        self.assertEqual('User either -i or -s but not both.', str(caught.exception))
+    
+    @patch('sap.rfc.strust.SSLCertStorage.get_own_certificate', return_value=b'test_get_own_certificate')
+    def test_get_own_certificate(self, fake_get_own_certificate):
+        self.getowncert("-s", "client_anonymous")
+
+        fake_get_own_certificate.assert_called_once()
+
+        self.assertConsoleContents(self.console, stdout='''-----BEGIN CERTIFICATE-----
+dGVzdF9nZXRfb3duX2NlcnRpZmljYXRl
+-----END CERTIFICATE-----
+''')
+
+
+
 if __name__ == '__main__':
     unittest.main()
