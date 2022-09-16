@@ -448,6 +448,59 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertIsNotNone(repo._data)
         self.assertEqual(str(caught.exception), 'gCTS exception: Pull Error')
 
+    def assert_repo_activities(self, query_params, expected_result, expected_params):
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        result = repo.activities(query_params)
+
+        self.assertEqual(result, expected_result)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/getHistory',
+                                                        params=expected_params), self)
+
+    def test_activities_default_params(self):
+        expected_params = {'limit': '10', 'offset': '0'}
+        expected_result = ['activity']
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams()
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': expected_result})
+        )
+
+        self.assert_repo_activities(query_params, expected_result, expected_params)
+
+    def test_activities_all_params(self):
+        expected_params = {'limit': '15', 'offset': '10', 'toCommit': '123', 'fromCommit': '456', 'type': 'CLONE'}
+        expected_result = ['activity']
+
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams().set_limit(15).set_offset(10)\
+            .set_tocommit('123').set_fromcommit('456').set_operation('CLONE')
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': expected_result})
+        )
+
+        self.assert_repo_activities(query_params, expected_result, expected_params)
+
+    def test_activities_empty_response(self):
+        expected_params = {'limit': '10', 'offset': '0'}
+        expected_result = []
+
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams()
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+
+        self.assert_repo_activities(query_params, expected_result, expected_params)
+
+    def test_activities_empty_result(self):
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams()
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': []})
+        )
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+            repo.activities(query_params)
+        
+        self.assertEqual(str(cm.exception), 'A successful gcts getHistory request did not return result')
+
     def test_commit_transports(self):
         corrnr = 'CORRNR'
         message = 'Message'

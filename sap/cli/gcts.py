@@ -2,11 +2,14 @@
 
 import json
 import warnings
+from enum import Enum
+
 import sap.cli.core
 import sap.cli.helpers
 import sap.rest.gcts.simple
 from sap.rest.gcts.remote_repo import (
-    Repository
+    Repository,
+    RepoHistoryQueryParams,
 )
 from sap.rest.gcts.errors import (
     GCTSRequestError,
@@ -220,6 +223,86 @@ def set_url(connection, args):
     except SAPCliError as ex:
         sap.cli.core.printout(str(ex))
         return 1
+
+    return 0
+
+
+class ActivityOperations(Enum):
+    """Repository activity operations"""
+
+    COMMIT = 'COMMIT'
+    PULL = 'PULL'
+    CHECKOUT = 'CHECKOUT'
+    CLONE = 'CLONE'
+
+    @classmethod
+    def is_operation(cls, operation):
+        return operation in cls.__members__
+
+
+def validate_and_get_operation(operation_raw: str):
+    """Validate the OPERATION passed as argument and return it in correct format"""
+
+    operation = operation_raw.upper()
+    if not ActivityOperations.is_operation(operation):
+        raise SAPCliError(f'Incorrect operation. Operation "{operation_raw}" does not exists.')
+
+    return operation
+
+
+@RepoCommandGroup.argument('--columns', type=str, default=None, help='Visible columns in CSV')
+@RepoCommandGroup.argument('--noheadings', action='store_true', default=False)
+@RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@RepoCommandGroup.argument('--operation', type=str, default=None)
+@RepoCommandGroup.argument('--tocommit', type=str, default=None)
+@RepoCommandGroup.argument('--fromcommit', type=str, default=None)
+@RepoCommandGroup.argument('--offset', type=int, default=0)
+@RepoCommandGroup.argument('--limit', type=int, default=10)
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command()
+def activities(connection, args):
+    """gCTS Activities
+    """
+
+    console = sap.cli.core.get_console()
+
+    params = RepoHistoryQueryParams().set_limit(args.limit).set_offset(args.offset)
+    params.set_tocommit(args.tocommit).set_fromcommit(args.fromcommit)
+
+    try:
+        operation = validate_and_get_operation(args.operation) if args.operation else None
+        params.set_operation(operation)
+
+        repo = get_repository(connection, args.package)
+        repo_activities = repo.activities(params)
+    except GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printout(str(ex))
+        return 1
+
+    if args.format == 'JSON':
+        console.printout(repo_activities)
+    else:
+        columns = sap.cli.helpers.TableWriter.Columns() \
+            ('checkoutTime', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate) \
+            ('caller', 'Caller') \
+            ('type', 'Operation') \
+            ('request', 'Transport', default='') \
+            ('fromCommit', 'From Commit', default='') \
+            ('toCommit', 'To Commit', default='') \
+            ('state', 'State', default='') \
+            ('rc', 'Code', default='----') \
+            .done()
+
+        tw = sap.cli.helpers.TableWriter(
+            repo_activities,
+            columns,
+            display_header=not args.noheadings,
+            visible_columns=None if not args.columns else args.columns.split(',')
+        )
+        tw.printout(console)
 
     return 0
 
