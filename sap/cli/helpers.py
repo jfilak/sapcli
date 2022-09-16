@@ -186,3 +186,21 @@ class TableWriter:
 
         for line in self._lines:
             console.printout(fmt.format(*line))
+
+
+def abapstamp_to_isodate(abapstamp: 'int') -> 'str':
+    """Formats ABAP timestamp to ISO8061 date string with space instead of T"""
+
+    abapstamp_str = str(abapstamp)
+
+    if len(abapstamp_str) != 14:
+        raise SAPCliError(f'Not ABAP time stamp: {abapstamp}')
+
+    year = abapstamp_str[0:4]
+    month = abapstamp_str[4:6]
+    day = abapstamp_str[6:8]
+    hour = abapstamp_str[8:10]
+    minute = abapstamp_str[10:12]
+    second = abapstamp_str[12:14]
+
+    return f'{year}-{month}-{day} {hour}:{minute}:{second}'

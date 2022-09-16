@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from io import StringIO
 import unittest
 from unittest.mock import MagicMock, patch, Mock, PropertyMock
 
@@ -1033,6 +1034,116 @@ class TestgCTSRepoSetProperty(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+
+
+class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.fake_connection = Mock()
+        activities_data = [{
+            'checkoutTime': 20220927091700,
+            'caller': 'caller',
+            'type': 'CLONE',
+            'request': 'request',
+            'fromCommit': '123',
+            'toCommit': '456',
+            'state': 'READY',
+            'rc': 1,
+        }]
+        self.fake_repo = Mock()
+        self.fake_repo.activities.return_value = activities_data
+
+    def activities_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'activities', *args, **kwargs)
+
+    def assert_query_params(self, expected_params):
+        query_params = self.fake_repo.activities.call_args.args[0]
+        self.assertEqual(query_params.get_params(), expected_params)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_activities_no_params(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.activities_cmd('the_repo')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_repo.activities.assert_called_once()
+
+        expected_params = {'limit': '10', 'offset': '0'}
+        self.assert_query_params(expected_params)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Date                | Caller | Operation | Transport | From Commit | To Commit | State | Code
+---------------------------------------------------------------------------------------------
+2022-09-27 09:17:00 | caller | CLONE     | request   | 123         | 456       | READY | 1   
+''')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_activities_format_json(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.activities_cmd('the_repo', '--format', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+        self.assertEqual(exit_code, 0)
+
+        expected_params = {'limit': '10', 'offset': '0'}
+        self.assert_query_params(expected_params)
+
+        self.assertConsoleContents(self.console, stdout=
+                                   "[{'checkoutTime': 20220927091700, 'caller': 'caller', 'type': 'CLONE',"
+                                   " 'request': 'request', 'fromCommit': '123', 'toCommit': '456', 'state': 'READY',"
+                                   " 'rc': 1}]\n")
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_activities_all_query_params(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.activities_cmd('the_repo', '--limit', '15', '--offset', '10', '--fromcommit', '123',
+                                      '--tocommit', '456', '--operation', 'CLONE')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+        self.assertEqual(exit_code, 0)
+
+        expected_params = {'limit': '15', 'offset': '10', 'fromCommit': '123', 'toCommit': '456', 'type': 'CLONE'}
+        self.assert_query_params(expected_params)
+
+    @patch('sys.stderr', new_callable=StringIO)
+    def test_activities_incorrect_operation(self, mock_stderr):
+
+        with self.assertRaises(SystemExit):
+            the_cmd = self.activities_cmd('the_repo', '--operation', 'NOT_CLONE')
+
+        self.assertIn("--operation: invalid choice: 'NOT_CLONE' (choose from 'COMMIT', 'PULL', 'CHECKOUT', 'CLONE')", mock_stderr.getvalue())
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_activities_repo_not_found(self, fake_get_repository):
+        fake_get_repository.side_effect = sap.cli.gcts.SAPCliError('Cannot get repository.')
+
+        the_cmd = self.activities_cmd('the_repo')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_activities_request_error(self, fake_get_repository):
+        self.fake_repo.activities.side_effect = sap.cli.gcts.GCTSRequestError({'exception': 'Request failed.'})
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.activities_cmd('the_repo')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr=
+'''Exception:
+  Request failed.
+''')
 
 
 class TestqCTSUserGetCredentials(PatcherTestCase, ConsoleOutputTestCase):

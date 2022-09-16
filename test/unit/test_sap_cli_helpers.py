@@ -229,3 +229,21 @@ col1 ! col2 ! col3 ! None
 -----------
 (..) | (..)
 ''')
+
+
+class TestAbapstampToIsodate(unittest.TestCase):
+
+    def test_abapstamp_to_isodate(self):
+        abapstamp = 20220926154500
+        isodate_expected = '2022-09-26 15:45:00'
+
+        isodate = sap.cli.helpers.abapstamp_to_isodate(abapstamp)
+        self.assertEqual(isodate, isodate_expected)
+
+    def test_abapstamp_to_isodate_error(self):
+        incorrect_abapstamp = 20220926
+
+        with self.assertRaises(sap.cli.helpers.SAPCliError) as cm:
+            sap.cli.helpers.abapstamp_to_isodate(incorrect_abapstamp)
+
+        self.assertEqual(str(cm.exception), f'Not ABAP time stamp: {incorrect_abapstamp}')

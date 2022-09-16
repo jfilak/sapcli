@@ -1,5 +1,7 @@
 """gCTS Remote repo wrapper"""
 
+from enum import Enum
+
 from sap import get_logger
 
 from sap.rest.errors import HTTPRequestError
@@ -63,10 +65,10 @@ class _RepositoryHttpProxy:
         return self.connection.execute('GET', self._build_url(path), params=params)
 
     @_http_to_gcts_error
-    def get_json(self, path=None):
+    def get_json(self, path=None, params=None):
         """Execute HTTP GET with Accept: application/json and get only the JSON part."""
 
-        return self.connection.get_json(self._build_url(path))
+        return self.connection.get_json(self._build_url(path), params=params)
 
     @_http_to_gcts_error
     def post(self, path=None):
@@ -85,6 +87,89 @@ class _RepositoryHttpProxy:
         """Execute HTTP DELETE"""
 
         return self.connection.execute('DELETE', self._build_url(path))
+
+
+class RepoActivitiesQueryParams:
+    """Wrapper for query parameters of repository activities call"""
+
+    class Operation(Enum):
+        """Repository activity operations"""
+
+        COMMIT = 'COMMIT'
+        PULL = 'PULL'
+        CHECKOUT = 'CHECKOUT'
+        CLONE = 'CLONE'
+
+    def __init__(self):
+        self._params = {}
+
+        self.set_limit(10)
+        self.set_offset(0)
+
+    @staticmethod
+    def allowed_operations():
+        """Return the list of possible operations"""
+
+        return RepoActivitiesQueryParams.Operation.__members__
+
+    def set_limit(self, value: 'int') -> 'RepoActivitiesQueryParams':
+        """Set the limit"""
+
+        self._params['limit'] = str(value)
+        return self
+
+    def set_offset(self, value: 'int') -> 'RepoActivitiesQueryParams':
+        """Set the offset"""
+
+        self._params['offset'] = str(value)
+        return self
+
+    def set_tocommit(self, value: 'str') -> 'RepoActivitiesQueryParams':
+        """Set the toCommit. If None, remove from parameters"""
+
+        if not value:
+            try:
+                del self._params['toCommit']
+            except KeyError:
+                pass
+        else:
+            self._params['toCommit'] = value
+
+        return self
+
+    def set_fromcommit(self, value: 'str') -> 'RepoActivitiesQueryParams':
+        """Set the fromCommit. If None, remove from parameters"""
+
+        if not value:
+            try:
+                del self._params['fromCommit']
+            except KeyError:
+                pass
+        else:
+            self._params['fromCommit'] = value
+
+        return self
+
+    def set_operation(self, value: 'str') -> 'RepoActivitiesQueryParams':
+        """Set the type. If None, remove from parameters"""
+
+        if not value:
+            try:
+                del self._params['type']
+            except KeyError:
+                pass
+        else:
+            if value not in RepoActivitiesQueryParams.allowed_operations():
+                raise SAPCliError(f'Invalid gCTS Activity Operation: {value}')
+
+            self._params['type'] = value
+
+        return self
+
+    def get_params(self) -> dict:
+        """Get the query parameters"""
+
+        return self._params
 
 
 # pylint: disable=R0904
@@ -323,6 +408,19 @@ class Repository:
 
         self.wipe_data()
         return response
+
+    def activities(self, history_params: RepoActivitiesQueryParams):
+        """Fetches gCTS repository activities (not git logs)"""
+
+        response = self._http.get_json('getHistory', params=history_params.get_params())
+        if not response:
+            return []
+
+        result = response.get('result')
+        if not result:
+            raise SAPCliError('A successful gcts getHistory request did not return result')
+
+        return result
 
     def commit_transport(self, corrnr, message, description=None):
         """Turns a transport into a commit"""
