@@ -245,3 +245,30 @@ def printerr(*objects, sep=' ', end='\n'):
     """A shortcut for get_console().printerr()"""
 
     get_console().printerr(*objects, sep=sep, end=end)
+
+
+_SAPCLI_STDIN = None
+
+
+def get_stdin():
+    """Returns current standard user input"""
+
+    # pylint: disable=global-statement
+    global _SAPCLI_STDIN
+
+    if _SAPCLI_STDIN is None:
+        _SAPCLI_STDIN = sys.stdin
+
+    return _SAPCLI_STDIN
+
+
+def set_stdin(reader):
+    """Set standard user input"""
+
+    # pylint: disable=global-statement
+    global _SAPCLI_STDIN
+
+    oldvalue = _SAPCLI_STDIN
+    _SAPCLI_STDIN = reader
+
+    return oldvalue

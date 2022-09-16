@@ -28,8 +28,15 @@ from sap.rfc.strust import (
     iter_storage_certificates,
     list_identities
 )
-from sap.cli.core import printout
+from sap.cli.core import (
+    printout,
+    get_stdin
+)
 from sap.cli.helpers import TableWriter
+
+
+PEM_HEADER = '-----BEGIN CERTIFICATE-----'
+PEM_FOOTER = '-----END CERTIFICATE-----'
 
 
 def storage_deprecation_warning():
@@ -218,7 +225,7 @@ def upload(connection, args):
 
 
 @CommandGroup.argument('paths', type=str, nargs='+',
-                       help='a file path containing X.509 Base64 certificate')
+                       help='a file path containing X.509 Base64 certificate or - to read it from STDIN')
 @CommandGroup.argument('-l', '--algorithm', type=str, help='R,S,G,H,X - or other if you need, of PSE file', default='R')
 @CommandGroup.argument('-k', '--key-length', type=int, default=2048, help='Of PSE file')
 @CommandGroup.argument('-d', '--dn', type=str, help='Distinguished Name of PSE file', default=None)
@@ -249,13 +256,21 @@ def putcertificate(connection, args):
 
         logging.debug('SSL Storage is OK: %s', ssl_storage)
 
-    for file_path in args.paths:
-        logging.info('Processing the file: %s', file_path)
-        with open(file_path, 'rb') as cert_file:
-            cert_contents = cert_file.read()
-            for ssl_storage in ssl_storages:
-                logging.info('Adding the file: %s to %s', file_path, ssl_storage)
-                logging.info(ssl_storage.put_certificate(cert_contents))
+    if args.paths[0] == '-':
+        certificates = read_certificates()
+
+        for ssl_storage in ssl_storages:
+            for idx, cert_content in enumerate(certificates):
+                logging.info('Adding the certificate: #%d to %s', idx, ssl_storage)
+                logging.info(ssl_storage.put_certificate(cert_content.encode()))
+    else:
+        for file_path in args.paths:
+            logging.info('Processing the file: %s', file_path)
+            with open(file_path, 'rb') as cert_file:
+                cert_contents = cert_file.read()
+                for ssl_storage in ssl_storages:
+                    logging.info('Adding the file: %s to %s', file_path, ssl_storage)
+                    logging.info(ssl_storage.put_certificate(cert_contents))
 
     logging.info('Notifying ICM ... ')
     notify_icm_changed_pse(connection)
@@ -349,3 +364,11 @@ def ssl_storages_from_arguments(connection, args):
         ssl_storages.append(ssl_storage)
 
     return ssl_storages
+
+
+def read_certificates():
+    """Helper function to build list of certificates from stdin"""
+
+    cert_input = get_stdin().read()
+
+    return [crt.strip() + '\n' + PEM_FOOTER + '\n' for crt in cert_input.split(PEM_FOOTER) if len(crt.strip()) > 0]

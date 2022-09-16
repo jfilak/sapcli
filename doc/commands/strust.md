@@ -107,12 +107,22 @@ sapcli strust upload [-i|--identity IDENTITY] [-s|--storage STORAGE] [--pse-pass
 
 ## putcertificate
 
-Uploads certificate to the SAP system from local filesystem. File shall be encoded
-as bas64 X.509 certificate
+Puts the given certificate onto list of trusted certificates of the give PSE.
+The certificate can be passed from local filesystem or read from input stream.
+Both the file and data in input stream shall be PEM encoded X.509 certificate.
 
 ```bash
-sapcli strust putcertificate --store client_standard ./cert.pem"
+sapcli strust putcertificate [-i|--identity IDENTITY] [-s|--storage STORAGE] [-a|--algorithm ALGORITHM] [-k|--key-length KEYLEGNTH] [-d|--dn DN] [-|PATH ...]
 ```
+
+**Parameters**:
+- `--identity`: STRUST identity (PSE context + PSE application). **(Mutually exclusive with the option --storage)**
+- `--storage`: Predefined STRUST identities. **(Mutually exclusive with the option --identity)**
+- `--algorithm`: Algorithm used to create a new PSE if the requeste does not exist
+- `--key-length`: Key-length used to create a new PSE if the requeste does not exist
+- `--dn`: Distinguished Name used to create a new PSE if the requeste does not exist
+- `PATH`: Path to the certificate files in the form PEM encoded X.509.
+- `-`: if the symbol dash is used instead of PATH, the certifate will be read from STDIN
 
 ## listcertificates
 
