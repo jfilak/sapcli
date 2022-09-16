@@ -107,11 +107,19 @@ sapcli strust upload [-i|--identity IDENTITY] [-s|--storage STORAGE] [--pse-pass
 
 ## putcertificate
 
-Uploads certificate to the SAP system from local filesystem. File shall be encoded
-as bas64 X.509 certificate
+Uploads certificate to the SAP system. The certificate can be passed from local filesystem or read from input stream.   
+Both the file and data in input stream shall be encoded as Base64 X.509 certificate.
 
 ```bash
 sapcli strust putcertificate --store client_standard ./cert.pem"
+```
+
+## getowncert
+
+Prints out X.509 Base64 certificate.
+
+```bash
+sapcli strust getowncert --store client_standard
 ```
 
 ## listcertificates

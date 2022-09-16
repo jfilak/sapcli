@@ -177,6 +177,100 @@ class TestAddAllFiles(unittest.TestCase):
                                 )
                         )
 
+    def test_with_certificate(self):
+        from sap.cli.core import set_stdin
+
+        mock_certificate='''-----BEGIN CERTIFICATE-----
+dGVzdF93aXRoX2NlcnRpZmljYXRl
+-----END CERTIFICATE-----
+'''
+
+        set_stdin(StringIO(mock_certificate))
+
+        sap.cli.strust.putcertificate(self.mock_connection, SimpleNamespace(
+            paths=['-'],
+            storage=[],
+            identity=['SSLC/DFAULT', 'SSLC/ANONYM']
+        ))
+
+        # print(self.mock_connection.call.call_args_list)
+
+        self.assertEquals(
+            self.mock_connection.call.call_args_list,
+            [call('SSFR_PSE_CHECK',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
+             call('SSFR_PSE_CHECK',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}),
+             call('SSFR_PUT_CERTIFICATE',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'},
+                  IV_CERTIFICATE=str.encode(mock_certificate)),
+             call('SSFR_PUT_CERTIFICATE',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'},
+                  IV_CERTIFICATE=str.encode(mock_certificate)),
+             call('ICM_SSL_PSE_CHANGED'),
+             call('SSFR_GET_CERTIFICATELIST',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
+             call('SSFR_PARSE_CERTIFICATE',
+                  IV_CERTIFICATE='xcert'),
+             call('SSFR_GET_CERTIFICATELIST',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}),
+             call('SSFR_PARSE_CERTIFICATE',
+                  IV_CERTIFICATE='xcert')])
+
+        set_stdin(None)
+
+    def test_with_multiple_certificates(self):
+        from sap.cli.core import set_stdin
+
+        mock_certificate='''-----BEGIN CERTIFICATE-----
+dGVzdF93aXRoX2NlcnRpZmljYXRl
+-----END CERTIFICATE-----
+'''
+        mock_certificate_2='''-----BEGIN CERTIFICATE-----
+dGVzdF93aXRoX3NlY29uZF9jZXJ0aWZpY2F0ZQ==
+-----END CERTIFICATE-----
+'''
+
+        set_stdin(StringIO(mock_certificate + ', ' + mock_certificate_2))
+
+        sap.cli.strust.putcertificate(self.mock_connection, SimpleNamespace(
+            paths=['-'],
+            storage=[],
+            identity=['SSLC/DFAULT', 'SSLC/ANONYM']
+        ))
+
+        # print(self.mock_connection.call.call_args_list)
+
+        self.assertEquals(
+            self.mock_connection.call.call_args_list,
+            [call('SSFR_PSE_CHECK',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
+             call('SSFR_PSE_CHECK',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}),
+             call('SSFR_PUT_CERTIFICATE',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'},
+                  IV_CERTIFICATE=str.encode(mock_certificate)),
+             call('SSFR_PUT_CERTIFICATE',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'},
+                  IV_CERTIFICATE=str.encode(mock_certificate_2)),
+             call('SSFR_PUT_CERTIFICATE',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'},
+                  IV_CERTIFICATE=str.encode(mock_certificate)),
+             call('SSFR_PUT_CERTIFICATE',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'},
+                  IV_CERTIFICATE=str.encode(mock_certificate_2)),
+             call('ICM_SSL_PSE_CHANGED'),
+             call('SSFR_GET_CERTIFICATELIST',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
+             call('SSFR_PARSE_CERTIFICATE',
+                  IV_CERTIFICATE='xcert'),
+             call('SSFR_GET_CERTIFICATELIST',
+                  IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'ANONYM'}),
+             call('SSFR_PARSE_CERTIFICATE',
+                  IV_CERTIFICATE='xcert')])
+
+        set_stdin(None)
+
 
 class TestArgumentsToStores(unittest.TestCase):
 
@@ -874,7 +968,7 @@ class TestGetOwnCertificate(PatcherTestCase, ConsoleOutputTestCase):
 
         with self.assertRaises(SAPCliError) as caught:
             self.getowncert('-i', identity)
-        
+
         self.assertEqual(f'Invalid identity format: {identity}', str(caught.exception))
 
     def test_neither_identity_nor_storage(self):
@@ -888,7 +982,7 @@ class TestGetOwnCertificate(PatcherTestCase, ConsoleOutputTestCase):
             self.getowncert('-s', 'server_standard', '-i', 'some/identity')
 
         self.assertEqual('User either -i or -s but not both.', str(caught.exception))
-    
+
     @patch('sap.rfc.strust.SSLCertStorage.get_own_certificate', return_value=b'test_get_own_certificate')
     def test_get_own_certificate(self, fake_get_own_certificate):
         self.getowncert("-s", "client_anonymous")
