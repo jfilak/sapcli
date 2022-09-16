@@ -63,10 +63,10 @@ class _RepositoryHttpProxy:
         return self.connection.execute('GET', self._build_url(path), params=params)
 
     @_http_to_gcts_error
-    def get_json(self, path=None):
+    def get_json(self, path=None, params=None):
         """Execute HTTP GET with Accept: application/json and get only the JSON part."""
 
-        return self.connection.get_json(self._build_url(path))
+        return self.connection.get_json(self._build_url(path), params=params)
 
     @_http_to_gcts_error
     def post(self, path=None):
@@ -85,6 +85,37 @@ class _RepositoryHttpProxy:
         """Execute HTTP DELETE"""
 
         return self.connection.execute('DELETE', self._build_url(path))
+
+
+class RepoHistoryQueryParams:
+
+    def __init__(self):
+        self._params = {}
+
+        self.set_limit(10)
+        self.set_offset(0)
+
+    def set_limit(self, value: 'int') -> 'RepoHistoryQueryParams':
+        self._params['limit'] = str(value)
+        return self
+
+    def set_offset(self, value: 'int') -> 'RepoHistoryQueryParams':
+        self._params['offset'] = str(value)
+        return self
+
+    def set_tocommit(self, value: 'str') -> 'RepoHistoryQueryParams':
+        if not value:
+            try:
+                del self._params['toCommit']
+            except KeyError:
+                pass
+        else:
+            self._params['toCommit'] = value
+
+        return self
+
+    def get_params(self) -> dict:
+        return self._params
 
 
 class Repository:
@@ -305,6 +336,19 @@ class Repository:
 
         self.wipe_data()
         return response
+
+    def history(self, history_params: RepoHistoryQueryParams):
+        """Fetches gCTS repository history (not git logs)"""
+
+        response = self._http.get_json('getHistory', params=history_params.get_params())
+        if not response:
+            return []
+
+        result = response.get('result')
+        if not result:
+            raise SAPCliError('A successful gcts getHistory request did not return result')
+
+        return result
 
     def commit_transport(self, corrnr, message, description=None):
         """Turns a transport into a commit"""

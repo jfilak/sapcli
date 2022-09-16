@@ -4,7 +4,8 @@ import sap.cli.core
 import sap.cli.helpers
 import sap.rest.gcts.simple
 from sap.rest.gcts.remote_repo import (
-    Repository
+    Repository,
+    RepoHistoryQueryParams,
 )
 from sap.rest.gcts.errors import (
     GCTSRequestError,
@@ -407,4 +408,52 @@ def commit(connection, args):
         return 1
 
     console.printout(f'The transport "{args.corrnr}" has been committed')
+    return 0
+
+
+@CommandGroup.argument('--columns', type=str, default=None, help='Visible columns in CSV')
+@CommandGroup.argument('--noheadings', action='store_true', default=False)
+@CommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@CommandGroup.argument('--tocommit', type=str, default=None)
+@CommandGroup.argument('--offset', type=int, default=0)
+@CommandGroup.argument('--limit', type=int, default=10)
+@CommandGroup.argument('package')
+@CommandGroup.command()
+def history(connection, args):
+    """gCTS Activities
+    """
+
+    console = sap.cli.core.get_console()
+
+    params = RepoHistoryQueryParams().set_limit(args.limit).set_offset(args.offset)
+    params.set_tocommit(args.tocommit)
+
+    try:
+        repo = get_repository(connection, args.package)
+        history = repo.history(params)
+    except GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+    else:
+        if args.format == 'JSON':
+            console.printout(history)
+        else:
+            columns = sap.cli.helpers.TableWriter.Columns() \
+                ('checkoutTime', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate) \
+                ('caller', 'Caller') \
+                ('type', 'Operation') \
+                ('request', 'Transport', default='') \
+                ('toCommit', 'To Commit', default='') \
+                ('state', 'State', default='') \
+                ('rc', 'Code', default='----') \
+                .done()
+
+            tw = sap.cli.helpers.TableWriter(
+                history,
+                columns,
+                display_header=not args.noheadings,
+                visible_columns=None if not args.columns else args.columns.split(',')
+            )
+            tw.printout(console)
+
     return 0
