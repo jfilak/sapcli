@@ -112,9 +112,15 @@ def get_user_credentials(connection, args):
     if args.format == 'JSON':
         console.printout(user_credentials)
     else:
-        columns = ('endpoint', 'type', 'state')
-        headers = ('Endpoint', 'Type', 'State')
-        sap.cli.helpers.TableWriter(user_credentials, columns, headers).printout(console)
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('endpoint', 'Endpoint')
+            ('type', 'Type')
+            ('state', 'State')
+            .done()
+        )
+
+        sap.cli.helpers.TableWriter(user_credentials, columns).printout(console)
 
 
 @UserCommandGroup.argument('-t', '--token')
@@ -149,9 +155,20 @@ def get_properties(connection, args):
     try:
         repo = get_repository(connection, args.package)
 
-        columns = ('name', 'rid', 'branch', 'head', 'status', 'vsid', 'role', 'url')
-        headers = ('Name', 'RID', 'Branch', 'Commit', 'Status', 'vSID', 'ROLE', 'URL')
-        sap.cli.helpers.TableWriter([repo], columns, headers).printout(sap.cli.core.get_console())
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('name', 'Name')
+            ('rid', 'RID')
+            ('branch', 'Branch')
+            ('head', 'Commit')
+            ('status', 'Status')
+            ('vsid', 'vSID')
+            ('role', 'ROLE')
+            ('url', 'URL')
+            .done()
+        )
+
+        sap.cli.helpers.TableWriter([repo], columns).printout(sap.cli.core.get_console())
     except SAPCliError as ex:
         sap.cli.core.printout(str(ex))
         return 1
@@ -245,10 +262,18 @@ def repolist(connection, args):
         dump_gcts_messages(console, ex.messages)
         return 1
 
-    columns = ('name', 'branch', 'head', 'status', 'vsid', 'url')
-    headers = ('Name', 'Branch', 'Commit', 'Status', 'vSID', 'URL')
+    columns = (
+        sap.cli.helpers.TableWriter.Columns()
+        ('name', 'Name')
+        ('branch', 'Branch', default='')
+        ('head', 'Commit', default='')
+        ('status', 'Status')
+        ('vsid', 'vSID')
+        ('url', 'URL')
+        .done()
+    )
 
-    sap.cli.helpers.TableWriter(response, columns, headers).printout(console)
+    sap.cli.helpers.TableWriter(response, columns).printout(console)
 
     return 0
 

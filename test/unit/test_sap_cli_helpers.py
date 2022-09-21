@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch, Mock
 
@@ -111,3 +112,120 @@ class TestConsoleHeartBeat(ConsoleOutputTestCase, unittest.TestCase):
         self.assertIsNone(beater._thread)
         self.assertEqual(beater._state, sap.cli.helpers.TaskStates.TERMINATING)
 
+
+class TestTableWriter(ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        self.columns = sap.cli.helpers.TableWriter.Columns()('col1', 'Col1')('col2', 'Col2')('col3', 'Col3')\
+            ('col4', 'Col4', default='').done()
+        self.data = Mock(col1='col1', col2='col2', col3='col3', col4=None)
+
+    def test_table_writer(self):
+        sap.cli.helpers.TableWriter([self.data], self.columns).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1 | Col2 | Col3 | Col4
+-------------------------
+col1 | col2 | col3 | None
+''')
+
+    def test_table_writer_without_header(self):
+        sap.cli.helpers.TableWriter([self.data], self.columns, display_header=False).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''col1 | col2 | col3 | None
+''')
+
+    def test_table_writer_with_visible_columns(self):
+        sap.cli.helpers.TableWriter([self.data], self.columns, visible_columns=['col1', 'col2']).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1 | Col2
+-----------
+col1 | col2
+''')
+
+    def test_table_writer_missing_column_in_data(self):
+        data = Mock(spec=['col1'], col1='col1')
+
+        with self.assertRaises(sap.cli.helpers.SAPCliError) as cm:
+            sap.cli.helpers.TableWriter([data], self.columns).printout(self.console)
+
+        self.assertEqual(str(cm.exception), 'Missing column in table data: col2')
+
+    def test_table_writer_missing_column_in_dict_data(self):
+        data_dict = {'col1': 'col1'}
+
+        with self.assertRaises(sap.cli.helpers.SAPCliError) as cm:
+            sap.cli.helpers.TableWriter([data_dict], self.columns).printout(self.console)
+
+        self.assertEqual(str(cm.exception), 'Missing column in table data: col2')
+
+    def test_table_writer_with_formatter(self):
+        def formatter(value: str):
+            return value.upper()
+
+        columns = sap.cli.helpers.TableWriter.Columns()('col1', 'Col1', formatter=formatter)\
+            ('col2', 'Col2', formatter=formatter)('col3', 'Col3', formatter=formatter).done()
+
+        sap.cli.helpers.TableWriter([self.data], columns).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1 | Col2 | Col3
+------------------
+COL1 | COL2 | COL3
+''')
+
+    def test_table_writer_custom_separator(self):
+        sap.cli.helpers.TableWriter([self.data], self.columns).printout(self.console, separator=" ! ")
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1 ! Col2 ! Col3 ! Col4
+-------------------------
+col1 ! col2 ! col3 ! None
+''')
+
+    def test_table_writer_dict_containing_none(self):
+        def formatter(value: str):
+            if value is None:
+                return '(..)'
+
+            return 'BANG'
+
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('col1', 'Col1', formatter=formatter)
+            ('col2', 'Col2', formatter=formatter, default=None)
+            .done()
+        )
+
+        sap.cli.helpers.TableWriter([{'col1': None}], columns).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1 | Col2
+-----------
+(..) | (..)
+''')
+
+    def test_table_writer_attr_containing_none(self):
+        def formatter(value: str):
+            if value is None:
+                return '(..)'
+
+            return 'BANG'
+
+
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('col1', 'Col1', formatter=formatter)
+            ('col2', 'Col2', formatter=formatter, default=None)
+            .done()
+        )
+
+        sap.cli.helpers.TableWriter([SimpleNamespace(col1=None)], columns).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1 | Col2
+-----------
+(..) | (..)
+''')

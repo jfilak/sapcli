@@ -909,8 +909,6 @@ class TestgCTSRepoGetProperty(PatcherTestCase, ConsoleOutputTestCase):
     def test_get_properties(self, fake_get_repository):
         fake_get_repository.return_value = self.fake_repo
 
-        print('this is repo', self.fake_repo.head)
-
         the_cmd = self.get_properties_cmd(self.repo_name)
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 

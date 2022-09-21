@@ -92,9 +92,16 @@ def listidentities(connection, args):
         printout(identities)
     else:
         console = sap.cli.core.get_console()
-        columns = ('PSE_CONTEXT', 'PSE_APPLIC', 'SPRSL', 'PSE_DESCRIPT')
-        headers = ('PSE Context', 'PSE Application', 'SPRSL', 'PSE Description')
-        TableWriter(identities, columns, headers).printout(console)
+        columns = (
+            TableWriter.Columns()
+            ('PSE_CONTEXT', 'PSE Context')
+            ('PSE_APPLIC', 'PSE Application')
+            ('SPRSL', 'SPRSL')
+            ('PSE_DESCRIPT', 'PSE Description')
+            .done()
+        )
+
+        TableWriter(identities, columns).printout(console)
 
 
 @CommandGroup.argument('--overwrite', help='Overwrite the existing PSE file', action='store_true', default=False)
