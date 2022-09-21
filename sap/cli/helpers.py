@@ -4,6 +4,8 @@ from enum import Enum, auto
 import time
 import threading
 
+from sap.rest.gcts.errors import SAPCliError
+
 
 class TaskStates(Enum):
     """Background task states"""
@@ -97,19 +99,56 @@ class ConsoleHeartBeat:
 class TableWriter:
     """A helper class for formatting a list of objects into a table"""
 
-    def __init__(self, data, attrs, headers):
-        self._headers = headers
-        self._widths = [len(h) for h in headers]
+    class Columns:
+
+        ATTR = 0
+        HEADER = 1
+        FORMATTER = 2
+        DEFAULT = 3
+        SENTINEL = object()
+
+        def __init__(self):
+            self._columns = []
+
+        def __call__(self, attr, header, formatter=None, default=SENTINEL):
+            self._columns.append((attr, header, formatter, default))
+            return self
+
+        def done(self):
+            return self._columns
+
+    def __init__(self, data, columns, display_header=True, visible_columns=None):
+        if visible_columns is None:
+            self._columns = columns
+        else:
+            self._columns = [c for c in columns if c[TableWriter.Columns.ATTR] in visible_columns]
+
+        self._display_header = display_header
+        if display_header:
+            self._widths = [len(c[TableWriter.Columns.HEADER]) for c in self._columns]
+        else:
+            self._widths = [0] * len(self._columns)
+
         self._lines = []
 
         for item in data:
             line = []
 
-            for i, attr in enumerate(attrs):
+            for i, c in enumerate(self._columns):
                 if isinstance(item, dict):
-                    val = str(item[attr])
+                    val = item.get(c[TableWriter.Columns.ATTR], c[TableWriter.Columns.DEFAULT])
                 else:
-                    val = str(getattr(item, attr))
+                    val = getattr(item, c[TableWriter.Columns.ATTR], c[TableWriter.Columns.DEFAULT])
+                    if val is None:
+                        val = c[TableWriter.Columns.DEFAULT]
+
+                if val is TableWriter.Columns.SENTINEL:
+                    raise SAPCliError(f'Missing column in table data: {c[TableWriter.Columns.ATTR]}')
+
+                val = str(val)
+
+                if c[TableWriter.Columns.FORMATTER] is not None:
+                    val = c[TableWriter.Columns.FORMATTER](val)
 
                 if self._widths[i] < len(val):
                     self._widths[i] = len(val)
@@ -122,8 +161,9 @@ class TableWriter:
         """Prints out the content"""
 
         fmt = separator.join((f'{{:<{w}}}' for w in self._widths))
-        console.printout(fmt.format(*self._headers))
-        console.printout('-' * (sum(self._widths) + len(separator) * (len(self._headers) - 1)))
+        if self._display_header:
+            console.printout(fmt.format(*[c[TableWriter.Columns.HEADER] for c in self._columns]))
+            console.printout('-' * (sum(self._widths) + len(separator) * (len(self._columns) - 1)))
 
         for line in self._lines:
             console.printout(fmt.format(*line))
