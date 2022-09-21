@@ -7,7 +7,8 @@ from sap.rest.errors import HTTPRequestError
 from sap.rest.gcts.remote_repo import Repository
 from sap.rest.gcts.errors import (
     exception_from_http_error,
-    GCTSRepoAlreadyExistsError
+    GCTSRepoAlreadyExistsError,
+    SAPCliError,
 )
 
 
@@ -103,7 +104,15 @@ def get_user_credentials(connection):
     """Get Token for the currently logged in user"""
 
     response = connection.get_json('user')
-    user_credentials = [cred for cred in response['user']['config'] if cred['key'] == 'USER_AUTH_CRED_ENDPOINTS']
+    user_data = response.get('user', None)
+    if user_data is None:
+        raise SAPCliError('gCTS response does not contain \'user\'')
+
+    config_data = user_data.get('config', None)
+    if config_data is None:
+        return []
+
+    user_credentials = [cred for cred in config_data if cred['key'] == 'USER_AUTH_CRED_ENDPOINTS']
     return json.loads(user_credentials[0]['value'])
 
 

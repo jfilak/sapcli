@@ -844,6 +844,29 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(response, user_credentials)
 
+    def test_simple_get_user_credentials_no_user_data(self):
+        self.conn.set_responses([
+            Response.with_json(json={})
+        ])
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            sap.rest.gcts.simple.get_user_credentials(self.conn)
+
+        self.assertEqual(self.conn.mock_methods(), [('GET', 'user')])
+        self.assertEqual(str(cm.exception), 'gCTS response does not contain \'user\'')
+
+    def test_simple_get_user_credentials_no_config_data(self):
+        self.conn.set_responses([
+            Response.with_json(json={
+                'user': {}
+            })
+        ])
+
+        response = sap.rest.gcts.simple.get_user_credentials(self.conn)
+
+        self.assertEqual(self.conn.mock_methods(), [('GET', 'user')])
+        self.assertEqual(response, [])
+
     def test_simple_set_user_api_token(self):
         connection = RESTConnection()
 
