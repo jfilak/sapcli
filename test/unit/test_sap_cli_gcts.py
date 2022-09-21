@@ -844,9 +844,149 @@ class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
         new_url = 'https://successful.test.org/fabulous/repo'
 
         the_cmd = self.set_url_cmd(repo_name, new_url)
-        the_cmd.execute(self.fake_connection, the_cmd)
+        with self.assertWarns(DeprecationWarning):
+            exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
+        self.assertEqual(exit_code, 0)
         fake_set_url.assert_called_once_with(new_url)
+
+    @patch('sap.cli.gcts.Repository.set_url')
+    def test_repo_set_url_error(self, fake_set_url):
+        repo_name = 'the_repo'
+        new_url = 'https://successful.test.org/fabulous/repo'
+
+        fake_set_url.side_effect = sap.cli.gcts.SAPCliError('Cannot set new URL.')
+
+        the_cmd = self.set_url_cmd(repo_name, new_url)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stdout='Cannot set new URL.\n')
+
+
+class TestgCTSRepoGetProperty(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.repo_name = 'name'
+        self.repo_url = 'http://github.com/name.git'
+        self.repo_data = {'rid': 'rid', 'branch': 'branch', 'head': 'head', 'status': 'status', 'vsid': 'vsid',
+                          'role': 'role', 'url': self.repo_url, 'currentCommit': 'head'}
+        self.fake_repo = sap.cli.gcts.Repository(self.fake_connection, self.repo_name, data=self.repo_data)
+
+    def get_properties_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'property', 'get', *args, **kwargs)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_get_properties(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        print('this is repo', self.fake_repo.head)
+
+        the_cmd = self.get_properties_cmd(self.repo_name)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertConsoleContents(self.console, stdout=
+'''Name | RID | Branch | Commit | Status | vSID | ROLE | URL                       
+--------------------------------------------------------------------------------
+name | rid | branch | head   | status | vsid | role | http://github.com/name.git
+''')
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_get_properties_with_url(self, fake_fetch_repos):
+        mock_repository(fake_fetch_repos, name=self.repo_name, **self.repo_data)
+
+        the_cmd = self.get_properties_cmd(self.repo_url)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertConsoleContents(self.console, stdout=
+'''Name | RID | Branch | Commit | Status | vSID | ROLE | URL                       
+--------------------------------------------------------------------------------
+name | rid | branch | head   | status | vsid | role | http://github.com/name.git
+''')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_get_properties_error(self, fake_get_repository):
+        fake_get_repository.side_effect = sap.cli.gcts.SAPCliError('Cannot get repository.')
+
+        the_cmd = self.get_properties_cmd(self.repo_name)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+
+
+class TestgCTSRepoSetProperty(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+        self.fake_repo = Mock()
+
+    def set_repository_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'property', 'set', *args, **kwargs)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_set_property(self, fake_get_repository):
+        property_name = 'name'
+        new_value = 'new_name'
+
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.set_repository_cmd('the_repo', property_name, new_value)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.set_item.assert_called_once_with(property_name, new_value)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_set_property_bad_name(self, fake_get_repository):
+        self.fake_repo.set_item.side_effect = sap.cli.gcts.SAPCliError('Incorrect property name.')
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.set_repository_cmd('the_repo', 'incorrect_property', 'value')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stdout='Incorrect property name.\n')
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_set_property_with_url(self, fake_fetch_repos):
+        repo_url = 'http://github.com/the_repo.git'
+        property_name = 'name'
+        new_value = 'new_name'
+
+        fake_repo = mock_repository(fake_fetch_repos, url=repo_url)
+
+        the_cmd = self.set_repository_cmd(repo_url, property_name, new_value)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        fake_repo.set_item.assert_called_once_with(property_name, new_value)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_set_property_with_url_error(self, fake_get_repository):
+        fake_get_repository.side_effect = sap.cli.gcts.SAPCliError('Cannot get repository.')
+
+        the_cmd = self.set_repository_cmd('the_repo', 'property', 'value')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
 
 
 class TestqCTSUserGetCredentials(PatcherTestCase, ConsoleOutputTestCase):

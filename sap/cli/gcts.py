@@ -1,5 +1,6 @@
 """gCTS methods"""
 
+import warnings
 import sap.cli.core
 import sap.cli.helpers
 import sap.rest.gcts.simple
@@ -132,11 +133,61 @@ def delete_user_credentials(connection, args):
     sap.rest.gcts.simple.delete_user_credentials(connection, args.api_url)
 
 
+class PropertyCommandGroup(sap.cli.core.CommandGroup):
+    """Container for property commands."""
+
+    def __init__(self):
+        super().__init__('property')
+
+
+@PropertyCommandGroup.argument('package')
+@PropertyCommandGroup.command('get')
+def get_properties(connection, args):
+    """Get all repository properties"""
+
+    try:
+        repo = get_repository(connection, args.package)
+
+        columns = ('name', 'rid', 'branch', 'head', 'status', 'vsid', 'role', 'url')
+        headers = ('Name', 'RID', 'Branch', 'Commit', 'Status', 'vSID', 'ROLE', 'URL')
+        sap.cli.helpers.TableWriter([repo], columns, headers).printout(sap.cli.core.get_console())
+    except SAPCliError as ex:
+        sap.cli.core.printout(str(ex))
+        return 1
+
+    return 0
+
+
+@PropertyCommandGroup.argument('value')
+@PropertyCommandGroup.argument('property_name')
+@PropertyCommandGroup.argument('package')
+@PropertyCommandGroup.command('set')
+def set_properties(connection, args):
+    """Set the property of repository"""
+
+    try:
+        repo = get_repository(connection, args.package)
+        repo.set_item(args.property_name.lower(), args.value)
+    except SAPCliError as ex:
+        sap.cli.core.printout(str(ex))
+        return 1
+
+    return 0
+
+
 class RepoCommandGroup(sap.cli.core.CommandGroup):
     """Container for repository commands."""
 
     def __init__(self):
         super().__init__('repo')
+
+        self.property_grp = PropertyCommandGroup()
+
+    def install_parser(self, arg_parser):
+        repo_group = super().install_parser(arg_parser)
+
+        property_parser = repo_group.add_parser(self.property_grp.name)
+        self.property_grp.install_parser(property_parser)
 
 
 @RepoCommandGroup.argument('url')
@@ -145,8 +196,18 @@ class RepoCommandGroup(sap.cli.core.CommandGroup):
 def set_url(connection, args):
     """Set repo URL"""
 
+    warnings.warn(message='Command "set-url" is no longer supported and will be deleted.'
+                          ' Use "property set" instead.', category=DeprecationWarning)
+
     repo = Repository(connection, args.package)
-    sap.cli.core.printout(repo.set_url(args.url))
+
+    try:
+        repo.set_url(args.url)
+    except SAPCliError as ex:
+        sap.cli.core.printout(str(ex))
+        return 1
+
+    return 0
 
 
 class CommandGroup(sap.cli.core.CommandGroup):

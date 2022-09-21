@@ -489,8 +489,7 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             self
         )
 
-        request_with_url = dict(self.repo_server_data)
-        request_with_url['url'] = NEW_URL
+        request_with_url = {'url': NEW_URL}
 
         self.conn.execs[CALL_ID_SET_URL].assertEqual(
             Request.post_json(
@@ -510,6 +509,69 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=None)
         response = repo.set_url(NEW_URL)
+
+        self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(
+            Request.get_json(uri=f'repository/{self.repo_name}'),
+            self
+        )
+
+        self.assertIsNone(response)
+
+    def test_set_item(self):
+        CALL_ID_FETCH_REPO_DATA = 0
+        CALL_ID_SET_URL = 1
+
+        property_name = 'name'
+        new_value = 'new_name'
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': self.repo_server_data}),
+            Response.ok()
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=None)
+        response = repo.set_item(property_name, new_value)
+
+        self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(
+            Request.get_json(uri=f'repository/{self.repo_name}'),
+            self
+        )
+
+        expected_request_body = {property_name: new_value}
+
+        self.conn.execs[CALL_ID_SET_URL].assertEqual(
+            Request.post_json(
+                uri=f'repository/{self.repo_name}',
+                body=expected_request_body
+            ),
+            self
+        )
+
+        self.assertIsNotNone(response)
+
+    def test_set_item_incorrect_property(self):
+        property_name = 'incorrect_property'
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=None)
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            repo.set_item(property_name, 'value')
+
+        self.assertEqual(self.conn.execs, [])
+        self.assertEqual(str(cm.exception), f'Cannot edit property "{property_name}".')
+
+    def test_set_item_nochange(self):
+        CALL_ID_FETCH_REPO_DATA = 0
+
+        property_name = 'name'
+        new_value = self.repo_name
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': self.repo_server_data}),
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=None)
+        response = repo.set_item(property_name, new_value)
 
         self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(
             Request.get_json(uri=f'repository/{self.repo_name}'),

@@ -4,7 +4,7 @@ from sap import get_logger
 
 from sap.rest.errors import HTTPRequestError
 
-from sap.rest.gcts.errors import exception_from_http_error
+from sap.rest.gcts.errors import exception_from_http_error, SAPCliError
 
 
 def mod_log():
@@ -87,8 +87,11 @@ class _RepositoryHttpProxy:
         return self.connection.execute('DELETE', self._build_url(path))
 
 
+# pylint: disable=R0904
 class Repository:
     """A proxy to gCTS repository"""
+
+    EDITABLE_PROPERTIES = {'name', 'rid', 'role', 'type', 'vsid', 'status', 'url'}
 
     def __init__(self, connection, name, data=None):
         self._http = _RepositoryHttpProxy(connection, name)
@@ -122,6 +125,15 @@ class Repository:
             self._data = self._fetch_data()
 
         return self._data.get(item, default)
+
+    def _set_item(self, key, new_value):
+        if self._get_item(key, fetch=True) == new_value:
+            return None
+
+        response = self._http.post_obj_as_json(path=None, json={key: new_value})
+        self._data[key] = new_value
+
+        return response
 
     def wipe_data(self):
         """Clears cached data"""
@@ -185,6 +197,12 @@ class Repository:
             self._config = self._get_item('config')
 
         return _config_list_to_dict(self._config)
+
+    @property
+    def role(self):
+        """Returns the repository's ROLE"""
+
+        return self._get_item('role')
 
     def create(self, url, vsid, config=None, role='SOURCE', typ='GITHUB'):
         """Creates the repository
@@ -326,9 +344,12 @@ class Repository:
     def set_url(self, url):
         """Sets repository URL"""
 
-        data = self._fetch_data()
-        if data['url'] == url:
-            return None
+        return self._set_item('url', url)
 
-        data['url'] = url
-        return self._http.post_obj_as_json(None, data)
+    def set_item(self, property_name, value):
+        """Sets property of repository"""
+
+        if property_name not in self.EDITABLE_PROPERTIES:
+            raise SAPCliError(f'Cannot edit property "{property_name}".')
+
+        return self._set_item(property_name, value)

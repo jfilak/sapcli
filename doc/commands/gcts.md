@@ -14,6 +14,8 @@ sapcli's implementation forces use of packages as git repositories.
 10. [user set-credentials](#user-set-credentials)
 11. [user delete-credentials](#user-delete-credentials)
 12. [repo set-url](#repo-set-url)
+13. [repo property get](#repo-property-get)
+14. [repo property set](#repo-property-set)
 
 ## repolist
 
@@ -157,3 +159,32 @@ sapcli gcts repo set-url PACKAGE URL
 **Parameters:**:
 - `PACKAGE`: The repository name
 - `URL`: The new url
+
+## repo property get
+
+Get properties of the given repository.
+
+```bash
+sapcli gcts repo property get PACKAGE
+```
+
+**Parameters:**:
+- `PACKAGE`: The repository name
+
+## repo property set
+
+Set the specified property of the given repository.
+
+```bash
+sapcli gcts repo property set PACKAGE PROPERTY_NAME VALUE
+```
+
+**Parameters:**:
+- `PACKAGE`: The repository name
+- `PROPERTY_NAME`: The name of the property that is to be changed
+- `VALUE`: New value for the specified property
+
+
+# Deprecated
+- command [repo set-url](#repo-set-url) is replaced by [repo property set](#TODO) with property
+  set to `url`
