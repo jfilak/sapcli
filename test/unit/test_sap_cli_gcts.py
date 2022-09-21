@@ -607,6 +607,33 @@ class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
 123 -> 456
 ''')
 
+    def test_pull_no_from_commit(self):
+        conn = Mock()
+        repo_name = 'the_repo'
+        self.fake_simple_pull.return_value = {
+            'toCommit': '456'
+        }
+
+        args = self.pull(repo_name)
+        args.execute(conn, args)
+
+        self.assertConsoleContents(self.console, stdout=
+'''The repository "the_repo" has been pulled
+New HEAD is 456
+''')
+
+    def test_pull_no_to_commit(self):
+        conn = Mock()
+        repo_name = 'the_repo'
+        self.fake_simple_pull.return_value = {}
+
+        args = self.pull(repo_name)
+        args.execute(conn, args)
+
+        self.assertConsoleContents(self.console, stdout=
+'''The repository "the_repo" has been pulled
+''')
+
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_pull_with_url(self, fake_fetch_repos):
         conn = Mock()

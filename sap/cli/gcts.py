@@ -452,7 +452,14 @@ def pull(connection, args):
         console.printout(json.dumps(response, indent=2))
     else:
         console.printout(f'The repository "{repo.name}" has been pulled')
-        console.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
+
+        from_commit = response.get('fromCommit')
+        to_commit = response.get('toCommit')
+
+        if from_commit is not None:
+            console.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
+        elif to_commit is not None:
+            console.printout(f'New HEAD is {response["toCommit"]}')
 
     return 0
 
