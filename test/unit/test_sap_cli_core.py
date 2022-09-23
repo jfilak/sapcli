@@ -3,7 +3,7 @@
 from io import StringIO
 import sys
 import unittest
-from unittest.mock import call, patch, MagicMock
+from unittest.mock import call, patch, MagicMock, Mock
 
 from argparse import ArgumentParser
 
@@ -222,6 +222,24 @@ class TestConsoleErrorDecorator(unittest.TestCase):
 
         self.assertEqual(out.getvalue(), "")
         self.assertEqual(err.getvalue(), "OUT\nERR\n")
+
+
+class TestGetStdin(unittest.TestCase):
+
+    def test_initial_sys_stdin(self):
+        self.assertEqual(sys.stdin, sap.cli.core.get_stdin())
+
+    def test_replace(self):
+        fake_stdin = Mock()
+
+        old_sapcli_stdin = sap.cli.core.set_stdin(fake_stdin)
+        self.assertEqual(sys.stdin, old_sapcli_stdin)
+
+        current_stdin = sap.cli.core.get_stdin()
+        self.assertEqual(current_stdin, fake_stdin)
+
+        previous_sapcli_stdin = sap.cli.core.set_stdin(sys.stdin)
+        self.assertEqual(previous_sapcli_stdin, fake_stdin)
 
 
 if __name__ == '__main__':
