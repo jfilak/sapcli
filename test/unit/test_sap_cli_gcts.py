@@ -46,7 +46,7 @@ def mock_repository(fake_fetch_repos, **kwargs):
     fake_repo = Mock()
     fake_repo.__dict__.update(**kwargs)
 
-    if list(fake_fetch_repos.return_value):
+    if isinstance(fake_fetch_repos.return_value, list):
         fake_fetch_repos.return_value.append(fake_repo)
     else:
         fake_fetch_repos.return_value = [fake_repo]
