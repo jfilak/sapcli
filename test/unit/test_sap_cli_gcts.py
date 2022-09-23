@@ -17,7 +17,8 @@ from mock import (
 )
 
 from fixtures_sap_rest_gcts import (
-    GCTS_RESPONSE_REPO_NOT_EXISTS
+    GCTS_RESPONSE_REPO_NOT_EXISTS,
+    GCTS_RESPONSE_REPO_PULL_OK,
 )
 
 from infra import generate_parse_args
@@ -643,6 +644,26 @@ class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(exit_code, 1)
 
         self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+
+    def test_pull_json_output(self):
+        self.fake_simple_pull.return_value = GCTS_RESPONSE_REPO_PULL_OK.json()
+
+        args = self.pull('the_repo', '-f', 'JSON')
+        exit_code = args.execute(None, args)
+
+        self.assertEqual(exit_code, 0)
+
+        self.assertConsoleContents(self.console, stdout=
+'''{
+  "fromCommit": "123",
+  "toCommit": "456",
+  "history": {
+    "fromCommit": "123",
+    "toCommit": "456",
+    "type": "PULL"
+  }
+}
+''')
 
 
 class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):

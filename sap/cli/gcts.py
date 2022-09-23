@@ -1,5 +1,6 @@
 """gCTS methods"""
 
+import json
 import warnings
 import sap.cli.core
 import sap.cli.helpers
@@ -401,6 +402,7 @@ def gcts_log(connection, args):
     return 0
 
 
+@CommandGroup.argument('-f', '--format', choices=['HUMAN', 'JSON'], default='HUMAN')
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('package')
 @CommandGroup.command()
@@ -421,8 +423,12 @@ def pull(connection, args):
         console.printout(str(ex))
         return 1
 
-    console.printout(f'The repository "{repo.name}" has been pulled')
-    console.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
+    if args.format.upper() == 'JSON':
+        console.printout(json.dumps(response, indent=2))
+    else:
+        console.printout(f'The repository "{repo.name}" has been pulled')
+        console.printout(f'{response["fromCommit"]} -> {response["toCommit"]}')
+
     return 0
 
 
