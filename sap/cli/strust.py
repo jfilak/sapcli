@@ -92,12 +92,10 @@ def listidentities(connection, args):
         printout(identities)
     else:
         console = sap.cli.core.get_console()
-        columns = TableWriter.Columns() \
-            ('PSE_CONTEXT', 'PSE Context') \
-            ('PSE_APPLIC', 'PSE Application') \
-            ('SPRSL', 'SPRSL') \
-            ('PSE_DESCRIPT', 'PSE Description') \
-            .done()
+        columns = TableWriter.Columns()
+        columns('PSE_CONTEXT', 'PSE Context')('PSE_APPLIC', 'PSE Application')('SPRSL', 'SPRSL')
+        columns('PSE_DESCRIPT', 'PSE Description')
+        columns = columns.done()
 
         TableWriter(identities, columns).printout(console)
 

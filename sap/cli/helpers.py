@@ -100,6 +100,7 @@ class TableWriter:
     """A helper class for formatting a list of objects into a table"""
 
     class Columns:
+        """A helper class for column specification"""
 
         ATTR = 0
         HEADER = 1
@@ -115,6 +116,8 @@ class TableWriter:
             return self
 
         def done(self):
+            """Save and return created columns"""
+
             return self._columns
 
     def __init__(self, data, columns, display_header=True, visible_columns=None):
@@ -169,19 +172,19 @@ class TableWriter:
             console.printout(fmt.format(*line))
 
 
-def abapstamp_to_isodate(abapstamp: 'int') -> 'str':
+def abapstamp_to_isodate(abapstamp: int) -> str:
     """Formats ABAP timestamp to ISO8061 date string with space instead of T"""
 
-    abapstamp = str(abapstamp)
+    abapstamp_str = str(abapstamp)
 
-    if len(abapstamp) != 14:
-        raise SAPCliError(f'Not ABAP time stamp: {abapstamp}')
+    if len(abapstamp_str) != 14:
+        raise SAPCliError(f'Not ABAP time stamp: {abapstamp_str}')
 
-    year = abapstamp[0:4]
-    month = abapstamp[4:6]
-    day = abapstamp[6:8]
-    hour = abapstamp[8:10]
-    minute = abapstamp[10:12]
-    second = abapstamp[12:14]
+    year = abapstamp_str[0:4]
+    month = abapstamp_str[4:6]
+    day = abapstamp_str[6:8]
+    hour = abapstamp_str[8:10]
+    minute = abapstamp_str[10:12]
+    second = abapstamp_str[12:14]
 
     return f'{year}-{month}-{day} {hour}:{minute}:{second}'

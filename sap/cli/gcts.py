@@ -9,7 +9,7 @@ import sap.cli.helpers
 import sap.rest.gcts.simple
 from sap.rest.gcts.remote_repo import (
     Repository,
-    RepoHistoryQueryParams,
+    RepoActivitiesQueryParams,
 )
 from sap.rest.gcts.errors import (
     GCTSRequestError,
@@ -115,11 +115,9 @@ def get_user_credentials(connection, args):
     if args.format == 'JSON':
         console.printout(user_credentials)
     else:
-        columns = sap.cli.helpers.TableWriter.Columns() \
-            ('endpoint', 'Endpoint') \
-            ('type', 'Type') \
-            ('state', 'State') \
-            .done()
+        columns = sap.cli.helpers.TableWriter.Columns()
+        columns('endpoint', 'Endpoint')('type', 'Type')('state', 'State')
+        columns = columns.done()
 
         sap.cli.helpers.TableWriter(user_credentials, columns).printout(console)
 
@@ -156,16 +154,10 @@ def get_properties(connection, args):
     try:
         repo = get_repository(connection, args.package)
 
-        columns = sap.cli.helpers.TableWriter.Columns() \
-            ('name', 'Name') \
-            ('rid', 'RID') \
-            ('branch', 'Branch') \
-            ('head', 'Commit') \
-            ('status', 'Status') \
-            ('vsid', 'vSID') \
-            ('role', 'ROLE') \
-            ('url', 'URL') \
-            .done()
+        columns = sap.cli.helpers.TableWriter.Columns()
+        columns('name', 'Name')('rid', 'RID')('branch', 'Branch')('head', 'Commit')('status', 'Status')
+        columns('vsid', 'vSID')('role', 'ROLE')('url', 'URL')
+        columns = columns.done()
 
         sap.cli.helpers.TableWriter([repo], columns).printout(sap.cli.core.get_console())
     except SAPCliError as ex:
@@ -237,6 +229,8 @@ class ActivityOperations(Enum):
 
     @classmethod
     def is_operation(cls, operation):
+        """Validate provided operation"""
+
         return operation in cls.__members__
 
 
@@ -266,7 +260,7 @@ def activities(connection, args):
 
     console = sap.cli.core.get_console()
 
-    params = RepoHistoryQueryParams().set_limit(args.limit).set_offset(args.offset)
+    params = RepoActivitiesQueryParams().set_limit(args.limit).set_offset(args.offset)
     params.set_tocommit(args.tocommit).set_fromcommit(args.fromcommit)
 
     try:
@@ -285,16 +279,12 @@ def activities(connection, args):
     if args.format == 'JSON':
         console.printout(repo_activities)
     else:
-        columns = sap.cli.helpers.TableWriter.Columns() \
-            ('checkoutTime', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate) \
-            ('caller', 'Caller') \
-            ('type', 'Operation') \
-            ('request', 'Transport', default='') \
-            ('fromCommit', 'From Commit', default='') \
-            ('toCommit', 'To Commit', default='') \
-            ('state', 'State', default='') \
-            ('rc', 'Code', default='----') \
-            .done()
+        columns = sap.cli.helpers.TableWriter.Columns()
+        columns('checkoutTime', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate)
+        columns('caller', 'Caller')('type', 'Operation')('request', 'Transport', default='')
+        columns('fromCommit', 'From Commit', default='')('toCommit', 'To Commit', default='')
+        columns('state', 'State', default='')('rc', 'Code', default='----')
+        columns = columns.done()
 
         tw = sap.cli.helpers.TableWriter(
             repo_activities,
@@ -341,14 +331,10 @@ def repolist(connection, args):
         dump_gcts_messages(console, ex.messages)
         return 1
 
-    columns = sap.cli.helpers.TableWriter.Columns() \
-        ('name', 'Name') \
-        ('branch', 'Branch', default='') \
-        ('head', 'Commit', default='') \
-        ('status', 'Status') \
-        ('vsid', 'vSID') \
-        ('url', 'URL') \
-        .done()
+    columns = sap.cli.helpers.TableWriter.Columns()
+    columns('name', 'Name')('branch', 'Branch', default='')('head', 'Commit', default='')
+    columns('status', 'Status')('vsid', 'vSID')('url', 'URL')
+    columns = columns.done()
 
     sap.cli.helpers.TableWriter(response, columns).printout(console)
 
