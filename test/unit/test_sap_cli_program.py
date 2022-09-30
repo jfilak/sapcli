@@ -7,8 +7,9 @@ from argparse import ArgumentParser
 
 import sap.cli.program
 
-from mock import Connection
+from mock import Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
+from fixtures_adt_program import GET_EXECUTABLE_PROGRAM_ADT_XML
 
 
 FIXTURE_STDIN_REPORT_SRC='report stdin.\n\n" Salute!\n\nwrite: \'hello, command line!\'\n'
@@ -72,12 +73,15 @@ class TestProgramWrite(unittest.TestCase):
 class TestProgramActivate(unittest.TestCase):
 
     def test_activate(self):
-        conn = Connection([EMPTY_RESPONSE_OK])
+        conn = Connection([
+            EMPTY_RESPONSE_OK,
+            Response(text=GET_EXECUTABLE_PROGRAM_ADT_XML.replace('ZHELLO_WORLD', 'test_activation'), status_code=200, headers={})
+        ])
 
         args = parse_args('activate', 'test_activation')
         args.execute(conn, args)
 
-        self.assertEqual(len(conn.execs), 1)
+        self.assertEqual(len(conn.execs), 2)
         self.assertIn('test_activation', conn.execs[0].body)
 
 

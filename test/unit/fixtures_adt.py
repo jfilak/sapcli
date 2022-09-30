@@ -111,6 +111,18 @@ GET_DUMMY_OBJECT_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
 </win:dummies>
 '''
 
+GET_DUMMY_OBJECT_INACTIVE_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<win:dummies xmlns:class="http://www.sap.com/adt/awesome/success" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:name="SOFTWARE_ENGINEER" adtcore:type="DUMMY/S" adtcore:changedAt="2019-03-07T20:22:01Z" adtcore:version="inactive" adtcore:createdAt="2019-02-02T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="You cannot stop me!" adtcore:descriptionTextLimit="60" adtcore:language="CZ">
+  <adtcore:packageRef adtcore:name='UNIVERSE'/>
+</win:dummies>
+'''
+
+GET_DDL_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<ddl:ddlSource xmlns:ddl="http://www.sap.com/adt/ddic/ddlsources" ddl:source_origin="0" ddl:source_type="view" ddl:source_type_description="View Entity" ddl:source_origin_description="ABAP Development Tools" abapsource:sourceUri="source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="M62" adtcore:name="MyUsers" adtcore:type="DDLS/DF" adtcore:changedAt="2021-04-14T07:45:34Z" adtcore:version="active" adtcore:createdAt="2021-02-11T00:00:00Z" adtcore:changedBy="SAP" adtcore:createdBy="DEVELOPER" adtcore:description="My Users" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/universe" adtcore:type="DEVC/K" adtcore:name="UNIVERSE" adtcore:packageName="UNIVERSE" adtcore:description="Universe"/>
+</ddl:ddlSource>
+'''
+
 ERROR_XML_PACKAGE_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceAlreadyExists"/><message lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</message><localizedMessage lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</localizedMessage><properties/></exc:exception>'''
 
 

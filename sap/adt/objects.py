@@ -20,6 +20,8 @@ from sap.adt.annotations import (
 
 LOCK_ACCESS_MODE_MODIFY = 'MODIFY'
 
+ADT_OBJECT_VERSION_ACTIVE = 'active'
+
 
 def mimetype_to_version(mime):
     """Converts Object MIME type to a version string"""
@@ -360,6 +362,7 @@ class ADTObject(metaclass=OrderedClassMembers):
             - connection: ADT.Connection
             - name: string name
             - metadata: ADTCoreData
+            - active_status: string - status of object activation
         """
 
         self._connection = connection
@@ -1092,6 +1095,12 @@ class Class(OOADTObjectBase):
 
             return self._metadata.adt_type
 
+        @xml_attribute('adtcore:version')
+        def active(self):
+            """Version in regards of activation"""
+
+            return self._clas.active
+
         @xml_attribute('class:includeType')
         def include_type(self):
             """ADT Class include type"""
@@ -1121,6 +1130,10 @@ class Class(OOADTObjectBase):
                 lock_handle = self.lock()
 
             return self._clas.objtype.open_editor(self, lock_handle=lock_handle, corrnr=corrnr)
+
+        def fetch(self):
+            """Retrieve data from ADT"""
+            self._clas.fetch()
 
     def __init__(self, connection, name, package=None, metadata=None):
         super().__init__(connection, name, metadata)

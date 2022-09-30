@@ -29,6 +29,7 @@ class DummyADTObjectCommandGroup(sap.cli.object.CommandGroupObjectTemplate):
 
         self.new_object_mock = MagicMock()
         self.new_object_mock.name = 0
+
         self.new_object_mock.open_editor = Mock()
         self.new_object_mock.open_editor.return_value = self.open_editor_mock
         self.new_object_mock.__str__ = lambda obj: f'str({obj.name})'
@@ -264,12 +265,19 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
         args = self.parse_args('write', '-', 'z_one.abap', 'z_one.incl.abap', 'z_two.abap', '--corrnr', '123456', '--activate')
 
-        fake_activate.return_value = (sap.adt.wb.CheckResults(), None)
+        def fake_activate_fn(obj):
+            # simulate object activation
+            obj.active = 'active'
+            return (sap.adt.wb.CheckResults(), None)
+
+        fake_activate.side_effect = fake_activate_fn
 
         with patch('sap.cli.object.open', mock_open(read_data='source code')) as fake_open, \
              patch_get_print_console_with_buffer() as fake_console:
             args.execute(connection, args)
 
+        #self.group.new_object_mock.fetch.assert_called_once()
+        # print(self.group.new_object_mock)
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock), call(self.group.new_object_mock)])
         self.assertEqual(fake_console.return_value.std_output.getvalue(), '''Writing:
 * str(z_one)
@@ -290,7 +298,13 @@ Errors: 0
 
         with patch('sap.adt.wb.try_activate') as fake_activate, \
              patch_get_print_console_with_buffer() as fake_console:
-            fake_activate.return_value = (sap.adt.wb.CheckResults(), None)
+
+            def fake_activate_fn(obj):
+                # simulate object activation
+                obj.active = 'active'
+                return (sap.adt.wb.CheckResults(), None)
+
+            fake_activate.side_effect = fake_activate_fn
 
             exit_code = args.execute(connection, args)
             self.assertEqual(exit_code, 0)
@@ -317,12 +331,18 @@ Errors: 0
 
         message_builder = MessageBuilder()
 
-        response_iter = iter([(message_builder.build_results_without_messages(), None),
-                              (message_builder.build_results_with_errors(), None)])
+        response_iter = iter([('active', (message_builder.build_results_without_messages(), None)),
+                              ('inactive', (message_builder.build_results_with_errors(), None))])
+
+        def fake_activate_fn(obj):
+            response = next(response_iter) 
+            # simulate object activation
+            obj.active = response[0]
+            return response[1]
 
         with patch('sap.adt.wb.try_activate') as fake_activate, \
              patch_get_print_console_with_buffer() as fake_console:
-            fake_activate.side_effect = lambda x: next(response_iter)
+            fake_activate.side_effect = fake_activate_fn
 
             exit_code = args.execute(connection, args)
             self.assertEqual(exit_code, 1)
@@ -344,12 +364,18 @@ Active objects:
 
         message_builder = MessageBuilder()
 
-        response_iter = iter([(message_builder.build_results_without_messages(), None),
-                              (message_builder.build_results_with_errors(), None)])
+        response_iter = iter([('active', (message_builder.build_results_without_messages(), None)),
+                              ('inactive', (message_builder.build_results_with_errors(), None))])
+
+        def fake_activate_fn(obj):
+            response = next(response_iter) 
+            # simulate object activation
+            obj.active = response[0]
+            return response[1]
 
         with patch('sap.adt.wb.try_activate') as fake_activate, \
              patch_get_print_console_with_buffer() as fake_console:
-            fake_activate.side_effect = lambda x: next(response_iter)
+            fake_activate.side_effect = fake_activate_fn
 
             exit_code = args.execute(connection, args)
             self.assertEqual(exit_code, 1)
@@ -371,12 +397,18 @@ Inactive objects:
 
         message_builder = MessageBuilder()
 
-        response_iter = iter([(message_builder.build_results_without_messages(), None),
-                              (message_builder.build_results_with_warnings(), None)])
+        response_iter = iter([('active', (message_builder.build_results_without_messages(), None)),
+                             ('active',  (message_builder.build_results_with_warnings(), None))])
+
+        def fake_activate_fn(obj):
+            response = next(response_iter) 
+            # simulate object activation
+            obj.active = response[0]
+            return response[1]
 
         with patch('sap.adt.wb.try_activate') as fake_activate, \
              patch_get_print_console_with_buffer() as fake_console:
-            fake_activate.side_effect = lambda x: next(response_iter)
+            fake_activate.side_effect = fake_activate_fn
 
             exit_code = args.execute(connection, args)
             self.assertEqual(exit_code, 1)

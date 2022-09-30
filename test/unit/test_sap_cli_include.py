@@ -18,6 +18,7 @@ from fixtures_adt_program import (
     GET_INCLUDE_PROGRAM_ADT_XML,
     GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML
 )
+#from test.unit.fixtures_adt_class import GET_CLASS_ADT_XML
 
 FIXTURE_STDIN_REPORT_SRC='* from stdin'
 FIXTURE_FILE_REPORT_SRC='* from file'
@@ -83,21 +84,27 @@ class TestIncludeWrite(unittest.TestCase):
 class TestIncludeActivate(unittest.TestCase):
 
     def test_activate(self):
-        conn = Connection([EMPTY_RESPONSE_OK])
+        conn = Connection([
+            EMPTY_RESPONSE_OK,
+            Response(text=GET_INCLUDE_PROGRAM_ADT_XML.replace('ZHELLO_INCLUDE', 'test_activation'), status_code=200, headers={})
+        ])
 
         args = parse_args('activate', 'test_activation')
         args.execute(conn, args)
 
-        self.assertEqual(len(conn.execs), 1)
+        self.assertEqual(len(conn.execs), 2)
         self.assertIn('test_activation"', conn.execs[0].body)
 
     def test_activate_with_master(self):
-        conn = Connection([EMPTY_RESPONSE_OK])
+        conn = Connection([
+            EMPTY_RESPONSE_OK,
+            Response(text=GET_INCLUDE_PROGRAM_ADT_XML.replace('ZHELLO_INCLUDE', 'test_activation'), status_code=200, headers={})
+        ])
 
         args = parse_args('activate', 'test_activation', '-m', 'MASTER_REPORT')
         args.execute(conn, args)
 
-        self.assertEqual(len(conn.execs), 1)
+        self.assertEqual(len(conn.execs), 2)
         self.assertRegex(conn.execs[0].body, '.*adtcore:uri=[^?]*test_activation\?context=[^"]*master_report".*')
 
 

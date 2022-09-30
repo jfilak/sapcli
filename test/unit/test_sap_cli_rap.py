@@ -17,6 +17,7 @@ from infra import generate_parse_args
 
 from mock import Connection, Response, Request
 from fixtures_adt_wb import RESPONSE_ACTIVATION_OK
+from fixtures_adt_businessservice import SERVICE_DEFINITION_ADT_XML
 
 parse_args = generate_parse_args(sap.cli.rap.CommandGroup())
 
@@ -222,7 +223,10 @@ class TestRapDefinition(PatcherTestCase, ConsoleOutputTestCase):
 
         self.patch_console(console=self.console)
 
-        self.connection = Connection([RESPONSE_ACTIVATION_OK])
+        self.connection = Connection([
+            RESPONSE_ACTIVATION_OK,
+            Response(text=SERVICE_DEFINITION_ADT_XML, status_code=200, headers={})
+        ])
         self.param_definition_name = 'EXAMPLE_CONFIG_SRV'
 
     def execute_definition_activate(self):

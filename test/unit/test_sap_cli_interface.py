@@ -7,8 +7,9 @@ from io import StringIO
 
 import sap.cli.interface
 
-from mock import Connection
+from mock import Connection, Response
 from fixtures_adt import EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK
+from fixtures_adt_interface import GET_INTERFACE_ADT_XML
 
 
 FIXTURE_ELEMENTARY_IFACE_XML='''<?xml version="1.0" encoding="UTF-8"?>
@@ -46,11 +47,15 @@ class TestInterfaceCreate(unittest.TestCase):
 class TestInterfaceActivate(unittest.TestCase):
 
     def test_interface_activate_defaults(self):
-        connection = Connection([EMPTY_RESPONSE_OK])
+        connection = Connection([
+            EMPTY_RESPONSE_OK,
+            Response(text=GET_INTERFACE_ADT_XML.replace('ZIF_HELLO_WORLD', 'ZIF_ACTIVATOR'), status_code=200, headers={})
+        ])
+
         args = parse_args('activate', 'ZIF_ACTIVATOR')
         args.execute(connection, args)
 
-        self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/activation')])
+        self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/activation'), ('GET', '/sap/bc/adt/oo/interfaces/zif_activator')])
 
         create_request = connection.execs[0]
         self.assertIn('adtcore:uri="/sap/bc/adt/oo/interfaces/zif_activator"', create_request.body)

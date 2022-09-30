@@ -51,11 +51,15 @@ class TestADTWBActivate(unittest.TestCase):
         adt_object.full_adt_uri = full_adt_uri
         adt_object.name = name
         adt_object.connection = conn
+        
+        # default state of the mocked object is "not activated"
+        adt_object.active = 'inactive'
 
         return adt_object
 
     def assert_single_request(self, fake_adt_object):
         conn = fake_adt_object.connection
+
 
         self.assertEqual(conn.mock_methods(), [('POST', '/sap/bc/adt/activation')])
 
@@ -70,14 +74,24 @@ class TestADTWBActivate(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(conn.execs[0].body, FIXTURES_ACTIVATION_REQUEST_SINGLE)
 
+        self.assertTrue(fake_adt_object.fetch.called)
+
     def test_adt_wb_activate_object_ok(self):
         # user lower case name
         adt_object = self.create_fake_object(FIXTURES_EXP_FULL_ADT_URI, FIXTURES_EXP_OBJECT_NAME.lower())
-        sap.adt.wb.activate(adt_object)
+        adt_object.active = 'active'
+
+        check_results = sap.adt.wb.activate(adt_object)
         self.assert_single_request(adt_object)
+        
+        # this is check for generated propeerty, which is no longer used by activation engine,
+        # but is still part of the CheckResults API for backward compatibility -> and needs to
+        # be tested to keep coverage
+        self.assertTrue(check_results.generated)
 
         # user upper case name
         adt_object = self.create_fake_object(FIXTURES_EXP_FULL_ADT_URI, FIXTURES_EXP_OBJECT_NAME.upper())
+        adt_object.active = 'active'
         sap.adt.wb.activate(adt_object)
         self.assert_single_request(adt_object)
 
@@ -87,8 +101,16 @@ class TestADTWBActivate(unittest.TestCase):
                                              [Response(status_code=200,
                                                        text=ACTIVATION_WITH_PROPERTIES_XML,
                                                        headers={})])
-        sap.adt.wb.activate(adt_object)
+        # simulate activation
+        adt_object.active = 'active'
+
+        check_results = sap.adt.wb.activate(adt_object)
         self.assert_single_request(adt_object)
+
+        # this is check for generated propeerty, which is no longer used by activation engine,
+        # but is still part of the CheckResults API for backward compatibility -> and needs to
+        # be tested to keep coverage
+        self.assertTrue(check_results.generated)
 
     def test_adt_wb_activate_object_fail(self):
         adt_object = self.create_fake_object(FIXTURES_EXP_FULL_ADT_URI, FIXTURES_EXP_OBJECT_NAME)
@@ -107,6 +129,8 @@ class TestADTWBActivate(unittest.TestCase):
         adt_object = self.create_fake_object('/sap/bc/adt/oo/classes/cl_hello_world',
                                              'cl_hello_world',
                                              [RESPONSE_INACTIVE_OBJECTS_V1, EMPTY_RESPONSE_OK])
+        # simulate activation
+        adt_object.active = 'active'
 
         sap.adt.wb.activate(adt_object)
 
@@ -140,6 +164,9 @@ class TestADTWBActivate(unittest.TestCase):
                                              [Response(status_code=200,
                                                        text=ACTIVATION_WARNING_XML,
                                                        headers={})])
+
+        # simulate activation
+        adt_object.active = 'active'
 
         results = sap.adt.wb.activate(adt_object)
 

@@ -20,7 +20,9 @@ from fixtures_adt_table import (
     WRITE_TABLE_BODY,
     FAKE_LOCK_HANDLE,
     ACTIVATE_TABLE_BODY,
+    TABLE_DEFINITION_ADT_XML
 )
+from fixtures_adt_wb import RESPONSE_ACTIVATION_OK
 
 parse_args = generate_parse_args(sap.cli.table.CommandGroup())
 
@@ -104,7 +106,10 @@ class TestTableActivate(unittest.TestCase):
         return parse_args('activate', *args, **kwargs)
 
     def test_activate(self):
-        connection = Connection()
+        connection = Connection([
+            RESPONSE_ACTIVATION_OK,
+            Response(text=TABLE_DEFINITION_ADT_XML , status_code=200, headers={})
+        ])
 
         the_cmd = self.table_activate_cmd(TABLE_NAME)
         the_cmd.execute(connection, the_cmd)

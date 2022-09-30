@@ -7,7 +7,7 @@ import sap.adt.wb
 
 from mock import Connection, Response
 
-from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
+from fixtures_adt import GET_DDL_ADT_XML, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 
 
 FIXTURE_ACTIVATION_REQUEST_XML='''<?xml version="1.0" encoding="UTF-8"?>
@@ -53,12 +53,23 @@ class TestADTDataDefinition(unittest.TestCase):
         self.assertEqual(code, FIXTURE_CDS_CODE)
 
     def test_adt_ddl_activate(self):
-        conn = Connection([EMPTY_RESPONSE_OK])
+        conn = Connection([
+            EMPTY_RESPONSE_OK,
+            Response(text=GET_DDL_ADT_XML,
+                status_code=200,
+                headers={'Content-Type': 'application/xml; charset=utf-8'})
+            ])
 
         ddl = sap.adt.DataDefinition(conn, name='MyUsers')
         sap.adt.wb.activate(ddl)
 
-        self.assertEqual(conn.mock_methods(), [('POST', '/sap/bc/adt/activation')])
+        self.assertEqual(conn.mock_methods(), [
+            ('POST', '/sap/bc/adt/activation'),
+            ('GET', '/sap/bc/adt/ddic/ddl/sources/myusers')
+        ])
+
+        # two requests - activation + fetch
+        self.assertEqual(len(conn.execs), 2)
 
         get_request = conn.execs[0]
         self.assertEqual(sorted(get_request.headers), ['Accept', 'Content-Type'])
@@ -70,7 +81,6 @@ class TestADTDataDefinition(unittest.TestCase):
         self.assertEqual(get_request.params['preauditRequested'], 'true')
 
         self.assertEqual(get_request.body, FIXTURE_ACTIVATION_REQUEST_XML)
-
 
 if __name__ == '__main__':
     unittest.main()

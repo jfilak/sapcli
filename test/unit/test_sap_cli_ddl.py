@@ -6,6 +6,7 @@ from unittest.mock import call, patch, Mock, PropertyMock
 from io import StringIO
 
 import sap.cli.interface
+import sap.cli.datadefinition
 
 from mock import patch_get_print_console_with_buffer
 
@@ -32,6 +33,7 @@ class TestDDLActivate(unittest.TestCase):
         def add_instance(conn, name):
             ddl = Mock()
             ddl.name = name
+            ddl.active = 'active'
 
             instances.append(ddl)
             return ddl
