@@ -4,6 +4,7 @@ import sap.adt.wb
 
 from sap.errors import SAPCliError
 from sap.cli.core import printout
+from sap.adt.objects import ADT_OBJECT_VERSION_ACTIVE
 
 
 # pylint: disable=too-few-public-methods
@@ -95,7 +96,7 @@ class ObjectActivationWorker:
 
         error = False
 
-        if results.generated:
+        if obj.active == ADT_OBJECT_VERSION_ACTIVE:
             stats.active_objects.append(obj)
         else:
             stats.inactive_objects.append(obj)

@@ -17,7 +17,7 @@ class TestObjectActivationWorker(unittest.TestCase):
 
     def setUp(self):
         self.worker = sap.cli.wb.ObjectActivationWorker()
-        self.activated_object = Mock()
+        self.activated_object = Mock(active='inactive') # by default, simulate inactive object
         self.message_builder = MessageBuilder()
         self.stats = sap.cli.wb.ObjectActivationStats()
 
@@ -71,6 +71,8 @@ class TestObjectActivationWorker(unittest.TestCase):
         self.assertEqual(stats.inactive_objects, [])
 
     def test_handle_results_without_messages(self):
+        self.activated_object.active = "active" # simulate activated object
+
         with patch_get_print_console_with_buffer() as fake_console:
             self.worker.handle_results('CL_NO_MESSAGES',
                                        self.activated_object,
@@ -126,6 +128,7 @@ class TestObjectActivationWorker(unittest.TestCase):
 
     def test_handle_results_with_warnings_and_stop(self):
         self.worker.warnings_as_errors = True
+        self.activated_object.active = "active" # simulate activated object
 
         with self.assertRaises(sap.cli.wb.StopObjectActivation) as caught, \
              patch_get_print_console_with_buffer() as fake_console:
@@ -139,6 +142,8 @@ class TestObjectActivationWorker(unittest.TestCase):
         self.assertEqual(caught.exception.stats.errors, 1)
 
     def test_handle_results_with_warnings(self):
+        self.activated_object.active = "active" # simulate activated object
+
         with patch_get_print_console_with_buffer() as fake_console:
             stats = self.worker.handle_results('CL_NO_MESSAGES',
                                        self.activated_object,
@@ -152,6 +157,7 @@ class TestObjectActivationWorker(unittest.TestCase):
     def test_handle_results_with_warnings_as_error_and_ignore(self):
         self.worker.continue_on_errors = True
         self.worker.warnings_as_errors = True
+        self.activated_object.active = "active" # simulate activated object
 
         with patch_get_print_console_with_buffer() as fake_console:
             stats = self.worker.handle_results('CL_NO_MESSAGES',
@@ -164,6 +170,8 @@ class TestObjectActivationWorker(unittest.TestCase):
         self.assertEqual(self.stats.errors, 1)
 
     def test_activate_sequentially(self):
+        self.activated_object.active = "active" # simulate activated object
+
         with patch('sap.adt.wb.try_activate') as fake_try_activate, \
              patch_get_print_console_with_buffer() as fake_console:
 

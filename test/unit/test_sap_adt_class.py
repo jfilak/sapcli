@@ -4,6 +4,7 @@ import unittest
 
 from sap import get_logger
 import sap.adt
+import sap.adt.wb
 
 from mock import Connection, Response
 
@@ -135,9 +136,14 @@ class TestADTClass(unittest.TestCase):
         self.include_write_test(lambda clas: clas.test_classes, 'includes/testclasses')
 
     def include_activate_test(self, getter, includes_uri):
-        conn = Connection([EMPTY_RESPONSE_OK])
+        conn = Connection(
+            [
+                EMPTY_RESPONSE_OK,
+                Response(text=GET_CLASS_ADT_XML, status_code=200, headers={})
+            ])
 
         clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+
         sap.adt.wb.activate(getter(clas))
 
         post_request = conn.execs[0]

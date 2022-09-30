@@ -9,6 +9,7 @@ from sap.adt.marshalling import Marshal
 
 from sap import get_logger
 from sap.errors import SAPCliError
+from sap.adt.objects import ADT_OBJECT_VERSION_ACTIVE
 
 
 XMLNS_CHKL = XMLNamespace('chkl', 'http://www.sap.com/abapxml/checklis')
@@ -301,17 +302,20 @@ def try_activate(adt_object):
     if resp.text:
         Marshal.deserialize(resp.text, results)
 
+    # fetch object to refresh object attributes (e.g. current activation status)
+    adt_object.fetch()
+
     return (results, resp)
 
 
 def activate(adt_object):
     """Activates the given object and raises ActivationError
-    in the case where activation didn't generate the object.
+    in the case where activation didn't activate the object.
     """
 
     results, resp = try_activate(adt_object)
 
-    if not results.generated:
+    if adt_object.active != ADT_OBJECT_VERSION_ACTIVE:
         raise ActivationError(f'Could not activate: {resp.text}', resp, results)
 
     return results

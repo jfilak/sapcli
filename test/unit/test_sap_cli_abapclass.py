@@ -56,11 +56,14 @@ class TestClassCreate(unittest.TestCase):
 class TestClassActivate(unittest.TestCase):
 
     def test_class_activate_defaults(self):
-        connection = Connection([EMPTY_RESPONSE_OK])
+        connection = Connection([
+            EMPTY_RESPONSE_OK,
+            Response(text=GET_CLASS_ADT_XML.replace('ZCL_HELLO_WORLD', 'ZCL_ACTIVATOR'), status_code=200, headers={})
+        ])
         args = parse_args(['activate', 'ZCL_ACTIVATOR'])
         args.execute(connection, args)
 
-        self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/activation')])
+        self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/activation'), ('GET', '/sap/bc/adt/oo/classes/zcl_activator')])
 
         create_request = connection.execs[0]
         self.assertIn('adtcore:uri="/sap/bc/adt/oo/classes/zcl_activator"', create_request.body)
@@ -202,7 +205,13 @@ class TestClassIncludes(unittest.TestCase):
     def write_test_with_activation(self, typ):
         args = parse_args(['write', 'ZCL_WRITER', '--type', typ, '-', '--activate'])
 
-        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        conn = Connection([
+            LOCK_RESPONSE_OK,
+            EMPTY_RESPONSE_OK,
+            EMPTY_RESPONSE_OK,
+            EMPTY_RESPONSE_OK,
+            Response(text=GET_CLASS_ADT_XML.replace('ZCL_HELLO_WORLD', 'ZCL_WRITER'), status_code=200, headers={})
+        ])
 
         with patch('sys.stdin', StringIO('* new content')):
             args.execute(conn, args)
@@ -211,7 +220,8 @@ class TestClassIncludes(unittest.TestCase):
                          [('POST', f'/sap/bc/adt/oo/classes/zcl_writer'),
                           ('PUT', f'/sap/bc/adt/oo/classes/zcl_writer/includes/{typ}'),
                           ('POST', f'/sap/bc/adt/oo/classes/zcl_writer'),
-                          ('POST', f'/sap/bc/adt/activation')])
+                          ('POST', f'/sap/bc/adt/activation'),
+                          ('GET', '/sap/bc/adt/oo/classes/zcl_writer')])
 
         activate_request = conn.execs[3]
         self.assertIn('adtcore:uri="/sap/bc/adt/oo/classes/zcl_writer"', activate_request.body)

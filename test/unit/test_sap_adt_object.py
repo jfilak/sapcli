@@ -8,7 +8,8 @@ import sap.adt
 import sap.adt.objects
 import sap.adt.wb
 
-from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, GET_DUMMY_OBJECT_ADT_XML
+from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, GET_DUMMY_OBJECT_ADT_XML, GET_DUMMY_OBJECT_INACTIVE_ADT_XML
+
 from mock import Response, Connection
 
 
@@ -134,12 +135,16 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(unlock_request.params['lockHandle'], 'NOTLOCKED')
 
     def test_activate(self):
-        connection = Connection([EMPTY_RESPONSE_OK])
-        victory = DummyADTObject(connection=connection, name='activator')
+        connection = Connection([
+                EMPTY_RESPONSE_OK,
+                Response(text=GET_DUMMY_OBJECT_ADT_XML, status_code=200, headers={})
+        ])
+
+        victory = DummyADTObject(connection=connection, name='SOFTWARE_ENGINEER')
 
         sap.adt.wb.activate(victory)
 
-        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(len(connection.execs), 2)
         self.assertEqual(connection.execs[0].method, 'POST')
         self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/activation')
 
@@ -154,12 +159,16 @@ class TestADTObject(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(connection.execs[0].body, '''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
-<adtcore:objectReference adtcore:uri="/sap/bc/adt/awesome/success/activator" adtcore:name="ACTIVATOR"/>
+<adtcore:objectReference adtcore:uri="/sap/bc/adt/awesome/success/software_engineer" adtcore:name="SOFTWARE_ENGINEER"/>
 </adtcore:objectReferences>''' )
 
     def test_activate_fails(self):
-        connection = Connection([Response(ACTIVATE_RESPONSE_FAILED, 200, {})])
-        victory = DummyADTObject(connection=connection, name='activator')
+        connection = Connection([
+                Response(ACTIVATE_RESPONSE_FAILED, 200, {}),
+                Response(text=GET_DUMMY_OBJECT_INACTIVE_ADT_XML, status_code=200, headers={})
+        ])
+
+        victory = DummyADTObject(connection=connection, name='SOFTWARE_ENGINEER')
 
         with self.assertRaises(SAPCliError) as cm:
             sap.adt.wb.activate(victory)
