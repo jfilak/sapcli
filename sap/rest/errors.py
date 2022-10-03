@@ -1,5 +1,6 @@
 """HTTP related errors"""
 
+import re
 from sap.errors import SAPCliError
 
 
@@ -27,7 +28,24 @@ class HTTPRequestError(SAPCliError):
         self.response = response
         self.status_code = response.status_code
 
+    def _get_error_header(self):
+        return re.search('.*<p class="errorTextHeader"> *<span >(.*)</span> *</p>.*', self.response.text)
+
+    def _get_error_message(self):
+        error_msg = re.finditer('<p class="detailText"> *<span id="msgText">(.*?)</span> *</p>', self.response.text,
+                                flags=re.DOTALL)
+        error_msg = [msg[1] for msg in error_msg if 'Server time:' not in msg[1]]
+        error_msg = [' '.join(msg.split('\n')) for msg in error_msg]
+        error_msg = '\n'.join(error_msg)
+
+        return error_msg
+
     def __repr__(self):
+        error_text_header = self._get_error_header()
+        error_msg = self._get_error_message()
+        if error_text_header and error_msg:
+            return f'{error_text_header[1]}\n{error_msg}'
+
         return f'{self.response.status_code}\n{self.response.text}'
 
     def __str__(self):

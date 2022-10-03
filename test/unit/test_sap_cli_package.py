@@ -198,7 +198,8 @@ class TestPackageCheck(unittest.TestCase):
             runs = []
             def sap_adt_checks_run(connection, reporter, object_list):
                 if reporter.name == 'Exception':
-                    raise HTTPRequestError(Mock(), Mock())
+                    fake_response = Mock(status_code=400, text='Error response')
+                    raise HTTPRequestError(Mock(), fake_response)
 
                 runs.append([reporter.name] + [obj.uri for obj in object_list])
 
