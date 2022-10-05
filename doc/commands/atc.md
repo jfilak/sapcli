@@ -34,8 +34,8 @@ sapcli atc run {package,class,program} OBJECT_NAME [-r VARIANT] [-e ERROR_LEVEL]
 * _ERROR\_LEVEL_ All ATC Prio numbers higher than this mumber are not considered erros (default: 2)
 * _MAX\_VERDICTS_ Total number of verdicts returned (default: 100)
 * -o _OUTPUT_ Output format in which checks will be printed (default: human)
-* _SEVERITY\_MAPPING_ Severity mapping between ATC PRIO levels and Checkstyle severities (default: None). Could be passed as SEVERITY\_MAPPING env variable. Should be passes as JSON string, example: {"1":"error", "2":"warning", "3":"info"}.
-
+* _SEVERITY\_MAPPING_ Severity mapping between ATC PRIO levels and Checkstyle severities (default: None). Could be passed as SEVERITY\_MAPPING env variable. Should be passes as JSON string, example: {"1":"error", "2":"warning", "3":"info"}
+* _ATC\_FILTER_ Filter out ATC priorities higher than the set value.
 ### Output format
 
 #### Human
