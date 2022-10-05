@@ -154,25 +154,20 @@ class PropertyCommandGroup(sap.cli.core.CommandGroup):
 def get_properties(connection, args):
     """Get all repository properties"""
 
+    console = sap.cli.core.get_console()
     try:
         repo = get_repository(connection, args.package)
 
-        columns = (
-            sap.cli.helpers.TableWriter.Columns()
-            ('name', 'Name')
-            ('rid', 'RID')
-            ('branch', 'Branch')
-            ('head', 'Commit')
-            ('status', 'Status')
-            ('vsid', 'vSID')
-            ('role', 'ROLE')
-            ('url', 'URL')
-            .done()
-        )
-
-        sap.cli.helpers.TableWriter([repo], columns).printout(sap.cli.core.get_console())
+        console.printout(f'Name: {repo.name}')
+        console.printout(f'RID: {repo.rid}')
+        console.printout(f'Branch: {repo.branch}')
+        console.printout(f'Commit: {repo.head}')
+        console.printout(f'Status: {repo.status}')
+        console.printout(f'vSID: {repo.vsid}')
+        console.printout(f'Role: {repo.role}')
+        console.printout(f'URL: {repo.url}')
     except SAPCliError as ex:
-        sap.cli.core.printout(str(ex))
+        console.printout(str(ex))
         return 1
 
     return 0
