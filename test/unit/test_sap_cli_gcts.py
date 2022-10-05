@@ -942,9 +942,14 @@ class TestgCTSRepoGetProperty(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertConsoleContents(self.console, stdout=
-'''Name | RID | Branch | Commit | Status | vSID | ROLE | URL                       
---------------------------------------------------------------------------------
-name | rid | branch | head   | status | vsid | role | http://github.com/name.git
+'''Name: name
+RID: rid
+Branch: branch
+Commit: head
+Status: status
+vSID: vsid
+Role: role
+URL: http://github.com/name.git
 ''')
 
     @patch('sap.rest.gcts.simple.fetch_repos')
@@ -956,9 +961,14 @@ name | rid | branch | head   | status | vsid | role | http://github.com/name.git
 
         self.assertEqual(exit_code, 0)
         self.assertConsoleContents(self.console, stdout=
-'''Name | RID | Branch | Commit | Status | vSID | ROLE | URL                       
---------------------------------------------------------------------------------
-name | rid | branch | head   | status | vsid | role | http://github.com/name.git
+'''Name: name
+RID: rid
+Branch: branch
+Commit: head
+Status: status
+vSID: vsid
+Role: role
+URL: http://github.com/name.git
 ''')
 
     @patch('sap.cli.gcts.get_repository')
