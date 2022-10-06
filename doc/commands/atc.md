@@ -26,7 +26,7 @@ Executes ATC Checks on the given object and exits with non-zero code,
 if ATC findings of Prio higher then the configured level are found.
 
 ```bash
-sapcli atc run {package,class,program} OBJECT_NAME [-r VARIANT] [-e ERROR_LEVEL] [-m MAX_VERDICITS] [-o {human,html,checkstyle}] [-s SEVERITY_MAPPING]
+sapcli atc run {package,class,program} OBJECT_NAME [-r VARIANT] [-e ERROR_LEVEL] [-m MAX_VERDICITS] [-o {human,html,checkstyle}] [-s SEVERITY_MAPPING] [-f PRIORITY_FILTER]
 ```
 
 * _OBJECT\_NAME_ package, class or program name
@@ -35,7 +35,7 @@ sapcli atc run {package,class,program} OBJECT_NAME [-r VARIANT] [-e ERROR_LEVEL]
 * _MAX\_VERDICTS_ Total number of verdicts returned (default: 100)
 * -o _OUTPUT_ Output format in which checks will be printed (default: human)
 * _SEVERITY\_MAPPING_ Severity mapping between ATC PRIO levels and Checkstyle severities (default: None). Could be passed as SEVERITY\_MAPPING env variable. Should be passes as JSON string, example: {"1":"error", "2":"warning", "3":"info"}
-* _ATC\_FILTER_ Filter out ATC priorities higher than the set value.
+* _PRIORITY\_FILTER_ Consider priorities lower than the set value.
 ### Output format
 
 #### Human
