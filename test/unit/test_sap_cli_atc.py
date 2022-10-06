@@ -282,19 +282,6 @@ class TestRun(unittest.TestCase):
 
         fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, severity_mapping={'1': 'error'})
 
-    @patch('sap.cli.atc.print_worklists_to_stream')
-    @patch('sap.adt.objects.ADTObjectSets')
-    @patch('sap.adt.atc.ChecksRunner')
-    @patch('sap.adt.atc.fetch_customizing')
-    @patch('sap.adt.Package')
-    def test_with_priority_filter(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
-
-        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
-
-        args = parse_args('run', 'package', fake_object.name, '-f', '1')
-        args.execute(self.connection, args)
-
-        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=100)
 
 class TestPrintWorklistMixin:
 
