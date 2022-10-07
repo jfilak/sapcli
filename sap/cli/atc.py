@@ -123,7 +123,8 @@ def get_line_and_column(location):
 
 
 # pylint: disable=invalid-name
-def print_worklists_as_checkstyle_xml_to_stream(all_results, stream, error_level=99, severity_mapping=None, priority_filter=5):
+def print_worklists_as_checkstyle_xml_to_stream(all_results, stream, error_level=99, severity_mapping=None,
+                                                priority_filter=5):
     """Print results as checkstyle xml to stream for all worklists"""
 
     if not severity_mapping:
@@ -226,7 +227,8 @@ def run(connection, args):
         results.append(atcResult.worklist)
 
     if args.output == 'checkstyle':
-        result = printer(results, sys.stdout, error_level=args.error_level, severity_mapping=severity_mapping, priority_filter=args.priority_filter)
+        result = printer(results, sys.stdout, error_level=args.error_level, severity_mapping=severity_mapping,
+                         priority_filter=args.priority_filter)
     else:
         result = printer(results, sys.stdout, error_level=args.error_level, priority_filter=args.priority_filter)
 
