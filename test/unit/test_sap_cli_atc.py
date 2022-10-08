@@ -384,7 +384,7 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
 '''FAKE/TEST/MADE_UP_OBJECT
 * 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
 ''')
-        self.assertEqual(0, ret)
+        self.assertEqual(1, ret)
 
     def test_priority_filter_5(self):
         output = StringIO()
@@ -396,7 +396,7 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
 * 3 :: PRIO_3 :: Prio 3
 * 4 :: PRIO_4 :: Prio 4
 ''')
-        self.assertEqual(0, ret)
+        self.assertEqual(1, ret)
 
 
 class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase):
@@ -505,7 +505,7 @@ class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase)
 <td>Prio 2</td></tr>
 </table>
 ''')
-        self.assertEqual(0, ret)
+        self.assertEqual(1, ret)
 
 
     def test_priority_filter_3(self):
@@ -531,7 +531,7 @@ class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase)
 <td>Prio 3</td></tr>
 </table>
 ''')
-        self.assertEqual(0, ret)
+        self.assertEqual(1, ret)
 
 class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
 
