@@ -386,19 +386,6 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
 ''')
         self.assertEqual(1, ret)
 
-    def test_priority_filter_5(self):
-        output = StringIO()
-        ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, priority_filter=5)
-        self.assertEqual(output.getvalue(),
-'''FAKE/TEST/MADE_UP_OBJECT
-* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
-* 2 :: PRIO_2 :: Prio 2
-* 3 :: PRIO_3 :: Prio 3
-* 4 :: PRIO_4 :: Prio 4
-''')
-        self.assertEqual(1, ret)
-
-
 class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase):
 
     def test_all_loops(self):
@@ -508,31 +495,6 @@ class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase)
         self.assertEqual(1, ret)
 
 
-    def test_priority_filter_3(self):
-        output = StringIO()
-        ret = sap.cli.atc.print_worklists_as_html_to_stream([self.worklist], output, priority_filter=3)
-        self.assertEqual(output.getvalue(),
-'''<table>
-<tr><th>Object type ID</th>
-<th>Name</th></tr>
-<tr><td>FAKE/TEST</td>
-<td>MADE_UP_OBJECT</td></tr>
-<tr><th>Priority</th>
-<th>Check title</th>
-<th>Message title</th></tr>
-<tr><td>1</td>
-<td>UNIT_TEST</td>
-<td>Unit tests for ATC module of sapcli</td></tr>
-<tr><td>2</td>
-<td>PRIO_2</td>
-<td>Prio 2</td></tr>
-<tr><td>3</td>
-<td>PRIO_3</td>
-<td>Prio 3</td></tr>
-</table>
-''')
-        self.assertEqual(1, ret)
-
 class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
 
     def test_all_loops(self):
@@ -637,6 +599,21 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
         location = 'foo/bar#'
         line, column = sap.cli.atc.get_line_and_column(location)
         self.assertEqual(('0','0'), (line, column))
+
+    def test_error_level_3(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_as_checkstyle_xml_to_stream([self.worklist], output, error_level=2, priority_filter=3)
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="8.36">
+<file name="FAKE/PACKAGE∕MADE_UP_OBJECT">
+<error line="24" column="0" severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error line="24" column="32" severity="error" message="Prio 2" source="PRIO_2"/>
+<error line="0" column="0" severity="warning" message="Prio 3" source="PRIO_3"/>
+</file>
+</checkstyle>
+''')
+        self.assertEqual(1, ret)
 
 if __name__ == '__main__':
     unittest.main()
