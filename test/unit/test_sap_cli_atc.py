@@ -377,6 +377,27 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
 ''')
         self.assertEqual(0, ret)
 
+    def test_priority_filter_1(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, priority_filter=1)
+        self.assertEqual(output.getvalue(),
+'''FAKE/TEST/MADE_UP_OBJECT
+* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
+''')
+        self.assertEqual(0, ret)
+
+    def test_priority_filter_5(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, priority_filter=5)
+        self.assertEqual(output.getvalue(),
+'''FAKE/TEST/MADE_UP_OBJECT
+* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
+* 2 :: PRIO_2 :: Prio 2
+* 3 :: PRIO_3 :: Prio 3
+* 4 :: PRIO_4 :: Prio 4
+''')
+        self.assertEqual(0, ret)
+
 
 class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase):
 
@@ -460,6 +481,54 @@ class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase)
 <tr><td>4</td>
 <td>PRIO_4</td>
 <td>Prio 4</td></tr>
+</table>
+''')
+        self.assertEqual(0, ret)
+
+    def test_priority_filter_2(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_as_html_to_stream([self.worklist], output, priority_filter=2)
+        self.assertEqual(output.getvalue(),
+'''<table>
+<tr><th>Object type ID</th>
+<th>Name</th></tr>
+<tr><td>FAKE/TEST</td>
+<td>MADE_UP_OBJECT</td></tr>
+<tr><th>Priority</th>
+<th>Check title</th>
+<th>Message title</th></tr>
+<tr><td>1</td>
+<td>UNIT_TEST</td>
+<td>Unit tests for ATC module of sapcli</td></tr>
+<tr><td>2</td>
+<td>PRIO_2</td>
+<td>Prio 2</td></tr>
+</table>
+''')
+        self.assertEqual(0, ret)
+
+
+    def test_priority_filter_3(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_as_html_to_stream([self.worklist], output, priority_filter=3)
+        self.assertEqual(output.getvalue(),
+'''<table>
+<tr><th>Object type ID</th>
+<th>Name</th></tr>
+<tr><td>FAKE/TEST</td>
+<td>MADE_UP_OBJECT</td></tr>
+<tr><th>Priority</th>
+<th>Check title</th>
+<th>Message title</th></tr>
+<tr><td>1</td>
+<td>UNIT_TEST</td>
+<td>Unit tests for ATC module of sapcli</td></tr>
+<tr><td>2</td>
+<td>PRIO_2</td>
+<td>Prio 2</td></tr>
+<tr><td>3</td>
+<td>PRIO_3</td>
+<td>Prio 3</td></tr>
 </table>
 ''')
         self.assertEqual(0, ret)
