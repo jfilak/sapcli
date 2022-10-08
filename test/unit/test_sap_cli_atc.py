@@ -287,7 +287,7 @@ class TestRun(unittest.TestCase):
     @patch('sap.adt.atc.ChecksRunner')
     @patch('sap.adt.atc.fetch_customizing')
     @patch('sap.adt.Package')
-    def test_priority_filter(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+    def test_with_priority_filter(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
         self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
 
         args = parse_args('run', 'package', fake_object.name, '-f', '1')
