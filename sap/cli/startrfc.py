@@ -3,6 +3,7 @@
 import sys
 import json
 import pprint
+import base64
 from os import path
 
 import sap.cli.core
@@ -11,9 +12,25 @@ import sap.rfc.bapi
 from sap.rfc.core import try_pyrfc_exception_type
 
 
+class BytesBase64Encoder(json.JSONEncoder):
+    """Bytes to Base64 encoder"""
+
+    def default(self, o):
+        if isinstance(o, bytes):
+            return base64.b64encode(o).decode('ascii')
+
+        return json.JSONEncoder.default(self, o)
+
+
+def json_format(obj):
+    """Serialize obj to JSON formatted str"""
+
+    return json.dumps(obj, cls=BytesBase64Encoder)
+
+
 FORMATTERS = {
     'human': pprint.PrettyPrinter(indent=2).pformat,
-    'json': json.dumps
+    'json': json_format
 }
 
 RESULT_CHECKER_RAW = 'raw'
@@ -103,8 +120,13 @@ def startrfc(connection, args):
         console.printerr(str(ex))
         return 1
 
-    # rfc call passed, it is time for analysis of the returned response
-    response_formatted = FORMATTERS[args.output](resp)
+    try:
+        # rfc call passed, it is time for analysis of the returned response
+        response_formatted = FORMATTERS[args.output](resp)
+    except TypeError as exc:
+        console.printerr('Could not JSON serialize call response.')
+        console.printerr(exc)
+        return 1
 
     # if the response file is given
     if args.response_file:
@@ -130,7 +152,7 @@ def startrfc(connection, args):
             console.printerr(f"It was requested to evaluate response from {args.RFC_FUNCTION_MODULE} "
                              "as bapi result, but response does not contain required key RETURN. "
                              "Raw response:")
-            console.printerr(FORMATTERS[args.output](resp))
+            console.printerr(response_formatted)
             return 1
 
         # try to parse response as "bapi return value"
@@ -140,7 +162,7 @@ def startrfc(connection, args):
             console.printerr(f'Parsing BAPI response returned from {args.RFC_FUNCTION_MODULE} failed:')
             console.printerr(str(ex))
             console.printerr("Raw response:")
-            console.printerr(FORMATTERS[args.output](resp))
+            console.printerr(response_formatted)
             return 1
 
         # response is parsed, we can decide if the response represents error or possitive status + info message
