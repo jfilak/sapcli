@@ -1,6 +1,5 @@
 """gCTS methods"""
 
-import json
 import warnings
 
 import sap.cli.core
@@ -503,7 +502,7 @@ def pull(connection, args):
         return 1
 
     if args.format.upper() == 'JSON':
-        console.printout(json.dumps(response, indent=2))
+        console.printout(sap.cli.core.json_dumps(response))
     else:
         console.printout(f'The repository "{repo.name}" has been pulled')
 
