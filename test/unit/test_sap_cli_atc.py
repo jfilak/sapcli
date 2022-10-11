@@ -75,7 +75,7 @@ class TestRun(unittest.TestCase):
         fake_runner.assert_called_once_with(self.connection, 'THE_VARIANT')
         fake_runner.return_value.run_for.assert_called_once_with(fake_sets.return_value, max_verdicts=100)
 
-        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2)
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, priority_filter=5)
 
     def execute_run(self, *args, **kwargs):
         cmd_args = parse_args('run', *args, **kwargs)
@@ -207,7 +207,7 @@ class TestRun(unittest.TestCase):
         args = parse_args('run', 'package', fake_object.name, '-e', '100')
         args.execute(self.connection, args)
 
-        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=100)
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=100, priority_filter=5)
 
     @patch('sap.cli.atc.print_worklists_to_stream')
     @patch('sap.adt.objects.ADTObjectSets')
@@ -220,7 +220,7 @@ class TestRun(unittest.TestCase):
         args = parse_args('run', 'package', fake_object.name, '-o', 'human')
         args.execute(self.connection, args)
 
-        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2)
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, priority_filter=5)
 
     @patch('sap.cli.atc.print_worklists_as_html_to_stream')
     @patch('sap.adt.objects.ADTObjectSets')
@@ -233,7 +233,7 @@ class TestRun(unittest.TestCase):
         args = parse_args('run', 'package', fake_object.name, '-o', 'html')
         args.execute(self.connection, args)
 
-        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2)
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, priority_filter=5)
 
     @patch('sap.cli.atc.print_worklists_as_checkstyle_xml_to_stream')
     @patch('sap.adt.objects.ADTObjectSets')
@@ -246,7 +246,7 @@ class TestRun(unittest.TestCase):
         args = parse_args('run', 'package', fake_object.name, '-o', 'checkstyle')
         args.execute(self.connection, args)
 
-        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, severity_mapping=None)
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, severity_mapping=None, priority_filter=5)
 
 
     @patch('sap.cli.atc.print_worklists_as_checkstyle_xml_to_stream')
@@ -263,7 +263,7 @@ class TestRun(unittest.TestCase):
         )
         args.execute(self.connection, args)
 
-        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, severity_mapping={'1': 'error'})
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, severity_mapping={'1': 'error'}, priority_filter=5)
 
     @patch('sap.cli.atc.print_worklists_as_checkstyle_xml_to_stream')
     @patch('sap.adt.objects.ADTObjectSets')
@@ -280,8 +280,20 @@ class TestRun(unittest.TestCase):
         with patch.dict(os.environ, {'SEVERITY_MAPPING': severity_mapping_str}):
             args.execute(self.connection, args)
 
-        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, severity_mapping={'1': 'error'})
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, severity_mapping={'1': 'error'}, priority_filter=5)
 
+    @patch('sap.cli.atc.print_worklists_to_stream')
+    @patch('sap.adt.objects.ADTObjectSets')
+    @patch('sap.adt.atc.ChecksRunner')
+    @patch('sap.adt.atc.fetch_customizing')
+    @patch('sap.adt.Package')
+    def test_with_priority_filter(self, fake_object, fake_fetch_customizing, fake_runner, fake_sets, fake_print):
+        self.setUpRunMocks(fake_object, '$PACKAGE', fake_fetch_customizing, fake_runner, fake_sets)
+
+        args = parse_args('run', 'package', fake_object.name, '-f', '1')
+        args.execute(self.connection, args)
+        
+        fake_print.assert_called_once_with(['WORKLIST'], sys.stdout, error_level=2, priority_filter=1)
 
 class TestPrintWorklistMixin:
 
@@ -343,7 +355,7 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
 
     def test_error_level_2(self):
         output = StringIO()
-        ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, error_level=2)
+        ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, error_level=2, priority_filter=5)
         self.assertEqual(output.getvalue(),
 '''FAKE/TEST/MADE_UP_OBJECT
 * 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
@@ -365,6 +377,14 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
 ''')
         self.assertEqual(0, ret)
 
+    def test_priority_filter_1(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, priority_filter=1)
+        self.assertEqual(output.getvalue(),
+'''FAKE/TEST/MADE_UP_OBJECT
+* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
+''')
+        self.assertEqual(1, ret)
 
 class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase):
 
@@ -398,7 +418,7 @@ class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase)
 
     def test_error_level_2(self):
         output = StringIO()
-        ret = sap.cli.atc.print_worklists_as_html_to_stream([self.worklist], output, error_level=2)
+        ret = sap.cli.atc.print_worklists_as_html_to_stream([self.worklist], output, error_level=2, priority_filter=5)
         self.assertEqual(output.getvalue(),
 '''<table>
 <tr><th>Object type ID</th>
@@ -452,6 +472,29 @@ class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase)
 ''')
         self.assertEqual(0, ret)
 
+    def test_priority_filter_2(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_as_html_to_stream([self.worklist], output, priority_filter=2)
+        self.assertEqual(output.getvalue(),
+'''<table>
+<tr><th>Object type ID</th>
+<th>Name</th></tr>
+<tr><td>FAKE/TEST</td>
+<td>MADE_UP_OBJECT</td></tr>
+<tr><th>Priority</th>
+<th>Check title</th>
+<th>Message title</th></tr>
+<tr><td>1</td>
+<td>UNIT_TEST</td>
+<td>Unit tests for ATC module of sapcli</td></tr>
+<tr><td>2</td>
+<td>PRIO_2</td>
+<td>Prio 2</td></tr>
+</table>
+''')
+        self.assertEqual(1, ret)
+
+
 class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
 
     def test_all_loops(self):
@@ -472,7 +515,7 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
 
     def test_error_level_2(self):
         output = StringIO()
-        ret = sap.cli.atc.print_worklists_as_checkstyle_xml_to_stream([self.worklist], output, error_level=2)
+        ret = sap.cli.atc.print_worklists_as_checkstyle_xml_to_stream([self.worklist], output, error_level=2, priority_filter=5)
         self.assertEqual(output.getvalue(),
 '''<?xml version="1.0" encoding="UTF-8"?>
 <checkstyle version="8.36">
@@ -556,6 +599,21 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
         location = 'foo/bar#'
         line, column = sap.cli.atc.get_line_and_column(location)
         self.assertEqual(('0','0'), (line, column))
+
+    def test_error_level_3(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_as_checkstyle_xml_to_stream([self.worklist], output, error_level=2, priority_filter=3)
+        self.assertEqual(output.getvalue(),
+'''<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="8.36">
+<file name="FAKE/PACKAGE∕MADE_UP_OBJECT">
+<error line="24" column="0" severity="error" message="Unit tests for ATC module of sapcli" source="UNIT_TEST"/>
+<error line="24" column="32" severity="error" message="Prio 2" source="PRIO_2"/>
+<error line="0" column="0" severity="warning" message="Prio 3" source="PRIO_3"/>
+</file>
+</checkstyle>
+''')
+        self.assertEqual(1, ret)
 
 if __name__ == '__main__':
     unittest.main()

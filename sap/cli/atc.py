@@ -51,7 +51,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
         self.profile_grp.install_parser(profile_parser)
 
 
-def print_worklists_to_stream(all_results, stream, error_level=99):
+def print_worklists_to_stream(all_results, stream, error_level=99, priority_filter=5):
     """Print results to stream"""
 
     pad = ''
@@ -61,6 +61,8 @@ def print_worklists_to_stream(all_results, stream, error_level=99):
             stream.write(f'{obj.object_type_id}/{obj.name}\n')
             finiding_pad = pad + ' '
             for finding in obj.findings:
+                if int(finding.priority) > priority_filter:
+                    continue
                 if int(finding.priority) <= error_level:
                     ret += 1
 
@@ -70,7 +72,7 @@ def print_worklists_to_stream(all_results, stream, error_level=99):
 
 
 # pylint: disable=invalid-name
-def print_worklists_as_html_to_stream(all_results, stream, error_level=99):
+def print_worklists_as_html_to_stream(all_results, stream, error_level=99, priority_filter=5):
     """Print results as html table to stream"""
 
     ret = 0
@@ -85,6 +87,8 @@ def print_worklists_as_html_to_stream(all_results, stream, error_level=99):
                          '<th>Check title</th>\n'
                          '<th>Message title</th></tr>\n')
             for finding in obj.findings:
+                if int(finding.priority) > priority_filter:
+                    continue
                 if int(finding.priority) <= error_level:
                     ret += 1
                 stream.write(f'<tr><td>{escape(str(finding.priority))}</td>\n'
@@ -119,7 +123,8 @@ def get_line_and_column(location):
 
 
 # pylint: disable=invalid-name
-def print_worklists_as_checkstyle_xml_to_stream(all_results, stream, error_level=99, severity_mapping=None):
+def print_worklists_as_checkstyle_xml_to_stream(all_results, stream, error_level=99, severity_mapping=None,
+                                                priority_filter=5):
     """Print results as checkstyle xml to stream for all worklists"""
 
     if not severity_mapping:
@@ -135,6 +140,8 @@ def print_worklists_as_checkstyle_xml_to_stream(all_results, stream, error_level
             filename = f'{package_name}/{name}'
             stream.write(f'<file name={quoteattr(filename)}>\n')
             for finding in obj.findings:
+                if int(finding.priority) > priority_filter:
+                    continue
                 if int(finding.priority) <= error_level:
                     ret += 1
                 severity = severity_mapping.get(str(finding.priority), INFO)
@@ -173,6 +180,8 @@ def customizing(connection, _):
                        help='Output format in which checks will be printed')
 @CommandGroup.argument('-s', '--severity-mapping', default=None, type=str,
                        help='Severity mapping between error levels and Checkstyle severities')
+@CommandGroup.argument('-f', '--priority-filter', default=5, type=int,
+                       help='Consider priorities lower than the set value')
 @CommandGroup.command()
 def run(connection, args):
     """Prints it out based on command line configuration.
@@ -218,9 +227,10 @@ def run(connection, args):
         results.append(atcResult.worklist)
 
     if args.output == 'checkstyle':
-        result = printer(results, sys.stdout, error_level=args.error_level, severity_mapping=severity_mapping)
+        result = printer(results, sys.stdout, error_level=args.error_level, severity_mapping=severity_mapping,
+                         priority_filter=args.priority_filter)
     else:
-        result = printer(results, sys.stdout, error_level=args.error_level)
+        result = printer(results, sys.stdout, error_level=args.error_level, priority_filter=args.priority_filter)
 
     return result
 
