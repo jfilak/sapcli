@@ -25,7 +25,7 @@ def instance_from_args(connection, name, typ, args, metadata):
     if hasattr(args, 'package'):
         package = args.package
 
-    clas = sap.adt.Class(connection, name, package=package, metadata=metadata)
+    clas = sap.adt.Class(connection, name.upper(), package=package, metadata=metadata)
 
     if typ == 'definitions':
         return clas.definitions
@@ -83,7 +83,7 @@ def attributes(connection, args):
     """Prints out some attributes of the given class.
     """
 
-    clas = sap.adt.Class(connection, args.name)
+    clas = sap.adt.Class(connection, args.name.upper())
     clas.fetch()
 
     print(f'Name       : {clas.name}')
@@ -98,5 +98,5 @@ def attributes(connection, args):
 def execute(connection, args):
     """Runs the if_oo_adt_classrun~main method"""
 
-    clas = sap.adt.Class(connection, args.name)
+    clas = sap.adt.Class(connection, args.name.upper())
     print(clas.execute())
