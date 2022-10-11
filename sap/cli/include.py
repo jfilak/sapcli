@@ -24,7 +24,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         if hasattr(args, 'master'):
             master = args.master
 
-        return sap.adt.Include(connection, name, master=master, package=package, metadata=metadata)
+        return sap.adt.Include(connection, name.upper(), master=master, package=package, metadata=metadata)
 
     def define_activate(self, commands):
         activate_cmd = super().define_activate(commands)
@@ -39,7 +39,7 @@ def attributes(connection, args):
     """Prints out some attributes of the given include.
     """
 
-    proginc = sap.adt.Include(connection, args.name)
+    proginc = sap.adt.Include(connection, args.name.upper())
     proginc.fetch()
 
     console = sap.cli.core.get_console()

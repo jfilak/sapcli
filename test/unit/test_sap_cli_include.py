@@ -86,7 +86,7 @@ class TestIncludeActivate(unittest.TestCase):
     def test_activate(self):
         conn = Connection([
             EMPTY_RESPONSE_OK,
-            Response(text=GET_INCLUDE_PROGRAM_ADT_XML.replace('ZHELLO_INCLUDE', 'test_activation'), status_code=200, headers={})
+            Response(text=GET_INCLUDE_PROGRAM_ADT_XML.replace('ZHELLO_INCLUDE', 'TEST_ACTIVATION'), status_code=200, headers={})
         ])
 
         args = parse_args('activate', 'test_activation')
@@ -98,7 +98,7 @@ class TestIncludeActivate(unittest.TestCase):
     def test_activate_with_master(self):
         conn = Connection([
             EMPTY_RESPONSE_OK,
-            Response(text=GET_INCLUDE_PROGRAM_ADT_XML.replace('ZHELLO_INCLUDE', 'test_activation'), status_code=200, headers={})
+            Response(text=GET_INCLUDE_PROGRAM_ADT_XML.replace('ZHELLO_INCLUDE', 'TEST_ACTIVATION'), status_code=200, headers={})
         ])
 
         args = parse_args('activate', 'test_activation', '-m', 'MASTER_REPORT')
