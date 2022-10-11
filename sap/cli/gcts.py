@@ -422,6 +422,7 @@ def delete(connection, args):
     return 0
 
 
+@CommandGroup.argument('-f', '--format', choices=['HUMAN', 'JSON'], default='HUMAN')
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('branch')
 @CommandGroup.argument('package')
@@ -443,8 +444,11 @@ def checkout(connection, args):
         console.printout(str(ex))
         return 1
 
-    console.printout(f'The repository "{repo.name}" has been set to the branch "{args.branch}"')
-    console.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(response))
+    else:
+        console.printout(f'The repository "{repo.name}" has been set to the branch "{args.branch}"')
+        console.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
     return 0
 
 
