@@ -1010,7 +1010,8 @@ class Class(OOADTObjectBase):
         'CLAS/OC',
         'oo/classes',
         xmlns_adtcore_ancestor('class', 'http://www.sap.com/adt/oo/classes'),
-        'application/vnd.sap.adt.oo.classes.v2+xml',
+        ['application/vnd.sap.adt.oo.classes.v4+xml',
+         'application/vnd.sap.adt.oo.classes.v2+xml'],
         {'text/plain': 'source/main'},
         'abapClass',
         editor_factory=ADTObjectSourceEditorWithResponse
