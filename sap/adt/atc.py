@@ -228,7 +228,8 @@ class ChecksRunner:
         return WorkListRunResult(run_response, worklist)
 
 
-def dump_profiles(connection, profiles=None, checkman=False):
+# pylint: disable=too-many-locals,too-many-nested-blocks,too-many-branches
+def dump_profiles(connection, profiles=None, priorities=False, checkman=False):
     """Dump ATC profiles for the connected system"""
 
     result = {}
@@ -238,17 +239,14 @@ def dump_profiles(connection, profiles=None, checkman=False):
 
     # extend profiles of translations
     sqlconsole = DataPreview(connection)
-    table = sqlconsole.execute("SELECT LANGU, CHKPRFID, TXTCHKPRF FROM CRMCHKPRFT", rows=99999)
+    table = sqlconsole.execute("SELECT LANGU, CHKPRFID, TXTCHKPRF FROM CRMCHKPRFT WHERE LANGU = 'E'", rows=99999)
     for row in table:
         profile_id = row['CHKPRFID']
         # ignore tranlations for net existing profiles
         if profile_id not in profiles:
             continue
 
-        if 'trans' not in profiles[profile_id]:
-            profiles[profile_id]['trans'] = {}
-
-        profiles[profile_id]['trans'][row['LANGU']] = row['TXTCHKPRF']
+        profiles[profile_id]['description'] = row['TXTCHKPRF']
 
     # enhance profiles of checks
     table = sqlconsole.execute("SELECT CHKPRFID, CHKID, SEQNBR, SINCE, NOTE FROM CRMCHKPRF", rows=99999)
@@ -269,12 +267,85 @@ def dump_profiles(connection, profiles=None, checkman=False):
 
     result['profiles'] = profiles
 
+    # enhance checks of analysis classes
+    table = sqlconsole.execute("SELECT CHKID, CLCHK FROM CRMCHK", rows=99999)
+
+    # loop through all profiles and checks and add list of priorities
+    for profile in profiles.values():
+        for check_id, check in profile['checks'].items():
+            for row in table:
+                if row['CHKID'] == check_id:
+                    check['class'] = row['CLCHK']
+                    break
+
+    # enhance checks of descriptions
+    table = sqlconsole.execute("SELECT CHKID, TXTCHK FROM CRMCHKT WHERE LANGU = 'E'", rows=99999)
+
+    # loop through all profiles and checks and add list of priorities
+    for profile in profiles.values():
+        for check_id, check in profile['checks'].items():
+            for row in table:
+                if row['CHKID'] == check_id:
+                    check['description'] = row['TXTCHK']
+                    break
+
+    if priorities:
+
+        # fetch english descriptions for all check rules/messages
+        chkmsgt = sqlconsole.execute("SELECT CHKID, CHKMSGID, TXTCHKMSG FROM CRMCHKMSGT WHERE LANGU = 'E'", rows=99999)
+
+        # read all priorities from dedicated view (used by ATC engine during execution)
+        computed_priorities = sqlconsole.execute(
+            "SELECT CHKID, CHKMSGID, DEFAULTMSGPRIO, CHKMSGPRIO FROM CRM_CHECK_RULE",
+            rows=99999)
+
+        # loop through all profiles and checks and add list of priorities
+        for profile in profiles.values():
+            for check_id, check in profile['checks'].items():
+                # look for priorities
+                for row in computed_priorities:
+                    if row['CHKID'] == check_id:
+                        if 'priorities' not in check:
+                            check['priorities'] = {}
+
+                        check['priorities'][row['CHKMSGID']] = {
+                            'check_message_id': row['CHKMSGID'],
+                            'default_prio': row['DEFAULTMSGPRIO'],
+                            'prio': row['CHKMSGPRIO']
+                        }
+
+                        # add description
+                        desc = None
+                        for d in chkmsgt:
+                            if d['CHKID'] == row['CHKID'] and d['CHKMSGID'] == row['CHKMSGID']:
+                                desc = d['TXTCHKMSG']
+                                break
+                        check['priorities'][row['CHKMSGID']]['description'] = desc if desc is not None else ''
+
     if checkman:
         # build set of all relevant check IDs
         check_ids = set()
         for profile in profiles.values():
             for check_id in profile['checks']:
                 check_ids.add(check_id)
+
+        # fetch check priorities
+        result['checkman_messages'] = []
+        table = sqlconsole.execute(
+            "SELECT CHKID, CHKVIEW, CHKMSGID, DEFAULTMSGPRIO, CHKMSGPRIO FROM CRMCHKMSG",
+            rows=99999)
+        for row in table:
+            # skip records for not relevant check ids (not used in any profile)
+            if row['CHKID'] not in check_ids:
+                continue
+
+            result['checkman_messages'].append({
+                'check_id': row['CHKID'],
+                'check_view': row['CHKVIEW'],
+                'check_message_id': row['CHKMSGID'],
+                'default_prio': row['DEFAULTMSGPRIO'],
+                'prio': row['CHKMSGPRIO']
+            })
 
         # fetch check priorities
         result['checkman_messages_local'] = []
