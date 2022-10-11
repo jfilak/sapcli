@@ -278,6 +278,6 @@ def profile_list(connection, args):
 def profile_dump(connection, args):
     """Dumps ATC profiles."""
 
-    result = sap.adt.atc.dump_profiles(connection, args.profiles, args.checkman)
+    result = sap.adt.atc.dump_profiles(connection, args.profiles, priorities=True, checkman=args.checkman)
 
     printout(json.dumps(result, indent=2))

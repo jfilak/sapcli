@@ -14,7 +14,8 @@ from fixtures_adt_atc import ADT_XML_ATC_CUSTOMIZING, ADT_XML_ATC_CUSTOMIZING_AT
                              ADT_XML_ATC_RUN_RESPONSE_FAILURES, ADT_XML_ATC_RUN_RESPONSE_NO_OBJECTS, \
                              ADT_XML_ATC_WORKLIST_EMPTY, ADT_XML_ATC_WORKLIST_CLASS, ADT_XML_ATC_RUN_REQUEST_PACKAGE, \
                              ADT_XML_PROFILES_TABLE, ADT_XML_PROFILES_TRAN_TABLE, ADT_XML_PROFILES_CHECKS_TABLE, \
-                             ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE            
+                             ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE, ADT_XML_CRMCHK_TABLE, ADT_XML_CRMCHKT_TABLE, \
+                             ADT_XML_CRMCHKMSGT_TABLE, ADT_XML_CRM_CHECK_RULE_VIEW, ADT_XML_CRMCHKMSG_TABLE
 
 
 HEADER_ACCEPT = f'application/xml, {sap.adt.atc.CUSTOMIZING_MIME_TYPE_V1}'
@@ -249,10 +250,14 @@ class TestATCProfiles(unittest.TestCase):
         conn = Connection([
             Response(status_code=200, text=ADT_XML_PROFILES_TABLE),
             Response(status_code=200, text=ADT_XML_PROFILES_TRAN_TABLE),
-            Response(status_code=200, text=ADT_XML_PROFILES_CHECKS_TABLE)
+            Response(status_code=200, text=ADT_XML_PROFILES_CHECKS_TABLE),
+            Response(status_code=200, text=ADT_XML_CRMCHK_TABLE),
+            Response(status_code=200, text=ADT_XML_CRMCHKT_TABLE)
         ])
 
-        dump = sap.adt.atc.dump_profiles(conn)
+        dump = sap.adt.atc.dump_profiles(conn, priorities=False, checkman=False)
+
+        self.maxDiff = None
 
         self.assertDictEqual(dump, {
             'profiles': {
@@ -261,49 +266,57 @@ class TestATCProfiles(unittest.TestCase):
                     'changed_by': 'CHGUSER1',
                     'created': '20010309180000',
                     'created_by': 'CREUSER1',
+                    'description': 'Standard Check Profile1 CheckMan 6.20',
                     'checks': {
                         'CHECK1_1': {
                             'sequence_number': '00000001',
                             'since': '00000091',
-                            'note': 'Note PRF1 CHK1'
+                            'note': 'Note PRF1 CHK1',
+                            'class': 'CL_CHK_1_1',
+                            'description': 'Description for check 1_1'
                         },
                         'CHECK1_2': {
                             'sequence_number': '00000002',
                             'since': '00000092',
-                            'note': 'Note PRF1 CHK2'
+                            'note': 'Note PRF1 CHK2',
+                            'class': 'CL_CHK_1_2',
+                            'description': 'Description for check 1_2'
                         }
                     },
-                    'trans': {
-                        'E': 'Standard Check Profile1 CheckMan 6.20'
-                    }
                 },
                 'PROFILE2': {
                     'changed': '00000000000000',
                     'changed_by': '',
                     'created': '20010328100000',
                     'created_by': 'CREUSER2',
+                    'description': 'Standard Check Profile2 CheckMan 6.20',
                     'checks': {
                         'CHECK2_1': {
                             'sequence_number': '00000003',
                             'since': '00000093',
-                            'note': 'Note PRF2 CHK1'
+                            'note': 'Note PRF2 CHK1',
+                            'class': 'CL_CHK_2_1',
+                            'description': 'Description for check 2_1'
                         }
                     },
-                    'trans': {
-                        'E': 'Standard Check Profile2 CheckMan 6.20'
-                    }
                 }
             }
         })
 
-    def test_dump_profiles_filtered(self):
+    def test_dump_profiles_filtered_with_priorities(self):
         conn = Connection([
             Response(status_code=200, text=ADT_XML_PROFILES_TABLE),
             Response(status_code=200, text=ADT_XML_PROFILES_TRAN_TABLE),
-            Response(status_code=200, text=ADT_XML_PROFILES_CHECKS_TABLE)
+            Response(status_code=200, text=ADT_XML_PROFILES_CHECKS_TABLE),
+            Response(status_code=200, text=ADT_XML_CRMCHK_TABLE),
+            Response(status_code=200, text=ADT_XML_CRMCHKT_TABLE),
+            Response(status_code=200, text=ADT_XML_CRMCHKMSGT_TABLE),
+            Response(status_code=200, text=ADT_XML_CRM_CHECK_RULE_VIEW )
         ])
 
-        dump = sap.adt.atc.dump_profiles(conn, ['PROFILE1'])
+        dump = sap.adt.atc.dump_profiles(conn, ['PROFILE1'], priorities=True, checkman=False)
+
+        self.maxDiff = None
 
         self.assertDictEqual(dump, {
             'profiles': {
@@ -312,21 +325,51 @@ class TestATCProfiles(unittest.TestCase):
                     'changed_by': 'CHGUSER1',
                     'created': '20010309180000',
                     'created_by': 'CREUSER1',
+                    'description': 'Standard Check Profile1 CheckMan 6.20',
                     'checks': {
                         'CHECK1_1': {
                             'sequence_number': '00000001',
                             'since': '00000091',
-                            'note': 'Note PRF1 CHK1'
+                            'note': 'Note PRF1 CHK1',
+                            'class': 'CL_CHK_1_1',
+                            'description': 'Description for check 1_1',
+                            'priorities': {
+                                'MSG1_1_1': {
+                                    'check_message_id': 'MSG1_1_1',
+                                    'description': 'Description for message MSG1_1_1 of check 1_1',
+                                    'default_prio': '1',
+                                    'prio': '11'
+                                },
+                                'MSG1_1_2': {
+                                    'check_message_id': 'MSG1_1_2',
+                                    'description': 'Description for message MSG1_1_2 of check 1_1',
+                                    'default_prio': '2',
+                                    'prio': '12'
+                                },
+                                'MSG1_1_3': {
+                                    'check_message_id': 'MSG1_1_3',
+                                    'description': 'Description for message MSG1_1_3 of check 1_1',
+                                    'default_prio': '3',
+                                    'prio': '13'
+                                }
+                            }
                         },
                         'CHECK1_2': {
                             'sequence_number': '00000002',
                             'since': '00000092',
-                            'note': 'Note PRF1 CHK2'
+                            'note': 'Note PRF1 CHK2',
+                            'class': 'CL_CHK_1_2',
+                            'description': 'Description for check 1_2',
+                            'priorities': {
+                                'MSG1_2_1': {
+                                    'check_message_id': 'MSG1_2_1',
+                                    'description': 'Description for message MSG1_2_1 of check 1_2',
+                                    'default_prio': '4',
+                                    'prio': '14'
+                                },
+                            }
                         }
                     },
-                    'trans': {
-                        'E': 'Standard Check Profile1 CheckMan 6.20'
-                    }
                 }
             }
         })
@@ -336,12 +379,15 @@ class TestATCProfiles(unittest.TestCase):
             Response(status_code=200, text=ADT_XML_PROFILES_TABLE),
             Response(status_code=200, text=ADT_XML_PROFILES_TRAN_TABLE),
             Response(status_code=200, text=ADT_XML_PROFILES_CHECKS_TABLE),
-            Response(status_code=200, text=ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE)
+            Response(status_code=200, text=ADT_XML_CRMCHK_TABLE),
+            Response(status_code=200, text=ADT_XML_CRMCHKT_TABLE),
+            Response(status_code=200, text=ADT_XML_CRMCHKMSG_TABLE),
+            Response(status_code=200, text=ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE),
         ])
 
         self.maxDiff = None
 
-        dump = sap.adt.atc.dump_profiles(conn, ['PROFILE1'], True)
+        dump = sap.adt.atc.dump_profiles(conn, ['PROFILE1'], priorities=False, checkman=True)
 
         self.assertDictEqual(dump, {
             'profiles': {
@@ -350,23 +396,42 @@ class TestATCProfiles(unittest.TestCase):
                     'changed_by': 'CHGUSER1',
                     'created': '20010309180000',
                     'created_by': 'CREUSER1',
+                    'description': 'Standard Check Profile1 CheckMan 6.20',
                     'checks': {
                         'CHECK1_1': {
                             'sequence_number': '00000001',
                             'since': '00000091',
-                            'note': 'Note PRF1 CHK1'
+                            'note': 'Note PRF1 CHK1',
+                            'class': 'CL_CHK_1_1',
+                            'description': 'Description for check 1_1'
                         },
                         'CHECK1_2': {
                             'sequence_number': '00000002',
                             'since': '00000092',
-                            'note': 'Note PRF1 CHK2'
+                            'note': 'Note PRF1 CHK2',
+                            'class': 'CL_CHK_1_2',
+                            'description': 'Description for check 1_2'
+
                         }
-                    },
-                    'trans': {
-                        'E': 'Standard Check Profile1 CheckMan 6.20'
                     }
                 }
             },
+            'checkman_messages': [
+                {
+                    'check_id': 'CHECK1_1',
+                    'check_message_id': 'MSG1_1_1',
+                    'check_view': '',
+                    'default_prio': '1',
+                    'prio': '11'
+                },
+                {
+                    'check_id': 'CHECK1_2',
+                    'check_message_id': 'MSG1_1_2',
+                    'check_view': '',
+                    'default_prio': '2',
+                    'prio': '12'
+                }
+            ],
             'checkman_messages_local': [
                 {
                     'check_id': 'CHECK1_1',

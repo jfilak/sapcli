@@ -326,3 +326,212 @@ ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE='''<?xml version="1.0" encoding="utf-8"?>
 		</dataPreview:dataSet>
 	</dataPreview:columns>
 </dataPreview:tableData>'''
+
+ADT_XML_CRMCHK_TABLE='''<?xml version="1.0" encoding="UTF-8"?><dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+  <dataPreview:totalRows>187</dataPreview:totalRows>
+  <dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+  <dataPreview:executedQueryString>SELECT CHKID, CLCHK FROM CRMCHK   INTO     TABLE @DATA(LT_RESULT)   UP TO 100  ROWS   .</dataPreview:executedQueryString>
+  <dataPreview:queryExecutionTime>0.1930000</dataPreview:queryExecutionTime>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKID" dataPreview:type="C" dataPreview:description="CHKID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_2</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CLCHK" dataPreview:type="C" dataPreview:description="CLCHK" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>CL_CHK_1_1</dataPreview:data>
+      <dataPreview:data>CL_CHK_1_2</dataPreview:data>
+      <dataPreview:data>CL_CHK_2_1</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+</dataPreview:tableData>
+'''
+
+ADT_XML_CRMCHKT_TABLE='''<?xml version="1.0" encoding="UTF-8"?><dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+  <dataPreview:totalRows>182</dataPreview:totalRows>
+  <dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+  <dataPreview:executedQueryString>SELECT CHKID, TXTCHK FROM CRMCHKT WHERE LANGU = 'E'   INTO     TABLE @DATA(LT_RESULT)   UP TO 100  ROWS   .</dataPreview:executedQueryString>
+  <dataPreview:queryExecutionTime>1.8110000</dataPreview:queryExecutionTime>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKID" dataPreview:type="C" dataPreview:description="CHKID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_2</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="TXTCHK" dataPreview:type="C" dataPreview:description="TXTCHK" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>Description for check 1_1</dataPreview:data>
+      <dataPreview:data>Description for check 1_2</dataPreview:data>
+      <dataPreview:data>Description for check 2_1</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+</dataPreview:tableData>
+'''
+
+ADT_XML_CRMCHKMSG_TABLE='''<?xml version="1.0" encoding="UTF-8"?><dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+  <dataPreview:totalRows>2229</dataPreview:totalRows>
+  <dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+  <dataPreview:executedQueryString>SELECT CHKID, CHKVIEW, CHKMSGID, DEFAULTMSGPRIO, CHKMSGPRIO FROM CRMCHKMSG   INTO     TABLE @DATA(LT_RESULT)   UP TO 100  ROWS   .</dataPreview:executedQueryString>
+  <dataPreview:queryExecutionTime>8.8280000</dataPreview:queryExecutionTime>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKID" dataPreview:type="C" dataPreview:description="CHKID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_2</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKVIEW" dataPreview:type="C" dataPreview:description="CHKVIEW" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data/>
+      <dataPreview:data/>
+      <dataPreview:data/>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKMSGID" dataPreview:type="C" dataPreview:description="CHKMSGID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>MSG1_1_1</dataPreview:data>
+      <dataPreview:data>MSG1_1_2</dataPreview:data>
+      <dataPreview:data>MSG1_1_3</dataPreview:data>
+      <dataPreview:data>MSG1_2_1</dataPreview:data>
+      <dataPreview:data>MSG2_1_1</dataPreview:data>
+      <dataPreview:data>MSG2_1_2</dataPreview:data>
+      <dataPreview:data>MSG2_1_3</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="DEFAULTMSGPRIO" dataPreview:type="N" dataPreview:description="DEFAULTMSGPRIO" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>1</dataPreview:data>
+      <dataPreview:data>2</dataPreview:data>
+      <dataPreview:data>3</dataPreview:data>
+      <dataPreview:data>4</dataPreview:data>
+      <dataPreview:data>5</dataPreview:data>
+      <dataPreview:data>6</dataPreview:data>
+      <dataPreview:data>7</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKMSGPRIO" dataPreview:type="N" dataPreview:description="CHKMSGPRIO" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>11</dataPreview:data>
+      <dataPreview:data>12</dataPreview:data>
+      <dataPreview:data>13</dataPreview:data>
+      <dataPreview:data>14</dataPreview:data>
+      <dataPreview:data>15</dataPreview:data>
+      <dataPreview:data>16</dataPreview:data>
+      <dataPreview:data>17</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+</dataPreview:tableData>
+'''
+
+ADT_XML_CRMCHKMSGT_TABLE='''<?xml version="1.0" encoding="UTF-8"?><dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+  <dataPreview:totalRows>2201</dataPreview:totalRows>
+  <dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+  <dataPreview:executedQueryString>SELECT CHKID, CHKMSGID, TXTCHKMSG FROM CRMCHKMSGT WHERE LANGU = 'E'   INTO     TABLE @DATA(LT_RESULT)   UP TO 100  ROWS   .</dataPreview:executedQueryString>
+  <dataPreview:queryExecutionTime>2.0250000</dataPreview:queryExecutionTime>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKID" dataPreview:type="C" dataPreview:description="CHKID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_2</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKMSGID" dataPreview:type="C" dataPreview:description="CHKMSGID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>MSG1_1_1</dataPreview:data>
+      <dataPreview:data>MSG1_1_2</dataPreview:data>
+      <dataPreview:data>MSG1_1_3</dataPreview:data>
+      <dataPreview:data>MSG1_2_1</dataPreview:data>
+      <dataPreview:data>MSG2_1_1</dataPreview:data>
+      <dataPreview:data>MSG2_1_2</dataPreview:data>
+      <dataPreview:data>MSG2_1_3</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="TXTCHKMSG" dataPreview:type="C" dataPreview:description="TXTCHKMSG" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>Description for message MSG1_1_1 of check 1_1</dataPreview:data>
+      <dataPreview:data>Description for message MSG1_1_2 of check 1_1</dataPreview:data>
+      <dataPreview:data>Description for message MSG1_1_3 of check 1_1</dataPreview:data>
+      <dataPreview:data>Description for message MSG1_2_1 of check 1_2</dataPreview:data>
+      <dataPreview:data>Description for message MSG2_1_1 of check 2_1</dataPreview:data>
+      <dataPreview:data>Description for message MSG2_1_2 of check 2_1</dataPreview:data>
+      <dataPreview:data>Description for message MSG2_1_3 of check 2_1</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+</dataPreview:tableData>
+'''
+
+ADT_XML_CRM_CHECK_RULE_VIEW='''<?xml version="1.0" encoding="UTF-8"?><dataPreview:tableData xmlns:dataPreview="http://www.sap.com/adt/dataPreview">
+  <dataPreview:totalRows>2200</dataPreview:totalRows>
+  <dataPreview:isHanaAnalyticalView>false</dataPreview:isHanaAnalyticalView>
+  <dataPreview:executedQueryString>SELECT CHKID, CHKMSGID, DEFAULTMSGPRIO, CHKMSGPRIO FROM CRM_CHECK_RULE   INTO     TABLE @DATA(LT_RESULT)   UP TO 100  ROWS   .</dataPreview:executedQueryString>
+  <dataPreview:queryExecutionTime>2.8910000</dataPreview:queryExecutionTime>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKID" dataPreview:type="C" dataPreview:description="CHKID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_1</dataPreview:data>
+      <dataPreview:data>CHECK1_2</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+      <dataPreview:data>CHECK2_1</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKMSGID" dataPreview:type="C" dataPreview:description="CHKMSGID" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>MSG1_1_1</dataPreview:data>
+      <dataPreview:data>MSG1_1_2</dataPreview:data>
+      <dataPreview:data>MSG1_1_3</dataPreview:data>
+      <dataPreview:data>MSG1_2_1</dataPreview:data>
+      <dataPreview:data>MSG2_1_1</dataPreview:data>
+      <dataPreview:data>MSG2_1_2</dataPreview:data>
+      <dataPreview:data>MSG2_1_3</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="DEFAULTMSGPRIO" dataPreview:type="N" dataPreview:description="DEFAULTMSGPRIO" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>1</dataPreview:data>
+      <dataPreview:data>2</dataPreview:data>
+      <dataPreview:data>3</dataPreview:data>
+      <dataPreview:data>4</dataPreview:data>
+      <dataPreview:data>5</dataPreview:data>
+      <dataPreview:data>6</dataPreview:data>
+      <dataPreview:data>7</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+  <dataPreview:columns>
+    <dataPreview:metadata dataPreview:name="CHKMSGPRIO" dataPreview:type="N" dataPreview:description="CHKMSGPRIO" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
+    <dataPreview:dataSet>
+      <dataPreview:data>11</dataPreview:data>
+      <dataPreview:data>12</dataPreview:data>
+      <dataPreview:data>13</dataPreview:data>
+      <dataPreview:data>14</dataPreview:data>
+      <dataPreview:data>15</dataPreview:data>
+      <dataPreview:data>16</dataPreview:data>
+      <dataPreview:data>17</dataPreview:data>
+    </dataPreview:dataSet>
+  </dataPreview:columns>
+</dataPreview:tableData>
+'''
+
