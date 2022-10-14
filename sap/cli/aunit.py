@@ -233,6 +233,7 @@ second-line</sub-child>
 
 def print_junit4_testcase_error(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/error"""
+
     with xml_writer.element('system-err'):
         xml_writer.text(alert.title)
 
@@ -273,11 +274,11 @@ def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
         status = 'OK'
 
     with xml_writer.element('testcase', name=method_name, classname=test_class, status=status):
-        for alert in alerts:            
-            if (alert.kind ==  'failedAssertion'):
+        for alert in alerts:           
+            if alert.kind == 'failedAssertion':
                 print_junit4_testcase_failure(xml_writer, alert)
-            else: 
-                print_junit4_testcase_error(xml_writer, alert)            
+            else:
+                print_junit4_testcase_error(xml_writer, alert)
 
     return critical
 
