@@ -231,12 +231,20 @@ second-line</sub-child>
         self._console.printout(escape(lines), end=end)
 
 
+def print_junit4_testcase_error(xml_writer, alert):
+    """Print AUnit Alert as JUnit4 testcase/error"""
+    with xml_writer.element('system-err'):
+        xml_writer.text(alert.title)
+
+    with xml_writer.element('error', type=alert.kind):
+        for detail in alert.details:
+            xml_writer.text(detail, end='\n')
+
+
 def print_junit4_testcase_failure(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/failure"""
 
-    tag = 'failure' if (alert.kind == 'failedAssertion') else 'error'
-
-    with xml_writer.element(tag, type=alert.kind, message=alert.title):
+    with xml_writer.element('failure', type=alert.kind, message=alert.title):
 
         xml_writer.text("Analysis:", end='\n')
 
@@ -265,8 +273,11 @@ def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
         status = 'OK'
 
     with xml_writer.element('testcase', name=method_name, classname=test_class, status=status):
-        for alert in alerts:
-            print_junit4_testcase_failure(xml_writer, alert)
+        for alert in alerts:            
+            if (alert.kind ==  'failedAssertion'):
+                print_junit4_testcase_failure(xml_writer, alert)
+            else: 
+                print_junit4_testcase_error(xml_writer, alert)            
 
     return critical
 
