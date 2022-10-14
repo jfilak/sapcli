@@ -313,13 +313,9 @@ def print_aunit_junit4(run_results, args, console):
                     if not test_class.test_methods:
                         continue
 
-                    tc_class_name = test_class.name
-                    if program.name != test_class.name:
-                        tc_class_name = f'{program.name}=>{test_class.name}'
-
                     for test_method in test_class.test_methods:
                         critical += print_junit4_testcase(xml_writer,
-                                                          tc_class_name,
+                                                          test_class.name,
                                                           test_method.name,
                                                           test_method.alerts)
 
