@@ -6,7 +6,6 @@ from collections import defaultdict
 from enum import Enum
 from functools import partial
 from xml.sax.saxutils import escape, quoteattr
-from itertools import islice
 from dataclasses import dataclass
 from typing import List
 
@@ -232,30 +231,21 @@ second-line</sub-child>
         self._console.printout(escape(lines), end=end)
 
 
-def print_junit4_system_err(xml_writer, details):
-    """Print AUnit Alert.Details in testcase/system-err"""
+def print_junit4_testcase_failure(xml_writer, alert):
+    """Print AUnit Alert as JUnit4 testcase/failure"""
 
-    if not details:
-        return
+    with xml_writer.element('failure', type=alert.kind, message=alert.title):
 
-    with xml_writer.element('system-err'):
-        for detail in islice(details, len(details) - 1):
+        xml_writer.text("Analysis:", end='\n')
+
+        for detail in alert.details:
             xml_writer.text(detail, end='\n')
 
-        xml_writer.text(details[-1])
+        xml_writer.text('\n')
+        xml_writer.text("Stack:", end='\n')
 
-
-def print_junit4_testcase_error(xml_writer, alert):
-    """Print AUnit Alert as JUnit4 testcase/error"""
-
-    with xml_writer.element('error', type=alert.kind, message=alert.title):
-        if not alert.stack:
-            return
-
-        for frame in islice(alert.stack, len(alert.stack) - 1):
-            xml_writer.text(frame, end='\n')
-
-        xml_writer.text(alert.stack[-1])
+        for stack in alert.stack:
+            xml_writer.text(stack, end='\n')
 
 
 def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
@@ -274,8 +264,7 @@ def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
 
     with xml_writer.element('testcase', name=method_name, classname=test_class, status=status):
         for alert in alerts:
-            print_junit4_system_err(xml_writer, alert.details)
-            print_junit4_testcase_error(xml_writer, alert)
+            print_junit4_testcase_failure(xml_writer, alert)
 
     return critical
 
