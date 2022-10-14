@@ -234,7 +234,7 @@ second-line</sub-child>
 def print_junit4_testcase_failure(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/failure"""
 
-    tag = 'error' if (alert.kind == 'exception') else 'failure'
+    tag = 'failure' if (alert.kind == 'failedAssertion') else 'error'
 
     with xml_writer.element(tag, type=alert.kind, message=alert.title):
 
