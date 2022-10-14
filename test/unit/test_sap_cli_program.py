@@ -75,7 +75,7 @@ class TestProgramActivate(unittest.TestCase):
     def test_activate(self):
         conn = Connection([
             EMPTY_RESPONSE_OK,
-            Response(text=GET_EXECUTABLE_PROGRAM_ADT_XML.replace('ZHELLO_WORLD', 'test_activation'), status_code=200, headers={})
+            Response(text=GET_EXECUTABLE_PROGRAM_ADT_XML.replace('ZHELLO_WORLD', 'TEST_ACTIVATION'), status_code=200, headers={})
         ])
 
         args = parse_args('activate', 'test_activation')

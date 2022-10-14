@@ -29,7 +29,7 @@ class TestFunctionGroup(unittest.TestCase):
 
         self.assertEqual(conn.execs[0][0], 'POST')
         self.assertEqual(conn.execs[0][1], '/sap/bc/adt/functions/groups')
-        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.groups.v2+xml; charset=utf-8'})
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.groups.v3+xml; charset=utf-8'})
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3].decode('utf-8'), CREATE_FUNCTION_GROUP_ADT_XML)
 

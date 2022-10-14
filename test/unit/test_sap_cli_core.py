@@ -242,5 +242,14 @@ class TestGetStdin(unittest.TestCase):
         self.assertEqual(previous_sapcli_stdin, fake_stdin)
 
 
+class TestJsonDumps(unittest.TestCase):
+
+    def test_jsom_format_default(self):
+        json_dict = sap.cli.core.json_dumps({'foo': 'bar'})
+        self.assertEqual(json_dict, '''{
+  "foo": "bar"
+}''')
+
+
 if __name__ == '__main__':
     unittest.main()

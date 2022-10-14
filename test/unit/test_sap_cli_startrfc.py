@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import base64
+import datetime
 import json
 from argparse import ArgumentParser
 from io import StringIO
@@ -316,6 +318,32 @@ Raw response:
         m.assert_called_once_with('./the_file', 'x', encoding='utf-8')
         self.assertEqual(buffer.finalvalue, '{\'STATUS\': \'Super cool!\'}')
         self.assertEqual(0, exit_code)
+
+    def test_startrfc_args_output_json(self):
+        params = ['--output', 'json']
+
+        self.rfc_connection.call.return_value = {
+            'STATUS': 'Super cool!',
+            'BYTES': b'Super cool!',
+        }
+
+        expected_base64 = base64.b64encode(b'Super cool!').decode('ascii')
+        exit_code = self.execute_cmd(params=params,
+                                     exp_stdout=f'{{"STATUS": "Super cool!", "BYTES": "{expected_base64}"}}\n',
+                                     exp_stderr='')
+        self.assertEqual(0, exit_code)
+
+    def test_startrfc_args_output_json_not_serializable(self):
+        params = ['--output', 'json']
+
+        self.rfc_connection.call.return_value = {
+            'TODAY': datetime.date.today(),
+        }
+
+        exit_code = self.execute_cmd(params=params, exp_stdout='',
+                                     exp_stderr='Could not JSON serialize call response.\n'
+                                                'Object of type date is not JSON serializable\n')
+        self.assertEqual(1, exit_code)
 
 
 del sys.modules['pyrfc']

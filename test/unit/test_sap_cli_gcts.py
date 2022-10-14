@@ -449,6 +449,27 @@ f'''The repository "{repo_name}" has been set to the branch "{checkout_branch}"
 ({repo_branch}:123) -> ({checkout_branch}:456)
 ''')
 
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_checkout_json_output(self, fake_fetch_repos):
+        conn = Mock()
+        checkout_branch = 'the_branch'
+
+        repo_name = 'the_repo'
+        repo_branch = 'old_branch'
+        repo_url = 'http://github.com/the_repo.git'
+        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, branch=repo_branch, url=repo_url)
+
+        self.fake_simple_checkout.return_value = {'fromCommit': '123', 'toCommit': '456', 'request': 'YGCTS987654321'}
+        args = self.checkout(repo_url, checkout_branch, '--format', 'JSON')
+        args.execute(conn, args)
+
+        self.assertConsoleContents(self.console, stdout='''{
+  "fromCommit": "123",
+  "toCommit": "456",
+  "request": "YGCTS987654321"
+}
+''')
+
     @patch('sap.cli.gcts.dump_gcts_messages')
     def test_checkout_error(self, fake_dumper):
         messages = {'exception': 'test'}

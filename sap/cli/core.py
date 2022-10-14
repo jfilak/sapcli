@@ -1,6 +1,7 @@
 """CLI basic functionality"""
 
 import sys
+import json
 
 from sap.errors import SAPCliError
 
@@ -272,3 +273,9 @@ def set_stdin(reader):
     _SAPCLI_STDIN = reader
 
     return oldvalue
+
+
+def json_dumps(obj) -> str:
+    """Returns JSON string representing the object with the default formatting"""
+
+    return json.dumps(obj, indent=2)

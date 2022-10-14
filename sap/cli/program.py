@@ -19,4 +19,4 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         if hasattr(args, 'package'):
             package = args.package
 
-        return sap.adt.Program(connection, name, package=package, metadata=metadata)
+        return sap.adt.Program(connection, name.upper(), package=package, metadata=metadata)

@@ -15,10 +15,10 @@ class CommandGroupFunctionGroup(sap.cli.object.CommandGroupObjectMaster):
         self.define()
 
     def build_new_object(self, connection, args, metadata):
-        return sap.adt.FunctionGroup(connection, args.name, package=args.package, metadata=metadata)
+        return sap.adt.FunctionGroup(connection, args.name.upper(), package=args.package, metadata=metadata)
 
     def instance(self, connection, name, args, metadata=None):
-        return sap.adt.FunctionGroup(connection, name, metadata=metadata)
+        return sap.adt.FunctionGroup(connection, name.upper(), metadata=metadata)
 
 
 class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
@@ -34,7 +34,7 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
                                    responsible=connection.user.upper())
 
     def instance(self, connection, name, args, metadata=None):
-        return sap.adt.FunctionModule(connection, name, args.group, metadata=metadata)
+        return sap.adt.FunctionModule(connection, name.upper(), args.group, metadata=metadata)
 
     def instance_from_file_path(self, connection, filepath, args, metadata=None):
         basename = os.path.basename(filepath)
@@ -46,7 +46,7 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
 
         group = parts[0]
         name = parts[2]
-        return sap.adt.FunctionModule(connection, name, group, metadata=metadata)
+        return sap.adt.FunctionModule(connection, name.upper(), group, metadata=metadata)
 
     def define_create(self, commands):
         create_cmd = super().define_create(commands)
