@@ -234,29 +234,30 @@ second-line</sub-child>
 def print_junit4_testcase_error(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/error"""
 
-    with xml_writer.element('system-err'):
-        xml_writer.text(alert.title)
-
     with xml_writer.element('error', type=alert.kind):
         for detail in alert.details:
             xml_writer.text(detail, end='\n')
 
+    with xml_writer.element('system-err'):
+        xml_writer.text(alert.title)
 
 def print_junit4_testcase_failure(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/failure"""
 
     with xml_writer.element('failure', type=alert.kind, message=alert.title):
 
-        xml_writer.text("Analysis:", end='\n')
+        xml_writer.text("Analysis:")
 
         for detail in alert.details:
-            xml_writer.text(detail, end='\n')
+            xml_writer.text("\n")
+            xml_writer.text(detail)
 
-        xml_writer.text('\n')
-        xml_writer.text("Stack:", end='\n')
+        xml_writer.text("\n")
+        xml_writer.text("Stack:")
 
         for stack in alert.stack:
-            xml_writer.text(stack, end='\n')
+            xml_writer.text("\n")
+            xml_writer.text(stack)
 
 
 def print_junit4_testcase(xml_writer, test_class, method_name, alerts):

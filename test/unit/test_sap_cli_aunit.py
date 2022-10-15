@@ -234,7 +234,7 @@ Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===
 
 Stack:
 Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
-      </failure>
+</failure>
     </testcase>
     <testcase name="DO_THE_WARN" classname="LTCL_TEST" status="SKIP">
       <failure type="failedAssertion" message="Warning: 'I am supposed to warn'">Analysis:
@@ -243,7 +243,7 @@ Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===
 
 Stack:
 Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)
-      </failure>
+</failure>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>
@@ -255,12 +255,12 @@ Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARD
  
 Stack:
 Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
-      </failure>
+</failure>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST_HARDER" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST" package="ZEXAMPLE_TESTS" tests="2">
-    <testcase name="DO_THE_FAIL" classname="ZEXAMPLE_TESTS" status="ERR">
+    <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
       <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
 True expected
 Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.
@@ -268,9 +268,9 @@ Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.
 Stack:
 Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
 Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
-      </failure>
+</failure>
     </testcase>
-    <testcase name="DO_THE_TEST" classname="ZEXAMPLE_TESTS" status="OK"/>
+    <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>
 </testsuites>
 ''')
