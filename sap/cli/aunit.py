@@ -236,7 +236,10 @@ def print_junit4_testcase_error(xml_writer, alert):
 
     with xml_writer.element('error', type=alert.kind):
         for detail in alert.details:
-            xml_writer.text(detail, end='\n')
+            if detail != alert.details[0]:
+                xml_writer.text("\n")
+
+            xml_writer.text(detail)
 
     with xml_writer.element('system-err'):
         xml_writer.text(alert.title)
