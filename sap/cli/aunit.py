@@ -244,6 +244,7 @@ def print_junit4_testcase_error(xml_writer, alert):
     with xml_writer.element('system-err'):
         xml_writer.text(alert.title)
 
+
 def print_junit4_testcase_failure(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/failure"""
 
