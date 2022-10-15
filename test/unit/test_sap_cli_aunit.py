@@ -671,8 +671,7 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 Some detail text
 
 Stack:
-Include: &lt;ZCL_TEST_CLASS=======CM010&gt; Line: &lt;1&gt;
-      </failure>
+Include: &lt;ZCL_TEST_CLASS=======CM010&gt; Line: &lt;1&gt;</failure>
     </testcase>
   </testsuite>
 </testsuites>
