@@ -227,35 +227,50 @@ Errors:     3
 '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="ypackage">
   <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="3">
-    <testcase name="DO_THE_FAIL" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="ERR">
-      <system-err>True expected
-Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
-      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</error>
+    <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
+      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
+True expected
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
+
+Stack:
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
+      </failure>
     </testcase>
-    <testcase name="DO_THE_WARN" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="SKIP">
-      <system-err>True expected
-Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
-      <error type="failedAssertion" message="Warning: 'I am supposed to warn'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)</error>
+    <testcase name="DO_THE_WARN" classname="LTCL_TEST" status="SKIP">
+      <failure type="failedAssertion" message="Warning: 'I am supposed to warn'">Analysis:
+True expected
+Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
+
+Stack:
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)
+      </failure>
     </testcase>
-    <testcase name="DO_THE_TEST" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="OK"/>
+    <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST_HARDER" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
-    <testcase name="DO_THE_FAIL" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST_HARDER" status="ERR">
-      <system-err>True expected
-Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
-      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</error>
+    <testcase name="DO_THE_FAIL" classname="LTCL_TEST_HARDER" status="ERR">
+      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
+True expected
+Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
+ 
+Stack:
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
+      </failure>
     </testcase>
-    <testcase name="DO_THE_TEST" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST_HARDER" status="OK"/>
+    <testcase name="DO_THE_TEST" classname="LTCL_TEST_HARDER" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST" package="ZEXAMPLE_TESTS" tests="2">
-    <testcase name="DO_THE_FAIL" classname="ZEXAMPLE_TESTS=&gt;LTCL_TEST" status="ERR">
-      <system-err>True expected
-Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.</system-err>
-      <error type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
-Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
-      <error type="failedAssertion" message="Error&lt;LOAD_PROGRAM_CLASS_MISMATCH&gt;"/>
+    <testcase name="DO_THE_FAIL" classname="ZEXAMPLE_TESTS" status="ERR">
+      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
+True expected
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.
+ 
+Stack:
+Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
+Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
+      </failure>
     </testcase>
-    <testcase name="DO_THE_TEST" classname="ZEXAMPLE_TESTS=&gt;LTCL_TEST" status="OK"/>
+    <testcase name="DO_THE_TEST" classname="ZEXAMPLE_TESTS" status="OK"/>
   </testsuite>
 </testsuites>
 ''')
@@ -353,8 +368,8 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 <testsuites name="$TMP">
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
     <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="SKIP">
-      <system-err>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-err>
       <error type="warning" message="The global test class [ZCL_TEST_CLASS] is not abstract"/>
+      <system-err>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-err>
     </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>
@@ -372,8 +387,8 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 <testsuites name="$TMP|$LOCAL|$BAR">
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
     <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="SKIP">
-      <system-err>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-err>
       <error type="warning" message="The global test class [ZCL_TEST_CLASS] is not abstract"/>
+      <system-err>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-err>
     </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>
@@ -652,8 +667,12 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
   </testsuite>
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="0">
     <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="ERR">
-      <system-err>Some detail text</system-err>
-      <error type="failedAssertion" message="The global test class [ZCL_TEST_CLASS] is not abstract">Include: &lt;ZCL_TEST_CLASS=======CM010&gt; Line: &lt;1&gt;</error>
+      <failure type="failedAssertion" message="The global test class [ZCL_TEST_CLASS] is not abstract">Analysis:
+Some detail text
+
+Stack:
+Include: &lt;ZCL_TEST_CLASS=======CM010&gt; Line: &lt;1&gt;
+      </failure>
     </testcase>
   </testsuite>
 </testsuites>
