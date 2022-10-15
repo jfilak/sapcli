@@ -233,8 +233,7 @@ True expected
 Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
 
 Stack:
-Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
-</failure>
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</failure>
     </testcase>
     <testcase name="DO_THE_WARN" classname="LTCL_TEST" status="SKIP">
       <failure type="failedAssertion" message="Warning: 'I am supposed to warn'">Analysis:
@@ -242,8 +241,7 @@ True expected
 Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
 
 Stack:
-Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)
-</failure>
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)</failure>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>
@@ -252,10 +250,9 @@ Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WAR
       <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
 True expected
 Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
- 
+
 Stack:
-Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)
-</failure>
+Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</failure>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST_HARDER" status="OK"/>
   </testsuite>
@@ -264,11 +261,11 @@ Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAI
       <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
 True expected
 Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.
- 
+
 Stack:
 Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
-Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
-</failure>
+Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</failure>
+      <failure type="failedAssertion" message="Error&lt;LOAD_PROGRAM_CLASS_MISMATCH&gt;"/>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>
@@ -287,8 +284,8 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
         self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="yclass">
   <testcase name="CL_FOO" classname="CL_FOO" status="ERR">
-    <error type="warning">CL_FOO has syntax errors and cannot be analyzed for existence of unit tests</error>
-    <system-err>"ME-&gt;MEMBER" is not type-compatible with formal parameter "BAR".</system-err>
+    <error type="warning">"ME-&gt;MEMBER" is not type-compatible with formal parameter "BAR".</error>
+    <system-err>CL_FOO has syntax errors and cannot be analyzed for existence of unit tests</system-err>
   </testcase>
 </testsuites>
 ''')
@@ -368,8 +365,8 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 <testsuites name="$TMP">
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
     <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="SKIP">
-      <error type="warning">The global test class [ZCL_TEST_CLASS] is not abstract</error>
-      <system-err>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-err>
+      <error type="warning">You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</error>
+      <system-err>The global test class [ZCL_TEST_CLASS] is not abstract</system-err>
     </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>
@@ -387,8 +384,8 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 <testsuites name="$TMP|$LOCAL|$BAR">
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
     <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="SKIP">
-      <error type="warning">The global test class [ZCL_TEST_CLASS] is not abstract</error>
-      <system-err>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-err>
+      <error type="warning">You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</error>
+      <system-err>The global test class [ZCL_TEST_CLASS] is not abstract</system-err>
     </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>

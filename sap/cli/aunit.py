@@ -245,13 +245,6 @@ def print_junit4_testcase_error(xml_writer, alert):
         xml_writer.text(alert.title)
 
 
-def print_junit4_testcase_skipped(xml_writer, alert):
-    """Print AUnit Alert as JUnit4 testcase/failure"""
-
-    with xml_writer.element('skipped', type=alert.kind, message=alert.title):
-        print_junit4_testcase_message(xml_writer, alert.details, alert.stack)
-
-
 def print_junit4_testcase_failure(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/failure"""
 
@@ -261,19 +254,23 @@ def print_junit4_testcase_failure(xml_writer, alert):
 
 def print_junit4_testcase_message(xml_writer, details, stacks):
     """Print AUnit Alert as JUnit4 testcase message"""
-    
-    xml_writer.text("Analysis:")
 
-    for detail in details:
-        xml_writer.text("\n")
-        xml_writer.text(detail)
+    if len(details) > 0:
+        xml_writer.text("Analysis:")
 
-    xml_writer.text("\n")
-    xml_writer.text("Stack:")
+        for detail in details:
+            xml_writer.text("\n")
+            xml_writer.text(detail)
 
-    for stack in stacks:
-        xml_writer.text("\n")
-        xml_writer.text(stack)
+    if len(details) > 0 and len(stacks) > 0:
+        xml_writer.text("\n\n")
+
+    if len(stacks) > 0:
+        xml_writer.text("Stack:")
+
+        for stack in stacks:
+            xml_writer.text("\n")
+            xml_writer.text(stack)
 
 
 def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
@@ -294,8 +291,6 @@ def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
         for alert in alerts:
             if alert.kind == 'failedAssertion':
                 print_junit4_testcase_failure(xml_writer, alert)
-            elif alert.kind == 'warning':
-                print_junit4_testcase_skipped(xml_writer, alert)
             else:
                 print_junit4_testcase_error(xml_writer, alert)
 
