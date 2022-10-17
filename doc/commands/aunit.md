@@ -86,6 +86,14 @@ The JUnit format was assembled from:
   - type: kind
   - text = alert/stack
 
+
+#### JUnit4WarningsNg
+
+The JUnit4WarningsNg format was assembled from:
+* https://llg.cubic.org/docs/junit/
+
+It was built to be used on Jenkins integration with GitHub using (Warnings Next Generation)[https://plugins.jenkins.io/warnings-ng/] plugin.
+
 #### Sonar
 
 Test results are printed in the Sonar "Generic Execution" format as defined in:
