@@ -17,7 +17,7 @@ The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests if _unit_ included in the result.
 
 ```bash
-sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4,junit4warningsng}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH]
+sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4,junit4aunit}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH]
 ```
 
 - _transport_ : if you use transport, NAME is Transport Number
@@ -87,9 +87,9 @@ The JUnit format was assembled from:
   - text = alert/stack
 
 
-#### JUnit4WarningsNg
+#### junit4aunit
 
-The JUnit4WarningsNg format was assembled from:
+The junit4aunit format was assembled from:
 * https://llg.cubic.org/docs/junit/
 
 It was built to be used on Jenkins integration with GitHub using (Warnings Next Generation)[https://plugins.jenkins.io/warnings-ng/] plugin.

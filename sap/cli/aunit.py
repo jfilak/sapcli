@@ -245,20 +245,6 @@ def print_junit4_system_err(xml_writer, details):
         xml_writer.text(details[-1])
 
 
-def print_junit4warningsng_error(xml_writer, alert):
-    """Print AUnit Alert as JUnit4 testcase/error"""
-
-    with xml_writer.element('error', type=alert.kind):
-        for detail in alert.details:
-            if detail != alert.details[0]:
-                xml_writer.text("\n")
-
-            xml_writer.text(detail)
-
-    with xml_writer.element('system-err'):
-        xml_writer.text(alert.title)
-
-
 def print_junit4_testcase_error(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/error"""
 
@@ -272,35 +258,41 @@ def print_junit4_testcase_error(xml_writer, alert):
         xml_writer.text(alert.stack[-1])
 
 
-def print_junit4warningsng_failure(xml_writer, alert):
+def print_junit4aunit_error(xml_writer, alert):
+    """Print AUnit Alert as JUnit4 testcase/error"""
+
+    with xml_writer.element('error', type=alert.kind, message=alert.title):
+        for stack in  alert.stack:
+            if stack != alert.stack[0]:
+                xml_writer.text('\n')
+
+    with xml_writer.element('system-out'):
+        for detail in alert.details:
+            if detail != alert.details[0]:
+                xml_writer.text('\n')
+
+            xml_writer.text(detail)
+
+
+def print_junit4aunit_failure(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/failure"""
 
     with xml_writer.element('failure', type=alert.kind, message=alert.title):
-        print_junit4warningsng_message(xml_writer, alert.details, alert.stack)
+        for stack in  alert.stack:
+            if stack != alert.stack[0]:
+                xml_writer.text('\n')
 
-
-def print_junit4warningsng_message(xml_writer, details, stacks):
-    """Print AUnit Alert as JUnit4 testcase message"""
-
-    if len(details) > 0:
-        xml_writer.text("Analysis:")
-
-        for detail in details:
-            xml_writer.text("\n")
-            xml_writer.text(detail)
-
-    if len(details) > 0 and len(stacks) > 0:
-        xml_writer.text("\n\n")
-
-    if len(stacks) > 0:
-        xml_writer.text("Stack:")
-
-        for stack in stacks:
-            xml_writer.text("\n")
             xml_writer.text(stack)
 
+    with xml_writer.element('system-out'):
+        for detail in  alert.details:
+            if detail != alert.details[0]:
+                xml_writer.text('\n')
 
-def print_junit4warningsng_testcase(xml_writer, test_class, method_name, alerts):
+            xml_writer.text(detail)
+
+
+def print_junit4aunit_testcase(xml_writer, test_class, method_name, alerts):
     """Prints XML content for the give alerts and returns number of errors."""
 
     critical = 0
@@ -317,9 +309,9 @@ def print_junit4warningsng_testcase(xml_writer, test_class, method_name, alerts)
     with xml_writer.element('testcase', name=method_name, classname=test_class, status=status):
         for alert in alerts:
             if alert.kind == 'failedAssertion':
-                print_junit4warningsng_failure(xml_writer, alert)
+                print_junit4aunit_failure(xml_writer, alert)
             else:
-                print_junit4warningsng_error(xml_writer, alert)
+                print_junit4aunit_error(xml_writer, alert)
 
     return critical
 
@@ -392,8 +384,8 @@ def print_aunit_junit4(run_results, args, console):
     return critical
 
 
-def print_aunit_junit4warningsng(run_results, args, console):
-    """Print results to console in the form of JUnit4WarningsNg, based on JUnit"""
+def print_aunit_junit4aunit(run_results, args, console):
+    """Print results to console in the form of junit4aunit, based on JUnit"""
 
     testsuite_name = "|".join(args.name)
 
@@ -405,7 +397,7 @@ def print_aunit_junit4warningsng(run_results, args, console):
     with XMLWriter(console, 'testsuites', name=testsuite_name) as xml_writer:
         for program in run_results.programs:
             if program.alerts:
-                critical += print_junit4warningsng_testcase(xml_writer,
+                critical += print_junit4aunit_testcase(xml_writer,
                                                             program.name,
                                                             program.name,
                                                             program.alerts)
@@ -417,13 +409,13 @@ def print_aunit_junit4warningsng(run_results, args, console):
                                         tests=str(len(test_class.test_methods))):
 
                     if test_class.alerts:
-                        critical += print_junit4warningsng_testcase(xml_writer,
-                                                                    test_class.name,
+                        critical += print_junit4aunit_testcase(xml_writer,
+                                                                    program.name,
                                                                     test_class.name,
                                                                     test_class.alerts)
 
                     for test_method in test_class.test_methods:
-                        critical += print_junit4warningsng_testcase(xml_writer,
+                        critical += print_junit4aunit_testcase(xml_writer,
                                                                     test_class.name,
                                                                     test_method.name,
                                                                     test_method.alerts)
@@ -761,8 +753,8 @@ def print_aunit_output(args, aunit_response, aunit_parsed_response):
     elif args.output == 'junit4':
         result = print_aunit_junit4(run_results, args, console)
 
-    elif args.output == 'junit4warningsng':
-        result = print_aunit_junit4warningsng(run_results, args, console)
+    elif args.output == 'junit4aunit':
+        result = print_aunit_junit4aunit(run_results, args, console)
 
     elif args.output == 'sonar':
         result = print_aunit_sonar(run_results, args, console)
@@ -809,7 +801,7 @@ class ResultOptions(Enum):
 
 
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
-@CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'junit4warningsng', 'sonar'], default='human')
+@CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'junit4aunit', 'sonar'], default='human')
 @CommandGroup.argument('name', nargs='+', type=str)
 @CommandGroup.argument('type', choices=['program', 'program-include', 'class', 'package', 'transport'])
 @CommandGroup.argument('--result',

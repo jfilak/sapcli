@@ -158,11 +158,11 @@ Errors:     1
 """
         )
 
-    def test_aunit_junit4warningsng_no_test_methods(self):
+    def test_aunit_junit4aunit_no_test_methods(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_NO_TEST_METHODS_XML, headers={}))
 
         with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_stdout:
-            self.execute_run('package', 'ypackage', '--output', 'junit4warningsng', '--result', ResultOptions.ONLY_UNIT.value)
+            self.execute_run('package', 'ypackage', '--output', 'junit4aunit', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertEqual(
@@ -272,11 +272,11 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
 </testsuites>
 ''')
 
-    def test_aunit_package_with_results_junit4warningsng(self):
+    def test_aunit_package_with_results_junit4aunit(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
         with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_stdout:
-            exit_code = self.execute_run('package', 'ypackage', '--output', 'junit4warningsng', '--result', ResultOptions.ONLY_UNIT.value)
+            exit_code = self.execute_run('package', 'ypackage', '--output', 'junit4aunit', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
         self.assertEqual(len(self.connection.execs), 1)
@@ -288,44 +288,33 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
 <testsuites name="ypackage">
   <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="3">
     <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
-      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
-True expected
-Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
-
-Stack:
-Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</failure>
+      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</failure>
+      <system-out>True expected
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-out>
     </testcase>
     <testcase name="DO_THE_WARN" classname="LTCL_TEST" status="SKIP">
-      <failure type="failedAssertion" message="Warning: 'I am supposed to warn'">Analysis:
-True expected
-Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
-
-Stack:
-Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)</failure>
+      <failure type="failedAssertion" message="Warning: 'I am supposed to warn'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_WARN)</failure>
+      <system-out>True expected
+Test 'LTCL_TEST-&gt;DO_THE_WARN' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-out>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST_HARDER" package="ZCL_THEKING_MANUAL_HARDCORE" tests="2">
     <testcase name="DO_THE_FAIL" classname="LTCL_TEST_HARDER" status="ERR">
-      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
-True expected
-Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.
-
-Stack:
-Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</failure>
+      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</failure>
+      <system-out>True expected
+Test 'LTCL_TEST_HARDER-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-out>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST_HARDER" status="OK"/>
   </testsuite>
   <testsuite name="LTCL_TEST" package="ZEXAMPLE_TESTS" tests="2">
     <testcase name="DO_THE_FAIL" classname="LTCL_TEST" status="ERR">
-      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Analysis:
-True expected
-Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.
-
-Stack:
-Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
+      <failure type="failedAssertion" message="Critical Assertion Error: 'I am supposed to fail'">Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;24&gt; (DO_THE_FAIL)
 Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</failure>
+      <system-out>True expected
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.</system-out>
       <failure type="failedAssertion" message="Error&lt;LOAD_PROGRAM_CLASS_MISMATCH&gt;"/>
+      <system-out/>
     </testcase>
     <testcase name="DO_THE_TEST" classname="LTCL_TEST" status="OK"/>
   </testsuite>
@@ -353,11 +342,11 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</failure>
 '''''')
         self.assertEqual(retval, 1)
         
-    def test_aunit_class_junit4warningsng_syntax_error(self):
+    def test_aunit_class_junit4aunit_syntax_error(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_SYNTAX_ERROR_XML, headers={}))
 
         with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
-            retval = self.execute_run('class', 'yclass', '--output', 'junit4warningsng', '--result', ResultOptions.ONLY_UNIT.value)
+            retval = self.execute_run('class', 'yclass', '--output', 'junit4aunit', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
@@ -365,8 +354,8 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</failure>
         self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="yclass">
   <testcase name="CL_FOO" classname="CL_FOO" status="ERR">
-    <error type="warning">"ME-&gt;MEMBER" is not type-compatible with formal parameter "BAR".</error>
-    <system-err>CL_FOO has syntax errors and cannot be analyzed for existence of unit tests</system-err>
+    <error type="warning" message="CL_FOO has syntax errors and cannot be analyzed for existence of unit tests"/>
+    <system-out>"ME-&gt;MEMBER" is not type-compatible with formal parameter "BAR".</system-out>
   </testcase>
 </testsuites>
 ''')
@@ -454,10 +443,10 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 </testsuites>
 ''')
 
-    def test_aunit_parser_results_global_class_tests_junit4warningsng(self):
+    def test_aunit_parser_results_global_class_tests_junit4aunit(self):
         results = sap.adt.aunit.parse_aunit_response(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML).run_results
         output = BufferConsole()
-        sap.cli.aunit.print_aunit_junit4warningsng(results, SimpleNamespace(name=['$TMP']), output)
+        sap.cli.aunit.print_aunit_junit4aunit(results, SimpleNamespace(name=['$TMP']), output)
 
         self.maxDiff = None
         self.assertEqual(output.capout,
@@ -465,8 +454,8 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 <testsuites name="$TMP">
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
     <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="SKIP">
-      <error type="warning">You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</error>
-      <system-err>The global test class [ZCL_TEST_CLASS] is not abstract</system-err>
+      <error type="warning" message="The global test class [ZCL_TEST_CLASS] is not abstract"/>
+      <system-out>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-out>
     </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>
@@ -492,10 +481,10 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 </testsuites>
 ''')
 
-    def test_aunit_parser_results_global_class_tests_multiple_targets_junit4warningsng(self):
+    def test_aunit_parser_results_global_class_tests_multiple_targets_junit4aunit(self):
         results = sap.adt.aunit.parse_aunit_response(GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML)
         output = BufferConsole()
-        sap.cli.aunit.print_aunit_junit4warningsng(results.run_results, SimpleNamespace(name=['$TMP', '$LOCAL', '$BAR']), output)
+        sap.cli.aunit.print_aunit_junit4aunit(results.run_results, SimpleNamespace(name=['$TMP', '$LOCAL', '$BAR']), output)
 
         self.maxDiff = None
         self.assertEqual(output.capout,
@@ -503,8 +492,8 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)
 <testsuites name="$TMP|$LOCAL|$BAR">
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="1">
     <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="SKIP">
-      <error type="warning">You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</error>
-      <system-err>The global test class [ZCL_TEST_CLASS] is not abstract</system-err>
+      <error type="warning" message="The global test class [ZCL_TEST_CLASS] is not abstract"/>
+      <system-out>You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_POOL&gt;</system-out>
     </testcase>
     <testcase name="DO_THE_TEST" classname="ZCL_TEST_CLASS" status="OK"/>
   </testsuite>
@@ -790,10 +779,10 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
 </testsuites>
 ''')
 
-    def test_aunit_parser_results_test_class_with_sys_error_followed_by_green_test_class_junit4warningsng(self):
+    def test_aunit_parser_results_test_class_with_sys_error_followed_by_green_test_class_junit4aunit(self):
         results = sap.adt.aunit.parse_aunit_response(TEST_CLASS_WITH_SYS_ERROR_FOLLOWED_BY_GREEN_TEST_CLASS_AUNIT_RESULTS_XML).run_results
         output = BufferConsole()
-        sap.cli.aunit.print_aunit_junit4warningsng(results, SimpleNamespace(name=['$TMP']), output)
+        sap.cli.aunit.print_aunit_junit4aunit(results, SimpleNamespace(name=['$TMP']), output)
 
         self.maxDiff = None
         self.assertEqual(output.capout,
@@ -804,11 +793,8 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
   </testsuite>
   <testsuite name="ZCL_TEST_CLASS" package="ZCL_TEST_CLASS" tests="0">
     <testcase name="ZCL_TEST_CLASS" classname="ZCL_TEST_CLASS" status="ERR">
-      <failure type="failedAssertion" message="The global test class [ZCL_TEST_CLASS] is not abstract">Analysis:
-Some detail text
-
-Stack:
-Include: &lt;ZCL_TEST_CLASS=======CM010&gt; Line: &lt;1&gt;</failure>
+      <failure type="failedAssertion" message="The global test class [ZCL_TEST_CLASS] is not abstract">Include: &lt;ZCL_TEST_CLASS=======CM010&gt; Line: &lt;1&gt;</failure>
+      <system-out>Some detail text</system-out>
     </testcase>
   </testsuite>
 </testsuites>
