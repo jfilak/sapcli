@@ -89,10 +89,11 @@ The JUnit format was assembled from:
 
 #### junit4aunit
 
+Recommended layout for ABAP Unit.
+
 The junit4aunit format was assembled from:
 * https://llg.cubic.org/docs/junit/
 
-It was built to be used on Jenkins integration with GitHub using (Warnings Next Generation)[https://plugins.jenkins.io/warnings-ng/] plugin.
 
 #### Sonar
 
