@@ -451,3 +451,34 @@ class Repository:
             raise SAPCliError(f'Cannot edit property "{property_name}".')
 
         return self._set_item(property_name, value)
+
+    def create_branch(self, branch_name, symbolic=False, peeled=False, local_only=False):
+        """Create new branch"""
+
+        def _call_create(branch_type):
+            body = {
+                'branch': branch_name,
+                'type': branch_type,
+                'isSymbolic': symbolic,
+                'isPeeled': peeled,
+            }
+
+            return self._http.post_obj_as_json('branches', json=body)
+
+        response = _call_create('local') if local_only else _call_create('global')
+        return response.json()['branch']
+
+    def delete_branch(self, branch_name: str):
+        """Delete branch of repository"""
+
+        return self._http.delete(f'branches/{branch_name}').json()
+
+    def list_branches(self):
+        """List branches of repository"""
+
+        response = self._http.get_json('branches')
+        branches = response.get('branches')
+        if branches is None:
+            raise SAPCliError("gCTS response does not contain 'branches'")
+
+        return branches

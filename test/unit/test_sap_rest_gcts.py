@@ -633,6 +633,109 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertIsNone(response)
 
+    def test_create_branch(self):
+        branch_name = 'branch'
+        expected_response = {
+            'name': branch_name,
+            'type': 'active',
+            'isSymbolic': False,
+            'isPeeled': False,
+            'ref': f'/refs/heads/{branch_name}',
+        }
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'branch': expected_response})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        response = repo.create_branch(branch_name)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(f'repository/{self.repo_name}/branches', body={
+                'branch': branch_name,
+                'type': 'global',
+                'isSymbolic': False,
+                'isPeeled': False,
+            }),
+            self
+        )
+        self.assertEqual(response, expected_response)
+
+    def test_create_branch_all_params(self):
+        branch_name = 'branch'
+        expected_response = {
+            'name': branch_name,
+            'type': 'active',
+            'isSymbolic': True,
+            'isPeeled': True,
+            'ref': f'/refs/heads/{branch_name}',
+        }
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'branch': expected_response})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        response = repo.create_branch(branch_name, symbolic=True, peeled=True, local_only=True)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(f'repository/{self.repo_name}/branches', body={
+                'branch': branch_name,
+                'type': 'local',
+                'isSymbolic': True,
+                'isPeeled': True,
+            }),
+            self,
+        )
+        self.assertEqual(response, expected_response)
+
+    def test_delete_branch(self):
+        branch_name = 'branch'
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        response = repo.delete_branch(branch_name)
+
+        self.conn.execs[0].assertEqual(
+            Request.delete(f'repository/{self.repo_name}/branches/{branch_name}'),
+            self,
+        )
+        self.assertEqual(response, {})
+
+    def test_list_branches(self):
+        branches = [{'name': 'branch1', 'type': 'active', 'isSymbolic': False, 'isPeeled': False,
+                     'ref': 'refs/heads/branch1'},
+                    {'name': 'branch1', 'type': 'local', 'isSymbolic': False, 'isPeeled': False,
+                     'ref': 'refs/heads/branch1'},
+                    {'name': 'branch1', 'type': 'remote', 'isSymbolic': False, 'isPeeled': False,
+                     'ref': 'refs/remotes/origin/branch1'}]
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'branches': branches})
+        )
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        response = repo.list_branches()
+
+        self.conn.execs[0].assertEqual(
+            Request.get_json(f'repository/{self.repo_name}/branches'),
+            self
+        )
+        self.assertEqual(response, branches)
+
+    def test_list_branches_wrong_response(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            repo.list_branches()
+
+        self.assertEqual(str(cm.exception), "gCTS response does not contain 'branches'")
+
 
 class TestRepoActivitiesQueryParams(unittest.TestCase):
 

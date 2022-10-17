@@ -189,6 +189,126 @@ def set_properties(connection, args):
     return 0
 
 
+class BranchCommandGroup(sap.cli.core.CommandGroup):
+    """Container for branch commands"""
+
+    def __init__(self):
+        super().__init__('branch')
+
+
+@BranchCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@BranchCommandGroup.argument('--local-only', default=False, action='store_true')
+@BranchCommandGroup.argument('--peeled', default=False, action='store_true')
+@BranchCommandGroup.argument('--symbolic', default=False, action='store_true')
+@BranchCommandGroup.argument('name')
+@BranchCommandGroup.argument('package')
+@BranchCommandGroup.command('create')
+def create_branch(connection, args):
+    """Create new branch in repository"""
+
+    console = sap.cli.core.get_console()
+    try:
+        repo = get_repository(connection, args.package)
+        response = repo.create_branch(args.name, symbolic=args.symbolic, peeled=args.peeled, local_only=args.local_only)
+    except GCTSRequestError as ex:
+        dump_gcts_messages(console, ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(response))
+    else:
+        console.printout(f'Branch "{response["name"]}" was created and now is active branch.')
+
+    return 0
+
+
+@BranchCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@BranchCommandGroup.argument('name', type=str)
+@BranchCommandGroup.argument('package')
+@BranchCommandGroup.command('delete')
+def delete_branch(connection, args):
+    """Delete branch of repository"""
+
+    console = sap.cli.core.get_console()
+    try:
+        repo = get_repository(connection, args.package)
+        response = repo.delete_branch(args.name)
+    except GCTSRequestError as ex:
+        dump_gcts_messages(console, ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(response))
+    else:
+        console.printout(f'Branch "{args.name}" was deleted.')
+
+    return 0
+
+
+def _mark_active_branch(branches, active_branch_name):
+    """Mark corresponding local branch as active branch. Remove active branch from list."""
+
+    branches = [branch for branch in branches if branch['type'] != 'active']
+
+    for branch in branches:
+        if branch['type'] == 'local' and branch['name'] == active_branch_name:
+            branch['name'] += '*'
+
+    return branches
+
+
+@BranchCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@BranchCommandGroup.argument('-r', '--remote', default=False, action='store_true')
+@BranchCommandGroup.argument('-a', '--all', default=False, action='store_true')
+@BranchCommandGroup.argument('package')
+@BranchCommandGroup.command('list')
+def list_branches(connection, args):
+    """List branches of repository"""
+
+    console = sap.cli.core.get_console()
+    try:
+        repo = get_repository(connection, args.package)
+        branches = repo.list_branches()
+    except GCTSRequestError as ex:
+        dump_gcts_messages(console, ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    filtered_branches = branches.copy()
+    if args.remote:
+        filtered_branches = [branch for branch in filtered_branches if branch['type'] == 'remote']
+    elif not args.all:
+        filtered_branches = [branch for branch in filtered_branches if branch['type'] == 'local']
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(filtered_branches))
+    else:
+        active_branch = next(branch for branch in branches if branch['type'] == 'active')
+        filtered_branches = _mark_active_branch(filtered_branches, active_branch['name'])
+
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('name', 'Name')
+            ('type', 'Type')
+            ('isSymbolic', 'Symbolic')
+            ('isPeeled', 'Peeled')
+            ('ref', 'Reference')
+            .done()
+        )
+        tw = sap.cli.helpers.TableWriter(filtered_branches, columns)
+        tw.printout(console)
+
+    return 0
+
+
 class RepoCommandGroup(sap.cli.core.CommandGroup):
     """Container for repository commands."""
 
@@ -196,12 +316,16 @@ class RepoCommandGroup(sap.cli.core.CommandGroup):
         super().__init__('repo')
 
         self.property_grp = PropertyCommandGroup()
+        self.branch_grp = BranchCommandGroup()
 
     def install_parser(self, arg_parser):
         repo_group = super().install_parser(arg_parser)
 
         property_parser = repo_group.add_parser(self.property_grp.name)
         self.property_grp.install_parser(property_parser)
+
+        branch_parser = repo_group.add_parser(self.branch_grp.name)
+        self.branch_grp.install_parser(branch_parser)
 
 
 @RepoCommandGroup.argument('url')
