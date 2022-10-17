@@ -6,6 +6,7 @@ from collections import defaultdict
 from enum import Enum
 from functools import partial
 from xml.sax.saxutils import escape, quoteattr
+from itertools import islice
 from dataclasses import dataclass
 from typing import List
 
@@ -231,7 +232,20 @@ second-line</sub-child>
         self._console.printout(escape(lines), end=end)
 
 
-def print_junit4_testcase_error(xml_writer, alert):
+def print_junit4_system_err(xml_writer, details):
+    """Print AUnit Alert.Details in testcase/system-err"""
+
+    if not details:
+        return
+
+    with xml_writer.element('system-err'):
+        for detail in islice(details, len(details) - 1):
+            xml_writer.text(detail, end='\n')
+
+        xml_writer.text(details[-1])
+
+
+def print_junit4warningsng_error(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/error"""
 
     with xml_writer.element('error', type=alert.kind):
@@ -245,14 +259,27 @@ def print_junit4_testcase_error(xml_writer, alert):
         xml_writer.text(alert.title)
 
 
-def print_junit4_testcase_failure(xml_writer, alert):
+def print_junit4_testcase_error(xml_writer, alert):
+    """Print AUnit Alert as JUnit4 testcase/error"""
+
+    with xml_writer.element('error', type=alert.kind, message=alert.title):
+        if not alert.stack:
+            return
+
+        for frame in islice(alert.stack, len(alert.stack) - 1):
+            xml_writer.text(frame, end='\n')
+
+        xml_writer.text(alert.stack[-1])
+
+
+def print_junit4warningsng_failure(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/failure"""
 
     with xml_writer.element('failure', type=alert.kind, message=alert.title):
-        print_junit4_testcase_message(xml_writer, alert.details, alert.stack)
+        print_junit4warningsng_message(xml_writer, alert.details, alert.stack)
 
 
-def print_junit4_testcase_message(xml_writer, details, stacks):
+def print_junit4warningsng_message(xml_writer, details, stacks):
     """Print AUnit Alert as JUnit4 testcase message"""
 
     if len(details) > 0:
@@ -273,7 +300,7 @@ def print_junit4_testcase_message(xml_writer, details, stacks):
             xml_writer.text(stack)
 
 
-def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
+def print_junit4warningsng_testcase(xml_writer, test_class, method_name, alerts):
     """Prints XML content for the give alerts and returns number of errors."""
 
     critical = 0
@@ -290,9 +317,31 @@ def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
     with xml_writer.element('testcase', name=method_name, classname=test_class, status=status):
         for alert in alerts:
             if alert.kind == 'failedAssertion':
-                print_junit4_testcase_failure(xml_writer, alert)
+                print_junit4warningsng_failure(xml_writer, alert)
             else:
-                print_junit4_testcase_error(xml_writer, alert)
+                print_junit4warningsng_error(xml_writer, alert)
+
+    return critical
+
+
+def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
+    """Prints XML content for the give alerts and returns number of errors."""
+
+    critical = 0
+    status = None
+
+    if any((alert.is_error for alert in alerts)):
+        critical += 1
+        status = 'ERR'
+    elif any((alert.is_warning for alert in alerts)):
+        status = 'SKIP'
+    else:
+        status = 'OK'
+
+    with xml_writer.element('testcase', name=method_name, classname=test_class, status=status):
+        for alert in alerts:
+            print_junit4_system_err(xml_writer, alert.details)
+            print_junit4_testcase_error(xml_writer, alert)
 
     return critical
 
@@ -330,11 +379,54 @@ def print_aunit_junit4(run_results, args, console):
                     if not test_class.test_methods:
                         continue
 
+                    tc_class_name = test_class.name
+                    if program.name != test_class.name:
+                        tc_class_name = f'{program.name}=>{test_class.name}'
+
                     for test_method in test_class.test_methods:
                         critical += print_junit4_testcase(xml_writer,
-                                                          test_class.name,
+                                                          tc_class_name,
                                                           test_method.name,
                                                           test_method.alerts)
+
+    return critical
+
+
+def print_aunit_junit4warningsng(run_results, args, console):
+    """Print results to console in the form of JUnit4WarningsNg, based on JUnit"""
+
+    testsuite_name = "|".join(args.name)
+
+    # We must print alerts to STDERR because STDOUT is supposed
+    # to be the JUnit XML contents.
+    critical = print_aunit_human_alerts(ConsoleErrorDecorator(console),
+                                        run_results.alerts)
+
+    with XMLWriter(console, 'testsuites', name=testsuite_name) as xml_writer:
+        for program in run_results.programs:
+            if program.alerts:
+                critical += print_junit4warningsng_testcase(xml_writer,
+                                                            program.name,
+                                                            program.name,
+                                                            program.alerts)
+
+            for test_class in program.test_classes:
+                with xml_writer.element('testsuite',
+                                        name=test_class.name,
+                                        package=program.name,
+                                        tests=str(len(test_class.test_methods))):
+
+                    if test_class.alerts:
+                        critical += print_junit4warningsng_testcase(xml_writer,
+                                                                    test_class.name,
+                                                                    test_class.name,
+                                                                    test_class.alerts)
+
+                    for test_method in test_class.test_methods:
+                        critical += print_junit4warningsng_testcase(xml_writer,
+                                                                    test_class.name,
+                                                                    test_method.name,
+                                                                    test_method.alerts)
 
     return critical
 
@@ -669,6 +761,9 @@ def print_aunit_output(args, aunit_response, aunit_parsed_response):
     elif args.output == 'junit4':
         result = print_aunit_junit4(run_results, args, console)
 
+    elif args.output == 'junit4warningsng':
+        result = print_aunit_junit4warningsng(run_results, args, console)
+
     elif args.output == 'sonar':
         result = print_aunit_sonar(run_results, args, console)
     else:
@@ -714,7 +809,7 @@ class ResultOptions(Enum):
 
 
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
-@CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'sonar'], default='human')
+@CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'junit4warningsng', 'sonar'], default='human')
 @CommandGroup.argument('name', nargs='+', type=str)
 @CommandGroup.argument('type', choices=['program', 'program-include', 'class', 'package', 'transport'])
 @CommandGroup.argument('--result',

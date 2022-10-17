@@ -17,7 +17,7 @@ The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests if _unit_ included in the result.
 
 ```bash
-sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH]
+sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4,junit4warningsng}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH]
 ```
 
 - _transport_ : if you use transport, NAME is Transport Number
