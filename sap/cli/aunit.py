@@ -262,9 +262,11 @@ def print_junit4aunit_error(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/error"""
 
     with xml_writer.element('error', type=alert.kind, message=alert.title):
-        for stack in  alert.stack:
+        for stack in alert.stack:
             if stack != alert.stack[0]:
                 xml_writer.text('\n')
+
+            xml_writer.text(stack)
 
     with xml_writer.element('system-out'):
         for detail in alert.details:
@@ -278,14 +280,14 @@ def print_junit4aunit_failure(xml_writer, alert):
     """Print AUnit Alert as JUnit4 testcase/failure"""
 
     with xml_writer.element('failure', type=alert.kind, message=alert.title):
-        for stack in  alert.stack:
+        for stack in alert.stack:
             if stack != alert.stack[0]:
                 xml_writer.text('\n')
 
             xml_writer.text(stack)
 
     with xml_writer.element('system-out'):
-        for detail in  alert.details:
+        for detail in alert.details:
             if detail != alert.details[0]:
                 xml_writer.text('\n')
 
@@ -398,9 +400,9 @@ def print_aunit_junit4aunit(run_results, args, console):
         for program in run_results.programs:
             if program.alerts:
                 critical += print_junit4aunit_testcase(xml_writer,
-                                                            program.name,
-                                                            program.name,
-                                                            program.alerts)
+                                                       program.name,
+                                                       program.name,
+                                                       program.alerts)
 
             for test_class in program.test_classes:
                 with xml_writer.element('testsuite',
@@ -410,15 +412,15 @@ def print_aunit_junit4aunit(run_results, args, console):
 
                     if test_class.alerts:
                         critical += print_junit4aunit_testcase(xml_writer,
-                                                                    program.name,
-                                                                    test_class.name,
-                                                                    test_class.alerts)
+                                                               program.name,
+                                                               test_class.name,
+                                                               test_class.alerts)
 
                     for test_method in test_class.test_methods:
                         critical += print_junit4aunit_testcase(xml_writer,
-                                                                    test_class.name,
-                                                                    test_method.name,
-                                                                    test_method.alerts)
+                                                               test_class.name,
+                                                               test_method.name,
+                                                               test_method.alerts)
 
     return critical
 

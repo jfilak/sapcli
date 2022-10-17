@@ -354,7 +354,7 @@ Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZEXAMPLE_TESTS'.</system-out>
         self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="yclass">
   <testcase name="CL_FOO" classname="CL_FOO" status="ERR">
-    <error type="warning" message="CL_FOO has syntax errors and cannot be analyzed for existence of unit tests"/>
+    <error type="warning" message="CL_FOO has syntax errors and cannot be analyzed for existence of unit tests">CL_FOO======CCAU:428</error>
     <system-out>"ME-&gt;MEMBER" is not type-compatible with formal parameter "BAR".</system-out>
   </testcase>
 </testsuites>
