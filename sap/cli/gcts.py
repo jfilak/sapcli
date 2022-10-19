@@ -421,6 +421,126 @@ def activities(connection, args):
     return 0
 
 
+class ConfigCommandGroup(sap.cli.core.CommandGroup):
+    """Container for config commands."""
+
+    def __init__(self):
+        super().__init__('config')
+
+
+def _print_config_property(console, config_property, output_format):
+    """Print system configuration property"""
+
+    if output_format == 'JSON':
+        console.printout(sap.cli.core.json_dumps(config_property))
+    else:
+        console.printout(f'Key: {config_property["key"]}')
+        console.printout(f'Value: {config_property["value"]}')
+
+
+@ConfigCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@ConfigCommandGroup.argument('key', type=str)
+@ConfigCommandGroup.command('get')
+def get_system_config_property(connection, args):
+    """Get configuration property value for given key"""
+
+    console = sap.cli.core.get_console()
+    try:
+        config_property = sap.rest.gcts.simple.get_system_config_property(connection, args.key.upper())
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    _print_config_property(console, config_property, args.format.upper())
+
+    return 0
+
+
+@ConfigCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@ConfigCommandGroup.command('list')
+def list_system_config(connection, args):
+    """List system configuration"""
+    console = sap.cli.core.get_console()
+    try:
+        config_list = sap.rest.gcts.simple.list_system_config(connection)
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(config_list))
+    else:
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('key', 'Key')
+            ('value', 'Value')
+            ('category', 'Category')
+            ('changedAt', 'Changed At')
+            ('changedBy', 'Changed By')
+            .done()
+        )
+
+        tw = sap.cli.helpers.TableWriter(config_list, columns)
+        tw.printout(console)
+
+    return 0
+
+
+@ConfigCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@ConfigCommandGroup.argument('value', type=str)
+@ConfigCommandGroup.argument('key', type=str)
+@ConfigCommandGroup.command('set')
+def set_system_config_property(connection, args):
+    """Create or update the configuration property"""
+
+    console = sap.cli.core.get_console()
+    try:
+        config_property = sap.rest.gcts.simple.set_system_config_property(connection, args.key.upper(), args.value)
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    _print_config_property(console, config_property, args.format.upper())
+
+    return 0
+
+
+@ConfigCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@ConfigCommandGroup.argument('key', type=str)
+@ConfigCommandGroup.command('unset')
+def delete_system_config_property(connection, args):
+    """Delete configuration property"""
+
+    console = sap.cli.core.get_console()
+    try:
+        response = sap.rest.gcts.simple.delete_system_config_property(connection, args.key.upper())
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(response))
+    else:
+        console.printout(f'Config property "{args.key.upper()}" was unset.')
+
+    return 0
+
+
+class SystemCommandGroup(sap.cli.core.CommandGroup):
+    """Container for system commands."""
+
+    def __init__(self):
+        super().__init__('system')
+
+        self.config_grp = ConfigCommandGroup()
+
+    def install_parser(self, arg_parser):
+        system_group = super().install_parser(arg_parser)
+
+        config_parser = system_group.add_parser(self.config_grp.name)
+        self.config_grp.install_parser(config_parser)
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Adapter converting command line parameters to sap.rest.gcts
        methods calls.
@@ -431,6 +551,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
         self.user_grp = UserCommandGroup()
         self.repo_grp = RepoCommandGroup()
+        self.system_grp = SystemCommandGroup()
 
     def install_parser(self, arg_parser):
         gcts_group = super().install_parser(arg_parser)
@@ -440,6 +561,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
         repo_parser = gcts_group.add_parser(self.repo_grp.name)
         self.repo_grp.install_parser(repo_parser)
+
+        system_parser = gcts_group.add_parser(self.system_grp.name)
+        self.system_grp.install_parser(system_parser)
 
 
 @CommandGroup.command()

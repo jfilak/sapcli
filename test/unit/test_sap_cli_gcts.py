@@ -1586,3 +1586,206 @@ class TestgCTSUserDeleteCredentials(PatcherTestCase, ConsoleOutputTestCase):
         the_cmd.execute(self.fake_connection, the_cmd)
 
         fake_delete_credentials.asser_called_once_with(self.fake_connection, api_url)
+
+
+class TestgCTSGetSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.config_key = 'THE_KEY'
+        self.config_value = 'the_value'
+        self.expected_property = {'key': self.config_key, 'value': self.config_value}
+
+        self.fake_get_config_property = self.patch('sap.rest.gcts.simple.get_system_config_property')
+        self.fake_get_config_property.return_value = self.expected_property
+
+    def get_config_property_cmd(self, *args, **kwargs):
+        return parse_args('system', 'config', 'get', *args, **kwargs)
+
+    def test_get_system_config_property(self):
+        the_cmd = self.get_config_property_cmd(self.config_key)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_get_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stdout=
+f'''Key: {self.config_key}
+Value: {self.config_value}
+''')
+
+    def test_get_system_config_property_json(self):
+        the_cmd = self.get_config_property_cmd(self.config_key, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_get_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console,
+                                   stdout='{}\n'.format(json.dumps(self.expected_property, indent=2)))
+
+    def test_get_system_config_property_request_error(self):
+        self.fake_get_config_property.side_effect = sap.cli.gcts.SAPCliError('Request error')
+
+        the_cmd = self.get_config_property_cmd(self.config_key)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_get_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stderr='Request error\n')
+
+
+class TestgCTSListSystemConfig(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.expected_config = [
+            {'key': 'THE_KEY1', 'value': 'the_value1', 'category': 'SYSTEM', 'changedAt': 2022, 'changedBy': 'Test'},
+            {'key': 'THE_KEY2', 'value': 'the_value2', 'category': 'SYSTEM', 'changedAt': 2022, 'changedBy': 'Test'}
+        ]
+        self.fake_list_system_config = self.patch('sap.rest.gcts.simple.list_system_config')
+        self.fake_list_system_config.return_value = self.expected_config
+
+    def list_system_config_cmd(self, *args, **kwargs):
+        return parse_args('system', 'config', 'list', *args, **kwargs)
+
+    def test_list_system_config(self):
+        the_cmd = self.list_system_config_cmd()
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_list_system_config.assert_called_once_with(self.fake_connection)
+        self.assertConsoleContents(self.console, stdout=
+'''Key      | Value      | Category | Changed At | Changed By
+----------------------------------------------------------
+THE_KEY1 | the_value1 | SYSTEM   | 2022       | Test      
+THE_KEY2 | the_value2 | SYSTEM   | 2022       | Test      
+''')
+
+    def test_list_system_config_json(self):
+        the_cmd = self.list_system_config_cmd('-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_list_system_config.assert_called_once_with(self.fake_connection)
+        self.assertConsoleContents(self.console,
+                                   stdout='{}\n'.format(json.dumps(self.expected_config, indent=2)))
+
+    def test_list_system_config_request_error(self):
+        self.fake_list_system_config.side_effect = sap.cli.gcts.SAPCliError('Request error')
+
+        the_cmd = self.list_system_config_cmd()
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_list_system_config.assert_called_once_with(self.fake_connection)
+        self.assertConsoleContents(self.console, stderr='Request error\n')
+
+
+class TestgCTSSetSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.config_key = 'THE_KEY'
+        self.config_value = 'the_value'
+        self.expected_property = {'key': self.config_key, 'value': self.config_value}
+
+        self.fake_set_config_property = self.patch('sap.rest.gcts.simple.set_system_config_property')
+        self.fake_set_config_property.return_value = self.expected_property
+
+    def set_config_property_cmd(self, *args, **kwargs):
+        return parse_args('system', 'config', 'set', *args, **kwargs)
+
+    def test_set_system_config_property(self):
+        the_cmd = self.set_config_property_cmd(self.config_key, self.config_value)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_set_config_property.assert_called_once_with(self.fake_connection, self.config_key, self.config_value)
+        self.assertConsoleContents(self.console, stdout=
+f'''Key: {self.config_key}
+Value: {self.config_value}
+''')
+
+    def test_set_system_config_json(self):
+        the_cmd = self.set_config_property_cmd(self.config_key, self.config_value, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_set_config_property.assert_called_once_with(self.fake_connection, self.config_key, self.config_value)
+        self.assertConsoleContents(self.console,
+                                   stdout='{}\n'.format(json.dumps(self.expected_property, indent=2)))
+
+    def test_set_system_config_request_error(self):
+        self.fake_set_config_property.side_effect = sap.cli.gcts.SAPCliError('Request error')
+
+        the_cmd = self.set_config_property_cmd(self.config_key, self.config_value)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_set_config_property.assert_called_once_with(self.fake_connection, self.config_key, self.config_value)
+        self.assertConsoleContents(self.console, stderr='Request error\n')
+
+
+class TestgCTSDeleteSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.config_key = 'THE_KEY'
+        self.fake_delete_config_property = self.patch('sap.rest.gcts.simple.delete_system_config_property')
+        self.fake_delete_config_property.return_value = {}
+
+    def delete_config_property_cmd(self, *args, **kwargs):
+        return parse_args('system', 'config', 'unset', *args, **kwargs)
+
+    def test_delete_system_config_property(self):
+        the_cmd = self.delete_config_property_cmd(self.config_key)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_delete_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stdout=f'Config property "{self.config_key}" was unset.\n')
+
+    def test_delete_system_config_property_json(self):
+        the_cmd = self.delete_config_property_cmd(self.config_key, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_delete_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stdout='{}\n')
+
+    def test_delete_system_config_property_request_error(self):
+        self.fake_delete_config_property.side_effect = sap.cli.gcts.SAPCliError('Request error')
+
+        the_cmd = self.delete_config_property_cmd(self.config_key)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_delete_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stderr='Request error\n')
