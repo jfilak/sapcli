@@ -1083,3 +1083,136 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         )
 
         self.assertEqual(response, None)
+
+    def test_simple_get_system_config_property(self):
+        config_key = 'THE_KEY'
+        expected_response = {
+            'key': config_key,
+            'value': 'the_value'
+        }
+
+        self.conn.set_responses([
+            Response.with_json({'result': expected_response})
+        ])
+
+        response = sap.rest.gcts.simple.get_system_config_property(self.conn, config_key)
+        self.assertEqual(response, expected_response)
+
+        self.conn.execs[0].assertEqual(
+            Request.get_json(
+                uri=f'system/config/{config_key}',
+            ),
+            self
+        )
+
+    def test_simple_get_system_config_property_no_result(self):
+        self.conn.set_responses([
+            Response.with_json({})
+        ])
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            sap.rest.gcts.simple.get_system_config_property(self.conn, 'THE_KEY')
+
+        self.assertEqual(str(cm.exception), "gCTS response does not contain 'result'")
+
+    def test_simple_list_system_config(self):
+        expected_response = [
+            {
+                'key': 'THE_KEY1',
+                'value': 'THE_VALUE1',
+                'category': 'CATEGORY',
+                'changedAt': 20220101000000,
+                'changedBy': 'TEST',
+            },
+            {
+                'key': 'THE_KEY2',
+                'value': 'THE_VALUE2',
+                'category': 'CATEGORY',
+                'changedAt': 20220101000000,
+                'changedBy': 'TEST',
+            }
+        ]
+        self.conn.set_responses([
+            Response.with_json({'result': {'config': expected_response}})
+        ])
+
+        response = sap.rest.gcts.simple.list_system_config(self.conn)
+        self.assertEqual(response, expected_response)
+
+        self.conn.execs[0].assertEqual(
+            Request.get_json('system'),
+            self
+        )
+
+    def test_simple_list_system_config_no_config(self):
+        self.conn.set_responses([
+            Response.with_json({'result': {}})
+        ])
+
+        response = sap.rest.gcts.simple.list_system_config(self.conn)
+        self.assertEqual(response, [])
+
+        self.conn.execs[0].assertEqual(
+            Request.get_json('system'),
+            self
+        )
+
+    def test_simple_list_system_config_no_result(self):
+        self.conn.set_responses([
+            Response.with_json({})
+        ])
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            sap.rest.gcts.simple.list_system_config(self.conn)
+
+        self.assertEqual(str(cm.exception), "gCTS response does not contain 'result'")
+
+    def test_simple_set_system_config_property(self):
+        config_key = 'THE_KEY'
+        value = 'the_value'
+        expected_response = {
+            'key': config_key,
+            'value': value
+        }
+
+        self.conn.set_responses([
+            Response.with_json({'result': expected_response})
+        ])
+
+        response = sap.rest.gcts.simple.set_system_config_property(self.conn, config_key, value)
+        self.assertEqual(response, expected_response)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(
+                uri='system/config',
+                body={'key': config_key, 'value': value}
+            ),
+            self
+        )
+
+    def test_simple_set_system_config_property_no_result(self):
+        self.conn.set_responses([
+            Response.with_json({})
+        ])
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            sap.rest.gcts.simple.set_system_config_property(self.conn, 'THE_KEY', 'the_value')
+
+        self.assertEqual(str(cm.exception), "gCTS response does not contain 'result'")
+
+    def test_simple_delete_system_config_property(self):
+        config_key = 'THE_KEY'
+        self.conn.set_responses([
+            Response.with_json({})
+        ])
+
+        response = sap.rest.gcts.simple.delete_system_config_property(self.conn, config_key)
+        self.assertEqual(response, {})
+
+        self.conn.execs[0].assertEqual(
+            Request.delete(
+                uri=f'system/config/{config_key}',
+                headers={'Accept': 'application/json'}
+            ),
+            self
+        )
