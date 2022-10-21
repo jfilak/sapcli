@@ -314,6 +314,12 @@ class BufferConsole(sap.cli.core.PrintConsole):
     def caperr(self):
         return self.err_output.getvalue()
 
+    def reset(self):
+        self.std_output.truncate(0)
+        self.std_output.seek(0)
+        self.err_output.truncate(0)
+        self.err_output.seek(0)
+
 
 def patch_get_print_console_with_buffer():
     """Capture output printed out by sapcli.
