@@ -148,23 +148,39 @@ class PropertyCommandGroup(sap.cli.core.CommandGroup):
         super().__init__('property')
 
 
+@PropertyCommandGroup.argument('property', nargs="?", default=None)
 @PropertyCommandGroup.argument('package')
 @PropertyCommandGroup.command('get')
 def get_properties(connection, args):
     """Get all repository properties"""
 
+    properties = [
+        ('Name', 'name'),
+        ('RID', 'rid'),
+        ('Branch', 'branch'),
+        ('Commit', 'head'),
+        ('Status', 'status'),
+        ('vSID', 'vsid'),
+        ('Role', 'role'),
+        ('URL', 'url'),
+    ]
+
     console = sap.cli.core.get_console()
     try:
         repo = get_repository(connection, args.package)
 
-        console.printout(f'Name: {repo.name}')
-        console.printout(f'RID: {repo.rid}')
-        console.printout(f'Branch: {repo.branch}')
-        console.printout(f'Commit: {repo.head}')
-        console.printout(f'Status: {repo.status}')
-        console.printout(f'vSID: {repo.vsid}')
-        console.printout(f'Role: {repo.role}')
-        console.printout(f'URL: {repo.url}')
+        if args.property:
+            try:
+                prop = next(iter((prop for prop in properties if prop[0] == args.property)))
+            except StopIteration:
+                console.printerr('The property was not found:', args.property)
+                return 1
+            else:
+                console.printout(getattr(repo, prop[1]))
+        else:
+            for prop in properties:
+                console.printout(f'{prop[0]}: {getattr(repo, prop[1])}')
+
     except SAPCliError as ex:
         console.printout(str(ex))
         return 1

@@ -974,6 +974,40 @@ Role: role
 URL: http://github.com/name.git
 ''')
 
+    @patch('sap.cli.gcts.get_repository')
+    def test_get_property_found(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        properties = [
+            ('Name', 'name\n'),
+            ('RID', 'rid\n'),
+            ('Branch', 'branch\n'),
+            ('Commit', 'head\n'),
+            ('Status', 'status\n'),
+            ('vSID', 'vsid\n'),
+            ('Role', 'role\n'),
+            ('URL', 'http://github.com/name.git\n')
+        ]
+
+        for name, value in properties:
+            the_cmd = self.get_properties_cmd(self.repo_name, name)
+            exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+            self.assertEqual(exit_code, 0)
+            self.assertConsoleContents(self.console, stdout=value)
+
+            self.console.reset()
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_get_property_nofound(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.get_properties_cmd(self.repo_name, 'Awesome_Success')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='The property was not found: Awesome_Success\n')
+
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_get_properties_with_url(self, fake_fetch_repos):
         mock_repository(fake_fetch_repos, name=self.repo_name, **self.repo_data)
