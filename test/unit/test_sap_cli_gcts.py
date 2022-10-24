@@ -730,6 +730,7 @@ class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_repository = self.patch('sap.cli.gcts.Repository')
         self.fake_instance = Mock()
         self.fake_repository.return_value = self.fake_instance
+        self.fake_instance.get_config.return_value = None
 
     def config(self, *args, **kwargs):
         return parse_args('config', *args, **kwargs)
@@ -791,6 +792,18 @@ the_key_two=two
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_config_request_error(self, fake_dumper, fake_get_repository):
+        messages = {'exception': 'test'}
+        fake_get_repository.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        args = self.config('a_repo', '-l')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(self.console, messages)
+
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_config_url_error(self, _):
         repo_url = 'http://github.com/the_repo.git'
@@ -799,7 +812,106 @@ the_key_two=two
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
+
+    def test_config_set(self):
+        key = 'THE_KEY'
+        old_value = 'the_old_value'
+        value = 'the_value'
+        self.fake_instance.get_config.return_value = old_value
+
+        args = self.config('the_repo', key, value)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_instance.get_config.assert_called_once_with(key)
+        self.fake_instance.set_config.assert_called_once_with(key, value)
+        self.assertConsoleContents(self.console, stdout=f'{key}={old_value} -> {value}\n')
+
+    def test_config_set_key_not_in_config(self):
+        key = 'THE_KEY'
+        value = 'the_value'
+
+        args = self.config('the_repo', key, value)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_instance.get_config.assert_called_once_with(key)
+        self.fake_instance.set_config.assert_called_once_with(key, value)
+        self.assertConsoleContents(self.console, stdout=f'{key}={""} -> {value}\n')
+
+    def test_config_set_no_value_error(self):
+        args = self.config('the_repo', 'the_key')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+        
+        self.fake_instance.set_config.assert_not_called()
+        self.assertConsoleContents(self.console, stderr='Cannot execute the set operation: "VALUE" was not provided.\n')
+
+    def test_config_set_no_name_error(self):
+        args = self.config('the_repo')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_instance.set_config.assert_not_called()
+        self.assertConsoleContents(self.console,
+                                   stderr='Invalid command line options\nRun: sapcli gcts config --help\n')
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_config_set_request_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_instance.set_config.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        args = self.config('the_repo', 'the_key', 'the_value')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(self.console, messages)
+
+    def test_config_unset(self):
+        key = 'THE_KEY'
+        old_value = 'the_old_value'
+        self.fake_instance.get_config.return_value = old_value
+
+        args = self.config('the_repo', key, '--unset')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_instance.get_config.assert_called_once_with(key)
+        self.fake_instance.delete_config.assert_called_once_with(key)
+        self.assertConsoleContents(self.console, stdout=f'unset {key}={old_value}\n')
+
+    def test_config_unset_key_not_in_config(self):
+        key = 'THE_KEY'
+
+        args = self.config('the_repo', key, '--unset')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_instance.get_config.assert_called_once_with(key)
+        self.fake_instance.delete_config.assert_called_once_with(key)
+        self.assertConsoleContents(self.console, stdout=f'unset {key}={""}\n')
+
+    def test_config_unset_no_name(self):
+        args = self.config('the_repo', '--unset')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_instance.delete_config.assert_not_called()
+        self.assertConsoleContents(self.console,
+                                   stderr='Invalid command line options\nRun: sapcli gcts config --help\n')
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_config_unset_request_error(self, fake_dumper):
+        key = 'THE_KEY'
+        messages = {'exception': 'test'}
+        self.fake_instance.delete_config.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        args = self.config('the_repo', key, '--unset')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(self.console, messages)
 
 
 class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):

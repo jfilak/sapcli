@@ -331,6 +331,22 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Get Config Error')
 
+    def test_delete_config_ok(self):
+        key = 'CLIENT_VCS_URI'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo.delete_config(key)
+
+        expected_repo_config = {'VCS_CONNECTION': 'SSL', 'CLIENT_VCS_URI': ''}
+        self.assertEqual(repo.configuration, expected_repo_config)
+        self.conn.execs[0].assertEqual(Request.delete(f'repository/{self.repo_name}/config/{key}'), self)
+
+    def test_delete_config_key_not_in_config_ok(self):
+        key = 'THE_KEY'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo.delete_config(key)
+
+        self.conn.execs[0].assertEqual(Request.delete(f'repository/{self.repo_name}/config/{key}'), self)
+
     def test_clone_ok(self):
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
         repo.clone()
