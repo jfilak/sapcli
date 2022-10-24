@@ -311,6 +311,15 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(self.conn.execs), 1)
         self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/config/THE_KEY'), self)
 
+    def test_get_config_no_value_ok(self):
+        self.conn.set_responses(Response.with_json(status_code=200, json={'result': {}}))
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        value = repo.get_config('THE_KEY')
+
+        self.assertIsNone(value)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/config/THE_KEY'), self)
+
     def test_get_config_error(self):
         messages = LogBuilder(exception='Get Config Error').get_contents()
 
