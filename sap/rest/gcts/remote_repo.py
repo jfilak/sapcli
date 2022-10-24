@@ -360,7 +360,12 @@ class Repository:
             return config[key]
 
         response = self._http.get_json(f'config/{key}')
-        value = response['result']['value']
+        try:
+            value = response['result']['value']
+        except KeyError:
+            mod_log().debug('gCTS did not return value of the config: %s', key)
+            return None
+
         self._update_configuration(key, value)
         return value
 
