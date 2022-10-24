@@ -513,7 +513,10 @@ def clone(connection, args):
     return 0
 
 
+@CommandGroup.argument('value', nargs='?', default=None)
+@CommandGroup.argument('name', nargs='?', default=None)
 @CommandGroup.argument('package')
+@CommandGroup.argument('--unset', default=False, action='store_true')
 @CommandGroup.argument('-l', '--list', default=False, action='store_true')
 @CommandGroup.command()
 def config(connection, args):
@@ -522,9 +525,17 @@ def config(connection, args):
 
     console = sap.cli.core.get_console()
 
+    try:
+        repo = get_repository(connection, args.package)
+    except GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printout(str(ex))
+        return 1
+
     if args.list:
         try:
-            repo = get_repository(connection, args.package)
             configuration = repo.configuration
         except GCTSRequestError as ex:
             dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
@@ -536,6 +547,22 @@ def config(connection, args):
         for key, value in configuration.items():
             console.printout(f'{key}={value}')
 
+        return 0
+    elif args.name and args.value:
+        old_value = repo.get_config(args.name)
+        if old_value is None:
+            old_value = ''
+
+        repo.set_config(args.name, args.value)
+        console.printout(f'{args.name}={old_value} -> {args.value}')
+        return 0
+    elif args.unset and args.name:
+        old_value = repo.get_config(args.name)
+        if old_value is None:
+            old_value = ''
+
+        repo.delete_config(args.name)
+        console.printout(f'unset {args.name}={old_value}')
         return 0
 
     console.printerr('Invalid command line options\nRun: sapcli gcts config --help')

@@ -369,6 +369,20 @@ class Repository:
         self._update_configuration(key, value)
         return value
 
+    def delete_config(self, key):
+        """Returns configuration value
+
+           Raises:
+             GCTSRequestError
+        """
+
+        config = self.configuration
+
+        if config is not None and key in config:
+            del config[key]
+
+        self._http.delete(f'config/{key}')
+
     def clone(self):
         """Clones the repository on the configured system
 
