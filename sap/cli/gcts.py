@@ -513,33 +513,70 @@ def clone(connection, args):
     return 0
 
 
+@CommandGroup.argument('value', nargs='?', default=None)
+@CommandGroup.argument('name', nargs='?', default=None)
 @CommandGroup.argument('package')
+@CommandGroup.argument('--unset', default=False, action='store_true')
 @CommandGroup.argument('-l', '--list', default=False, action='store_true')
 @CommandGroup.command()
 def config(connection, args):
     """git config [-l] [<package>]
     """
 
-    console = sap.cli.core.get_console()
+    def _list():
+        """List configuration"""
 
-    if args.list:
-        try:
-            repo = get_repository(connection, args.package)
-            configuration = repo.configuration
-        except GCTSRequestError as ex:
-            dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-            return 1
-        except SAPCliError as ex:
-            console.printout(str(ex))
-            return 1
+        configuration = repo.configuration
 
         for key, value in configuration.items():
             console.printout(f'{key}={value}')
 
-        return 0
+    def _set():
+        """Set configuration value"""
 
-    console.printerr('Invalid command line options\nRun: sapcli gcts config --help')
-    return 1
+        old_value = repo.get_config(args.name) or ''
+        if args.value is None:
+            raise SAPCliError('Cannot execute the set operation: "VALUE" was not provided.')
+
+        repo.set_config(args.name, args.value)
+        console.printout(f'{args.name}={old_value} -> {args.value}')
+
+    def _unset():
+        """Unset configuration value"""
+
+        old_value = repo.get_config(args.name) or ''
+        repo.delete_config(args.name)
+        console.printout(f'unset {args.name}={old_value}')
+
+    console = sap.cli.core.get_console()
+    if args.package is None or not args.list and args.name is None:
+        console.printerr('Invalid command line options\nRun: sapcli gcts config --help')
+        return 1
+
+    try:
+        repo = get_repository(connection, args.package)
+    except GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    try:
+        if args.list:
+            _list()
+        elif args.unset:
+            _unset()
+        else:
+            _set()
+    except GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    return 0
 
 
 @CommandGroup.argument('package')

@@ -108,14 +108,19 @@ sapcli gcts delete PACKAGE
 
 ## config
 
-Configure the given repository
+Configure the given repository. To set the configuration property, specify `NAME` and `VALUE`.
+To unset the property, run the command with `--unset` option and specify `NAME`. To list all
+configuration properties, run the command with `--list` option.
 
 ```bash
-sapcli gcts config [-l|--list] PACKAGE
+sapcli gcts config [-l|--list] [--unset] PACKAGE [NAME] [VALUE]
 ```
 
 **Parameters:**:
 - `PACKAGE`: Repository name or URL
+- `NAME`: Name of configuration property
+- `VALUE`: Value that will be assigned to the property
+- `--unset`: Unset given configuration property
 - `--list`: Lists all configuration options for the specified repository
 
 ## user get-credentials
