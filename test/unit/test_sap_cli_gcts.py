@@ -124,6 +124,7 @@ class TestgCTSGetRepository(PatcherTestCase, unittest.TestCase):
 
         self.assertEqual(repo, fake_repo)
         self.fake_fetch_repos.assert_called_once_with(self.connection)
+        repo.wipe_data.assert_called_once()
 
     def test_get_repository_url_https(self):
         repo_name = 'the_repo'
@@ -134,6 +135,7 @@ class TestgCTSGetRepository(PatcherTestCase, unittest.TestCase):
 
         self.assertEqual(repo, fake_repo)
         self.fake_fetch_repos.assert_called_once_with(self.connection)
+        repo.wipe_data.assert_called_once()
 
     def test_get_repository_url_not_found(self):
         repo_url = 'http://github.com/the_repo.git'

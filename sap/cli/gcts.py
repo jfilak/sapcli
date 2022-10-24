@@ -91,7 +91,9 @@ def get_repository(connection, package):
         if len(repositories) > 1:
             raise SAPCliError(f'Cannot uniquely identify the package based on the URL "{package}".')
 
-        return repositories[0]
+        repo = repositories[0]
+        repo.wipe_data()
+        return repo
 
     return Repository(connection, package)
 
