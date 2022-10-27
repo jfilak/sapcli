@@ -5,6 +5,10 @@ import json
 from sap import get_logger
 from sap.rest.errors import HTTPRequestError
 from sap.rest.gcts.remote_repo import Repository
+from sap.rest.gcts.sugar import (
+    abap_modifications_disabled,
+    temporary_switched_branch
+)
 from sap.rest.gcts.errors import (
     exception_from_http_error,
     GCTSRepoAlreadyExistsError,

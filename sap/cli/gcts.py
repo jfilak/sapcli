@@ -1,10 +1,16 @@
 """gCTS methods"""
 
+import os
 import warnings
 
 import sap.cli.core
 import sap.cli.helpers
 import sap.rest.gcts.simple
+from sap.rest.gcts.sugar import (
+    abap_modifications_disabled,
+    SugarOperationProgress,
+    temporary_switched_branch
+)
 from sap.rest.gcts.remote_repo import (
     Repository,
     RepoActivitiesQueryParams,
@@ -13,6 +19,10 @@ from sap.rest.gcts.errors import (
     GCTSRequestError,
     SAPCliError,
 )
+
+
+def _mod_log():
+    return get_logger()
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -755,4 +765,71 @@ def commit(connection, args):
         repo.commit_transport(args.corrnr, args.message or f'Transport {args.corrnr}', args.description)
 
     console.printout(f'The transport "{args.corrnr}" has been committed')
+    return 0
+
+
+class ConsoleSugarOperationProgress(SugarOperationProgress):
+
+    def __init__(self, console):
+        self._console = console
+
+    def _handle_updated(self, message, recover_message):
+        self._console.printout(message)
+
+
+@BranchCommandGroup.argument('-o', '--output', default=None, help='Write response in the required formath to the give file')
+@BranchCommandGroup.argument('branch')
+@BranchCommandGroup.argument('package')
+@BranchCommandGroup.command()
+def update_filesystem(connection, args):
+    """Update branch on filesystem only
+    """
+
+    console = sap.cli.core.get_console()
+
+    if args.output and os.path.exists(args.output):
+        console.printerr(f'Output file must not exist: {args.output}')
+        return 1
+
+    try:
+        repo = get_repository(connection, args.package)
+    except GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        return 1
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+        return 1
+
+    checkout_progress = ConsoleSugarOperationProgress(console)
+    noimports_progress = ConsoleSugarOperationProgress(console)
+    pull_response = None
+    errored = True
+    try:
+        with abap_modifications_disabled(repo, progress=noimports_progress):
+            with temporary_switched_branch(repo, args.branch, progress=checkout_progress):
+                console.printout(f'Updating the currently active branch {args.branch} ...')
+                pull_response = repo.pull()
+                from_commit = pull_response.get('fromCommit') or '()'
+                to_commit = pull_response.get('toCommit') or '()'
+                console.printout(f'The branch "{args.branch}" has been updated: {from_commit} -> {to_commit}')
+    except GCTSRequestError as ex:
+        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+    except SAPCliError as ex:
+        console.printerr(str(ex))
+    else:
+        errored = False
+
+    if pull_response and args.output:
+        console.printout(f'Writing gCTS JSON response to {args.output} ...')
+        with open(args.output, 'x') as output_file:
+            output_file.write(sap.cli.core.json_dumps(pull_response))
+        console.printout(f'Successfully wrote gCTS JSON response to {args.output}')
+
+    if errored:
+        if checkout_progress.recover_message:
+            console.printerr(checkout_progress.recover_message)
+        if noimports_progress.recover_message:
+            console.printerr(noimports_progress.recover_message)
+        return 1
+
     return 0
