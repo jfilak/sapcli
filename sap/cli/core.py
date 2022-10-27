@@ -3,6 +3,8 @@
 import sys
 import json
 
+from contextlib import contextmanager
+
 from sap.errors import SAPCliError
 
 EXIT_CODE_OK = 0
@@ -227,6 +229,39 @@ class ConsoleErrorDecorator:
         """Flushes all streams"""
 
         self.decorated.flush()
+
+
+class ConsoleFileDecorator:
+    """Redirects Standard Output to File"""
+
+    def __init__(self, decorated, file_object):
+        self.decorated = decorated
+        self.file_object = file_object
+
+    def printout(self, *objects, sep=' ', end='\n'):
+        """Prints out using the python's print function"""
+
+        self.file_object.write(sep.join(*objects) + end)
+
+    def printerr(self, *objects, sep=' ', end='\n'):
+        """Prints out an error message"""
+
+        self.decorated.printerr(*objects, sep=sep, end=end)
+
+    def flush(self):
+        """Flushes all streams"""
+
+        self.decorated.flush()
+        self.file_object.flush()
+
+
+@contextmanager
+def console_printout_file(console, path):
+    if path is None:
+        yield console
+    else:
+        with open(path, 'w+') as fileout:
+            yield ConsoleFileDecorator(console, fileout)
 
 
 _CONSOLE = None
