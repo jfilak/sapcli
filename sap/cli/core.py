@@ -55,7 +55,7 @@ class CommandsList:
     def __init__(self):
         self.declarations = {}
 
-    def add_command(self, handler, name=None):
+    def add_command(self, handler, name=None, handler_wrapper=None):
         """Adds a new command"""
 
         fname = handler.__name__
@@ -63,7 +63,8 @@ class CommandsList:
         if fname in self.declarations:
             raise SAPCliError(f'Handler already registered: {fname}')
 
-        cmd = CommandDeclaration(handler, name if name is not None else fname)
+        handler_wrapper = handler_wrapper if handler_wrapper is not None else lambda func: func
+        cmd = CommandDeclaration(handler_wrapper(handler), name if name is not None else fname)
         self.declarations[fname] = cmd
 
         return cmd
@@ -126,6 +127,13 @@ class CommandGroup:
         return cls.get_commands().get_declaration(func)
 
     @classmethod
+    def get_commands_wrapper(cls):
+        """Returns the wrapper function defined for this class
+        """
+
+        return getattr(cls, 'commands_wrapper', lambda f: f)
+
+    @classmethod
     def command(cls, cmd_name=None):
         """Python Decorator marking a method a CLI command
         """
@@ -133,8 +141,8 @@ class CommandGroup:
         def p_command(func):
             """A closure that actually processes the decorated function
             """
-
-            cls.get_commands().add_command(func, cmd_name)
+            wrapper = cls.get_commands_wrapper()
+            cls.get_commands().add_command(func, cmd_name, wrapper)
 
             return func
 
