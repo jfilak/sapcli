@@ -397,7 +397,7 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
@@ -492,7 +492,7 @@ f'''The repository "{repo_name}" has been set to the branch "{checkout_branch}"
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
@@ -595,7 +595,7 @@ Date:   2020-10-02
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
@@ -695,7 +695,7 @@ New HEAD is 456
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
     def test_pull_json_output(self):
         self.fake_simple_pull.return_value = GCTS_RESPONSE_REPO_PULL_OK.json()
@@ -1006,7 +1006,7 @@ class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = commit_cmd.execute(None, commit_cmd)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
@@ -1046,7 +1046,7 @@ class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Cannot set new URL.\n')
+        self.assertConsoleContents(self.console, stderr='Cannot set new URL.\n')
 
 
 class TestgCTSRepoGetProperty(PatcherTestCase, ConsoleOutputTestCase):
@@ -1149,7 +1149,7 @@ URL: http://github.com/name.git
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
 
 
 class TestgCTSRepoSetProperty(PatcherTestCase, ConsoleOutputTestCase):
@@ -1189,7 +1189,7 @@ class TestgCTSRepoSetProperty(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Incorrect property name.\n')
+        self.assertConsoleContents(self.console, stderr='Incorrect property name.\n')
 
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_set_property_with_url(self, fake_fetch_repos):
@@ -1213,7 +1213,7 @@ class TestgCTSRepoSetProperty(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
 
 
 class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
@@ -1309,7 +1309,7 @@ class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
 
     @patch('sap.cli.gcts.get_repository')
     def test_activities_request_error(self, fake_get_repository):
@@ -1652,6 +1652,17 @@ class TestqCTSUserGetCredentials(PatcherTestCase, ConsoleOutputTestCase):
             )
         )
 
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_get_user_credentials_request_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_get_credentials.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        the_cmd = self.get_credentials_cmd()
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        fake_dumper.assert_called_once_with(self.console, messages)
+
 
 class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -1677,6 +1688,18 @@ class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
         fake_set_credentials.assert_called_once_with(self.fake_connection, api_url, token)
 
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.rest.gcts.simple.set_user_api_token')
+    def test_set_user_credentials_request_error(self, fake_set_credentials, fake_dumper):
+        messages = {'exception': 'test'}
+        fake_set_credentials.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        the_cmd = self.set_credentials_cmd('-a', 'the_url')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        fake_dumper.assert_called_once_with(self.console, messages)
+
 
 class TestgCTSUserDeleteCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -1700,6 +1723,18 @@ class TestgCTSUserDeleteCredentials(PatcherTestCase, ConsoleOutputTestCase):
         the_cmd.execute(self.fake_connection, the_cmd)
 
         fake_delete_credentials.asser_called_once_with(self.fake_connection, api_url)
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.rest.gcts.simple.delete_user_credentials')
+    def test_delete_user_credentials_request_error(self, fake_delete_credentials, fake_dumper):
+        messages = {'exception': 'test'}
+        fake_delete_credentials.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        the_cmd = self.delete_credentials_cmd('-a', 'the_url')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        fake_dumper.assert_called_once_with(self.console, messages)
 
 
 class TestgCTSGetSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
