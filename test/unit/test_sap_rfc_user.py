@@ -162,6 +162,25 @@ class TestUserBuilder(unittest.TestCase):
             'USERNAME': username,
         })
 
+    def test_change_parameters_alias(self):
+        username = 'FOO'
+        alias = 'FOOBAR'
+
+        self.assertEqual(self.builder, self.builder.set_username(username))
+        self.assertEqual(self.builder, self.builder.set_alias(alias))
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params, {
+            'USERNAME': username,
+            'ALIAS': {
+                'USERALIAS': alias
+            },
+            'ALIASX': {
+                'BAPIALIAS': 'X'
+            }
+        })
+
 
 class TestUserRoleAssignmentBuilder(unittest.TestCase):
 
