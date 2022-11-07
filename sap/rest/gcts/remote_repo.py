@@ -441,13 +441,13 @@ class Repository:
 
         return result
 
-    def commit_transport(self, corrnr, message, description=None):
-        """Turns a transport into a commit"""
+    def commit(self, message, objects, description=None, autopush=False):
+        """Creates a commit for the given objects"""
 
         commit = {
             'message': message,
-            'autoPush': 'true',
-            'objects': [{'object': corrnr, 'type': 'TRANSPORT'}]
+            'autoPush': str(autopush).lower(),
+            'objects': objects
         }
 
         if description:
@@ -457,6 +457,18 @@ class Repository:
 
         self.wipe_data()
         return response
+
+    def commit_transport(self, corrnr, message, description=None):
+        """Turns a transport into a commit and pushes it"""
+
+        # cl_cts_abap_vcs_transport_req=>prepare_object_list
+        return self.commit(message, [{'object': corrnr, 'type': 'TRANSPORT'}], description=description, autopush=True)
+
+    def commit_package(self, package, message, description=None):
+        """Turns a package into a commit and pushes it"""
+
+        # cl_cts_abap_vcs_transport_req=>prepare_object_list
+        return self.commit(message, [{'object': package, 'type': 'FULL_PACKAGE'}], description=description, autopush=True)
 
     def set_url(self, url):
         """Sets repository URL"""

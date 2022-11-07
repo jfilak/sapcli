@@ -751,7 +751,10 @@ def pull(connection, args):
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--description', type=str, default=None)
 @CommandGroup.argument('-m', '--message', type=str, default=None)
-@CommandGroup.argument('corrnr')
+@CommandGroup.argument('-d', '--devc', type=str, default=None,
+        help="Name of committed ABAP package if corrnr is not give." + \
+             "Default: the repository name aka the parameter package")
+@CommandGroup.argument('corrnr', type=str, nargs='?', default=None)
 @CommandGroup.argument('package')
 @CommandGroup.command()
 def commit(connection, args):
@@ -761,10 +764,17 @@ def commit(connection, args):
     console = sap.cli.core.get_console()
 
     repo = get_repository(connection, args.package)
-    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-        repo.commit_transport(args.corrnr, args.message or f'Transport {args.corrnr}', args.description)
+    if args.corrnr is None:
+        devc = args.devc or args.package
+        devc = devc.upper()
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            repo.commit_package(devc, args.message or f'Export package {devc}', args.description)
+        console.printout(f'The package "{devc}" has been committed')
+    else:
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            repo.commit_transport(args.corrnr, args.message or f'Transport {args.corrnr}', args.description)
+        console.printout(f'The transport "{args.corrnr}" has been committed')
 
-    console.printout(f'The transport "{args.corrnr}" has been committed')
     return 0
 
 
