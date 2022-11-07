@@ -311,6 +311,15 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(self.conn.execs), 1)
         self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/config/THE_KEY'), self)
 
+    def test_get_config_no_value_ok(self):
+        self.conn.set_responses(Response.with_json(status_code=200, json={'result': {}}))
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        value = repo.get_config('THE_KEY')
+
+        self.assertIsNone(value)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}/config/THE_KEY'), self)
+
     def test_get_config_error(self):
         messages = LogBuilder(exception='Get Config Error').get_contents()
 
@@ -321,6 +330,22 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
             repo.get_config('THE_KEY')
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Get Config Error')
+
+    def test_delete_config_ok(self):
+        key = 'CLIENT_VCS_URI'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo.delete_config(key)
+
+        expected_repo_config = {'VCS_CONNECTION': 'SSL', 'CLIENT_VCS_URI': ''}
+        self.assertEqual(repo.configuration, expected_repo_config)
+        self.conn.execs[0].assertEqual(Request.delete(f'repository/{self.repo_name}/config/{key}'), self)
+
+    def test_delete_config_key_not_in_config_ok(self):
+        key = 'THE_KEY'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        repo.delete_config(key)
+
+        self.conn.execs[0].assertEqual(Request.delete(f'repository/{self.repo_name}/config/{key}'), self)
 
     def test_clone_ok(self):
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
@@ -632,6 +657,109 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         )
 
         self.assertIsNone(response)
+
+    def test_create_branch(self):
+        branch_name = 'branch'
+        expected_response = {
+            'name': branch_name,
+            'type': 'active',
+            'isSymbolic': False,
+            'isPeeled': False,
+            'ref': f'/refs/heads/{branch_name}',
+        }
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'branch': expected_response})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        response = repo.create_branch(branch_name)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(f'repository/{self.repo_name}/branches', body={
+                'branch': branch_name,
+                'type': 'global',
+                'isSymbolic': False,
+                'isPeeled': False,
+            }),
+            self
+        )
+        self.assertEqual(response, expected_response)
+
+    def test_create_branch_all_params(self):
+        branch_name = 'branch'
+        expected_response = {
+            'name': branch_name,
+            'type': 'active',
+            'isSymbolic': True,
+            'isPeeled': True,
+            'ref': f'/refs/heads/{branch_name}',
+        }
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'branch': expected_response})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        response = repo.create_branch(branch_name, symbolic=True, peeled=True, local_only=True)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(f'repository/{self.repo_name}/branches', body={
+                'branch': branch_name,
+                'type': 'local',
+                'isSymbolic': True,
+                'isPeeled': True,
+            }),
+            self,
+        )
+        self.assertEqual(response, expected_response)
+
+    def test_delete_branch(self):
+        branch_name = 'branch'
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        response = repo.delete_branch(branch_name)
+
+        self.conn.execs[0].assertEqual(
+            Request.delete(f'repository/{self.repo_name}/branches/{branch_name}'),
+            self,
+        )
+        self.assertEqual(response, {})
+
+    def test_list_branches(self):
+        branches = [{'name': 'branch1', 'type': 'active', 'isSymbolic': False, 'isPeeled': False,
+                     'ref': 'refs/heads/branch1'},
+                    {'name': 'branch1', 'type': 'local', 'isSymbolic': False, 'isPeeled': False,
+                     'ref': 'refs/heads/branch1'},
+                    {'name': 'branch1', 'type': 'remote', 'isSymbolic': False, 'isPeeled': False,
+                     'ref': 'refs/remotes/origin/branch1'}]
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'branches': branches})
+        )
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        response = repo.list_branches()
+
+        self.conn.execs[0].assertEqual(
+            Request.get_json(f'repository/{self.repo_name}/branches'),
+            self
+        )
+        self.assertEqual(response, branches)
+
+    def test_list_branches_wrong_response(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name)
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            repo.list_branches()
+
+        self.assertEqual(str(cm.exception), "gCTS response does not contain 'branches'")
 
 
 class TestRepoActivitiesQueryParams(unittest.TestCase):
@@ -980,3 +1108,136 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         )
 
         self.assertEqual(response, None)
+
+    def test_simple_get_system_config_property(self):
+        config_key = 'THE_KEY'
+        expected_response = {
+            'key': config_key,
+            'value': 'the_value'
+        }
+
+        self.conn.set_responses([
+            Response.with_json({'result': expected_response})
+        ])
+
+        response = sap.rest.gcts.simple.get_system_config_property(self.conn, config_key)
+        self.assertEqual(response, expected_response)
+
+        self.conn.execs[0].assertEqual(
+            Request.get_json(
+                uri=f'system/config/{config_key}',
+            ),
+            self
+        )
+
+    def test_simple_get_system_config_property_no_result(self):
+        self.conn.set_responses([
+            Response.with_json({})
+        ])
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            sap.rest.gcts.simple.get_system_config_property(self.conn, 'THE_KEY')
+
+        self.assertEqual(str(cm.exception), "gCTS response does not contain 'result'")
+
+    def test_simple_list_system_config(self):
+        expected_response = [
+            {
+                'key': 'THE_KEY1',
+                'value': 'THE_VALUE1',
+                'category': 'CATEGORY',
+                'changedAt': 20220101000000,
+                'changedBy': 'TEST',
+            },
+            {
+                'key': 'THE_KEY2',
+                'value': 'THE_VALUE2',
+                'category': 'CATEGORY',
+                'changedAt': 20220101000000,
+                'changedBy': 'TEST',
+            }
+        ]
+        self.conn.set_responses([
+            Response.with_json({'result': {'config': expected_response}})
+        ])
+
+        response = sap.rest.gcts.simple.list_system_config(self.conn)
+        self.assertEqual(response, expected_response)
+
+        self.conn.execs[0].assertEqual(
+            Request.get_json('system'),
+            self
+        )
+
+    def test_simple_list_system_config_no_config(self):
+        self.conn.set_responses([
+            Response.with_json({'result': {}})
+        ])
+
+        response = sap.rest.gcts.simple.list_system_config(self.conn)
+        self.assertEqual(response, [])
+
+        self.conn.execs[0].assertEqual(
+            Request.get_json('system'),
+            self
+        )
+
+    def test_simple_list_system_config_no_result(self):
+        self.conn.set_responses([
+            Response.with_json({})
+        ])
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            sap.rest.gcts.simple.list_system_config(self.conn)
+
+        self.assertEqual(str(cm.exception), "gCTS response does not contain 'result'")
+
+    def test_simple_set_system_config_property(self):
+        config_key = 'THE_KEY'
+        value = 'the_value'
+        expected_response = {
+            'key': config_key,
+            'value': value
+        }
+
+        self.conn.set_responses([
+            Response.with_json({'result': expected_response})
+        ])
+
+        response = sap.rest.gcts.simple.set_system_config_property(self.conn, config_key, value)
+        self.assertEqual(response, expected_response)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(
+                uri='system/config',
+                body={'key': config_key, 'value': value}
+            ),
+            self
+        )
+
+    def test_simple_set_system_config_property_no_result(self):
+        self.conn.set_responses([
+            Response.with_json({})
+        ])
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            sap.rest.gcts.simple.set_system_config_property(self.conn, 'THE_KEY', 'the_value')
+
+        self.assertEqual(str(cm.exception), "gCTS response does not contain 'result'")
+
+    def test_simple_delete_system_config_property(self):
+        config_key = 'THE_KEY'
+        self.conn.set_responses([
+            Response.with_json({})
+        ])
+
+        response = sap.rest.gcts.simple.delete_system_config_property(self.conn, config_key)
+        self.assertEqual(response, {})
+
+        self.conn.execs[0].assertEqual(
+            Request.delete(
+                uri=f'system/config/{config_key}',
+                headers={'Accept': 'application/json'}
+            ),
+            self
+        )

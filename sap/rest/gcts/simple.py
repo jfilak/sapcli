@@ -142,3 +142,46 @@ def delete_user_credentials(connection, api_url):
     }
 
     connection.post_obj_as_json('user/credentials', body)
+
+
+def get_system_config_property(connection, config_key):
+    """Get configuration property value for given key"""
+
+    response = connection.get_json(f'system/config/{config_key}')
+    config_value = response.get('result')
+    if config_value is None:
+        raise SAPCliError("gCTS response does not contain 'result'")
+
+    return config_value
+
+
+def list_system_config(connection):
+    """List system configuration"""
+
+    response = connection.get_json('system')
+    system = response.get('result')
+    if system is None:
+        raise SAPCliError("gCTS response does not contain 'result'")
+
+    return system.get('config', [])
+
+
+def set_system_config_property(connection, config_key, value):
+    """Create or update the configuration property"""
+
+    body = {
+        'key': config_key,
+        'value': value,
+    }
+    response = connection.post_obj_as_json('system/config', body).json()
+    config_value = response.get('result')
+    if config_value is None:
+        raise SAPCliError("gCTS response does not contain 'result'")
+
+    return config_value
+
+
+def delete_system_config_property(connection, config_key):
+    """Delete configuration property"""
+
+    return connection.delete_json(f'system/config/{config_key}')

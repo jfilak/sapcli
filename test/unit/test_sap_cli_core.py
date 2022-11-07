@@ -81,7 +81,7 @@ class TestCommandsList(unittest.TestCase):
     def setUp(self):
         self.cmd_list = sap.cli.core.CommandsList()
 
-    def test_add_command_without_name(self):
+    def test_add_command_without_params(self):
         self.cmd_list.add_command(self.handler)
         commands = self.cmd_list.values()
         command = next(iter(commands))
@@ -98,6 +98,21 @@ class TestCommandsList(unittest.TestCase):
         self.assertEqual(len(commands), 1)
         self.assertEqual(command.name, 'command')
         self.assertEqual(command.handler, self.handler)
+
+    def test_add_command_with_wrapper(self):
+        def test_wrapper(_):
+            def _wrapped():
+                return 'wrapped'
+
+            return _wrapped
+
+        self.cmd_list.add_command(self.handler, handler_wrapper=test_wrapper)
+        commands = self.cmd_list.values()
+        command = next(iter(commands))
+
+        self.assertEqual(len(commands), 1)
+        self.assertEqual(command.name, 'handler')
+        self.assertEqual(command.handler(), 'wrapped')
 
     def test_add_command_duplicate(self):
         self.cmd_list.add_command(self.handler)
@@ -168,6 +183,31 @@ class TestCommandGroup(unittest.TestCase):
     def test_get_commands(self):
         commands = DummyCommandGroup.get_commands()
         self.assertEqual(len(commands.values()), 1)
+
+    def test_get_commands_wrapper_not_specified(self):
+        wrapper = DummyCommandGroup.get_commands_wrapper()
+        self.assertEqual(wrapper('dummy_function'), 'dummy_function')
+
+    def test_get_commands_wrapper(self):
+        class _TestCommandGroup(DummyCommandGroup):
+            commands_wrapper = 'test_wrapper'
+
+        wrapper = _TestCommandGroup.get_commands_wrapper()
+        self.assertEqual(wrapper, 'test_wrapper')
+
+    def test_command(self):
+        fake_commands_list = sap.cli.core.CommandsList()
+        fake_commands_list.add_command = MagicMock()
+
+        class _TestCommandGroup(DummyCommandGroup):
+            commands = fake_commands_list
+            commands_wrapper = 'test_wrapper'
+
+        command_name = 'the_command'
+        func = 'the_function'
+
+        _TestCommandGroup.command(command_name)(func)
+        fake_commands_list.add_command.assert_called_once_with(func, command_name, _TestCommandGroup.commands_wrapper)
 
     def test_argument_corrnr_default(self):
         args = parse_args(['dummy_corrnr', 'success'])

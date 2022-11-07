@@ -69,6 +69,22 @@ def dump_gcts_messages(console, messages):
         console.printerr(str(messages))
 
 
+def gcts_exception_handler(func):
+    """Exception handler for gcts commands"""
+
+    def _handler(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except GCTSRequestError as ex:
+            dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+            return 1
+        except SAPCliError as ex:
+            sap.cli.core.get_console().printerr(str(ex))
+            return 1
+
+    return _handler
+
+
 def print_gcts_commit(console, commit_data):
     """Prints out gCTS commit description"""
 
@@ -91,13 +107,16 @@ def get_repository(connection, package):
         if len(repositories) > 1:
             raise SAPCliError(f'Cannot uniquely identify the package based on the URL "{package}".')
 
-        return repositories[0]
+        repo = repositories[0]
+        repo.wipe_data()
+        return repo
 
     return Repository(connection, package)
 
 
 class UserCommandGroup(sap.cli.core.CommandGroup):
     """Container for user commands."""
+    commands_wrapper = gcts_exception_handler
 
     def __init__(self):
         super().__init__('user')
@@ -143,31 +162,43 @@ def delete_user_credentials(connection, args):
 
 class PropertyCommandGroup(sap.cli.core.CommandGroup):
     """Container for property commands."""
+    commands_wrapper = gcts_exception_handler
 
     def __init__(self):
         super().__init__('property')
 
 
+@PropertyCommandGroup.argument('property', nargs="?", default=None)
 @PropertyCommandGroup.argument('package')
 @PropertyCommandGroup.command('get')
 def get_properties(connection, args):
     """Get all repository properties"""
 
-    console = sap.cli.core.get_console()
-    try:
-        repo = get_repository(connection, args.package)
+    properties = [
+        ('Name', 'name'),
+        ('RID', 'rid'),
+        ('Branch', 'branch'),
+        ('Commit', 'head'),
+        ('Status', 'status'),
+        ('vSID', 'vsid'),
+        ('Role', 'role'),
+        ('URL', 'url'),
+    ]
 
-        console.printout(f'Name: {repo.name}')
-        console.printout(f'RID: {repo.rid}')
-        console.printout(f'Branch: {repo.branch}')
-        console.printout(f'Commit: {repo.head}')
-        console.printout(f'Status: {repo.status}')
-        console.printout(f'vSID: {repo.vsid}')
-        console.printout(f'Role: {repo.role}')
-        console.printout(f'URL: {repo.url}')
-    except SAPCliError as ex:
-        console.printout(str(ex))
-        return 1
+    console = sap.cli.core.get_console()
+    repo = get_repository(connection, args.package)
+
+    if args.property:
+        try:
+            prop = next(iter((prop for prop in properties if prop[0] == args.property)))
+        except StopIteration:
+            console.printerr('The property was not found:', args.property)
+            return 1
+        else:
+            console.printout(getattr(repo, prop[1]))
+    else:
+        for prop in properties:
+            console.printout(f'{prop[0]}: {getattr(repo, prop[1])}')
 
     return 0
 
@@ -179,29 +210,130 @@ def get_properties(connection, args):
 def set_properties(connection, args):
     """Set the property of repository"""
 
-    try:
-        repo = get_repository(connection, args.package)
-        repo.set_item(args.property_name.lower(), args.value)
-    except SAPCliError as ex:
-        sap.cli.core.printout(str(ex))
-        return 1
+    repo = get_repository(connection, args.package)
+    repo.set_item(args.property_name.lower(), args.value)
+
+    return 0
+
+
+class BranchCommandGroup(sap.cli.core.CommandGroup):
+    """Container for branch commands"""
+    commands_wrapper = gcts_exception_handler
+
+    def __init__(self):
+        super().__init__('branch')
+
+
+@BranchCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@BranchCommandGroup.argument('--local-only', default=False, action='store_true')
+@BranchCommandGroup.argument('--peeled', default=False, action='store_true')
+@BranchCommandGroup.argument('--symbolic', default=False, action='store_true')
+@BranchCommandGroup.argument('name')
+@BranchCommandGroup.argument('package')
+@BranchCommandGroup.command('create')
+def create_branch(connection, args):
+    """Create new branch in repository"""
+
+    console = sap.cli.core.get_console()
+    repo = get_repository(connection, args.package)
+    response = repo.create_branch(args.name, symbolic=args.symbolic, peeled=args.peeled, local_only=args.local_only)
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(response))
+    else:
+        console.printout(f'Branch "{response["name"]}" was created and now is active branch.')
+
+    return 0
+
+
+@BranchCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@BranchCommandGroup.argument('name', type=str)
+@BranchCommandGroup.argument('package')
+@BranchCommandGroup.command('delete')
+def delete_branch(connection, args):
+    """Delete branch of repository"""
+
+    console = sap.cli.core.get_console()
+    repo = get_repository(connection, args.package)
+    response = repo.delete_branch(args.name)
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(response))
+    else:
+        console.printout(f'Branch "{args.name}" was deleted.')
+
+    return 0
+
+
+def _mark_active_branch(branches, active_branch_name):
+    """Mark corresponding local branch as active branch. Remove active branch from list."""
+
+    branches = [branch for branch in branches if branch['type'] != 'active']
+
+    for branch in branches:
+        if branch['type'] == 'local' and branch['name'] == active_branch_name:
+            branch['name'] += '*'
+
+    return branches
+
+
+@BranchCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@BranchCommandGroup.argument('-r', '--remote', default=False, action='store_true')
+@BranchCommandGroup.argument('-a', '--all', default=False, action='store_true')
+@BranchCommandGroup.argument('package')
+@BranchCommandGroup.command('list')
+def list_branches(connection, args):
+    """List branches of repository"""
+
+    console = sap.cli.core.get_console()
+    repo = get_repository(connection, args.package)
+    branches = repo.list_branches()
+
+    filtered_branches = branches.copy()
+    if args.remote:
+        filtered_branches = [branch for branch in filtered_branches if branch['type'] == 'remote']
+    elif not args.all:
+        filtered_branches = [branch for branch in filtered_branches if branch['type'] == 'local']
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(filtered_branches))
+    else:
+        active_branch = next(branch for branch in branches if branch['type'] == 'active')
+        filtered_branches = _mark_active_branch(filtered_branches, active_branch['name'])
+
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('name', 'Name')
+            ('type', 'Type')
+            ('isSymbolic', 'Symbolic')
+            ('isPeeled', 'Peeled')
+            ('ref', 'Reference')
+            .done()
+        )
+        tw = sap.cli.helpers.TableWriter(filtered_branches, columns)
+        tw.printout(console)
 
     return 0
 
 
 class RepoCommandGroup(sap.cli.core.CommandGroup):
     """Container for repository commands."""
+    commands_wrapper = gcts_exception_handler
 
     def __init__(self):
         super().__init__('repo')
 
         self.property_grp = PropertyCommandGroup()
+        self.branch_grp = BranchCommandGroup()
 
     def install_parser(self, arg_parser):
         repo_group = super().install_parser(arg_parser)
 
         property_parser = repo_group.add_parser(self.property_grp.name)
         self.property_grp.install_parser(property_parser)
+
+        branch_parser = repo_group.add_parser(self.branch_grp.name)
+        self.branch_grp.install_parser(branch_parser)
 
 
 @RepoCommandGroup.argument('url')
@@ -214,12 +346,7 @@ def set_url(connection, args):
                           ' Use "property set" instead.', category=DeprecationWarning)
 
     repo = Repository(connection, args.package)
-
-    try:
-        repo.set_url(args.url)
-    except SAPCliError as ex:
-        sap.cli.core.printout(str(ex))
-        return 1
+    repo.set_url(args.url)
 
     return 0
 
@@ -244,15 +371,8 @@ def activities(connection, args):
     params = RepoActivitiesQueryParams().set_limit(args.limit).set_offset(args.offset)
     params.set_tocommit(args.tocommit).set_fromcommit(args.fromcommit).set_operation(args.operation)
 
-    try:
-        repo = get_repository(connection, args.package)
-        repo_activities = repo.activities(params)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-        return 1
-    except SAPCliError as ex:
-        console.printout(str(ex))
-        return 1
+    repo = get_repository(connection, args.package)
+    repo_activities = repo.activities(params)
 
     if args.format == 'JSON':
         console.printout(repo_activities)
@@ -281,16 +401,123 @@ def activities(connection, args):
     return 0
 
 
+class ConfigCommandGroup(sap.cli.core.CommandGroup):
+    """Container for config commands."""
+    commands_wrapper = gcts_exception_handler
+
+    def __init__(self):
+        super().__init__('config')
+
+
+def _print_config_property(console, config_property, output_format):
+    """Print system configuration property"""
+
+    if output_format == 'JSON':
+        console.printout(sap.cli.core.json_dumps(config_property))
+    else:
+        console.printout(f'Key: {config_property["key"]}')
+        console.printout(f'Value: {config_property["value"]}')
+
+
+@ConfigCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@ConfigCommandGroup.argument('key', type=str)
+@ConfigCommandGroup.command('get')
+def get_system_config_property(connection, args):
+    """Get configuration property value for given key"""
+
+    console = sap.cli.core.get_console()
+    config_property = sap.rest.gcts.simple.get_system_config_property(connection, args.key.upper())
+
+    _print_config_property(console, config_property, args.format.upper())
+
+    return 0
+
+
+@ConfigCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@ConfigCommandGroup.command('list')
+def list_system_config(connection, args):
+    """List system configuration"""
+    console = sap.cli.core.get_console()
+    config_list = sap.rest.gcts.simple.list_system_config(connection)
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(config_list))
+    else:
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('key', 'Key')
+            ('value', 'Value')
+            ('category', 'Category')
+            ('changedAt', 'Changed At')
+            ('changedBy', 'Changed By')
+            .done()
+        )
+
+        tw = sap.cli.helpers.TableWriter(config_list, columns)
+        tw.printout(console)
+
+    return 0
+
+
+@ConfigCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@ConfigCommandGroup.argument('value', type=str)
+@ConfigCommandGroup.argument('key', type=str)
+@ConfigCommandGroup.command('set')
+def set_system_config_property(connection, args):
+    """Create or update the configuration property"""
+
+    console = sap.cli.core.get_console()
+    config_property = sap.rest.gcts.simple.set_system_config_property(connection, args.key.upper(), args.value)
+
+    _print_config_property(console, config_property, args.format.upper())
+
+    return 0
+
+
+@ConfigCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@ConfigCommandGroup.argument('key', type=str)
+@ConfigCommandGroup.command('unset')
+def delete_system_config_property(connection, args):
+    """Delete configuration property"""
+
+    console = sap.cli.core.get_console()
+    response = sap.rest.gcts.simple.delete_system_config_property(connection, args.key.upper())
+
+    if args.format.upper() == 'JSON':
+        console.printout(sap.cli.core.json_dumps(response))
+    else:
+        console.printout(f'Config property "{args.key.upper()}" was unset.')
+
+    return 0
+
+
+class SystemCommandGroup(sap.cli.core.CommandGroup):
+    """Container for system commands."""
+
+    def __init__(self):
+        super().__init__('system')
+
+        self.config_grp = ConfigCommandGroup()
+
+    def install_parser(self, arg_parser):
+        system_group = super().install_parser(arg_parser)
+
+        config_parser = system_group.add_parser(self.config_grp.name)
+        self.config_grp.install_parser(config_parser)
+
+
 class CommandGroup(sap.cli.core.CommandGroup):
     """Adapter converting command line parameters to sap.rest.gcts
        methods calls.
     """
+    commands_wrapper = gcts_exception_handler
 
     def __init__(self):
         super().__init__('gcts')
 
         self.user_grp = UserCommandGroup()
         self.repo_grp = RepoCommandGroup()
+        self.system_grp = SystemCommandGroup()
 
     def install_parser(self, arg_parser):
         gcts_group = super().install_parser(arg_parser)
@@ -301,6 +528,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
         repo_parser = gcts_group.add_parser(self.repo_grp.name)
         self.repo_grp.install_parser(repo_parser)
 
+        system_parser = gcts_group.add_parser(self.system_grp.name)
+        self.system_grp.install_parser(system_parser)
+
 
 @CommandGroup.command()
 # pylint: disable=unused-argument
@@ -309,11 +539,7 @@ def repolist(connection, args):
 
     console = sap.cli.core.get_console()
 
-    try:
-        response = sap.rest.gcts.simple.fetch_repos(connection)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(console, ex.messages)
-        return 1
+    response = sap.rest.gcts.simple.fetch_repos(connection)
 
     columns = (
         sap.cli.helpers.TableWriter.Columns()
@@ -352,18 +578,14 @@ def clone(connection, args):
 
     console = sap.cli.core.get_console()
 
-    try:
-        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            repo = sap.rest.gcts.simple.clone(connection, args.url, package,
-                                              start_dir=args.starting_folder,
-                                              vcs_token=args.vcs_token,
-                                              vsid=args.vsid,
-                                              error_exists=not args.no_fail_exists,
-                                              role=args.role,
-                                              typ=args.type)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-        return 1
+    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+        repo = sap.rest.gcts.simple.clone(connection, args.url, package,
+                                          start_dir=args.starting_folder,
+                                          vcs_token=args.vcs_token,
+                                          vsid=args.vsid,
+                                          error_exists=not args.no_fail_exists,
+                                          role=args.role,
+                                          typ=args.type)
 
     console.printout('Cloned repository:')
     console.printout(' URL   :', repo.url)
@@ -373,33 +595,56 @@ def clone(connection, args):
     return 0
 
 
+@CommandGroup.argument('value', nargs='?', default=None)
+@CommandGroup.argument('name', nargs='?', default=None)
 @CommandGroup.argument('package')
+@CommandGroup.argument('--unset', default=False, action='store_true')
 @CommandGroup.argument('-l', '--list', default=False, action='store_true')
 @CommandGroup.command()
 def config(connection, args):
     """git config [-l] [<package>]
     """
 
-    console = sap.cli.core.get_console()
+    def _list():
+        """List configuration"""
 
-    if args.list:
-        try:
-            repo = get_repository(connection, args.package)
-            configuration = repo.configuration
-        except GCTSRequestError as ex:
-            dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-            return 1
-        except SAPCliError as ex:
-            console.printout(str(ex))
-            return 1
+        configuration = repo.configuration
 
         for key, value in configuration.items():
             console.printout(f'{key}={value}')
 
-        return 0
+    def _set():
+        """Set configuration value"""
 
-    console.printerr('Invalid command line options\nRun: sapcli gcts config --help')
-    return 1
+        old_value = repo.get_config(args.name) or ''
+        if args.value is None:
+            raise SAPCliError('Cannot execute the set operation: "VALUE" was not provided.')
+
+        repo.set_config(args.name, args.value)
+        console.printout(f'{args.name}={old_value} -> {args.value}')
+
+    def _unset():
+        """Unset configuration value"""
+
+        old_value = repo.get_config(args.name) or ''
+        repo.delete_config(args.name)
+        console.printout(f'unset {args.name}={old_value}')
+
+    console = sap.cli.core.get_console()
+    if args.package is None or not args.list and args.name is None:
+        console.printerr('Invalid command line options\nRun: sapcli gcts config --help')
+        return 1
+
+    repo = get_repository(connection, args.package)
+
+    if args.list:
+        _list()
+    elif args.unset:
+        _unset()
+    else:
+        _set()
+
+    return 0
 
 
 @CommandGroup.argument('package')
@@ -408,15 +653,8 @@ def delete(connection, args):
     """rm
     """
 
-    try:
-        repo = get_repository(connection, args.package)
-        sap.rest.gcts.simple.delete(connection, repo=repo)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-        return 1
-    except SAPCliError as ex:
-        sap.cli.core.printout(str(ex))
-        return 1
+    repo = get_repository(connection, args.package)
+    sap.rest.gcts.simple.delete(connection, repo=repo)
 
     sap.cli.core.printout(f'The repository "{repo.name}" has been deleted')
     return 0
@@ -432,17 +670,10 @@ def checkout(connection, args):
     """
 
     console = sap.cli.core.get_console()
-    try:
-        repo = get_repository(connection, args.package)
-        old_branch = repo.branch
-        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-        return 1
-    except SAPCliError as ex:
-        console.printout(str(ex))
-        return 1
+    repo = get_repository(connection, args.package)
+    old_branch = repo.branch
+    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+        response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
 
     if args.format.upper() == 'JSON':
         console.printout(sap.cli.core.json_dumps(response))
@@ -459,15 +690,8 @@ def gcts_log(connection, args):
     """
 
     console = sap.cli.core.get_console()
-    try:
-        repo = get_repository(connection, args.package)
-        commits = sap.rest.gcts.simple.log(connection, repo=repo)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(console, ex.messages)
-        return 1
-    except SAPCliError as ex:
-        console.printout(str(ex))
-        return 1
+    repo = get_repository(connection, args.package)
+    commits = sap.rest.gcts.simple.log(connection, repo=repo)
 
     if not commits:
         return 0
@@ -494,16 +718,9 @@ def pull(connection, args):
 
     console = sap.cli.core.get_console()
 
-    try:
-        repo = get_repository(connection, args.package)
-        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            response = sap.rest.gcts.simple.pull(connection, repo=repo)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-        return 1
-    except SAPCliError as ex:
-        console.printout(str(ex))
-        return 1
+    repo = get_repository(connection, args.package)
+    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+        response = sap.rest.gcts.simple.pull(connection, repo=repo)
 
     if args.format.upper() == 'JSON':
         console.printout(sap.cli.core.json_dumps(response))
@@ -533,16 +750,9 @@ def commit(connection, args):
 
     console = sap.cli.core.get_console()
 
-    try:
-        repo = get_repository(connection, args.package)
-        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            repo.commit_transport(args.corrnr, args.message or f'Transport {args.corrnr}', args.description)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-        return 1
-    except SAPCliError as ex:
-        console.printout(str(ex))
-        return 1
+    repo = get_repository(connection, args.package)
+    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+        repo.commit_transport(args.corrnr, args.message or f'Transport {args.corrnr}', args.description)
 
     console.printout(f'The transport "{args.corrnr}" has been committed')
     return 0

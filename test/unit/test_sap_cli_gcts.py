@@ -2,6 +2,7 @@
 
 from io import StringIO
 import unittest
+import json
 from unittest.mock import MagicMock, patch, Mock, PropertyMock
 
 import sap.cli.gcts
@@ -123,6 +124,7 @@ class TestgCTSGetRepository(PatcherTestCase, unittest.TestCase):
 
         self.assertEqual(repo, fake_repo)
         self.fake_fetch_repos.assert_called_once_with(self.connection)
+        repo.wipe_data.assert_called_once()
 
     def test_get_repository_url_https(self):
         repo_name = 'the_repo'
@@ -133,6 +135,7 @@ class TestgCTSGetRepository(PatcherTestCase, unittest.TestCase):
 
         self.assertEqual(repo, fake_repo)
         self.fake_fetch_repos.assert_called_once_with(self.connection)
+        repo.wipe_data.assert_called_once()
 
     def test_get_repository_url_not_found(self):
         repo_url = 'http://github.com/the_repo.git'
@@ -394,7 +397,7 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
@@ -489,7 +492,7 @@ f'''The repository "{repo_name}" has been set to the branch "{checkout_branch}"
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
@@ -592,7 +595,7 @@ Date:   2020-10-02
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
@@ -692,7 +695,7 @@ New HEAD is 456
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
     def test_pull_json_output(self):
         self.fake_simple_pull.return_value = GCTS_RESPONSE_REPO_PULL_OK.json()
@@ -727,6 +730,7 @@ class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_repository = self.patch('sap.cli.gcts.Repository')
         self.fake_instance = Mock()
         self.fake_repository.return_value = self.fake_instance
+        self.fake_instance.get_config.return_value = None
 
     def config(self, *args, **kwargs):
         return parse_args('config', *args, **kwargs)
@@ -788,6 +792,18 @@ the_key_two=two
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_config_request_error(self, fake_dumper, fake_get_repository):
+        messages = {'exception': 'test'}
+        fake_get_repository.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        args = self.config('a_repo', '-l')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(self.console, messages)
+
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_config_url_error(self, _):
         repo_url = 'http://github.com/the_repo.git'
@@ -796,7 +812,106 @@ the_key_two=two
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
+
+    def test_config_set(self):
+        key = 'THE_KEY'
+        old_value = 'the_old_value'
+        value = 'the_value'
+        self.fake_instance.get_config.return_value = old_value
+
+        args = self.config('the_repo', key, value)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_instance.get_config.assert_called_once_with(key)
+        self.fake_instance.set_config.assert_called_once_with(key, value)
+        self.assertConsoleContents(self.console, stdout=f'{key}={old_value} -> {value}\n')
+
+    def test_config_set_key_not_in_config(self):
+        key = 'THE_KEY'
+        value = 'the_value'
+
+        args = self.config('the_repo', key, value)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_instance.get_config.assert_called_once_with(key)
+        self.fake_instance.set_config.assert_called_once_with(key, value)
+        self.assertConsoleContents(self.console, stdout=f'{key}={""} -> {value}\n')
+
+    def test_config_set_no_value_error(self):
+        args = self.config('the_repo', 'the_key')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+        
+        self.fake_instance.set_config.assert_not_called()
+        self.assertConsoleContents(self.console, stderr='Cannot execute the set operation: "VALUE" was not provided.\n')
+
+    def test_config_set_no_name_error(self):
+        args = self.config('the_repo')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_instance.set_config.assert_not_called()
+        self.assertConsoleContents(self.console,
+                                   stderr='Invalid command line options\nRun: sapcli gcts config --help\n')
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_config_set_request_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_instance.set_config.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        args = self.config('the_repo', 'the_key', 'the_value')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(self.console, messages)
+
+    def test_config_unset(self):
+        key = 'THE_KEY'
+        old_value = 'the_old_value'
+        self.fake_instance.get_config.return_value = old_value
+
+        args = self.config('the_repo', key, '--unset')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_instance.get_config.assert_called_once_with(key)
+        self.fake_instance.delete_config.assert_called_once_with(key)
+        self.assertConsoleContents(self.console, stdout=f'unset {key}={old_value}\n')
+
+    def test_config_unset_key_not_in_config(self):
+        key = 'THE_KEY'
+
+        args = self.config('the_repo', key, '--unset')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_instance.get_config.assert_called_once_with(key)
+        self.fake_instance.delete_config.assert_called_once_with(key)
+        self.assertConsoleContents(self.console, stdout=f'unset {key}={""}\n')
+
+    def test_config_unset_no_name(self):
+        args = self.config('the_repo', '--unset')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_instance.delete_config.assert_not_called()
+        self.assertConsoleContents(self.console,
+                                   stderr='Invalid command line options\nRun: sapcli gcts config --help\n')
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_config_unset_request_error(self, fake_dumper):
+        key = 'THE_KEY'
+        messages = {'exception': 'test'}
+        self.fake_instance.delete_config.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        args = self.config('the_repo', key, '--unset')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(self.console, messages)
 
 
 class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
@@ -891,7 +1006,7 @@ class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = commit_cmd.execute(None, commit_cmd)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stdout=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
 
 class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
@@ -931,7 +1046,7 @@ class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Cannot set new URL.\n')
+        self.assertConsoleContents(self.console, stderr='Cannot set new URL.\n')
 
 
 class TestgCTSRepoGetProperty(PatcherTestCase, ConsoleOutputTestCase):
@@ -973,6 +1088,40 @@ Role: role
 URL: http://github.com/name.git
 ''')
 
+    @patch('sap.cli.gcts.get_repository')
+    def test_get_property_found(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        properties = [
+            ('Name', 'name\n'),
+            ('RID', 'rid\n'),
+            ('Branch', 'branch\n'),
+            ('Commit', 'head\n'),
+            ('Status', 'status\n'),
+            ('vSID', 'vsid\n'),
+            ('Role', 'role\n'),
+            ('URL', 'http://github.com/name.git\n')
+        ]
+
+        for name, value in properties:
+            the_cmd = self.get_properties_cmd(self.repo_name, name)
+            exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+            self.assertEqual(exit_code, 0)
+            self.assertConsoleContents(self.console, stdout=value)
+
+            self.console.reset()
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_get_property_nofound(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.get_properties_cmd(self.repo_name, 'Awesome_Success')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='The property was not found: Awesome_Success\n')
+
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_get_properties_with_url(self, fake_fetch_repos):
         mock_repository(fake_fetch_repos, name=self.repo_name, **self.repo_data)
@@ -1000,7 +1149,7 @@ URL: http://github.com/name.git
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
 
 
 class TestgCTSRepoSetProperty(PatcherTestCase, ConsoleOutputTestCase):
@@ -1040,7 +1189,7 @@ class TestgCTSRepoSetProperty(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Incorrect property name.\n')
+        self.assertConsoleContents(self.console, stderr='Incorrect property name.\n')
 
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_set_property_with_url(self, fake_fetch_repos):
@@ -1064,7 +1213,7 @@ class TestgCTSRepoSetProperty(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
 
 
 class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
@@ -1160,7 +1309,7 @@ class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stdout='Cannot get repository.\n')
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
 
     @patch('sap.cli.gcts.get_repository')
     def test_activities_request_error(self, fake_get_repository):
@@ -1175,6 +1324,291 @@ class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
 '''Exception:
   Request failed.
 ''')
+
+
+class TestgCTSRepoCreateBranch(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.branch_name = 'branch'
+        self.fake_connection = Mock()
+        self.fake_repo = Mock()
+        self.expected_branch = {'name': self.branch_name, 'type': 'active', 'isSymbolic': False, 'isPeeled': False,
+                           'ref': f'refs/heads/{self.branch_name}'}
+        self.fake_repo.create_branch.return_value = self.expected_branch
+
+    def create_branch_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'branch', 'create', *args, **kwargs)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_create_branch(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.create_branch_cmd('the_repo', self.branch_name)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.create_branch.assert_called_once_with(self.branch_name, symbolic=False, peeled=False,
+                                                             local_only=False)
+        self.assertConsoleContents(self.console,
+                                   stdout=f'Branch "{self.branch_name}" was created and now is active branch.\n')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_create_branch_json(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.create_branch_cmd('the_repo', self.branch_name, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.create_branch.assert_called_once_with(self.branch_name, symbolic=False, peeled=False,
+                                                             local_only=False)
+        self.assertConsoleContents(self.console, stdout=f'{json.dumps(self.expected_branch, indent=2)}\n')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_create_branch_all_params(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.create_branch_cmd('the_repo', self.branch_name, '--local-only', '--peeled', '--symbolic')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.create_branch.assert_called_once_with(self.branch_name, symbolic=True, peeled=True,
+                                                             local_only=True)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_create_branch_request_error(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+        self.fake_repo.create_branch.side_effect = sap.cli.gcts.GCTSRequestError({'exception': 'Request failed.'})
+
+        the_cmd = self.create_branch_cmd('the_repo', self.branch_name)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_repo.create_branch.assert_called_once_with(self.branch_name, symbolic=False, peeled=False,
+                                                             local_only=False)
+        self.assertConsoleContents(self.console, stderr=
+'''Exception:
+  Request failed.
+''')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_create_branch_repo_not_found(self, fake_get_repository):
+        fake_get_repository.side_effect = sap.cli.gcts.SAPCliError('Cannot get repository.')
+
+        the_cmd = self.create_branch_cmd('the_repo', self.branch_name)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
+
+
+class TestgCTSRepoDeleteBranch(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.branch_name = 'branch'
+        self.fake_connection = Mock()
+        self.fake_repo = Mock()
+        self.fake_repo.delete_branch.return_value = {}
+
+    def delete_branch_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'branch', 'delete', *args, **kwargs)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_delete_branch(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.delete_branch_cmd('the_repo', self.branch_name)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.delete_branch.assert_called_once_with(self.branch_name)
+        self.assertConsoleContents(self.console, stdout=f'Branch "{self.branch_name}" was deleted.\n')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_delete_branch_json(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.delete_branch_cmd('the_repo', self.branch_name, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.delete_branch.assert_called_once_with(self.branch_name)
+        self.assertConsoleContents(self.console, stdout='{}\n')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_delete_branch_request_error(self, fake_get_repository):
+        self.fake_repo.delete_branch.side_effect = sap.cli.gcts.GCTSRequestError({'exception': 'Request failed.'})
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.delete_branch_cmd('the_repo', self.branch_name)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_repo.delete_branch.assert_called_once_with(self.branch_name)
+        self.assertConsoleContents(self.console, stderr=
+'''Exception:
+  Request failed.
+''')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_delete_branch_repo_not_found(self, fake_get_repository):
+        fake_get_repository.side_effect = sap.cli.gcts.SAPCliError('Cannot get repository.')
+
+        the_cmd = self.delete_branch_cmd('the_repo', self.branch_name)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
+
+
+class TestgCTSRepoListBranches(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.branches = [{'name': 'branch1', 'type': 'active', 'isSymbolic': False, 'isPeeled': False,
+                         'ref': 'refs/heads/branch1'},
+                        {'name': 'branch1', 'type': 'local', 'isSymbolic': False, 'isPeeled': False,
+                         'ref': 'refs/heads/branch1'},
+                        {'name': 'branch1', 'type': 'remote', 'isSymbolic': False, 'isPeeled': False,
+                         'ref': 'refs/remotes/origin/branch1'}]
+        self.fake_connection = Mock()
+        self.fake_repo = Mock()
+        self.fake_repo.list_branches.return_value = self.branches
+
+    def list_branches_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'branch', 'list', *args, **kwargs)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_list_branches(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.list_branches_cmd('the_repo')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.list_branches.assert_called_once()
+        self.assertConsoleContents(self.console, stdout=
+'''Name     | Type  | Symbolic | Peeled | Reference         
+---------------------------------------------------------
+branch1* | local | False    | False  | refs/heads/branch1
+''')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_list_branches_only_remote(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.list_branches_cmd('the_repo', '-r')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.list_branches.assert_called_once()
+        self.assertConsoleContents(self.console, stdout=
+'''Name    | Type   | Symbolic | Peeled | Reference                  
+------------------------------------------------------------------
+branch1 | remote | False    | False  | refs/remotes/origin/branch1
+''')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_list_branches_all(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.list_branches_cmd('the_repo', '-a')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.list_branches.assert_called_once()
+        self.assertConsoleContents(self.console, stdout=
+'''Name     | Type   | Symbolic | Peeled | Reference                  
+-------------------------------------------------------------------
+branch1* | local  | False    | False  | refs/heads/branch1         
+branch1  | remote | False    | False  | refs/remotes/origin/branch1
+''')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_list_branches_json(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.list_branches_cmd('the_repo', '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.list_branches.assert_called_once()
+        self.assertConsoleContents(
+            self.console,
+            stdout='{}\n'.format(json.dumps([branch for branch in self.branches if branch['type'] == 'local'],
+                                            indent=2))
+        )
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_list_branches_json_only_remote(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.list_branches_cmd('the_repo', '-f', 'JSON', '-r')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.list_branches.assert_called_once()
+        self.assertConsoleContents(
+            self.console,
+            stdout='{}\n'.format(json.dumps([branch for branch in self.branches if branch['type'] == 'remote'],
+                                            indent=2))
+        )
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_list_branches_json_all(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.list_branches_cmd('the_repo', '-f', 'JSON', '-a')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.list_branches.assert_called_once()
+        self.assertConsoleContents(
+            self.console,
+            stdout='{}\n'.format(json.dumps(self.branches, indent=2))
+        )
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_list_branches_request_error(self, fake_get_repository):
+        self.fake_repo.list_branches.side_effect = sap.cli.gcts.GCTSRequestError({'exception': 'Request failed.'})
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.list_branches_cmd('the_repo')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_repo.list_branches.assert_called_once()
+        self.assertConsoleContents(self.console, stderr=
+'''Exception:
+  Request failed.
+''')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_list_branches_repo_not_found(self, fake_get_repository):
+        fake_get_repository.side_effect = sap.cli.gcts.SAPCliError('Cannot get repository.')
+
+        the_cmd = self.list_branches_cmd('the_repo')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
 
 
 class TestqCTSUserGetCredentials(PatcherTestCase, ConsoleOutputTestCase):
@@ -1218,6 +1652,17 @@ class TestqCTSUserGetCredentials(PatcherTestCase, ConsoleOutputTestCase):
             )
         )
 
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_get_user_credentials_request_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_get_credentials.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        the_cmd = self.get_credentials_cmd()
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        fake_dumper.assert_called_once_with(self.console, messages)
+
 
 class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -1243,6 +1688,18 @@ class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
         fake_set_credentials.assert_called_once_with(self.fake_connection, api_url, token)
 
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.rest.gcts.simple.set_user_api_token')
+    def test_set_user_credentials_request_error(self, fake_set_credentials, fake_dumper):
+        messages = {'exception': 'test'}
+        fake_set_credentials.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        the_cmd = self.set_credentials_cmd('-a', 'the_url')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        fake_dumper.assert_called_once_with(self.console, messages)
+
 
 class TestgCTSUserDeleteCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -1266,3 +1723,218 @@ class TestgCTSUserDeleteCredentials(PatcherTestCase, ConsoleOutputTestCase):
         the_cmd.execute(self.fake_connection, the_cmd)
 
         fake_delete_credentials.asser_called_once_with(self.fake_connection, api_url)
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.rest.gcts.simple.delete_user_credentials')
+    def test_delete_user_credentials_request_error(self, fake_delete_credentials, fake_dumper):
+        messages = {'exception': 'test'}
+        fake_delete_credentials.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        the_cmd = self.delete_credentials_cmd('-a', 'the_url')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        fake_dumper.assert_called_once_with(self.console, messages)
+
+
+class TestgCTSGetSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.config_key = 'THE_KEY'
+        self.config_value = 'the_value'
+        self.expected_property = {'key': self.config_key, 'value': self.config_value}
+
+        self.fake_get_config_property = self.patch('sap.rest.gcts.simple.get_system_config_property')
+        self.fake_get_config_property.return_value = self.expected_property
+
+    def get_config_property_cmd(self, *args, **kwargs):
+        return parse_args('system', 'config', 'get', *args, **kwargs)
+
+    def test_get_system_config_property(self):
+        the_cmd = self.get_config_property_cmd(self.config_key)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_get_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stdout=
+f'''Key: {self.config_key}
+Value: {self.config_value}
+''')
+
+    def test_get_system_config_property_json(self):
+        the_cmd = self.get_config_property_cmd(self.config_key, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_get_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console,
+                                   stdout='{}\n'.format(json.dumps(self.expected_property, indent=2)))
+
+    def test_get_system_config_property_request_error(self):
+        self.fake_get_config_property.side_effect = sap.cli.gcts.SAPCliError('Request error')
+
+        the_cmd = self.get_config_property_cmd(self.config_key)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_get_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stderr='Request error\n')
+
+
+class TestgCTSListSystemConfig(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.expected_config = [
+            {'key': 'THE_KEY1', 'value': 'the_value1', 'category': 'SYSTEM', 'changedAt': 2022, 'changedBy': 'Test'},
+            {'key': 'THE_KEY2', 'value': 'the_value2', 'category': 'SYSTEM', 'changedAt': 2022, 'changedBy': 'Test'}
+        ]
+        self.fake_list_system_config = self.patch('sap.rest.gcts.simple.list_system_config')
+        self.fake_list_system_config.return_value = self.expected_config
+
+    def list_system_config_cmd(self, *args, **kwargs):
+        return parse_args('system', 'config', 'list', *args, **kwargs)
+
+    def test_list_system_config(self):
+        the_cmd = self.list_system_config_cmd()
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_list_system_config.assert_called_once_with(self.fake_connection)
+        self.assertConsoleContents(self.console, stdout=
+'''Key      | Value      | Category | Changed At | Changed By
+----------------------------------------------------------
+THE_KEY1 | the_value1 | SYSTEM   | 2022       | Test      
+THE_KEY2 | the_value2 | SYSTEM   | 2022       | Test      
+''')
+
+    def test_list_system_config_json(self):
+        the_cmd = self.list_system_config_cmd('-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_list_system_config.assert_called_once_with(self.fake_connection)
+        self.assertConsoleContents(self.console,
+                                   stdout='{}\n'.format(json.dumps(self.expected_config, indent=2)))
+
+    def test_list_system_config_request_error(self):
+        self.fake_list_system_config.side_effect = sap.cli.gcts.SAPCliError('Request error')
+
+        the_cmd = self.list_system_config_cmd()
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_list_system_config.assert_called_once_with(self.fake_connection)
+        self.assertConsoleContents(self.console, stderr='Request error\n')
+
+
+class TestgCTSSetSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.config_key = 'THE_KEY'
+        self.config_value = 'the_value'
+        self.expected_property = {'key': self.config_key, 'value': self.config_value}
+
+        self.fake_set_config_property = self.patch('sap.rest.gcts.simple.set_system_config_property')
+        self.fake_set_config_property.return_value = self.expected_property
+
+    def set_config_property_cmd(self, *args, **kwargs):
+        return parse_args('system', 'config', 'set', *args, **kwargs)
+
+    def test_set_system_config_property(self):
+        the_cmd = self.set_config_property_cmd(self.config_key, self.config_value)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_set_config_property.assert_called_once_with(self.fake_connection, self.config_key, self.config_value)
+        self.assertConsoleContents(self.console, stdout=
+f'''Key: {self.config_key}
+Value: {self.config_value}
+''')
+
+    def test_set_system_config_json(self):
+        the_cmd = self.set_config_property_cmd(self.config_key, self.config_value, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_set_config_property.assert_called_once_with(self.fake_connection, self.config_key, self.config_value)
+        self.assertConsoleContents(self.console,
+                                   stdout='{}\n'.format(json.dumps(self.expected_property, indent=2)))
+
+    def test_set_system_config_request_error(self):
+        self.fake_set_config_property.side_effect = sap.cli.gcts.SAPCliError('Request error')
+
+        the_cmd = self.set_config_property_cmd(self.config_key, self.config_value)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_set_config_property.assert_called_once_with(self.fake_connection, self.config_key, self.config_value)
+        self.assertConsoleContents(self.console, stderr='Request error\n')
+
+
+class TestgCTSDeleteSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        self.config_key = 'THE_KEY'
+        self.fake_delete_config_property = self.patch('sap.rest.gcts.simple.delete_system_config_property')
+        self.fake_delete_config_property.return_value = {}
+
+    def delete_config_property_cmd(self, *args, **kwargs):
+        return parse_args('system', 'config', 'unset', *args, **kwargs)
+
+    def test_delete_system_config_property(self):
+        the_cmd = self.delete_config_property_cmd(self.config_key)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_delete_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stdout=f'Config property "{self.config_key}" was unset.\n')
+
+    def test_delete_system_config_property_json(self):
+        the_cmd = self.delete_config_property_cmd(self.config_key, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_delete_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stdout='{}\n')
+
+    def test_delete_system_config_property_request_error(self):
+        self.fake_delete_config_property.side_effect = sap.cli.gcts.SAPCliError('Request error')
+
+        the_cmd = self.delete_config_property_cmd(self.config_key)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_delete_config_property.assert_called_once_with(self.fake_connection, self.config_key)
+        self.assertConsoleContents(self.console, stderr='Request error\n')

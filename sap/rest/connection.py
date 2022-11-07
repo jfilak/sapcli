@@ -223,3 +223,10 @@ class Connection:
 
         body = json.dumps(obj)
         return self.execute('POST', uri_path, content_type='application/json', body=body, accept=accept)
+
+    def delete_json(self, uri_path, params=None):
+        """Executes a DELETE HTTP request ith the headers Accept = application/json.
+        """
+
+        response = self.execute('DELETE', uri_path, accept='application/json', params=params)
+        return response.json()

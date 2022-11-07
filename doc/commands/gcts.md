@@ -16,6 +16,13 @@ sapcli's implementation forces use of packages as git repositories.
 12. [repo set-url](#repo-set-url)
 13. [repo property get](#repo-property-get)
 14. [repo property set](#repo-property-set)
+15. [repo branch create](#repo-branch-create)
+16. [repo branch delete](#repo-branch-delete)
+17. [repo branch list](#repo-branch-list)
+18. [system config get](#system-config-get)
+19. [system config list](#system-config-list)
+20. [system config set](#system-config-set)
+21. [system config unset](#system-config-unset)
 
 ## repolist
 
@@ -105,14 +112,19 @@ sapcli gcts delete PACKAGE
 
 ## config
 
-Configure the given repository
+Configure the given repository. To set the configuration property, specify `NAME` and `VALUE`.
+To unset the property, run the command with `--unset` option and specify `NAME`. To list all
+configuration properties, run the command with `--list` option.
 
 ```bash
-sapcli gcts config [-l|--list] PACKAGE
+sapcli gcts config [-l|--list] [--unset] PACKAGE [NAME] [VALUE]
 ```
 
 **Parameters:**:
 - `PACKAGE`: Repository name or URL
+- `NAME`: Name of configuration property
+- `VALUE`: Value that will be assigned to the property
+- `--unset`: Unset given configuration property
 - `--list`: Lists all configuration options for the specified repository
 
 ## user get-credentials
@@ -185,6 +197,100 @@ sapcli gcts repo property set PACKAGE PROPERTY_NAME VALUE
 - `PACKAGE`: The repository name
 - `PROPERTY_NAME`: The name of the property that is to be changed
 - `VALUE`: New value for the specified property
+
+## repo branch create
+
+Create and switch to the new branch. By default, the command creates `local` and `remote` branch.
+This behavior can be overriden by `--local-only` argument.
+
+```bash
+sapcli gcts repo branch create PACKAGE NAME [--symbolic] [--peeled] [--local-only] [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters**:
+- `PACKAGE`: The repository name
+- `NAME`: The name of a new branch
+- `--symbolic`: The new branch will be symbolic
+- `--peeled`: The new branch will be peeled
+- `--local-only`: Create only `local` branch.
+- `--format`: The format of the command's output
+
+## repo branch delete
+
+Delete the branch. Note, the branch cannot be active.
+
+```bash
+sapcli gcts repo branch delete PACKAGE NAME [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters**:
+- `PACKAGE`: The repository name
+- `NAME`: The name of a new branch
+- `--format`: The format of the command's output
+
+## repo branch list
+
+List branches of a repository. The active branch is marked by `*` only in `HUMAN` format.
+
+```bash
+sapcli gcts repo branch list PACKAGE [-a|--all] [-r|--remote] [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters**:
+- `PACKAGE`: The repository name
+- `--all`: List all branches
+- `--remote`: List `remote` branches only
+- `--format`: The format of the command's output
+
+## system config get
+
+Get the specific system configuration property.
+
+```bash
+sapcli gcts system config get KEY [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters**:
+- `KEY`: The identifier of configuration property
+- `--format`: The format of the command's output
+
+
+## system config list
+
+List the system configuration.
+
+```bash
+sapcli gcts system config list [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters**:
+- `--format`: The format of the command's output
+
+## system config set
+
+Create or update the system configuration property.
+
+```bash
+sapcli gcts system config set KEY VALUE [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters**:
+- `KEY`: The identifier of configuration property
+- `VALUE`: The value that will be assigned to the property
+- `--format`: The format of the command's output
+
+
+## system config unset
+
+Delete the system configuration property.
+
+```bash
+sapcli gcts system config unset KEY [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters**:
+- `KEY`: The identifier of configuration property
+- `--format`: The format of the command's output
 
 
 # Deprecated

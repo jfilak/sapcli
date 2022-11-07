@@ -176,6 +176,11 @@ class UserBuilder:
         add_to_dict_if_not_present(password, 'BAPIPWD', '')
         params['PASSWORD'] = password
 
+    def _rfc_params_add_alias(self, params):
+        alias = copy_dict_or_new(self._alias)
+        add_to_dict_if_not_present(alias, 'USERALIAS', '')
+        params['ALIAS'] = alias
+
     def build_rfc_params(self) -> RFCParams:
         """Creates RFC parameters for Creating users"""
 
@@ -191,9 +196,7 @@ class UserBuilder:
 
         self._rfc_params_add_password(params)
 
-        alias = copy_dict_or_new(self._alias)
-        add_to_dict_if_not_present(alias, 'USERALIAS', '')
-        params['ALIAS'] = alias
+        self._rfc_params_add_alias(params)
 
         logondata = copy_dict_or_new(self._logondata_data)
         add_to_dict_if_not_present(logondata, 'GLTGV', today_sap_date())
@@ -211,6 +214,10 @@ class UserBuilder:
         if self._password:
             self._rfc_params_add_password(params)
             params['PASSWORDX'] = {'BAPIPWD': 'X'}
+
+        if self._alias:
+            self._rfc_params_add_alias(params)
+            params['ALIASX'] = {'BAPIALIAS': 'X'}
 
         return params
 
