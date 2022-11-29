@@ -3,7 +3,7 @@
 import datetime
 
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, call, patch
 
 from sap.rfc.bapi import BAPIError, BAPIReturn
 from sap.rfc.user import add_to_dict_if_not_none, add_to_dict_if_not_present, today_sap_date, \
@@ -338,7 +338,51 @@ class TestUserManager(unittest.TestCase):
 
         retval = self.manager.change_user(self.connection, user_builder)
 
-        self.connection.call.assert_called_once_with('BAPI_USER_CHANGE', **user_builder.build_change_rfc_params())
+        self.assertEqual(self.connection.call.call_count, 2)
+
+        self.connection.call.assert_has_calls([call('BAPI_USER_GET_DETAIL', USERNAME=user_builder.get_username()),
+                                               call('BAPI_USER_CHANGE', **user_builder.build_change_rfc_params())])
+
+        self.assertEqual(str(retval), str(BAPIReturn(self.bapirettab)))
+
+    def test_create_user_and_set_productive_pass_ok(self):
+        user_builder = self.manager.user_builder()
+        user_builder.set_username(self.username)
+        user_builder.set_productive_password(True)
+        user_builder.set_password('UnitTestPass')
+        user_builder.set_type('A')
+
+        self.bapirettab.append(create_bapiret_info('Created'))
+
+        mock_message_pwd_changed = {'TYPE': 'S', 'ID': 'NFO', 'NUMBER': '777', 'MESSAGE': 'Password Changed'}
+
+        with patch('sap.rfc.user.UserManager._call_user_change_password', return_value={'RETURN': mock_message_pwd_changed}) as mock_call_user_change_pwd:
+            retval = self.manager.create_user(self.connection, user_builder)
+
+        mock_call_user_change_pwd.assert_called_once()
+
+        self.connection.call.assert_called_once_with('BAPI_USER_CREATE1', **user_builder.build_rfc_params())
+
+        self.assertEqual(str(retval), str(BAPIReturn(self.bapirettab)))
+
+    def test_change_user_and_set_productive_pass_ok(self):
+        user_builder = self.manager.user_builder()
+        user_builder.set_username(self.username)
+        user_builder.set_productive_password(True)
+        user_builder.set_password('UnitTestPass')
+
+        self.bapirettab.append(create_bapiret_info('Changed'))
+
+        mock_message_pwd_changed = {'TYPE': 'S', 'ID': 'NFO', 'NUMBER': '777', 'MESSAGE': 'Password Changed'}
+
+        with patch('sap.rfc.user.UserManager.fetch_user_details', return_value={'LOGONDATA': {'USTYP': 'A'}}) as mock_fetch_user_details, \
+             patch('sap.rfc.user.UserManager._call_user_change_password', return_value={'RETURN': mock_message_pwd_changed}) as mock_call_user_change_pwd:
+            retval = self.manager.change_user(self.connection, user_builder)
+
+        mock_fetch_user_details.assert_called_once()
+        mock_call_user_change_pwd.assert_called_once()
+
+        self.connection.call.assert_called_once_with('BAPI_USER_CHANGE', USERNAME='logon', PASSWORD={'BAPIPWD': 'DummyPwd123!'}, PASSWORDX={'BAPIPWD': 'X'})
 
         self.assertEqual(str(retval), str(BAPIReturn(self.bapirettab)))
 
