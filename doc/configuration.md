@@ -100,3 +100,4 @@ or as the environment variable `SAP_PASSWORD`, sapcli will prompt you for it.
 - `SAPCLI_LOG_LEVEL` : pass the desired log level - the lower number the more
   messages (`CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10, NOTSET=0`)
 - `SAPCLI_HTTP_TIMEOUT` : floating point number representing timeout for HTTP requests; default=900s
+- `SAPCLI_ABAP_USER_DUMMY_PASSWORD` : string representing a dummy password which is used as a temporary password when changing user's password to productive; default='DummyPwd123!'

@@ -5,7 +5,7 @@ import xml.sax
 from xml.sax.handler import ContentHandler
 from xml.sax.saxutils import escape
 
-from typing import NamedTuple, Any, List, Tuple
+from typing import NamedTuple, Any, List, Optional, Tuple
 
 from sap import get_logger
 from sap.errors import SAPCliError
@@ -112,8 +112,9 @@ class WorkbenchRequestResponseCreate(NamedTuple):
 class AbstractWorkbenchRequest:
     """Workbench request"""
 
-    def __init__(self, connection, number: str, owner: str = None,
-                 description: str = None, status: str = None, target: str = None):
+    def __init__(self, connection, number: str, owner: Optional[str] = None,
+                 description: Optional[str] = None, status: Optional[str] = None,
+                 target: Optional[str] = None):
         """
         Parameters:
           - status: single character from the set R,D,?

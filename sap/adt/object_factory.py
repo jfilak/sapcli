@@ -1,6 +1,6 @@
 """Create instances of ADT object proxies by various names"""
 
-from typing import Callable, Dict, List, cast
+from typing import Callable, Dict, List, Optional, cast
 
 import sap.adt
 import sap.adt.core
@@ -15,7 +15,7 @@ class ADTObjectFactory:
     """Factory producing ADT object Proxies.
     """
 
-    def __init__(self, connection: sap.adt.core.Connection, builders: ADTObjectBuilderDictType = None):
+    def __init__(self, connection: sap.adt.core.Connection, builders: Optional[ADTObjectBuilderDictType] = None):
         self._connection = connection
         if builders:
             self._builders = builders

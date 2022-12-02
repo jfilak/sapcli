@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import MagicMock, patch, Mock, PropertyMock
+from unittest.mock import MagicMock, patch, Mock, PropertyMock, call
 
 import sap.cli.user
 from sap.rfc.user import today_sap_date
@@ -97,7 +97,7 @@ class TestUserChange(PatcherTestCase, ConsoleOutputTestCase):
         self.patch_console(console=self.console)
         self.conn = Mock()
 
-    def test_create_ok(self):
+    def test_change_ok(self):
         self.conn.call.return_value = {
             'RETURN': [create_bapiret_info('User changed')],
         }
@@ -106,11 +106,11 @@ class TestUserChange(PatcherTestCase, ConsoleOutputTestCase):
 
         args.execute(self.conn, args)
 
-        self.conn.call.assert_called_once_with('BAPI_USER_CHANGE',
-                USERNAME='ANZEIGER',
-                PASSWORD={'BAPIPWD': 'Victory1!'},
-                PASSWORDX={'BAPIPWD': 'X'},
-        )
+        self.assertEqual(
+            self.conn.call.call_args_list,
+            [call('BAPI_USER_GET_DETAIL', USERNAME='ANZEIGER'),
+             call('BAPI_USER_CHANGE', USERNAME='ANZEIGER',
+                PASSWORD={'BAPIPWD': 'Victory1!'}, PASSWORDX={'BAPIPWD': 'X'})])
 
         self.assertConsoleContents(
                 console=self.console,
