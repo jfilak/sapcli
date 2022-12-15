@@ -3,11 +3,13 @@
 import datetime
 
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, call, patch
 
+from sap.errors import SAPCliError
 from sap.rfc.bapi import BAPIError, BAPIReturn
 from sap.rfc.user import add_to_dict_if_not_none, add_to_dict_if_not_present, today_sap_date, \
-         UserBuilder, UserRoleAssignmentBuilder, UserProfileAssignmentBuilder, UserManager
+         UserBuilder, UserRoleAssignmentBuilder, UserProfileAssignmentBuilder, UserManager, \
+         UserPasswordManager
 
 from test_sap_rfc_bapi import (
         create_bapiret_error,
@@ -338,9 +340,69 @@ class TestUserManager(unittest.TestCase):
 
         retval = self.manager.change_user(self.connection, user_builder)
 
-        self.connection.call.assert_called_once_with('BAPI_USER_CHANGE', **user_builder.build_change_rfc_params())
+        self.assertEqual(self.connection.call.call_count, 2)
+
+        self.connection.call.assert_has_calls([call('BAPI_USER_GET_DETAIL', USERNAME=user_builder.get_username()),
+                                               call('BAPI_USER_CHANGE', **user_builder.build_change_rfc_params())])
 
         self.assertEqual(str(retval), str(BAPIReturn(self.bapirettab)))
+
+    def test_create_user_and_set_productive_pass_ok(self):
+        user_builder = self.manager.user_builder()
+        user_builder.set_username(self.username)
+        user_builder.set_password('UnitTestPass', True)
+        user_builder.set_type('A')
+
+        self.bapirettab.append(create_bapiret_info('Created'))
+
+        mock_message_pwd_changed = {'TYPE': 'S', 'ID': 'NFO', 'NUMBER': '777', 'MESSAGE': 'Password Changed'}
+
+        with patch('sap.rfc.user.UserManager._call_user_change_password', return_value={'RETURN': mock_message_pwd_changed}) as mock_call_user_change_pwd:
+            retval = self.manager.create_user(self.connection, user_builder)
+
+        mock_call_user_change_pwd.assert_called_once()
+
+        self.connection.call.assert_called_once_with('BAPI_USER_CREATE1', **user_builder.build_rfc_params())
+
+        self.assertEqual(str(retval), str(BAPIReturn(self.bapirettab)))
+
+    def test_change_user_and_set_productive_pass_ok(self):
+        user_builder = self.manager.user_builder()
+        user_builder.set_username(self.username)
+        user_builder.set_password('UnitTestPass', True)
+
+        self.bapirettab.append(create_bapiret_info('Changed'))
+
+        mock_message_pwd_changed = {'TYPE': 'S', 'ID': 'NFO', 'NUMBER': '777', 'MESSAGE': 'Password Changed'}
+
+        with patch('sap.rfc.user.UserManager.fetch_user_details', return_value={'LOGONDATA': {'USTYP': 'A'}}) as mock_fetch_user_details, \
+             patch('sap.rfc.user.UserManager._call_user_change_password', return_value={'RETURN': mock_message_pwd_changed}) as mock_call_user_change_pwd, \
+             patch.dict('os.environ', {'SAPCLI_ABAP_USER_DUMMY_PASSWORD': 'UnitTestPass999!'}) as mock_environ:
+            retval = self.manager.change_user(self.connection, user_builder)
+
+        mock_fetch_user_details.assert_called_once()
+        mock_call_user_change_pwd.assert_called_once()
+
+        self.connection.call.assert_called_once_with('BAPI_USER_CHANGE', USERNAME='logon', PASSWORD={'BAPIPWD': 'UnitTestPass999!'}, PASSWORDX={'BAPIPWD': 'X'})
+
+        self.assertEqual(str(retval), str(BAPIReturn(self.bapirettab)))
+
+    def test_change_user_and_set_productive_pass_fail(self):
+        same_password = 'UnitTestPass'
+        
+        user_builder = self.manager.user_builder()
+        user_builder.set_username(self.username)
+        user_builder.set_password(same_password, True)
+
+        self.bapirettab.append(create_bapiret_info('Changed'))
+        retval = None
+
+        with patch('sap.rfc.user.UserManager.fetch_user_details', return_value={'LOGONDATA': {'USTYP': 'A'}}) as mock_fetch_user_details, \
+             patch.dict('os.environ', {'SAPCLI_ABAP_USER_DUMMY_PASSWORD': same_password}) as mock_environ, \
+             self.assertRaises(SAPCliError):
+            retval = self.manager.change_user(self.connection, user_builder)
+
+        self.assertIsNone(retval)
 
     def test_change_user_fail(self):
         user_builder = self.manager.user_builder()
@@ -350,3 +412,46 @@ class TestUserManager(unittest.TestCase):
 
         with self.assertRaises(BAPIError) as caught:
             self.manager.change_user(self.connection, user_builder)
+
+
+class TestUserPasswordManager(unittest.TestCase):
+
+    def setUp(self):
+        self.userPasswordManager = UserPasswordManager()
+
+    def _test_wrong_use_productive_password_flag(self):
+        self.userPasswordManager._use_productive_password = False
+        self.userPasswordManager._password = 'UnitTest'
+        self.userPasswordManager._user_type = 'A'
+        self.assertEqual(self.userPasswordManager.is_productive_password_needed(), False)
+
+    def _test_wrong_password(self):
+        self.userPasswordManager._use_productive_password = True
+        self.userPasswordManager._password = ''
+        self.userPasswordManager._user_type = 'A'
+        self.assertEqual(self.userPasswordManager.is_productive_password_needed(), False)
+
+    def _test_wrong_user_type(self):
+        self.userPasswordManager._use_productive_password = True
+        self.userPasswordManager._password = 'UnitTest'
+        self.userPasswordManager._user_type = 'B'
+        self.assertEqual(self.userPasswordManager.is_productive_password_needed(), False)
+
+    def _test_valid_attributes_with_user_type_A(self):
+        self.userPasswordManager._use_productive_password = True
+        self.userPasswordManager._password = 'UnitTest'
+        self.userPasswordManager._user_type = 'A'
+        self.assertEqual(self.userPasswordManager.is_productive_password_needed(), True)
+
+    def _test_valid_attributes_with_user_type_C(self):
+        self.userPasswordManager._use_productive_password = True
+        self.userPasswordManager._password = 'UnitTest'
+        self.userPasswordManager._user_type = 'C'
+        self.assertEqual(self.userPasswordManager.is_productive_password_needed(), True)
+
+    def test_is_productive_password_needed(self):
+        self._test_wrong_use_productive_password_flag()
+        self._test_wrong_password()
+        self._test_wrong_user_type()
+        self._test_valid_attributes_with_user_type_A()
+        self._test_valid_attributes_with_user_type_C()

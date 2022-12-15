@@ -1,9 +1,12 @@
 """User management over RFC"""
 
+import os
 import datetime
 
 from typing import Dict, Optional, Union, List
 
+from sap import get_logger
+from sap.errors import SAPCliError
 from sap.rfc.core import RFCParams
 from sap.rfc.bapi import (
     BAPIError,
@@ -62,6 +65,67 @@ def today_sap_date() -> str:
     return sap_date_from(datetime.date.today())
 
 
+def mod_log():
+    """rfc.core module logger"""
+
+    return get_logger()
+
+
+class UserPasswordManager:
+    """An utility class for handling productive password"""
+
+    def __init__(self):
+        self._use_productive_password = None
+        self._password = None
+        self._user_type = None
+
+    def get_use_productive_password(self) -> bool:
+        """Get if new password should be productive or not"""
+
+        return self._use_productive_password
+
+    def get_password(self) -> str:
+        """Get user's new password"""
+
+        return self._password
+
+    def get_user_type(self) -> str:
+        """Get user type"""
+
+        return self._user_type
+
+    def get_dummy_password(self) -> str:
+        """Get dummy password"""
+
+        return os.environ.get('SAPCLI_ABAP_USER_DUMMY_PASSWORD', 'DummyPwd123!')
+
+    def set_use_productive_password(self, use_productive_password: bool):
+        """Set if new password should be productive or not"""
+
+        self._use_productive_password = use_productive_password
+        return self._use_productive_password
+
+    def set_password(self, password):
+        """Set user's new password"""
+
+        self._password = password
+        return self._password
+
+    def set_user_type(self, user_type: str):
+        """Set user type"""
+
+        self._user_type = user_type
+        return self._user_type
+
+    def is_productive_password_needed(self) -> bool:
+        """Is it requested to use a productive password for Dialog or Communications Data user"""
+
+        return all([
+            self.get_use_productive_password(),
+            self.get_password(),
+            self.get_user_type() in ['A', 'C']])     # A = Dialog, C = Communications Data
+
+
 class UserBuilder:
     """An utility class for building SAP user parameters"""
 
@@ -71,6 +135,7 @@ class UserBuilder:
         self._logondata = None
         self._password = None
         self._alias = None
+        self._userPasswordManager = UserPasswordManager()
 
     @property
     def _address_data(self) -> UserAddress:
@@ -124,10 +189,12 @@ class UserBuilder:
         self._address['E_MAIL'] = email_address
         return self
 
-    def set_password(self, password: str):
+    def set_password(self, password: str, productive_password=False):
         """Sets user's password - works only for the user type Service"""
 
         self._password_data['BAPIPWD'] = password
+        self._userPasswordManager.set_password(password)
+        self._userPasswordManager.set_use_productive_password(productive_password)
         return self
 
     def set_alias(self, alias: str):
@@ -140,6 +207,7 @@ class UserBuilder:
         """Sets user's type"""
 
         self._logondata_data['USTYP'] = typ
+        self._userPasswordManager.set_user_type(typ)
         return self
 
     def set_group(self, group: str):
@@ -168,11 +236,28 @@ class UserBuilder:
 
         return self
 
+    def get_username(self) -> str:
+        """Get user's name"""
+
+        return self._username
+
+    def get_user_password_manager(self) -> UserPasswordManager:
+        """Set user's password status"""
+
+        return self._userPasswordManager
+
     def _rfc_params_add_username(self, params):
         add_to_dict_if_not_none(params, 'USERNAME', self._username)
 
     def _rfc_params_add_password(self, params):
-        password = copy_dict_or_new(self._password)
+        if self._userPasswordManager.is_productive_password_needed():
+            if self._userPasswordManager.get_dummy_password() == self._userPasswordManager.get_password():
+                raise SAPCliError('Dummy password matches the new productive password')
+
+            password = copy_dict_or_new({'BAPIPWD': self._userPasswordManager.get_dummy_password()})
+        else:
+            password = copy_dict_or_new(self._password)
+
         add_to_dict_if_not_present(password, 'BAPIPWD', '')
         params['PASSWORD'] = password
 
@@ -296,6 +381,34 @@ class UserManager:
         BAPIError.raise_for_error(resp['RETURN'], resp)
         return resp
 
+    def _call_user_change_password(self, connection, params):
+        return self._call_bapi_method(connection, 'SUSR_USER_CHANGE_PASSWORD_RFC', params)
+
+    def _fetch_user_type(self, connection, username: UserId) -> str:
+        bapi_return = self.fetch_user_details(connection, username)
+
+        if not bapi_return.get('LOGONDATA'):
+            mod_log().debug('No values found for key LOGONDATA.')
+        if not bapi_return.get('LOGONDATA', {}).get('USTYP'):
+            mod_log().debug('No values found for key USTYP.')
+
+        return bapi_return.get('LOGONDATA', {}).get('USTYP', '')
+
+    def _change_user_password(self, connection, user_builder: UserBuilder) -> Optional[dict]:
+        user_pass_mgr = user_builder.get_user_password_manager()
+
+        if not user_pass_mgr.is_productive_password_needed():
+            return None
+
+        change_password_param = {
+            'BNAME': user_builder.get_username(),
+            'PASSWORD': user_pass_mgr.get_dummy_password(),
+            'NEW_PASSWORD': user_pass_mgr.get_password(),
+            'USE_BAPI_RETURN': 1
+        }
+        rfc_bapi_ret = self._call_user_change_password(connection, change_password_param)
+        return rfc_bapi_ret['RETURN']
+
     def user_builder(self) -> UserBuilder:
         """Returns instance of User Parameters builder"""
 
@@ -312,13 +425,29 @@ class UserManager:
         """Creates a new user for the given user data"""
 
         rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CREATE1', user_builder.build_rfc_params())
-        return BAPIReturn(rfc_ret['RETURN'])
+        bapi_messages = rfc_ret['RETURN']
+
+        rfc_password_change_ret = self._change_user_password(connection, user_builder)
+        if rfc_password_change_ret:
+            bapi_messages.append(rfc_password_change_ret)
+
+        return BAPIReturn(bapi_messages)
 
     def change_user(self, connection, user_builder: UserBuilder) -> BAPIReturn:
         """Updates user with the given user data"""
 
+        rfc_user_type = self._fetch_user_type(connection, user_builder.get_username())
+        user_pass_mgr = user_builder.get_user_password_manager()
+        user_pass_mgr.set_user_type(rfc_user_type)
+
         rfc_ret = self._call_bapi_method(connection, 'BAPI_USER_CHANGE', user_builder.build_change_rfc_params())
-        return BAPIReturn(rfc_ret['RETURN'])
+        bapi_messages = rfc_ret['RETURN']
+
+        rfc_password_change_ret = self._change_user_password(connection, user_builder)
+        if rfc_password_change_ret:
+            bapi_messages.append(rfc_password_change_ret)
+
+        return BAPIReturn(bapi_messages)
 
     def user_role_assignment_builder(self, username: str) -> UserRoleAssignmentBuilder:
         """Returns instance of User Role Assignment builder"""
