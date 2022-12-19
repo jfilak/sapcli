@@ -9,6 +9,7 @@ from sap.rest.errors import HTTPRequestError, UnauthorizedError
 import sap.rest.gcts
 import sap.rest.gcts.remote_repo
 import sap.rest.gcts.simple
+import sap.rest.gcts.sugar
 
 from mock import Request, Response, RESTConnection, make_gcts_log_error
 from mock import GCTSLogBuilder as LogBuilder
@@ -1241,3 +1242,178 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             ),
             self
         )
+
+
+class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
+
+    def setUp(self):
+        self.fake_repo = Mock()
+        self.progress = sap.rest.gcts.sugar.LogSugarOperationProgress()
+        self.new_branch = 'new_branch'
+
+        self.fake_log_info = Mock()
+        fake_get_logger = patch('sap.rest.gcts.sugar.get_logger').start()
+        fake_get_logger.return_value.info = self.fake_log_info
+
+    @patch.multiple(sap.rest.gcts.sugar.SugarOperationProgress, __abstractmethods__=set())
+    def test_sugar_operation_progress(self):
+        progress = sap.rest.gcts.sugar.SugarOperationProgress()
+
+        self.assertEqual(progress.recover_message, None)
+
+        with self.assertRaises(NotImplementedError):
+            progress.update('message', 'recover_message')
+
+        self.assertEqual(progress.recover_message, 'recover_message')
+
+    def test_log_sugar_operation_progress(self):
+        log_msg = 'Log message.'
+        recover_msg = 'Recover message.'
+
+        self.progress.update(log_msg, recover_message=recover_msg)
+
+        self.assertEqual(self.progress.recover_message, recover_msg)
+        self.fake_log_info.assert_called_once_with(log_msg)
+
+    def test_abap_modifications_disabled_reset(self):
+        self.fake_repo.get_config.return_value = 'false'
+
+        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "true" ...'),
+                              call('Successfully changed the config VCS_NO_IMPORT = "false" -> "true"')]
+            self.fake_log_info.assert_has_calls(log_info_calls)
+            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+            self.assertEqual(self.progress.recover_message,
+                             'Please set the configuration option VCS_NO_IMPORT = "false" manually')
+
+        log_info_calls += [call('Resetting the config VCS_NO_IMPORT = "false" ...'),
+                           call('Successfully reset the config VCS_NO_IMPORT = "false"')]
+        self.fake_log_info.assert_has_calls(log_info_calls)
+        self.fake_repo.set_config.assert_called_with('VCS_NO_IMPORT', 'false')
+        self.assertEqual(self.progress.recover_message, None)
+
+    def test_abap_modifications_disabled_reset_error(self):
+        self.fake_repo.get_config.return_value = 'false'
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+                self.fake_repo.set_config.side_effect = sap.rest.errors.SAPCliError('Set of configuration failed.')
+
+        self.assertEqual(str(cm.exception), 'Set of configuration failed.')
+        self.assertEqual(self.progress.recover_message,
+                         'Please set the configuration option VCS_NO_IMPORT = "false" manually')
+
+    def test_abap_modifications_disabled_delete(self):
+        self.fake_repo.get_config.return_value = None
+
+        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "true" ...'),
+                              call('Successfully added the config VCS_NO_IMPORT = "true"')]
+            self.fake_log_info.assert_has_calls(log_info_calls)
+            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+            self.assertEqual(self.progress.recover_message,
+                             'Please delete the configuration option VCS_NO_IMPORT manually')
+
+        log_info_calls += [call('Removing the config VCS_NO_IMPORT ...'),
+                           call('Successfully removed the config VCS_NO_IMPORT')]
+        self.fake_log_info.assert_has_calls(log_info_calls)
+        self.fake_repo.delete_config.assert_called_once_with('VCS_NO_IMPORT')
+        self.assertEqual(self.progress.recover_message, None)
+
+    def test_abap_modifications_disabled_delete_error(self):
+        self.fake_repo.get_config.return_value = None
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+                self.fake_repo.delete_config.side_effect = sap.rest.errors.SAPCliError('Delete config failed.')
+
+        self.assertEqual(str(cm.exception), 'Delete config failed.')
+        self.assertEqual(self.progress.recover_message,
+                         'Please delete the configuration option VCS_NO_IMPORT manually')
+
+    def test_abap_modifications_disabled_donothing(self):
+        self.fake_repo.get_config.return_value = 'true'
+
+        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "true" ...'),
+                              call('The config VCS_NO_IMPORT was already set to "true"')]
+            self.fake_log_info.assert_has_calls(log_info_calls)
+            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+
+        log_info_calls += [call('The config VCS_NO_IMPORT has not beed changed')]
+        self.fake_log_info.assert_has_calls(log_info_calls)
+        self.assertEqual(self.progress.recover_message, None)
+
+    def test_abap_modifications_disabled_without_progress(self):
+        self.fake_repo.get_config.return_value = 'true'
+
+        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo):
+            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "true" ...'),
+                              call('The config VCS_NO_IMPORT was already set to "true"')]
+            self.fake_log_info.assert_has_calls(log_info_calls)
+            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+
+        log_info_calls += [call('The config VCS_NO_IMPORT has not beed changed')]
+        self.fake_log_info.assert_has_calls(log_info_calls)
+
+    def test_temporary_switched_branch_checkout(self):
+        self.fake_repo.branch = 'old_branch'
+
+        with sap.rest.gcts.sugar.temporary_switched_branch(self.fake_repo, self.new_branch, self.progress):
+            log_info_calls = [call(f'Temporary switching to the updated branch {self.new_branch} ...'),
+                              call(f'Successfully switched to the updated branch {self.new_branch}')]
+            self.fake_log_info.assert_has_calls(log_info_calls)
+            self.fake_repo.checkout.assert_called_once_with(self.new_branch)
+            self.assertEqual(self.progress.recover_message, 'Please switch to the branch old_branch manually')
+
+        log_info_calls += [call('Restoring the previously active branch old_branch ...'),
+                           call('Successfully restored the previously active branch old_branch')]
+        self.fake_log_info.assert_has_calls(log_info_calls)
+        self.fake_repo.checkout.assert_called_with('old_branch')
+        self.assertEqual(self.progress.recover_message, None)
+
+    def test_temporary_switched_branch_checkout_error(self):
+        self.fake_repo.branch = 'old_branch'
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            with sap.rest.gcts.sugar.temporary_switched_branch(self.fake_repo, self.new_branch, self.progress):
+                self.fake_repo.checkout.side_effect = sap.rest.errors.SAPCliError('Checkout failed.')
+
+        self.assertEqual(str(cm.exception), 'Checkout failed.')
+        self.assertEqual(self.progress.recover_message,
+                         'Please double check if the original branch old_branch is active')
+
+    def test_temporary_switched_branch_pre_checkout_error(self):
+        self.fake_repo.branch = 'old_branch'
+        self.fake_repo.checkout.side_effect = sap.rest.errors.SAPCliError('Checkout failed.')
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            with sap.rest.gcts.sugar.temporary_switched_branch(self.fake_repo, self.new_branch, self.progress):
+                self.assertEqual(self.progress.recover_message,
+                                 'Please double check if the original branch old_branch is active')
+
+        self.assertEqual(str(cm.exception), 'Checkout failed.')
+
+    def test_temporary_switched_branch_donothing(self):
+        self.fake_repo.branch = self.new_branch
+
+        with sap.rest.gcts.sugar.temporary_switched_branch(self.fake_repo, self.new_branch, self.progress):
+            log_info_calls = [call(f'The updated branch {self.new_branch} is already active')]
+            self.fake_log_info.assert_has_calls(log_info_calls)
+            self.assertEqual(self.progress.recover_message, None)
+
+        log_info_calls += [call(f'The updated branch {self.new_branch} remains active')]
+        self.fake_log_info.assert_has_calls(log_info_calls)
+        self.assertEqual(self.progress.recover_message, None)
+        self.fake_repo.checkout.assert_not_called()
+
+    def test_temporary_switched_branch_without_progress(self):
+        self.fake_repo.branch = self.new_branch
+
+        with sap.rest.gcts.sugar.temporary_switched_branch(self.fake_repo, self.new_branch):
+            log_info_calls = [call(f'The updated branch {self.new_branch} is already active')]
+            self.fake_log_info.assert_has_calls(log_info_calls)
+
+        log_info_calls += [call(f'The updated branch {self.new_branch} remains active')]
+        self.fake_log_info.assert_has_calls(log_info_calls)
+        self.fake_repo.checkout.assert_not_called()
