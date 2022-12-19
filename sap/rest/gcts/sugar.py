@@ -11,15 +11,16 @@ def _mod_log():
 
 
 class SugarOperationProgress(metaclass=abc.ABCMeta):
+    """Abstract class for recording progress of sugar operations."""
 
-    def __init__(self, progress=None):
-        self._progress = progress
+    def __init__(self):
         self.recover_message = None
 
     def update(self, message, recover_message=None):
+        """Update progress of operation."""
+
         self.recover_message = recover_message
         self._handle_updated(message, recover_message)
-
 
     @abc.abstractmethod
     def _handle_updated(self, message, recover_message):
@@ -27,6 +28,7 @@ class SugarOperationProgress(metaclass=abc.ABCMeta):
 
 
 class LogSugarOperationProgress(SugarOperationProgress):
+    """Recording progress of sugar operations as logs."""
 
     def _handle_updated(self, message, recover_message):
         _mod_log().info(message)
@@ -42,7 +44,8 @@ def abap_modifications_disabled(repo, progress=None):
         progress = LogSugarOperationProgress()
 
     def _reset(previous):
-        progress.update(f'Resetting the config VCS_NO_IMPORT = "{previous}" ...',
+        progress.update(
+            f'Resetting the config VCS_NO_IMPORT = "{previous}" ...',
             recover_message=f'Please set the configuration option VCS_NO_IMPORT = "{old_vcs_no_import}" manually'
         )
         repo.set_config('VCS_NO_IMPORT', previous)
@@ -70,7 +73,7 @@ def abap_modifications_disabled(repo, progress=None):
         revert_action = _delete
         progress.update(
             f'Successfully added the config VCS_NO_IMPORT = "{tmp_vcs_no_import}"',
-            recover_message=f'Please delete the configuration option VCS_NO_IMPORT manually'
+            recover_message='Please delete the configuration option VCS_NO_IMPORT manually'
         )
     elif old_vcs_no_import != tmp_vcs_no_import:
         revert_action = _reset
@@ -112,10 +115,10 @@ def temporary_switched_branch(repo, branch, progress=None):
     if old_branch != branch:
         revert_action = _checkout
         progress.update(f'Temporary switching to the updated branch {branch} ...',
-                        recover_message=f'Please double check if the originl branch {old_branch} is active')
+                        recover_message=f'Please double check if the original branch {old_branch} is active')
         repo.checkout(branch)
         progress.update(f'Successfully switched to the updated branch {branch}',
-                        recover_message=f'Please switch if the branch {old_branch} manually')
+                        recover_message=f'Please switch to the branch {old_branch} manually')
     else:
         revert_action = _donothing
         progress.update(f'The updated branch {branch} is already active')
