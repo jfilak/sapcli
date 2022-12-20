@@ -270,14 +270,72 @@ def profile_list(connection, args):
                 printout('')
 
 
+# pylint: disable=too-many-nested-blocks,consider-using-dict-items
 @ProfileCommandGroup.argument('-p', '--profiles', nargs='*',
                               help='dump specific profiles (comman separated list)')
 @ProfileCommandGroup.argument('-c', '--checkman', action='store_true', default=False,
                               help='possibility to dump checkman configuration (local priorities etc.)')
+@ProfileCommandGroup.argument('-f', '--format', choices=['json', 'ajson'], default='json',
+                              help='output format, default is json (ajson is json with arrays, no dictionaries)')
 @ProfileCommandGroup.command('dump')
 def profile_dump(connection, args):
     """Dumps ATC profiles."""
 
     result = sap.adt.atc.dump_profiles(connection, args.profiles, priorities=True, checkman=args.checkman)
 
-    printout(json.dumps(result, indent=2))
+    # convert output to json arrays if requested
+    if args.format == 'ajson':
+
+        result_new = {}
+
+        for rootkey in result:
+
+            if rootkey == 'profiles':
+                profiles = result[rootkey]
+
+                profiles_new = []
+                for prfid in profiles:
+                    profile_new = dict(profiles[prfid])
+                    profile_new['id'] = prfid
+
+                    checks = profile_new['checks']
+
+                    profile_new['checks'] = []
+
+                    for chkid in checks:
+                        check_new = dict(checks[chkid])
+                        check_new['id'] = chkid
+
+                        prios = check_new['priorities']
+                        check_new['priorities'] = []
+                        for idmsg in prios:
+                            prio_new = dict(prios[idmsg])
+                            prio_new['id'] = idmsg
+                            if 'check_message_id' in prio_new:
+                                del prio_new['check_message_id']
+                            check_new['priorities'].append(prio_new)
+
+                        # sort priorities by MSGID
+                        check_new['priorities'].sort(key=lambda x: x['id'])
+
+                        profile_new['checks'].append(check_new)
+
+                    # sort checks by CHKID
+                    profile_new['checks'].sort(key=lambda x: x['id'])
+
+                    profiles_new.append(profile_new)
+
+                # sort profiles by ID
+                profiles_new.sort(key=lambda x: x['id'])
+
+                result_new['profiles'] = profiles_new
+
+            else:
+                result_new[rootkey] = result[rootkey]
+
+        result = result_new
+
+    # dump json to output, where:
+    # - indent: pretty print with indentation
+    # - sort_keys: sort keys in all serialized dictionaries
+    printout(json.dumps(result, indent=2, sort_keys=True))
