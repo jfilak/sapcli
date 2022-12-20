@@ -615,5 +615,122 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
 ''')
         self.assertEqual(1, ret)
 
+
+class TestDump(unittest.TestCase):
+
+    @patch('sap.adt.atc.dump_profiles')
+    def test_dump_format_default(self, fake_dump_profiles):
+        connection = Mock()
+
+        fake_dump_profiles.return_value = {
+            'profiles': {
+                'PROFILE1': {
+                  'description': 'PROFILE1 desc',
+                  'created': '20020628073733'
+                }
+            }
+        }
+
+        args = parse_args('profile', 'dump')
+        with patch('sap.cli.atc.printout', Mock()) as fake_printout:
+            args.execute(connection, args)
+
+        fake_printout.assert_called_once_with(
+'''{
+  "profiles": {
+    "PROFILE1": {
+      "created": "20020628073733",
+      "description": "PROFILE1 desc"
+    }
+  }
+}''')
+
+    @patch('sap.adt.atc.dump_profiles')
+    def test_dump_format_ajson(self, fake_dump_profiles):
+        connection = Mock()
+
+        fake_dump_profiles.return_value = {
+            'profiles': {
+                'PROFILE1': {
+                    'description': 'PROFILE1 desc',
+                    'created': '20020628073733',
+                    'checks': {
+                        'XCHK1': {
+                            'class': 'XCHK1CLASS',
+                            'description': 'XCHK1DESC',
+                            'priorities': {
+                                'PRIO4': {
+                                    'check_message_id': 'PRIO4',
+                                    'prio': 4,
+                                    'description': 'PRIO4DESC'
+                                },
+                                'PRIO1': {
+                                    'prio': 1,
+                                    'check_message_id': 'PRIO1',
+                                    'description': 'PRIO1DESC'
+                                }
+                            }
+                        },
+                        'CHK2': {
+                            'class': 'CHK2CLASS',
+                            'description': 'CHK2DESC',
+                            'priorities': []
+                        }
+                    }
+                }
+            },
+            "checkman_messages_local": []
+        }
+
+        args = parse_args('profile', 'dump', '-f', 'ajson')
+        with patch('sap.cli.atc.printout', Mock()) as fake_printout:
+            args.execute(connection, args)
+
+        # This is validation of following:
+        # - all profiles, checks and priorities are dumped
+        # - all root keys different than "profiles" are dumped
+        # - profiles, checks and priorities are serialized as arrays (not dictionaries)
+        # - all dictionary attributes are sorted alphabetically
+        # - all profiles are sorted alphabetically by "id" attribute
+        # - all checks are sorted alphabetically by "id" attribute
+        # - all priorities are sorted alphabetically by "id" attribute
+        fake_printout.assert_called_once_with(
+'''{
+  "checkman_messages_local": [],
+  "profiles": [
+    {
+      "checks": [
+        {
+          "class": "CHK2CLASS",
+          "description": "CHK2DESC",
+          "id": "CHK2",
+          "priorities": []
+        },
+        {
+          "class": "XCHK1CLASS",
+          "description": "XCHK1DESC",
+          "id": "XCHK1",
+          "priorities": [
+            {
+              "description": "PRIO1DESC",
+              "id": "PRIO1",
+              "prio": 1
+            },
+            {
+              "description": "PRIO4DESC",
+              "id": "PRIO4",
+              "prio": 4
+            }
+          ]
+        }
+      ],
+      "created": "20020628073733",
+      "description": "PROFILE1 desc",
+      "id": "PROFILE1"
+    }
+  ]
+}''')
+
+
 if __name__ == '__main__':
     unittest.main()
