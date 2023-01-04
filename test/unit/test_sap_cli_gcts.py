@@ -3,9 +3,10 @@
 from io import StringIO
 import unittest
 import json
-from unittest.mock import MagicMock, patch, Mock, PropertyMock
+from unittest.mock import MagicMock, patch, Mock, PropertyMock, mock_open, call
 
 import sap.cli.gcts
+import sap.cli.core
 
 from mock import (
     RESTConnection,
@@ -1008,6 +1009,51 @@ class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
 
+    def test_commit_package_full(self):
+        repo_name = 'the_repo'
+        message = 'Message'
+        description = 'Description'
+        devc = 'PACKAGE'
+
+        commit_cmd = self.commit_cmd(repo_name, '-m', message, '-d', devc, '--description', description)
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_connection.execs[0].assertEqual(
+            Request.post_json(
+                uri=f'repository/{repo_name}/commit',
+                body={
+                    'message': message,
+                    'autoPush': 'true',
+                    'objects': [{'object': devc, 'type': 'FULL_PACKAGE'}],
+                    'description': description
+                }
+            ),
+            self
+        )
+
+        self.assertConsoleContents(self.console, stdout=f'''The package "{devc}" has been committed\n''')
+
+    def test_commit_package_short(self):
+        repo_name = 'the_repo'
+        devc = repo_name.upper()
+
+        commit_cmd = self.commit_cmd(repo_name)
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_connection.execs[0].assertEqual(
+            Request.post_json(
+                uri=f'repository/{repo_name}/commit',
+                body={
+                    'message': f'Export package {devc}',
+                    'autoPush': 'true',
+                    'objects': [{'object': devc, 'type': 'FULL_PACKAGE'}]
+                }
+            ),
+            self
+        )
+
 
 class TestgCTSRepoSetUrl(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -1938,3 +1984,213 @@ class TestgCTSDeleteSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase)
         self.assertEqual(exit_code, 1)
         self.fake_delete_config_property.assert_called_once_with(self.fake_connection, self.config_key)
         self.assertConsoleContents(self.console, stderr='Request error\n')
+
+
+class TestgCTSConsoleSugarOperationProgress(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+
+    def test_progress_handle_update(self):
+        progress = sap.cli.gcts.ConsoleSugarOperationProgress(self.console)
+        progress.update('My message')
+
+        self.assertConsoleContents(self.console, stdout='My message\n')
+
+
+class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = Mock()
+
+        progress_patcher = patch('sap.cli.gcts.ConsoleSugarOperationProgress._handle_updated')
+        self.addCleanup(progress_patcher.stop)
+        progress_patcher.start()
+
+        self.from_commit = 'fromCommit'
+        self.to_commit = 'toCommit'
+        self.pull_response = {
+            'fromCommit': self.from_commit,
+            'toCommit': self.to_commit
+        }
+        self.fake_repo = Mock()
+        self.fake_repo.pull.return_value = self.pull_response
+
+        self.fake_get_repository_patcher = patch('sap.cli.gcts.get_repository')
+        self.addCleanup(self.fake_get_repository_patcher.stop)
+        self.fake_get_repository = self.fake_get_repository_patcher.start()
+        self.fake_get_repository.return_value = self.fake_repo
+
+    def update_filesystem_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'branch', 'update_filesystem', *args, **kwargs)
+
+    @patch('sap.cli.gcts.temporary_switched_branch')
+    @patch('sap.cli.gcts.abap_modifications_disabled')
+    def test_update_filesystem(self, fake_abap_mod_disabled, fake_temp_switched_branch):
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+
+        the_cmd = self.update_filesystem_cmd(repo_name, branch)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.pull.assert_called_once()
+        self.assertConsoleContents(
+            self.console,
+            stdout=f'Updating the currently active branch {branch} ...\n'
+                   f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
+        )
+        fake_abap_mod_disabled.assert_called_once()
+        fake_temp_switched_branch.assert_called_once()
+
+    def test_update_filesystem_output_to_file(self):
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+        output_file = 'file'
+
+        with patch('sap.cli.gcts.os.path.exists', return_value=False):
+            with patch('builtins.open', mock_open()) as fake_open:
+                the_cmd = self.update_filesystem_cmd(repo_name, branch, '-o', output_file)
+                exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        fake_open().write.assert_called_once_with(sap.cli.core.json_dumps(self.pull_response))
+        self.assertEqual(exit_code, 0)
+        self.assertConsoleContents(
+            self.console,
+            stdout=f'Updating the currently active branch {branch} ...\n'
+                   f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
+                   f'Writing gCTS JSON response to {output_file} ...\n'
+                   f'Successfully wrote gCTS JSON response to {output_file}\n'
+        )
+
+    def test_update_filesystem_output_to_existing_file(self):
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+        output_file = 'file'
+
+        with patch('sap.cli.gcts.os.path.exists', return_value=True):
+            the_cmd = self.update_filesystem_cmd(repo_name, branch, '-o', output_file)
+            exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr=f'Output file must not exist: {output_file}\n')
+
+    def test_update_filesystem_output_to_file_no_pull_response(self):
+        self.fake_repo.pull.return_value = {}
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+
+        with patch('sap.cli.gcts.os.path.exists', return_value=False):
+            the_cmd = self.update_filesystem_cmd(repo_name, branch, '-o', 'file')
+            exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_repo.pull.assert_called_once()
+        self.assertConsoleContents(
+            self.console,
+            stdout=f'Updating the currently active branch {branch} ...\n'
+                   f'The branch "{branch}" has been updated: () -> ()\n'
+        )
+
+    def test_update_filesystem_abap_mod_disabled_error(self):
+        self.fake_repo.get_config.return_value = None
+        self.fake_repo.delete_config.side_effect = sap.cli.gcts.SAPCliError('Delete config error.')
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+
+        the_cmd = self.update_filesystem_cmd(repo_name, branch)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(
+            self.console,
+            stdout=f'Updating the currently active branch {branch} ...\n'
+                   f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n',
+            stderr='Delete config error.\n'
+                   'Please delete the configuration option VCS_NO_IMPORT manually\n'
+        )
+
+    def test_update_filesystem_temp_switched_branch_error(self):
+        self.fake_repo.branch = 'old_branch'
+        self.fake_repo.checkout.side_effect = sap.cli.gcts.SAPCliError('Checkout error.')
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+
+        the_cmd = self.update_filesystem_cmd(repo_name, branch)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_repo.pull.assert_not_called()
+        self.assertConsoleContents(
+            self.console,
+            stderr='Checkout error.\n'
+                   'Please double check if the original branch old_branch is active\n'
+        )
+
+    @patch('sap.cli.gcts.dump_gcts_messages')
+    def test_update_filesystem_repo_pull_error(self, fake_dump_msgs):
+        old_branch = 'old_branch'
+        self.fake_repo.branch = old_branch
+        self.fake_repo.pull.side_effect = sap.cli.gcts.GCTSRequestError('Pull error.')
+        self.fake_repo.get_config.return_value = None
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+
+        the_cmd = self.update_filesystem_cmd(repo_name, branch)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_repo.pull.assert_called_once()
+        fake_dump_msgs.assert_called_once_with(self.console, 'Pull error.')
+        self.fake_repo.checkout.assert_has_calls([call(branch), call(old_branch)])
+        self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+        self.fake_repo.delete_config.assert_called_once_with('VCS_NO_IMPORT')
+        self.assertConsoleContents(
+            self.console,
+            stdout=f'Updating the currently active branch {branch} ...\n',
+        )
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_update_filesystem_url(self, fake_fetch_repos):
+        self.fake_get_repository_patcher.stop()
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+        repo_url = 'http://github.com/the_repo.git'
+        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url, **self.fake_repo.__dict__)
+
+        the_cmd = self.update_filesystem_cmd(repo_url, branch)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        fake_repo.pull.assert_called_once()
+        self.assertConsoleContents(
+            self.console,
+            stdout=f'Updating the currently active branch {branch} ...\n'
+                   f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
+        )
+
+    def test_update_filesystem_repo_not_found(self):
+        self.fake_get_repository.side_effect = sap.cli.core.SAPCliError('Repo not found.')
+        repo_name = 'the_repo'
+        branch = 'the_branch'
+
+        the_cmd = self.update_filesystem_cmd(repo_name, branch)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_repo.pull.assert_not_called()
+        self.assertConsoleContents(
+            self.console,
+            stderr='Repo not found.\n'
+        )
