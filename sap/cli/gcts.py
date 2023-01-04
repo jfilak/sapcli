@@ -21,10 +21,6 @@ from sap.rest.gcts.errors import (
 )
 
 
-def _mod_log():
-    return get_logger()
-
-
 def print_gcts_message(console, log, prefix=' '):
     """Print out the message with its protocol if it exists."""
 
@@ -752,8 +748,8 @@ def pull(connection, args):
 @CommandGroup.argument('--description', type=str, default=None)
 @CommandGroup.argument('-m', '--message', type=str, default=None)
 @CommandGroup.argument('-d', '--devc', type=str, default=None,
-        help="Name of committed ABAP package if corrnr is not give." + \
-             "Default: the repository name aka the parameter package")
+                       help="Name of committed ABAP package if corrnr is not give. "
+                            "Default: the repository name aka the parameter package")
 @CommandGroup.argument('corrnr', type=str, nargs='?', default=None)
 @CommandGroup.argument('package')
 @CommandGroup.command()
@@ -779,37 +775,31 @@ def commit(connection, args):
 
 
 class ConsoleSugarOperationProgress(SugarOperationProgress):
+    """Handler for progress message of sugar operations"""
 
     def __init__(self, console):
+        super().__init__()
         self._console = console
 
     def _handle_updated(self, message, recover_message):
         self._console.printout(message)
 
 
-@BranchCommandGroup.argument('-o', '--output', default=None, help='Write response in the required formath to the give file')
+@BranchCommandGroup.argument('-o', '--output', default=None,
+                             help='Write response in the required format to the given file')
 @BranchCommandGroup.argument('branch')
 @BranchCommandGroup.argument('package')
 @BranchCommandGroup.command()
 def update_filesystem(connection, args):
     """Update branch on filesystem only
     """
-
     console = sap.cli.core.get_console()
 
     if args.output and os.path.exists(args.output):
         console.printerr(f'Output file must not exist: {args.output}')
         return 1
 
-    try:
-        repo = get_repository(connection, args.package)
-    except GCTSRequestError as ex:
-        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-        return 1
-    except SAPCliError as ex:
-        console.printerr(str(ex))
-        return 1
-
+    repo = get_repository(connection, args.package)
     checkout_progress = ConsoleSugarOperationProgress(console)
     noimports_progress = ConsoleSugarOperationProgress(console)
     pull_response = None
@@ -831,7 +821,7 @@ def update_filesystem(connection, args):
 
     if pull_response and args.output:
         console.printout(f'Writing gCTS JSON response to {args.output} ...')
-        with open(args.output, 'x') as output_file:
+        with open(args.output, 'x', encoding='utf-8') as output_file:
             output_file.write(sap.cli.core.json_dumps(pull_response))
         console.printout(f'Successfully wrote gCTS JSON response to {args.output}')
 
