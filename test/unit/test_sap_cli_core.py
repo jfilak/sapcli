@@ -3,7 +3,7 @@
 from io import StringIO
 import sys
 import unittest
-from unittest.mock import call, patch, MagicMock, Mock
+from unittest.mock import call, patch, MagicMock, Mock, mock_open
 
 from argparse import ArgumentParser
 
@@ -262,6 +262,36 @@ class TestConsoleErrorDecorator(unittest.TestCase):
 
         self.assertEqual(out.getvalue(), "")
         self.assertEqual(err.getvalue(), "OUT\nERR\n")
+
+
+class TestConsolePrintoutFile(unittest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        self.out = StringIO()
+        self.err = StringIO()
+        self.print_console = sap.cli.core.PrintConsole(self.out, self.err)
+
+    def test_console_printout_file_to_console(self):
+        with sap.cli.core.console_printout_file(self.print_console, None) as console:
+            console.printout('OUT')
+            console.printerr('ERR')
+            console.flush()
+
+        self.assertEqual(self.out.getvalue(), 'OUT\n')
+        self.assertEqual(self.err.getvalue(), 'ERR\n')
+
+    def test_console_printout_file_to_file(self):
+        with patch('builtins.open', mock_open()) as fake_open:
+            with sap.cli.core.console_printout_file(self.print_console, 'path/to/file') as console:
+                console.printout('OUT')
+                console.printerr('ERR')
+                console.flush()
+
+        fake_open().write.assert_called_once_with('OUT\n')
+        self.assertEqual(self.out.getvalue(), '')
+        self.assertEqual(self.err.getvalue(), 'ERR\n')
 
 
 class TestGetStdin(unittest.TestCase):
