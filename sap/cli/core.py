@@ -239,9 +239,9 @@ class ConsoleFileDecorator:
         self.file_object = file_object
 
     def printout(self, *objects, sep=' ', end='\n'):
-        """Prints out using the python's print function"""
+        """Prints out to file"""
 
-        self.file_object.write(sep.join(*objects) + end)
+        self.file_object.write(sep.join(objects) + end)
 
     def printerr(self, *objects, sep=' ', end='\n'):
         """Prints out an error message"""
@@ -257,10 +257,12 @@ class ConsoleFileDecorator:
 
 @contextmanager
 def console_printout_file(console, path):
+    """Helper method for printing to file if available."""
+
     if path is None:
         yield console
     else:
-        with open(path, 'w+') as fileout:
+        with open(path, 'w+', encoding='utf-8') as fileout:
             yield ConsoleFileDecorator(console, fileout)
 
 
