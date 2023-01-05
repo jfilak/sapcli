@@ -550,6 +550,29 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertIsNone(repo._data)
 
+    def test_commit_package(self):
+        package = 'Package'
+        message = 'Message'
+        description = 'Description'
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=self.repo_server_data)
+        response = repo.commit_package(package, message, description=description)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(
+                uri='repository/repo/commit',
+                body={
+                    'message': message,
+                    'autoPush': 'true',
+                    'objects': [{'object': package, 'type': 'FULL_PACKAGE'}],
+                    'description': description
+                }
+            ),
+            self
+        )
+
+        self.assertIsNone(repo._data)
+
     def test_set_url_change(self):
         CALL_ID_FETCH_REPO_DATA = 0
         CALL_ID_SET_URL = 1

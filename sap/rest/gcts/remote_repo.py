@@ -468,7 +468,8 @@ class Repository:
         """Turns a package into a commit and pushes it"""
 
         # cl_cts_abap_vcs_transport_req=>prepare_object_list
-        return self.commit(message, [{'object': package, 'type': 'FULL_PACKAGE'}], description=description, autopush=True)
+        return self.commit(message, [{'object': package, 'type': 'FULL_PACKAGE'}], description=description,
+                           autopush=True)
 
     def set_url(self, url):
         """Sets repository URL"""
