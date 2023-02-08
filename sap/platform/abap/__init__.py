@@ -148,13 +148,7 @@ class InternalTable(metaclass=InternalTableMeta):
         if other is None:
             return False
 
-        if id(other) == id(self):
-            return True
-
         if other.__class__ != self.__class__:
-            return False
-
-        if len(other) != len(self):
             return False
 
         return self._rows == other._rows
@@ -475,7 +469,7 @@ class ABAPContentHandler(ContentHandler):
 
 
 def from_xml(abap_struct_or_table, xml_contents, root_elem=None):
-    """"Reads the given xml_contents and stores the values in the give abap_struct_or_table"""
+    """"Reads the given xml_contents and stores the values in the given abap_struct_or_table"""
 
     parser = ABAPContentHandler(abap_struct_or_table, root_elem=root_elem)
     try:

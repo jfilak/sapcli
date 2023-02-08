@@ -194,6 +194,13 @@ class TestSAPPlatformABAP(unittest.TestCase):
         self.assertEqual(len(table), 0)
         self.assertEqual(str(caught_invalid.exception), 'type of appended value str does not match table type PLAIN_STRUCT')
 
+    def test_internal_table_eq(self):
+        table = PLAIN_STRUCT_TT(PLAIN_STRUCT_TT(PLAIN_STRUCT(PYTHON='3.7', LINUX='4.20')))
+
+        self.assertNotEqual(table, None)
+        self.assertNotEqual(table, PLAIN_STRUCT())
+        self.assertEqual(table, table)
+
 
 class TestSAPPlatformABAPToXML(unittest.TestCase):
 
