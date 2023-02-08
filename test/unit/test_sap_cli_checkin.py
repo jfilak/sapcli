@@ -5,16 +5,23 @@ import unittest
 import fnmatch
 import errno
 from types import SimpleNamespace
-from unittest.mock import mock_open, patch, Mock
-from argparse import ArgumentParser
+from unittest.mock import mock_open, patch, Mock, MagicMock, call
 
 import sap.cli.checkin
+import sap.platform.abap.abapgit
 from sap import get_logger
 from sap.adt.wb import CheckMessage, CheckMessageList
+from sap.errors import SAPCliError
+from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionCheckinFailure, ExceptionResourceCreationFailure
 
-from mock import PatcherTestCase, patch_get_print_console_with_buffer, BufferConsole, ConsoleOutputTestCase, StringIOFile
+from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
+from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, INCLUDE_XML, INVALID_TYPE_XML
+from infra import generate_parse_args
+
+
+parse_args = generate_parse_args(sap.cli.checkin.CommandGroup())
 
 
 class ActivationMessageGenerator:
@@ -77,13 +84,7 @@ class DirContentBuilder:
         return self
 
     def walk_stand(self):
-        return (self._path, self._dirs, self._files)
-
-
-def parse_args(*argv):
-    parser = ArgumentParser()
-    sap.cli.checkin.CommandGroup().install_parser(parser)
-    return parser.parse_args(argv)
+        return self._path, self._dirs, self._files
 
 
 class TestRepository(unittest.TestCase):
@@ -174,7 +175,7 @@ class TestRepository(unittest.TestCase):
 
 class TestGetConfig(ConsoleOutputTestCase):
 
-    @patch('sap.cli.checkin.open', side_effect=lambda x, y: open('/foo/bar/invalid/non/existing'))
+    @patch('sap.cli.checkin.open', side_effect=OSError(errno.ENOENT, 'No such file'))
     def test_get_config_noent(self, fake_open):
         act = sap.cli.checkin._get_config('/backend/', self.console)
         exp = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='/backend/')
@@ -182,7 +183,7 @@ class TestGetConfig(ConsoleOutputTestCase):
         self.assertEqual(act, exp)
         self.assertEmptyConsole(self.console)
 
-    @patch('sap.cli.checkin.open', side_effect=lambda x, y: open('/foo/bar/invalid/non/existing'))
+    @patch('sap.cli.checkin.open', side_effect=OSError(errno.ENOENT, 'No such file'))
     def test_get_config_noent_default(self, fake_open):
         act = sap.cli.checkin._get_config(None, self.console)
         exp = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo()
@@ -198,14 +199,14 @@ class TestGetConfig(ConsoleOutputTestCase):
         self.assertEmptyConsole(self.console)
 
     def test_get_config_overwrites(self):
-        with patch('sap.cli.checkin.open', mock_open(read_data= ABAP_GIT_DEFAULT_XML)) as m:
+        with patch('sap.cli.checkin.open', mock_open(read_data=ABAP_GIT_DEFAULT_XML)):
             config = sap.cli.checkin._get_config('/backend/', self.console)
             self.assertEqual(config.STARTING_FOLDER, '/src/')
 
         self.assertConsoleContents(self.console, stdout='Using starting-folder from .abapgit.xml: /src/\n')
 
     def test_get_config_simple(self):
-        with patch('sap.cli.checkin.open', mock_open(read_data= ABAP_GIT_DEFAULT_XML)) as m:
+        with patch('sap.cli.checkin.open', mock_open(read_data=ABAP_GIT_DEFAULT_XML)):
             config = sap.cli.checkin._get_config('/src/', self.console)
             self.assertEqual(config.STARTING_FOLDER, '/src/')
 
@@ -217,37 +218,38 @@ class TestCheckinGroup(ConsoleOutputTestCase):
     def setUp(self):
         super(TestCheckinGroup, self).setUp()
 
-        self.mock_object = sap.cli.checkin.RepoObject(code='bogu', name='bogus', path='./bogus.txt', package=None, files=[])
+        self.mock_object = sap.cli.checkin.RepoObject(code='bogu', name='bogus', path='./bogus.txt', package=None,
+                                                      files=[])
         self.mock_object_group = [self.mock_object]
 
     def test_checkin_group_none_handler(self):
-        sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console)
+        sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console, None)
 
         self.assertConsoleContents(self.console, stderr='Object not supported: ./bogus.txt\n')
 
     def test_checkin_group_none_resp(self):
         with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
             fake_handler.get = Mock()
-            fake_handler.get.return_value = lambda x, y: None
+            fake_handler.get.return_value.side_effect = ExceptionCheckinFailure('Checkin of adt object failed')
 
-            inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console)
+            inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console, None)
 
         self.assertConsoleContents(self.console, stdout='Object handled without activation: ./bogus.txt\n')
-        self.assertIsNone(inactive.references)
+        self.assertEqual(inactive.references, [])
 
     def test_checkin_group_simple(self):
         adt_object = Mock()
 
         with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
             fake_handler.get = Mock()
-            fake_handler.get.return_value = lambda x, y: adt_object
+            fake_handler.get.return_value = lambda x, y, z: adt_object
 
-            inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console)
+            inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console, None)
 
         self.assertEqual(len(inactive.references), 1)
 
 
-class TestCheckIn(unittest.TestCase, PatcherTestCase):
+class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
 
     def walk(self, name):
         for stand in self.walk_stands:
@@ -260,6 +262,9 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
         return [name for name in self.files if fnmatch.fnmatch(name, pattern)]
 
     def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
         simple_root = DirContentBuilder('./src/').add_abap_program('run_report')
         simple_sub = simple_root.add_dir('sub').add_abap_interface('if_strategy')
         simple_grand = simple_sub.add_dir('grand').add_abap_class('cl_implementor')
@@ -281,16 +286,16 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
 
         get_logger().debug('Test files: %s', ','.join(self.files))
 
-        self.fake_console = self.patch_console()
-
     @patch('sap.cli.checkin._get_config')
     @patch('sap.cli.checkin.checkin_package')
     def test_do_checkin_sanity(self, fake_checkin, fake_config):
-        fake_config.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX)
+        fake_config.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
+            FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
+        )
 
         # open -> .abapgit.xml
 
-        def mock_object_handler(connection, repo_obj):
+        def mock_object_handler(connection, repo_obj, corrnr):
             return SimpleNamespace(full_adt_uri=repo_obj.path, name=repo_obj.name)
 
         args = parse_args('$foo')
@@ -304,6 +309,30 @@ class TestCheckIn(unittest.TestCase, PatcherTestCase):
             args.execute(None, args)
 
         fake_config.assert_called_once_with(None, sap.cli.core.get_console())
+
+    @patch('sap.cli.checkin.os.path.isdir')
+    def test_do_checkin_starting_folder_not_folder(self, fake_os_isdir):
+        fake_os_isdir.return_value = False
+
+        args = parse_args('$foo', '--starting-folder', 'FILE')
+        exit_code = args.execute(None, args)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='Cannot check-in ABAP objects from "./FILE": not a directory\n')
+
+    @patch('sap.cli.checkin._get_config')
+    @patch('sap.cli.checkin._load_objects')
+    def test_do_checkin_error(self, fake_load_objects, fake_config):
+        fake_load_objects.side_effect = sap.errors.SAPCliError('Load failed.')
+        fake_config.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
+            FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
+        )
+
+        args = parse_args('$foo')
+        exit_code = args.execute(None, args)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='Checkin failed: Load failed.\n')
 
     def test_load_objects(self):
         config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX)
@@ -378,55 +407,444 @@ class TestActivate(ConsoleOutputTestCase, PatcherTestCase):
 ''')
 
 
-class TestCheckInPackage(unittest.TestCase, PatcherTestCase):
+class TestCheckInPackage(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
         self.connection = Mock()
         self.config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo()
         self.repo = sap.cli.checkin.Repository('checkin-test', self.config)
         self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_args = Mock(software_component='LOCAL', app_component=None, transport_layer=None, corrnr=None)
 
-        self.repo.add_package_dir(f'.{self.config.STARTING_FOLDER}')
+        with self.patch('sap.cli.checkin.os.path.isfile') as fake_is_file:
+            fake_is_file.return_value = True
+            self.repo.add_package_dir(f'.{self.config.STARTING_FOLDER}')
 
     def test_devc_file_cannot_be_opened(self):
         self.fake_open.side_effect = OSError()
 
         with self.assertRaises(OSError):
-            sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0])
+            sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0], self.fake_args)
 
     def test_devc_file_has_invalid_format(self):
         self.fake_open.return_value = StringIOFile('Foo')
 
         with self.assertRaises(sap.errors.InputError) as caught:
-            sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0])
+            sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0], self.fake_args)
 
         self.assertRegex(str(caught.exception), 'Invalid XML for DEVC:.*')
 
-    def test_devc_create_raises_error(self):
-        pass
+    @patch('sap.cli.checkin.mod_log')
+    @patch('sap.adt.package.Package.create')
+    def test_package_already_exists(self, fake_package_create, fake_mod_log):
+        fake_package_create.side_effect = ExceptionResourceAlreadyExists(message='Package already exists.')
+        mock_info = Mock()
+        fake_mod_log.return_value.info = mock_info
+        self.fake_open.return_value = StringIOFile(PACKAGE_DEVC_XML)
 
-    def test_devc_successful(self):
-        pass
+        sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0], self.fake_args)
+
+        mock_info.assert_called_once_with('Package already exists.')
+
+    @patch('sap.adt.package.Package.create')
+    def test_package_create_raises_error(self, fake_package_create):
+        fake_package_create.side_effect = SAPCliError('Create error.')
+        self.fake_open.return_value = StringIOFile(PACKAGE_DEVC_XML)
+
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0], self.fake_args)
+
+        self.assertEqual(str(cm.exception), 'Create error.')
+
+    @patch('sap.adt.Package')
+    @patch('sap.adt.ADTCoreData')
+    def test_checkin_successful(self, fake_core_data, fake_package):
+        self.fake_open.return_value = StringIOFile(PACKAGE_DEVC_XML)
+        self.connection.user = 'fake_user'
+        metadata = Mock()
+        fake_core_data.return_value = metadata
+        package = Mock()
+        package.super_package.name = None
+        fake_package.return_value = package
+
+        sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0], self.fake_args)
+
+        self.assertConsoleContents(self.console,
+                                   stdout=f'Creating Package: {self.repo.packages[0].name} Test Package\n')
+        fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible='fake_user',
+                                               description='Test Package')
+        fake_package.assert_called_once_with(self.connection, self.repo.packages[0].name.upper(),
+                                             metadata=metadata)
+        package.set_package_type.assert_called_once_with('development')
+        self.assertIsNone(package.super_package.name)
+        package.set_software_component.assert_called_once_with('LOCAL')
+        package.set_app_component.assert_not_called()
+        package.set_transport_layer.assert_not_called()
+        package.create.assert_called_once_with(None)
+
+    @patch('sap.adt.Package')
+    @patch('sap.adt.ADTCoreData')
+    def test_checkin_successful_full(self, _, fake_package):
+        self.fake_open.return_value = StringIOFile(PACKAGE_DEVC_XML)
+        self.connection.user = 'fake_user'
+        repo_package = self.repo.packages[0]
+        fake_repo_package = Mock()
+        fake_repo_package.__dict__.update(**{'parent': Mock(), 'name': repo_package.name, 'path': repo_package.path,
+                                             'dir_path': repo_package.dir_path})
+        package = Mock()
+        package.super_package.name = None
+        fake_package.return_value = package
+        full_fake_args = Mock(software_component='LOCAL', app_component='app', transport_layer='trans', corrnr='corrnr')
+
+        sap.cli.checkin.checkin_package(self.connection, fake_repo_package, full_fake_args)
+
+        self.assertConsoleContents(self.console,
+                                   stdout=f'Creating Package: {self.repo.packages[0].name} Test Package\n')
+        self.assertEqual(package.super_package.name, fake_repo_package.parent.name.upper())
+        package.set_software_component.assert_called_once_with('LOCAL')
+        package.set_app_component.assert_called_once_with('APP')
+        package.set_transport_layer.assert_called_once_with('TRANS')
+        package.create.assert_called_once_with('corrnr')
 
 
-class TestCheckInClass(unittest.TestCase, PatcherTestCase):
+class TestCheckInClass(PatcherTestCase, ConsoleOutputTestCase):
 
-    pass
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_core_data = self.patch('sap.adt.ADTCoreData')
+        self.fake_class = self.patch('sap.adt.Class')
+
+        self.metadata = Mock()
+        self.fake_core_data.return_value = self.metadata
+
+        self.clas_editor = MagicMock()
+        self.clas_editor.__enter__.return_value = self.clas_editor
+
+        self.clas = MagicMock()
+        self.clas.open_editor.return_value = self.clas_editor
+        self.clas.definitions.open_editor.return_value = self.clas_editor
+        self.clas.implementations.open_editor.return_value = self.clas_editor
+        self.clas.test_classes.open_editor.return_value = self.clas_editor
+        self.fake_class.return_value = self.clas
+
+        self.connection = Mock()
+        self.connection.user = 'test_user'
+        self.package = sap.cli.checkin.RepoPackage('test_package', '/src/package.devc.xml', '/src', None)
+        self.clas_object = sap.cli.checkin.RepoObject('', 'test_clas', '/src/test_clas', self.package,
+                                                      ['foo.clas.abap', 'foo.locals_def.abap', 'foo.locals_imp.abap',
+                                                       'foo.testclasses.abap'])
+
+    def assert_open_editor_calls(self, source_files_content, corrnr=None):
+        self.clas.open_editor.assert_called_once_with(corrnr=corrnr)
+        self.clas.definitions.open_editor.assert_called_once_with(corrnr=corrnr)
+        self.clas.implementations.open_editor.assert_called_once_with(corrnr=corrnr)
+        self.clas.test_classes.open_editor.assert_called_once_with(corrnr=corrnr)
+        self.clas_editor.write.assert_has_calls([call(content) for content in source_files_content])
+
+    def test_checkin_clas_no_files(self):
+        clas_obj = sap.cli.checkin.RepoObject('', 'no_files_clas', '/src/test_clas', Mock(), [])
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_clas(self.connection, clas_obj)
+
+        self.assertConsoleContents(self.console, stdout=f'Creating Class: {clas_obj.name}\n')
+        self.assertEqual(str(cm.exception), f'No source file for class {clas_obj.name}')
+
+    def test_checkin_clas(self):
+        source_files_content = ['class_body', 'locals_def_body', 'locals_imp_body', 'test_body']
+        self.fake_open.side_effect = [StringIOFile(content) for content in
+                                      [CLAS_XML] + source_files_content]
+
+        sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
+                                                    responsible=self.connection.user, description='Test description')
+        self.fake_class.assert_called_once_with(self.connection, self.clas_object.name.upper(),
+                                                package=self.package.name, metadata=self.metadata)
+        self.clas.create.assert_called_once_with(None)
+        self.assert_open_editor_calls(source_files_content)
+        self.assertConsoleContents(self.console, stdout=f'''Creating Class: {self.clas_object.name}
+Writing Clas: {self.clas_object.name} clas
+Writing Clas: {self.clas_object.name} locals_def
+Writing Clas: {self.clas_object.name} locals_imp
+Writing Clas: {self.clas_object.name} testclasses
+''')
+
+    def test_checkin_clas_with_corrnr(self):
+        self.fake_open.return_value = StringIOFile(CLAS_XML)
+
+        sap.cli.checkin.checkin_clas(self.connection, self.clas_object, 'corrnr')
+
+        self.clas.create.assert_called_once_with('corrnr')
+        self.assert_open_editor_calls([], corrnr='corrnr')
+
+    @patch('sap.cli.checkin.mod_log')
+    def test_checkin_clas_create_error(self, fake_mod_log):
+        self.fake_open.return_value = StringIOFile(CLAS_XML)
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Clas already created.')
+
+        sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        fake_mod_log.return_value.info.assert_called_once_with('Clas already created.')
+        self.assert_open_editor_calls([])
+
+    def test_checkin_clas_source_file_wrong_suffix(self):
+        self.fake_open.return_value = StringIOFile(CLAS_XML)
+        self.clas_object.files.append('foo.wrong.prefix')
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        self.clas.create.assert_called_once_with(None)
+        self.assertEqual(str(cm.exception),
+                         f'No .abap suffix of source file for class {self.clas_object.name}: foo.wrong.prefix')
+
+    def test_checkin_clas_unknown_class_part(self):
+        source_files_content = ['class_body', 'locals_def_body', 'locals_imp_body', 'test_body']
+        self.fake_open.side_effect = [StringIOFile(content) for content in
+                                      [CLAS_XML] + source_files_content]
+        self.clas_object.files.append('foo.unknown.abap')
+
+        sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        self.clas.create.assert_called_once_with(None)
+        self.assert_open_editor_calls(source_files_content)
+        self.assertConsoleContents(self.console, stderr='Unknown class part foo.unknown.abap\n',
+                                   stdout=f'''Creating Class: {self.clas_object.name}
+Writing Clas: {self.clas_object.name} clas
+Writing Clas: {self.clas_object.name} locals_def
+Writing Clas: {self.clas_object.name} locals_imp
+Writing Clas: {self.clas_object.name} testclasses
+''')
 
 
-class TestCheckInInterface(unittest.TestCase, PatcherTestCase):
+class TestCheckInInterface(PatcherTestCase, ConsoleOutputTestCase):
 
-    pass
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_open.side_effect = [StringIOFile(INTF_XML), StringIOFile('test_intf_body')]
+        self.fake_core_data = self.patch('sap.adt.ADTCoreData')
+        self.fake_interface = self.patch('sap.adt.Interface')
+
+        self.metadata = Mock()
+        self.fake_core_data.return_value = self.metadata
+
+        self.interface_editor = MagicMock()
+        self.interface_editor.__enter__.return_value = self.interface_editor
+
+        self.interface = MagicMock()
+        self.interface.open_editor.return_value = self.interface_editor
+        self.fake_interface.return_value = self.interface
+
+        self.connection = Mock()
+        self.connection.user = 'test_user'
+        self.package = sap.cli.checkin.RepoPackage('test_package', '/src/package.devc.xml', '/src', None)
+        self.interface_object = sap.cli.checkin.RepoObject('', 'test_interface', '/src/test_interface', self.package,
+                                                           ['foo.intf.abap'])
+
+    def test_checkin_intf_no_file(self):
+        interface_object = sap.cli.checkin.RepoObject('', 'test_intf', '/src/boo', Mock(), [])
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_intf(self.connection, interface_object)
+
+        self.assertEqual(str(cm.exception), f'No source file for interface {interface_object.name}')
+        self.assertConsoleContents(self.console, stdout=f'Creating Interface: {interface_object.name}\n')
+
+    def test_checkin_intf_too_many_files(self):
+        self.interface_object.files.append('too-many.intf.abap')
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
+
+        self.assertEqual(str(cm.exception), f'Too many source files for interface {self.interface_object.name}: '
+                                            f'foo.intf.abap,too-many.intf.abap')
+
+    def test_checkin_intf_wrong_suffix(self):
+        interface_object = sap.cli.checkin.RepoObject('', 'test_intf', '/src/boo', Mock(), ['random.file'])
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_intf(self.connection, interface_object)
+
+        self.assertEqual(str(cm.exception), f'No .abap suffix of source file for interface {interface_object.name}')
+
+    def test_checkin_intf(self):
+        sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
+
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
+                                                    responsible=self.connection.user, description='Test intf descr')
+        self.fake_interface.assert_called_once_with(self.connection, self.interface_object.name.upper(),
+                                                    package=self.package.name, metadata=self.metadata)
+        self.interface.create.assert_called_once_with(None)
+        self.interface.open_editor.assert_called_once_with(corrnr=None)
+        self.interface_editor.write.assert_called_once_with('test_intf_body')
+        self.assertConsoleContents(self.console, stdout=f'Creating Interface: {self.interface_object.name}\n'
+                                                        f'Writing Interface: {self.interface_object.name}\n')
+
+    def test_checkin_intf_with_corrnr(self):
+        sap.cli.checkin.checkin_intf(self.connection, self.interface_object, 'corrnr')
+
+        self.interface.create.assert_called_once_with('corrnr')
+        self.interface.open_editor.assert_called_once_with(corrnr='corrnr')
+
+    @patch('sap.cli.checkin.mod_log')
+    def test_checkin_intf_already_exists(self, fake_mod_log):
+        self.interface.create.side_effect = ExceptionResourceAlreadyExists('Interface already exists.')
+
+        sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
+        self.interface.create.assert_called_once_with(None)
+        fake_mod_log.return_value.info.assert_called_once_with('Interface already exists.')
+        self.interface.open_editor.assert_called_once_with(corrnr=None)
 
 
-class TestCheckInProgram(unittest.TestCase, PatcherTestCase):
+class TestCheckInProgram(PatcherTestCase, ConsoleOutputTestCase):
 
-    pass
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
 
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_core_data = self.patch('sap.adt.ADTCoreData')
+        self.fake_program = self.patch('sap.adt.Program')
+        self.fake_include = self.patch('sap.adt.Include')
 
-class TestCheckInFunctionGroup(unittest.TestCase, PatcherTestCase):
+        self.metadata = Mock()
+        self.fake_core_data.return_value = self.metadata
 
-    pass
+        self.program_editor = MagicMock()
+        self.program_editor.__enter__.return_value = self.program_editor
+
+        self.program = MagicMock()
+        self.program.open_editor.return_value = self.program_editor
+        self.fake_program.return_value = self.program
+
+        self.include_editor = MagicMock()
+        self.include_editor.__enter__.return_value = self.include_editor
+
+        self.include = MagicMock()
+        self.include.open_editor.return_value = self.include_editor
+        self.fake_include.return_value = self.include
+
+        self.connection = Mock()
+        self.connection.user = 'test_user'
+        self.package = sap.cli.checkin.RepoPackage('test_package', '/src/package.devc.xml', '/src', None)
+        self.prog_object = sap.cli.checkin.RepoObject('', 'test_prog', '/src/test_prog', self.package,
+                                                      ['foo.prog.abap'])
+
+    def test_checkin_prog_no_files(self):
+        prog_object = sap.cli.checkin.RepoObject('', 'test_prog', '/src/test_prog', Mock(), [])
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_prog(self.connection, prog_object)
+
+        self.assertConsoleContents(self.console, stdout=f'Creating Program: {prog_object.name}\n')
+        self.assertEqual(str(cm.exception), f'No source file for program {prog_object.name}')
+
+    def test_checkin_prog_too_many_files(self):
+        self.prog_object.files.append('foo.many.files.abap')
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        self.assertConsoleContents(self.console, stdout=f'Creating Program: {self.prog_object.name}\n')
+        self.assertEqual(str(cm.exception), f'Too many source files for program {self.prog_object.name}:'
+                                            f' foo.prog.abap,foo.many.files.abap')
+
+    def test_checkin_prog_wrong_suffix(self):
+        prog_object = sap.cli.checkin.RepoObject('', 'test_prog', '/src/test_prog', Mock(), ['foo.prog.wrong'])
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_prog(self.connection, prog_object)
+
+        self.assertConsoleContents(self.console, stdout=f'Creating Program: {prog_object.name}\n')
+        self.assertEqual(str(cm.exception), f'No .abap suffix of source file for program {prog_object.name}')
+
+    def test_checkin_prog_invalid_type(self):
+        self.fake_open.side_effect = [StringIOFile(INVALID_TYPE_XML)]
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        self.assertEqual(str(cm.exception), 'Unknown program type X')
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
+                                                    responsible=self.connection.user)
+        self.fake_program.assert_not_called()
+        self.fake_include.assert_not_called()
+
+    def test_checkin_prog_program(self):
+        self.fake_open.side_effect = [StringIOFile(PROG_XML), StringIOFile('test_prog_body')]
+
+        sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
+                                                    responsible=self.connection.user)
+        self.fake_program.assert_called_once_with(self.connection, self.prog_object.name, package=self.package.name,
+                                                  metadata=self.metadata)
+        self.assertEqual(self.program.description, 'Test program desc')
+        self.program.create.assert_called_once_with(None)
+        self.program.open_editor.assert_called_once_with(corrnr=None)
+        self.program_editor.write.assert_called_once_with('test_prog_body')
+        self.assertConsoleContents(self.console, stdout=f'''Creating Program: {self.prog_object.name}
+Writing Program: {self.prog_object.name}
+''')
+
+    def test_checkin_prog_include(self):
+        self.fake_open.side_effect = [StringIOFile(INCLUDE_XML), StringIOFile('test_include_body')]
+
+        sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
+                                                    responsible=self.connection.user)
+        self.fake_include.assert_called_once_with(self.connection, self.prog_object.name, package=self.package.name,
+                                                  metadata=self.metadata)
+        self.assertEqual(self.include.description, 'Test include desc')
+        self.include.create.assert_called_once_with(None)
+        self.include.open_editor.assert_called_once_with(corrnr=None)
+        self.include_editor.write.assert_called_once_with('test_include_body')
+        self.assertConsoleContents(self.console, stdout=f'''Creating Program: {self.prog_object.name}
+Creating Include: {self.prog_object.name}
+Writing Program: {self.prog_object.name}
+''')
+
+    def test_checkin_prog_with_corrnr(self):
+        self.fake_open.side_effect = [StringIOFile(PROG_XML), StringIOFile('test_prog_body')]
+
+        sap.cli.checkin.checkin_prog(self.connection, self.prog_object, 'corrnr')
+
+        self.program.create.assert_called_once_with('corrnr')
+        self.program.open_editor.assert_called_once_with(corrnr='corrnr')
+
+    @patch('sap.cli.checkin.mod_log')
+    def test_checkin_prog_already_exists(self, fake_mod_log):
+        self.fake_open.side_effect = [StringIOFile(PROG_XML), StringIOFile('test_prog_body')]
+        self.program.create.side_effect = ExceptionResourceCreationFailure(f'A program or include already exists with'
+                                                                           f' the name {self.prog_object.name.upper()}')
+
+        sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        fake_mod_log.return_value.info.assert_called_once_with(f'A program or include already exists with the name'
+                                                               f' {self.prog_object.name.upper()}')
+        self.program.open_editor.assert_called_once_with(corrnr=None)
+        self.program_editor.write.assert_called_once_with('test_prog_body')
+
+    def test_checkin_prog_creation_error(self):
+        self.fake_open.side_effect = [StringIOFile(PROG_XML)]
+        self.program.create.side_effect = ExceptionResourceCreationFailure('Failed to create program')
+
+        with self.assertRaises(ExceptionResourceCreationFailure) as cm:
+            sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        self.assertEqual(str(cm.exception), 'Failed to create program')
+        self.program.open_editor.assert_not_called()
 
 
 if __name__ == '__main__':
