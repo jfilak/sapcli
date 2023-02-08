@@ -298,12 +298,6 @@ class TestCheckoutProgram(unittest.TestCase):
         self.assertEqual(progdir.UCCHECK, 'X')
 
         self.assertEqual(['DBNA', 'RLOAD', 'RSTAT'], sorted([attr for attr, value in progdir.__dict__.items() if not attr.startswith('_') and value is None]))
-        # deserialized by abapGit, ignored by sapcli
-        self.assertIsNone(progdir.RLOAD)
-        self.assertIsNone(progdir.RSTAT)
-        progdir.RLOAD = progdir.RSTAT = 'mock'
-
-        self.assertEqual([], [attr for attr, value in progdir.__dict__.items() if not attr.startswith('_') and value is None])
 
         self.assertEqual(len(tpool), 1)
         descr = tpool[0]
