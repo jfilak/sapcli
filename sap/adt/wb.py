@@ -216,16 +216,10 @@ class CheckMessage(metaclass=OrderedClassMembers):
     short_text = XmlNodeProperty('shortText', factory=CheckMessageText)
 
     @property
-    def is_error(self):
-        """Returns true if the message is an error"""
-
-        return self.typ == 'E'
-
-    @property
     def is_warning(self):
         """Returns true if the message is an error"""
 
-        return self.typ == 'W'
+        return self.typ == CheckMessage.Type.WARNING
 
     @property
     def is_error(self):
@@ -315,38 +309,53 @@ def mass_activate(connection, references):
                                        if entry.object is not None and entry.object.deleted == 'false'])
         resp = _send_activate(connection, request, activation_params(pre_audit_requested=False))
 
-    for adt_object in references.references:
-        if adt_object.active != ADT_OBJECT_VERSION_ACTIVE:
-            raise ActivationError(f'Could not activate: {resp.text}', resp)
+    results = CheckResults()
+
+    if resp.text:
+        Marshal.deserialize(resp.text, results)
+
+    return results, resp
 
 
 def try_mass_activate(connection, references):
     """Calls the function mass_activate but catches the exception and returns
        the messages.
     """
+    results, resp = mass_activate(connection, references)
 
-    try:
-        mass_activate(connection, references)
-        return None
-    except ActivationError as ex:
-        resp = ex.response
-
-        if 'application/xml' not in resp.headers.get('Content-Type', ''):
-            raise ex
-
+    if results.has_warnings or results.has_errors:
         messages = CheckMessageList()
         Marshal.deserialize(resp.text, messages)
 
         return messages
 
+    return None
 
-def activate(adt_object):
-    """Activates the given object"""
+
+def try_activate(adt_object):
+    """Tries to activate the given object. In case of an error, returns the results.
+    """
 
     references = ADTObjectReferences()
     references.add_object(adt_object)
 
-    mass_activate(adt_object.connection, references)
+    results, resp = mass_activate(adt_object.connection, references)
+
+    # fetch object to refresh object attributes (e.g. current activation status)
+    adt_object.fetch()
+
+    return results, resp
+
+
+def activate(adt_object):
+    """Activates the given object"""
+
+    results, resp = try_activate(adt_object)
+
+    if adt_object.active != ADT_OBJECT_VERSION_ACTIVE:
+        raise ActivationError(f'Could not activate: {resp.text}', resp, results)
+
+    return results
 
 
 def fetch_inactive_objects(connection):
