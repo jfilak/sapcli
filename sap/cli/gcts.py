@@ -200,8 +200,8 @@ def get_properties(connection, args):
         except StopIteration:
             console.printerr('The property was not found:', args.property)
             return 1
-        else:
-            console.printout(getattr(repo, prop[1]))
+
+        console.printout(getattr(repo, prop[1]))
     else:
         for prop in properties:
             console.printout(f'{prop[0]}: {getattr(repo, prop[1])}')

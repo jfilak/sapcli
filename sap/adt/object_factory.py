@@ -39,8 +39,8 @@ class ADTObjectFactory:
             ctor = cast(ADTObjectBuilderType, self._builders[typ])
         except KeyError as ex:
             raise SAPCliError(f'Unknown ADT object type: {typ}') from ex
-        else:
-            return ctor(self._connection, name)
+
+        return ctor(self._connection, name)
 
     def get_supported_names(self) -> List[str]:
         """List of known object type names"""
