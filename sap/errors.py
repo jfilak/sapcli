@@ -26,3 +26,12 @@ class ResourceAlreadyExistsError(SAPCliError):
 
     def __str__(self):
         return repr(self)
+
+
+class InputError(FatalError):
+    """Common base exception type for runtime input errors
+    usually caused by users.
+    """
+
+    # pylint: disable=unnecessary-pass
+    pass

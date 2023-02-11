@@ -30,6 +30,7 @@ class DOT_ABAP_GIT(Structure):
 
     # pylint: disable=invalid-name
     MASTER_LANGUAGE: str
+
     # pylint: disable=invalid-name
     STARTING_FOLDER: str
     # pylint: disable=invalid-name
@@ -38,7 +39,7 @@ class DOT_ABAP_GIT(Structure):
     IGNORE: StringTable
 
     @staticmethod
-    def for_new_repo(MASTER_LANGUAGE: str = 'E', STARTING_FOLDER: str = 'src', FOLDER_LOGIC: str = FOLDER_LOGIC_FULL):
+    def for_new_repo(MASTER_LANGUAGE: str = 'E', STARTING_FOLDER: str = '/src/', FOLDER_LOGIC: str = FOLDER_LOGIC_FULL):
         """Creates new instance of DOT_ABAP_GIT for new repository"""
 
         IGNORE = StringTable('/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml')
@@ -141,7 +142,6 @@ class AGXMLContentHandler(ABAPContentHandler):
 
     def __init__(self, body_types):
         super().__init__(DOT_ABAP_GIT(), root_elem='_BogusNotMatchingTag')
-
         self.current = AGXMLObjectAdapter(body_types)
 
 

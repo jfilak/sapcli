@@ -34,12 +34,12 @@ def create(connection, args):
                    'task': partial(WorkbenchTask, None, None)}[args.type]
     except KeyError as ex:
         raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
-    else:
-        request = factory(connection, None, owner=connection.user,
-                          description=args.description, target=args.target)
 
-        response = request.create()
-        sap.cli.core.printout(response.number)
+    request = factory(connection, None, owner=connection.user,
+                      description=args.description, target=args.target)
+
+    response = request.create()
+    sap.cli.core.printout(response.number)
 
     return 0
 
@@ -56,16 +56,16 @@ def release(connection, args):
                    'task': partial(WorkbenchTask, None, None)}[args.type]
     except KeyError as ex:
         raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
-    else:
-        request = factory(connection, args.number)
 
-        if args.recursive:
-            sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
-            request.fetch()
+    request = factory(connection, args.number)
 
-        sap.cli.core.printout(f'Releasing {args.number}')
-        report = request.release(recursive=args.recursive)
-        sap.cli.core.printout(str(report))
+    if args.recursive:
+        sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
+        request.fetch()
+
+    sap.cli.core.printout(f'Releasing {args.number}')
+    report = request.release(recursive=args.recursive)
+    sap.cli.core.printout(str(report))
 
     return 0
 
@@ -82,16 +82,16 @@ def delete(connection, args):
                    'task': partial(WorkbenchTask, None, None)}[args.type]
     except KeyError as ex:
         raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
-    else:
-        request = factory(connection, args.number)
 
-        if args.recursive:
-            sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
-            request.fetch()
+    request = factory(connection, args.number)
 
-        sap.cli.core.printout(f'Deleting {args.number}')
-        request.delete(recursive=args.recursive)
-        sap.cli.core.printout(f'Deleted {args.number}')
+    if args.recursive:
+        sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
+        request.fetch()
+
+    sap.cli.core.printout(f'Deleting {args.number}')
+    request.delete(recursive=args.recursive)
+    sap.cli.core.printout(f'Deleted {args.number}')
 
 
 @CommandGroup.argument('--recursive', action='store_true', default=False)
@@ -107,16 +107,16 @@ def reassign(connection, args):
                    'task': partial(WorkbenchTask, None, None)}[args.type]
     except KeyError as ex:
         raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex
-    else:
-        request = factory(connection, args.number)
 
-        if args.recursive:
-            sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
-            request.fetch()
+    request = factory(connection, args.number)
 
-        sap.cli.core.printout(f'Re-assigning {args.number}')
-        request.reassign(args.owner, recursive=args.recursive)
-        sap.cli.core.printout(f'Re-assigned {args.number}')
+    if args.recursive:
+        sap.cli.core.printout(f'Fetching details of {args.number} because of recursive execution')
+        request.fetch()
+
+    sap.cli.core.printout(f'Re-assigning {args.number}')
+    request.reassign(args.owner, recursive=args.recursive)
+    sap.cli.core.printout(f'Re-assigned {args.number}')
 
     return 0
 

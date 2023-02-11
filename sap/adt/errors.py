@@ -56,6 +56,17 @@ class ExceptionResourceCreationFailure(ADTError):
         return f'{self.message}'
 
 
+class ExceptionCheckinFailure(SAPCliError):
+    """Wrapper for checkin errors"""
+
+    def __init__(self, message):
+        super().__init__()
+        self.message = message
+
+    def __str__(self):
+        return f'{self.message}'
+
+
 def new_adt_error_from_xml(xmldata):
     """Parses the xml data and create the correct instance.
 

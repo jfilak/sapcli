@@ -100,18 +100,18 @@ def activate_object_list(activator, object_enumerable, count):
                 printout_adt_object('  ', obj)
 
         return 1
-    else:
-        printout('Activation has finished')
-        printout_activation_stats(stats)
 
-        if stats.inactive_objects:
-            printout('Inactive objects:')
-            for obj in stats.inactive_objects:
-                printout_adt_object('  ', obj)
+    printout('Activation has finished')
+    printout_activation_stats(stats)
 
-            return 1
+    if stats.inactive_objects:
+        printout('Inactive objects:')
+        for obj in stats.inactive_objects:
+            printout_adt_object('  ', obj)
 
-        return 1 if stats.errors > 0 else 0
+        return 1
+
+    return 1 if stats.errors > 0 else 0
 
 
 class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):

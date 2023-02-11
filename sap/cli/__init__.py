@@ -37,6 +37,7 @@ class CommandsCache:
         import sap.cli.cts
         import sap.cli.gcts
         import sap.cli.checkout
+        import sap.cli.checkin
         import sap.cli.activation
         import sap.cli.adt
         import sap.cli.abapgit
@@ -65,6 +66,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.abapgit.CommandGroup()),
                 (adt_connection_from_args, sap.cli.rap.CommandGroup()),
                 (adt_connection_from_args, sap.cli.table.CommandGroup()),
+                (adt_connection_from_args, sap.cli.checkin.CommandGroup()),
             ]
 
         if CommandsCache.rest is None:

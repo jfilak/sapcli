@@ -220,7 +220,7 @@ class XmlContainerMeta(OrderedClassMembers):
         items_property = XmlListNodeProperty(item_element_name, deserialize=True, factory=item_factory,
                                              value=[], kind=XmlElementKind.OBJECT, version=version)
 
-        return type(f'XMLContainer_{item_factory.__name__}', (cls,), dict(items=items_property))
+        return type(f'XMLContainer_{item_factory.__name__}', (cls,), {'items': items_property})
 
 
 class XmlContainer(metaclass=XmlContainerMeta):

@@ -170,7 +170,10 @@ def dummy_corrnr(connection, args):
 
 def parse_args(argv):
     parser = ArgumentParser()
-    DummyCommandGroup().install_parser(parser)
+
+    group = DummyCommandGroup()
+    group.install_parser(parser)
+
     return parser.parse_args(argv)
 
 

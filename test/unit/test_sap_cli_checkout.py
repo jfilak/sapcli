@@ -288,6 +288,7 @@ class TestCheckoutProgram(unittest.TestCase):
 
         progdir, tpool = sap.cli.checkout.build_program_abap_attributes(prog)
 
+
         self.assertEqual(progdir.NAME, 'ZHELLO_WORLD')
         self.assertEqual(progdir.STATE, 'S')
         self.assertEqual(progdir.DBAPL, 'S')

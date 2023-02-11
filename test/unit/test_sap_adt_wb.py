@@ -201,5 +201,49 @@ class TestADTWBFetchInactive(unittest.TestCase):
         self.assertEquals(my_inactive_objects.entries[1].object.reference.name, 'CL_HELLO_WORLD')
 
 
+class TestADTWBTryMassActivate(unittest.TestCase):
+
+    def test_parse_activation_warnings(self):
+        conn = Connection(responses=[Response(
+            status_code=200,
+            text=ACTIVATION_WARNING_XML,
+            content_type='application/xml'
+        )])
+
+        adt_object = Mock()
+        adt_object.full_adt_uri = 'BAR'
+        adt_object.name = 'FOO'
+        adt_object.connection = conn
+
+        references = ADTObjectReferences()
+        references.add_object(adt_object)
+
+        messages = sap.adt.wb.try_mass_activate(conn, references)
+        self.assertEqual(len(messages), 2)
+
+        self.assertEqual(messages[0].typ, 'W')
+        self.assertEqual(messages[0].short_text, 'Message 1')
+        self.assertEqual(messages[0].force_supported, 'true')
+
+        self.assertEqual(messages[1].typ, 'W')
+        self.assertEqual(messages[1].short_text, 'Warning 2')
+        self.assertEqual(messages[1].force_supported, 'true')
+
+
+class TestCheckMessage(unittest.TestCase):
+
+    def test_check_message_is_errror(self):
+        message = sap.adt.wb.CheckMessage()
+        message.typ = sap.adt.wb.CheckMessage.Type.ERROR
+
+        self.assertTrue(message.is_error)
+
+    def test_check_message_is_errror_not(self):
+        message = sap.adt.wb.CheckMessage()
+        message.typ = sap.adt.wb.CheckMessage.Type.WARNING
+
+        self.assertFalse(message.is_error)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -5,6 +5,7 @@ import xml.sax
 from xml.sax.handler import ContentHandler
 
 from sap import get_logger
+from sap.errors import InputError
 
 
 def mod_log():
@@ -142,6 +143,15 @@ class InternalTable(metaclass=InternalTableMeta):
 
     def __len__(self):
         return self._rows.__len__()
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        if other.__class__ != self.__class__:
+            return False
+
+        return self._rows == other._rows
 
     def _append_row(self, row):
         if not isinstance(row, self._type):
@@ -459,9 +469,12 @@ class ABAPContentHandler(ContentHandler):
 
 
 def from_xml(abap_struct_or_table, xml_contents, root_elem=None):
-    """"Reads the given xml_contents and stores the values in the give abap_struct_or_table"""
+    """"Reads the given xml_contents and stores the values in the given abap_struct_or_table"""
 
     parser = ABAPContentHandler(abap_struct_or_table, root_elem=root_elem)
-    xml.sax.parseString(xml_contents, parser)
+    try:
+        xml.sax.parseString(xml_contents, parser)
+    except xml.sax.SAXParseException as ex:
+        raise InputError('Invalid XML for {0}: {1}'.format(abap_struct_or_table.__class__.__name__, ex))
 
     return abap_struct_or_table
