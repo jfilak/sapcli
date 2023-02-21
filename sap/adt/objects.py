@@ -971,7 +971,7 @@ class Interface(OOADTObjectBase):
         'oo/interfaces',
         xmlns_adtcore_ancestor('intf', 'http://www.sap.com/adt/oo/interfaces'),
         # application/vnd.sap.adt.oo.interfaces+xml, application/vnd.sap.adt.oo.interfaces.v2+xml
-        'application/vnd.sap.adt.oo.interfaces.v2+xml',
+        ['application/vnd.sap.adt.oo.interfaces.v5+xml', 'application/vnd.sap.adt.oo.interfaces.v2+xml'],
         {'text/plain': 'source/main'},
         'abapInterface',
         editor_factory=ADTObjectSourceEditor
