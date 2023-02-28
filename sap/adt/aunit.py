@@ -275,6 +275,12 @@ class AlertSeverity:
     TOLERABLE = 'tolerable'
 
 
+class AlertKind:
+    """AUnit Alert kind Identifiers"""
+
+    ABORTION = 'abortion'
+
+
 # pylint: disable=too-few-public-methods
 class Alert(NamedTuple):
     """ABAP Unit Tests Framework ADT results Alert node"""
@@ -296,6 +302,14 @@ class Alert(NamedTuple):
         """Returns true if the alert represents a warning"""
 
         return self.severity == AlertSeverity.TOLERABLE
+
+    @property
+    def is_skip(self):
+        """Returns true if the alert a message about skipped test.
+           ABAP: cl_abap_unit_assert=>skip( 'Skipped because of a wrong system' ).
+        """
+
+        return self.severity == AlertSeverity.TOLERABLE and self.kind == AlertKind.ABORTION
 
 
 # pylint: disable=too-many-instance-attributes
