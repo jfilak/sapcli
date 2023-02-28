@@ -258,26 +258,44 @@ def print_junit4_testcase_error(xml_writer, alert):
         xml_writer.text(alert.stack[-1])
 
 
+def print_junit4_testcase_skipped(xml_writer, alert):
+    """Print AUnit Alert as JUnit4 testcase/skipped"""
+
+    xml_writer.element('skipped', message=alert.title).close()
+
+    if not alert.stack:
+        return
+
+    with xml_writer.element('system-out'):
+        for frame in islice(alert.stack, len(alert.stack) - 1):
+            xml_writer.text(frame, end='\n')
+
+        xml_writer.text(alert.stack[-1])
+
+
 def print_junit4_testcase(xml_writer, test_class, method_name, alerts):
     """Prints XML content for the give alerts and returns number of errors."""
 
-    critical = 0
-    status = None
+    status = 'OK'
 
     if any((alert.is_error for alert in alerts)):
-        critical += 1
         status = 'ERR'
     elif any((alert.is_warning for alert in alerts)):
         status = 'SKIP'
-    else:
-        status = 'OK'
 
     with xml_writer.element('testcase', name=method_name, classname=test_class, status=status):
         for alert in alerts:
             print_junit4_system_err(xml_writer, alert.details)
-            print_junit4_testcase_error(xml_writer, alert)
 
-    return critical
+            if alert.is_skip:
+                print_junit4_testcase_skipped(xml_writer, alert)
+            else:
+                print_junit4_testcase_error(xml_writer, alert)
+
+    if status == 'ERR':
+        return 1
+
+    return 0
 
 
 def print_aunit_junit4(run_results, args, console):

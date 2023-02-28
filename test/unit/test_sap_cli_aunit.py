@@ -15,6 +15,7 @@ from fixtures_adt_aunit import (
     GLOBAL_TEST_CLASS_AUNIT_RESULTS_XML,
     AUNIT_RESULTS_NO_TEST_METHODS_XML,
     AUNIT_SYNTAX_ERROR_XML,
+    AUNIT_RESULTS_SKIPPED_XML,
     TEST_CLASS_WITH_SYS_ERROR_FOLLOWED_BY_GREEN_TEST_CLASS_AUNIT_RESULTS_XML
 )
 from fixtures_adt_program import GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML
@@ -280,6 +281,68 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
         self.assertEqual(mock_print.return_value.caperr,
 '''''')
         self.assertEqual(retval, 1)
+
+    def test_aunit_class_junit4_skipped(self):
+        self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_SKIPPED_XML, headers={}))
+
+        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+            retval = self.execute_run('class', 'yclass', '--output', 'junit4', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.maxDiff = None
+        self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="yclass">
+  <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="1">
+    <testcase name="DO_THE_FAIL" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="SKIP">
+      <system-err>Test execution skipped due to missing prerequisites
+Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===CP'.</system-err>
+      <skipped message="Missing Prerequisites - This test should not be executed here."/>
+      <system-out>Include: &lt;ZCL_THEKING_MANUAL_HARDCORE===CCAU&gt; Line: &lt;19&gt; (DO_THE_FAIL)</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>
+''')
+        self.assertEqual(mock_print.return_value.caperr,
+'''''')
+        self.assertEqual(retval, 0)
+
+    def test_aunit_alert_skip_no_stack(self):
+        alert = sap.adt.aunit.Alert(
+                    kind=sap.adt.aunit.AlertKind.ABORTION,
+                    severity=sap.adt.aunit.AlertSeverity.TOLERABLE,
+                    title='Skip without stack',
+                    details=[],
+                    stack=[]
+                )
+
+        buffer = BufferConsole()
+        with sap.cli.aunit.XMLWriter(buffer, 'root') as xml_writer:
+            sap.cli.aunit.print_junit4_testcase_skipped(xml_writer, alert)
+
+        self.assertEqual(buffer.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
+<root>
+  <skipped message="Skip without stack"/>
+</root>
+''')
+
+    def test_aunit_alert_skip_multiline_stack(self):
+        alert = sap.adt.aunit.Alert(
+                    kind=sap.adt.aunit.AlertKind.ABORTION,
+                    severity=sap.adt.aunit.AlertSeverity.TOLERABLE,
+                    title='Skip with multiline stack',
+                    details=[],
+                    stack=['call 1', 'call 2']
+                )
+
+        buffer = BufferConsole()
+        with sap.cli.aunit.XMLWriter(buffer, 'root') as xml_writer:
+            sap.cli.aunit.print_junit4_testcase_skipped(xml_writer, alert)
+        self.assertEqual(buffer.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
+<root>
+  <skipped message="Skip with multiline stack"/>
+  <system-out>call 1
+call 2</system-out>
+</root>
+''')
 
     def test_aunit_package_with_results_sonar(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
