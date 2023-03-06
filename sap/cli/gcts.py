@@ -19,6 +19,7 @@ from sap.rest.gcts.errors import (
     GCTSRequestError,
     SAPCliError,
 )
+from sap.rest.errors import HTTPRequestError
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -563,6 +564,22 @@ def repolist(connection, args):
     return 0
 
 
+def _get_clone_activity_rc(repo):
+    """Get the return code of the latest clone activity"""
+
+    activities_params = RepoActivitiesQueryParams().set_operation('CLONE')
+    try:
+        activities_list = repo.activities(activities_params)
+    except HTTPRequestError as exc:
+        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.name}"\n{exc}') from exc
+
+    if not activities_list:
+        raise SAPCliError(f'Expected clone activity not found! Repository: "{repo.name}"')
+
+    return int(activities_list[0]['rc'])
+
+
+@CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=0)
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--vsid', type=str, nargs='?', default='6IT')
 @CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
@@ -584,14 +601,34 @@ def clone(connection, args):
 
     console = sap.cli.core.get_console()
 
-    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-        repo = sap.rest.gcts.simple.clone(connection, args.url, package,
-                                          start_dir=args.starting_folder,
-                                          vcs_token=args.vcs_token,
-                                          vsid=args.vsid,
-                                          error_exists=not args.no_fail_exists,
-                                          role=args.role,
-                                          typ=args.type)
+    try:
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            repo = sap.rest.gcts.simple.clone(connection, args.url, package,
+                                              start_dir=args.starting_folder,
+                                              vcs_token=args.vcs_token,
+                                              vsid=args.vsid,
+                                              error_exists=not args.no_fail_exists,
+                                              role=args.role,
+                                              typ=args.type)
+    except HTTPRequestError as exc:
+        if args.wait_for_ready > 0:
+            repo = get_repository(connection, args.url)
+
+            console.printout('Clone request responded with an error. Checking clone process ...')
+            clone_rc = _get_clone_activity_rc(repo)
+            if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
+                console.printerr(f'Clone process failed with return code: {clone_rc}!')
+                console.printerr(str(exc))
+                return 1
+
+            console.printout('Clone process finished successfully. Waiting for repository to be ready ...')
+            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                sap.rest.gcts.simple.wait_for_clone(repo, args.wait_for_ready, exc)
+
+        else:
+            console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
+            console.printerr(str(exc))
+            return 1
 
     console.printout('Cloned repository:')
     console.printout(' URL   :', repo.url)

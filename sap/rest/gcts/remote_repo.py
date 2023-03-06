@@ -178,6 +178,11 @@ class Repository:
 
     EDITABLE_PROPERTIES = {'name', 'rid', 'role', 'type', 'vsid', 'status', 'url'}
 
+    class ActivityReturnCode(Enum):
+        """Repository activity return codes"""
+
+        CLONE_SUCCESS = 4
+
     def __init__(self, connection, name, data=None):
         self._http = _RepositoryHttpProxy(connection, name)
         self._name = name
