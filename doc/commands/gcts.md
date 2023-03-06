@@ -37,11 +37,14 @@ sapcli gcts repolist
 Creates and pulls a new repository. If the argument package is
 not given, the name is taken from repository name.
 
-```
+```bash
 sapcli gcts clone [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type TYPE] [--vcs-token TOKEN] URL [package]
 ```
 
 **Parameters**:
+- `--wait-for-ready SECONDS`: Wait for the repository to be in status `READY` for the given number of seconds 
+- `--heartbeat SECONDS`: Console heart beat printing dots
+- `--no-fail-exists`: If repository exists do not fail but try to clone
 - `--vsid VSID`: Virtual System ID of the repository; default is **6IT**
 - `--starting-folder FOLDER`: The directory inside the repository where to store ABAP files; default is **src/**.
 - `--role ROLE`: Either SOURCE (Development) or TARGET (Provided); default is **SOURCE**
