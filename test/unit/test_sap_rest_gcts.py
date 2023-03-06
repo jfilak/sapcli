@@ -930,6 +930,60 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(self.conn.execs), 2)
         self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(Request.get_json(uri=f'repository/{self.repo_name}'), self)
 
+    @patch('sap.rest.gcts.simple._mod_log')
+    def test_simple_wait_for_clone(self, fake_mod_log):
+        repository = dict(self.repo_server_data)
+        repository['status'] = 'CREATED'
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=repository)
+        repo.wipe_data = Mock(side_effect=repo.wipe_data)
+
+        self.conn.set_responses([
+            Response.with_json(status_code=200, json={'result': self.repo_server_data})
+        ])
+
+        sap.rest.gcts.simple.wait_for_clone(repo, 10, None)
+        repo.wipe_data.assert_called_once()
+        fake_mod_log.return_value.debug.assert_not_called()
+
+    @patch('sap.rest.gcts.simple._mod_log')
+    def test_simple_wait_for_clone_with_retries(self, fake_mod_log):
+        repository = dict(self.repo_server_data)
+        repository['status'] = 'CREATED'
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=repository)
+        repo.wipe_data = Mock(side_effect=repo.wipe_data)
+
+        self.conn.set_responses([
+            Response(status_code=500, text='Test HTTP Request Exception'),
+            Response.with_json(status_code=200, json={'result': repository}),
+            Response.with_json(status_code=200, json={'result': self.repo_server_data})
+        ])
+
+        sap.rest.gcts.simple.wait_for_clone(repo, 10, None)
+        self.assertEqual(repo.wipe_data.mock_calls, [call(), call(), call()])
+        fake_mod_log.return_value.debug.assert_called_once_with('Failed to get status of the repository %s', repo.name)
+
+    @patch('sap.rest.gcts.simple.time.time')
+    def test_simple_wait_for_clone_timeout(self, fake_time):
+        repository = dict(self.repo_server_data)
+        repository['status'] = 'CREATED'
+
+        fake_time.side_effect = [0, 1, 2]
+
+        self.conn.set_responses([
+            Response.with_json(status_code=200, json={'result': repository}),
+        ])
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_name, data=repository)
+        http_error = HTTPRequestError(None, Response(status_code=500, text='Test HTTP Request Exception'))
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            sap.rest.gcts.simple.wait_for_clone(repo, 2, http_error)
+
+        self.assertEqual(str(cm.exception), 'Waiting for the repository to be in READY state timed out\n'
+                                            '500\nTest HTTP Request Exception')
+
     def test_simple_fetch_no_repo(self):
         self.conn.set_responses(
             Response.with_json(status_code=200, json={})

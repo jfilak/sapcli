@@ -1,6 +1,7 @@
 """Simple API for gCTS operations"""
 
 import json
+import time
 
 from sap import get_logger
 from sap.rest.errors import HTTPRequestError
@@ -28,6 +29,22 @@ def fetch_repos(connection):
 
     result = response.get('result', [])
     return [Repository(connection, repo['name'], data=repo) for repo in result]
+
+
+def wait_for_clone(repo, wait_for_ready, http_exc):
+    """Wait for clone process to finish"""
+
+    start_time = time.time()
+    while time.time() - start_time < wait_for_ready:
+        repo.wipe_data()
+        try:
+            if repo.is_cloned:
+                return
+
+        except HTTPRequestError:
+            _mod_log().debug('Failed to get status of the repository %s', repo.name)
+
+    raise SAPCliError(f'Waiting for the repository to be in READY state timed out\n{http_exc}')
 
 
 # pylint: disable=too-many-arguments

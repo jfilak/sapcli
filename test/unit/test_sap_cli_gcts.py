@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch, Mock, PropertyMock, mock_open, call
 
 import sap.cli.gcts
 import sap.cli.core
+from sap.rest.errors import HTTPRequestError
 
 from mock import (
     RESTConnection,
@@ -176,13 +177,20 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
 
         self.patch_console(console=self.console)
         self.fake_simple_clone = self.patch('sap.rest.gcts.simple.clone')
+        self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
+        self.fake_simple_wait_for_clone = self.patch('sap.rest.gcts.simple.wait_for_clone')
 
         self.conn = Mock()
-        self.fake_simple_clone.return_value = sap.rest.gcts.remote_repo.Repository(self.conn, 'sample', data={
+        self.fake_repo = sap.rest.gcts.remote_repo.Repository(self.conn, 'sample', data={
             'url': 'https://example.org/repo/git/sample.git',
             'branch': 'main',
             'currentCommit': 'FEDBCA9876543210'
         })
+        self.fake_repo.activities = Mock()
+        self.fake_repo.activities.return_value = [{'rc': '004'}]
+
+        self.fake_simple_clone.return_value = self.fake_repo
+        self.fake_get_repository.return_value = self.fake_repo
 
     def clone(self, *args, **kwargs):
         return parse_args('clone', *args, **kwargs)
@@ -211,7 +219,6 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
  HEAD  : FEDBCA9876543210
 ''')
 
-
     def test_clone_with_all_params(self):
         args = self.clone(
             'https://example.org/repo/git/sample.git',
@@ -220,7 +227,8 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             '--starting-folder', 'backend/src/',
             '--no-fail-exists',
             '--role', 'TARGET',
-            '--type', 'GIT'
+            '--type', 'GIT',
+            '--wait-for-ready', '10'
         )
 
         exit_code = args.execute(self.conn, args)
@@ -267,6 +275,121 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(exit_code, 1)
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+    def test_clone_internal_error_no_wait(self):
+        fake_response = Mock()
+        fake_response.text = 'Test Exception'
+        fake_response.status_code = 500
+
+        self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
+
+        args = self.clone('url')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(
+            self.console,
+            stdout='Clone request responded with an error. Checkout "--wait-for-ready" parameter!\n',
+            stderr='500\nTest Exception\n'
+        )
+
+    def test_clone_internal_error_with_wait(self):
+        fake_response = Mock()
+        fake_response.text = 'Test Exception'
+        fake_response.status_code = 500
+
+        self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
+
+        args = self.clone('url', '--wait-for-ready', '10')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 0)
+
+        self.assertEqual(self.fake_repo.activities.mock_calls[0].args[0].get_params()['type'], 'CLONE')
+        self.assertConsoleContents(self.console, stdout=
+'''Clone request responded with an error. Checking clone process ...
+Clone process finished successfully. Waiting for repository to be ready ...
+Cloned repository:
+ URL   : https://example.org/repo/git/sample.git
+ branch: main
+ HEAD  : FEDBCA9876543210
+''')
+
+    def test_clone_internal_error_with_wait_get_activity_rc_error(self):
+        fake_response = Mock()
+        fake_response.text = 'Test Exception'
+        fake_response.status_code = 500
+
+        clone_exception = HTTPRequestError(None, fake_response)
+
+        self.fake_simple_clone.side_effect = clone_exception
+        self.fake_repo.activities.side_effect = HTTPRequestError(None, fake_response)
+
+        args = self.clone('url', '--wait-for-ready', '10')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_repo.activities.assert_called_once()
+        self.assertConsoleContents(self.console,
+                                   stdout='Clone request responded with an error. Checking clone process ...\n',
+                                   stderr='Unable to obtain activities of repository: "sample"\n500\nTest Exception\n')
+
+    def test_clone_internal_error_with_wait_get_activity_rc_empty(self):
+        fake_response = Mock()
+        fake_response.text = 'Test Exception'
+        fake_response.status_code = 500
+
+        self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
+        self.fake_repo.activities.return_value = []
+
+        args = self.clone('url', '--wait-for-ready', '10')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_repo.activities.assert_called_once()
+        self.assertConsoleContents(self.console,
+                                   stdout='Clone request responded with an error. Checking clone process ...\n',
+                                   stderr='Expected clone activity not found! Repository: "sample"\n')
+
+    def test_clone_internal_error_with_wait_get_activity_rc_failed(self):
+        fake_response = Mock()
+        fake_response.text = 'Test Exception'
+        fake_response.status_code = 500
+
+        self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
+        self.fake_repo.activities.return_value = [{'rc': '8'}]
+
+        args = self.clone('url', '--wait-for-ready', '10')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_repo.activities.assert_called_once()
+        self.assertConsoleContents(self.console,
+                                   stdout='Clone request responded with an error. Checking clone process ...\n',
+                                   stderr='Clone process failed with return code: 8!\n'
+                                          '500\nTest Exception\n')
+
+    def test_clone_internal_error_with_wait_timeout(self):
+        fake_response = Mock()
+        fake_response.text = 'Test Exception'
+        fake_response.status_code = 500
+
+        clone_exception = HTTPRequestError(None, fake_response)
+
+        self.fake_simple_clone.side_effect = clone_exception
+        self.fake_simple_wait_for_clone.side_effect = sap.rest.errors.SAPCliError('Waiting for clone process timed out')
+
+        args = self.clone('url', '--wait-for-ready', '10')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_simple_wait_for_clone.assert_called_once_with(self.fake_get_repository.return_value, 10,
+                                                                clone_exception)
+        self.assertConsoleContents(
+            self.console,
+            stdout='Clone request responded with an error. Checking clone process ...\n'
+                   'Clone process finished successfully. Waiting for repository to be ready ...\n',
+            stderr='Waiting for clone process timed out\n'
+        )
 
 
 class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
