@@ -675,6 +675,10 @@ class TestDump(unittest.TestCase):
                             'class': 'CHK2CLASS',
                             'description': 'CHK2DESC',
                             'priorities': []
+                        },
+                        'CHK3': {
+                            'class': 'CHK3CLASS',
+                            'description': 'CHK3DESC',
                         }
                     }
                 }
@@ -704,6 +708,12 @@ class TestDump(unittest.TestCase):
           "class": "CHK2CLASS",
           "description": "CHK2DESC",
           "id": "CHK2",
+          "priorities": []
+        },
+        {
+          "class": "CHK3CLASS",
+          "description": "CHK3DESC",
+          "id": "CHK3",
           "priorities": []
         },
         {

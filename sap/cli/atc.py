@@ -306,17 +306,20 @@ def profile_dump(connection, args):
                         check_new = dict(checks[chkid])
                         check_new['id'] = chkid
 
-                        prios = check_new['priorities']
-                        check_new['priorities'] = []
-                        for idmsg in prios:
-                            prio_new = dict(prios[idmsg])
-                            prio_new['id'] = idmsg
-                            if 'check_message_id' in prio_new:
-                                del prio_new['check_message_id']
-                            check_new['priorities'].append(prio_new)
+                        if 'priorities' in check_new:
+                            prios = check_new['priorities']
+                            check_new['priorities'] = []
+                            for idmsg in prios:
+                                prio_new = dict(prios[idmsg])
+                                prio_new['id'] = idmsg
+                                if 'check_message_id' in prio_new:
+                                    del prio_new['check_message_id']
+                                check_new['priorities'].append(prio_new)
 
-                        # sort priorities by MSGID
-                        check_new['priorities'].sort(key=lambda x: x['id'])
+                            # sort priorities by MSGID
+                            check_new['priorities'].sort(key=lambda x: x['id'])
+                        else:
+                            check_new['priorities'] = []
 
                         profile_new['checks'].append(check_new)
 
