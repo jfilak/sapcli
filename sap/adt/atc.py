@@ -225,6 +225,17 @@ class ChecksRunner:
         worklist = WorkList()
         Marshal.deserialize(resp.text, worklist)
 
+        # increase all priorities by 1 to be in sync with SAPGui. ADT protocol sends priorities
+        # decreased by one
+        for obj in worklist.objects:
+            for finding in obj.findings:
+                # increment only if priority is integer
+                try:
+                    finding_number = int(finding.priority)
+                    finding.priority = str(finding_number + 1)
+                except ValueError:
+                    pass
+
         return WorkListRunResult(run_response, worklist)
 
 

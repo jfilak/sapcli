@@ -63,6 +63,32 @@ ADT_XML_ATC_RUN_RESPONSE_NO_OBJECTS='''<?xml version="1.0" encoding="utf-8"?>
     </atcworklist:infos>
 </atcworklist:worklistRun>'''
 
+# << Content-Type: application/xml; charset=utf-8
+ADT_XML_ATC_RUN_RESPONSE_WITH_FINDINGS='''<?xml version="1.0" encoding="utf-8"?>
+<atcworklist:worklist xmlns:atcworklist="http://www.sap.com/adt/atc/worklist" atcworklist:id="CB763CE23E611EDDB38C172F2E7607EB" atcworklist:timestamp="2023-03-27T05:32:22Z" atcworklist:usedObjectSet="00000000000000000000000000000000" atcworklist:objectSetIsComplete="false">
+    <atcworklist:objectSets>
+        <atcworklist:objectSet atcworklist:name="00000000000000000000000000000000" atcworklist:title="All Objects" atcworklist:kind="ALL"/>
+    </atcworklist:objectSets>
+    <atcworklist:objects>
+        <atcobject:object xmlns:atcobject="http://www.sap.com/adt/atc/object" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:uri="/sap/bc/adt/atc/objects/R3TR/APIS/OBJ1" adtcore:type="APIS" adtcore:name="OBJ1" adtcore:packageName="$TMP" atcobject:author="DEVELOPER">
+            <atcobject:findings>
+                <atcfinding:finding xmlns:atcfinding="http://www.sap.com/adt/atc/finding" adtcore:uri="/sap/bc/adt/atc/findings/itemid/A32FC0C4E8521EDDB1F11923DA6F0C5A/index/9" atcfinding:location="/sap/bc/adt/vit/atc/runs/CB763CE23E611EDDB38C172F2E7607EB/verdict/OBJ1/APIS/005056AB5B8D1ED4BFDA1CA5D9EBA6C4/0898/974362469" atcfinding:processor="DEVELOPER" atcfinding:lastChangedBy="" atcfinding:priority="1" atcfinding:checkId="005056AB5B8D1ED4BFDA1CA5D9EBA6C4" atcfinding:checkTitle="Test Environment (CHK_ZDM)" atcfinding:messageId="0898" atcfinding:messageTitle="Exception occurred (see details)" atcfinding:exemptionApproval="" atcfinding:exemptionKind="" atcfinding:checksum="974362469">
+                    <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="/sap/bc/adt/documentation/atc/documents/itemid/A32FC0C4E8521EDDB1F11923DA6F0C5A/index/9" rel="http://www.sap.com/adt/relations/documentation" type="text/html"/>
+                    <atcfinding:quickfixes atcfinding:manual="false" atcfinding:automatic="false" atcfinding:pseudo="false"/>
+                </atcfinding:finding>
+                <atcfinding:finding xmlns:atcfinding="http://www.sap.com/adt/atc/finding" adtcore:uri="/sap/bc/adt/atc/findings/itemid/A32FC0C4E8521EDDB1F11923DA6F0C5A/index/9" atcfinding:location="/sap/bc/adt/vit/atc/runs/CB763CE23E611EDDB38C172F2E7607EB/verdict/OBJ1/APIS/005056AB5B8D1ED4BFDA1CA5D9EBA6C4/0898/974362469" atcfinding:processor="DEVELOPER" atcfinding:lastChangedBy="" atcfinding:priority="one" atcfinding:checkId="005056AB5B8D1ED4BFDA1CA5D9EBA6C4" atcfinding:checkTitle="Test Environment (CHK_ZDM)" atcfinding:messageId="0898" atcfinding:messageTitle="Exception occurred (see details)" atcfinding:exemptionApproval="" atcfinding:exemptionKind="" atcfinding:checksum="974362469">
+                    <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="/sap/bc/adt/documentation/atc/documents/itemid/A32FC0C4E8521EDDB1F11923DA6F0C5A/index/9" rel="http://www.sap.com/adt/relations/documentation" type="text/html"/>
+                    <atcfinding:quickfixes atcfinding:manual="false" atcfinding:automatic="false" atcfinding:pseudo="false"/>
+                </atcfinding:finding>
+            </atcobject:findings>
+        </atcobject:object>
+        <atcobject:object xmlns:atcobject="http://www.sap.com/adt/atc/object" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:uri="/sap/bc/adt/atc/objects/R3TR/TABL/TBL1" adtcore:type="TABL" adtcore:name="TBL1" adtcore:packageName="$TMP" atcobject:author="DEVELOPER">
+            <atcobject:findings/>
+        </atcobject:object>
+    </atcworklist:objects>
+    <atcworklist:infos/>
+ </atcworklist:worklist>'''
+
 # >> Accept      : application/xml
 # >> Content-Type: application/xml
 # !!! BEWARE - adtcore:name is not sent by Eclipse ADT
