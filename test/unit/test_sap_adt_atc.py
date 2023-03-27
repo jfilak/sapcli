@@ -15,8 +15,8 @@ from fixtures_adt_atc import ADT_XML_ATC_CUSTOMIZING, ADT_XML_ATC_CUSTOMIZING_AT
                              ADT_XML_ATC_WORKLIST_EMPTY, ADT_XML_ATC_WORKLIST_CLASS, ADT_XML_ATC_RUN_REQUEST_PACKAGE, \
                              ADT_XML_PROFILES_TABLE, ADT_XML_PROFILES_TRAN_TABLE, ADT_XML_PROFILES_CHECKS_TABLE, \
                              ADT_XML_PROFILES_CHKMSG_LOCAL_TABLE, ADT_XML_CRMCHK_TABLE, ADT_XML_CRMCHKT_TABLE, \
-                             ADT_XML_CRMCHKMSGT_TABLE, ADT_XML_CRM_CHECK_RULE_VIEW, ADT_XML_CRMCHKMSG_TABLE
-
+                             ADT_XML_CRMCHKMSGT_TABLE, ADT_XML_CRM_CHECK_RULE_VIEW, ADT_XML_CRMCHKMSG_TABLE, \
+                             ADT_XML_ATC_RUN_RESPONSE_WITH_FINDINGS
 
 HEADER_ACCEPT = f'application/xml, {sap.adt.atc.CUSTOMIZING_MIME_TYPE_V1}'
 ATC_CUSTOMIZIN_REQUEST = Request('GET',
@@ -223,6 +223,54 @@ class TestATCRunner(unittest.TestCase):
 
         self.assertIsNotNone(results.run_response)
         self.assertIsNotNone(results.worklist)
+
+    def test_run_for_not_empty(self):
+
+        conn = Connection([
+            Response(status_code=200,
+                text=self.worklist_id,
+                headers={'Content-Type': 'text/plain'}),
+            Response(status_code=200,
+                text=ADT_XML_ATC_RUN_RESPONSE_NO_OBJECTS,
+                headers={'Content-Type': 'application/xml'}),
+            Response(status_code=200,
+                text=ADT_XML_ATC_RUN_RESPONSE_WITH_FINDINGS,
+                headers={'Content-Type': 'application/atc.worklist.v1+xml'})])
+
+        checks_runner = sap.adt.atc.ChecksRunner(conn, self.variant)
+
+        objects = sap.adt.objects.ADTObjectSets()
+        objects.include_object(sap.adt.Package(conn, '$iamtheking'))
+
+        results = checks_runner.run_for(objects, max_verdicts=69)
+
+        self.assertEqual(conn.execs, [self.request_create_worklist,
+                                      self.request_run_worklist,
+                                      self.request_get_worklist])
+
+        self.assertIsNotNone(results.run_response)
+        self.assertIsNotNone(results.worklist)
+
+        self.assertEqual(len(results.worklist.objects), 2)
+        atcobject = results.worklist.objects[0]
+
+        self.assertEqual(atcobject.uri, '/sap/bc/adt/atc/objects/R3TR/APIS/OBJ1')
+        self.assertEqual(atcobject.name, 'OBJ1')
+        self.assertEqual(atcobject.package_name, '$TMP')
+
+        self.assertEqual(len(atcobject.findings), 2)
+        finding = atcobject.findings[0]
+
+        self.assertEqual(finding.priority, '2')
+        self.assertEqual(finding.check_id, '005056AB5B8D1ED4BFDA1CA5D9EBA6C4')
+        self.assertEqual(finding.check_title, 'Test Environment (CHK_ZDM)')
+        self.assertEqual(finding.message_id, '0898')
+        self.assertEqual(finding.message_title, 'Exception occurred (see details)')
+        self.assertEqual(finding.exemption_approval, '')
+        self.assertEqual(finding.exemption_kind, '')
+
+        finding = atcobject.findings[1]
+        self.assertEqual(finding.priority, 'one')
 
 
 class TestATCProfiles(unittest.TestCase):
