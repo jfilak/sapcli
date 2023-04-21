@@ -201,6 +201,20 @@ class TestSAPPlatformABAP(unittest.TestCase):
         self.assertNotEqual(table, PLAIN_STRUCT())
         self.assertEqual(table, table)
 
+    def test_simple_xml_object_with_value(self):
+        simple = type('SIMPLE', (str,), {})('foo')
+
+        self.assertEqual(simple, 'foo')
+
+    def test_internal_table_with_list_of_simple_xml_objects(self):
+        simple_internal_table = sap.platform.abap.InternalTable.define('SIMPLE_OBJECTS', str)
+
+        table = simple_internal_table(['foo', 'bar'])
+
+        self.assertEqual(len(table), 2)
+        self.assertEqual(table[0], 'foo')
+        self.assertEqual(table[1], 'bar')
+
 
 class TestSAPPlatformABAPToXML(unittest.TestCase):
 
@@ -379,6 +393,36 @@ class TestSAPPlatformABAPFromXML(unittest.TestCase):
         self.assertEqual(struct.REVIEWER, 'Jakub Filak')
         self.assertEqual(struct.REPORT.PYTHON, 'Cool')
         self.assertEqual(struct.REPORT.LINUX, 'Fabulous')
+
+    def test_from_xml_simple_object(self):
+        simple = type('SIMPLE', (str,), {})
+
+        with self.assertRaises(RuntimeError) as cm:
+            sap.platform.abap.from_xml(simple, '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <SIMPLE>foo</SIMPLE>
+  </asx:values>
+</asx:abap>\n''')
+
+        self.assertEqual(str(cm.exception), 'Master object must be structure or internal table')
+
+    def test_from_xml_internal_table_with_simple_objects(self):
+        table = sap.platform.abap.InternalTable.define('SIMPLE_OBJECTS', str)()
+
+        sap.platform.abap.from_xml(table, '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <SIMPLE_OBJECTS>
+      <SIMPLE>foo</SIMPLE>
+      <SIMPLE>bar</SIMPLE>
+    </SIMPLE_OBJECTS>
+  </asx:values>
+</asx:abap>\n''')
+
+        self.assertEqual(len(table), 2)
+        self.assertEqual(table[0], 'foo')
+        self.assertEqual(table[1], 'bar')
 
 
 if __name__ == '__main__':

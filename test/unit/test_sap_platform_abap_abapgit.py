@@ -79,5 +79,35 @@ class TestDOT_ABAP_GIT(unittest.TestCase):
         self.assertEqual([itm for itm in config.IGNORE], ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
 
 
+class TestAbapGitFromXml(unittest.TestCase):
+
+    def test_abap_git_from_xml(self):
+        SIMPLE_OBJECT = type('SIMPLE_OBJECT', (str,), {})
+
+        parsed = sap.platform.abap.abapgit.from_xml([SIMPLE_OBJECT, SIMPLE_ABAP_STRUCT_TT], '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <SIMPLE_OBJECT>FOO</SIMPLE_OBJECT>
+    <SIMPLE_ABAP_STRUCT_TT>
+      <item>
+        <FOO>ARG</FOO>
+        <BAR>DOH</BAR>
+      </item>
+      <item>
+        <FOO>ARG2</FOO>
+        <BAR>DOH2</BAR>
+      </item>
+    </SIMPLE_ABAP_STRUCT_TT>
+  </asx:values>
+</asx:abap>''')
+
+        self.assertEqual(parsed['SIMPLE_OBJECT'], 'FOO')
+        self.assertEqual(len(parsed['SIMPLE_ABAP_STRUCT_TT']), 2)
+        self.assertEqual(parsed['SIMPLE_ABAP_STRUCT_TT'][0].FOO, 'ARG')
+        self.assertEqual(parsed['SIMPLE_ABAP_STRUCT_TT'][0].BAR, 'DOH')
+        self.assertEqual(parsed['SIMPLE_ABAP_STRUCT_TT'][1].FOO, 'ARG2')
+        self.assertEqual(parsed['SIMPLE_ABAP_STRUCT_TT'][1].BAR, 'DOH2')
+
+
 if __name__ == '__main__':
     unittest.main()
