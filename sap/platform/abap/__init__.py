@@ -275,18 +275,6 @@ class ABAPBaseWriter:
         self.obj = obj
         self.name = name
 
-    def do_start(self, name, attrs):
-        """Handle opening tag in an ancestor class.
-           Should return a writer adapter - either self or a new child adapter.
-        """
-
-        return self
-
-    def start(self, name, attrs):
-        """Handle opening tag - (overwrite do_start)"""
-
-        return self.do_start(name, attrs)
-
     def get_type(self):
         """Returns type of the adapted object"""
 
@@ -294,19 +282,11 @@ class ABAPBaseWriter:
 
     def get_member_type(self, name):
         """Returns type of the member of the given name"""
-
         typ = self.get_type()
         try:
             return self.get_type().__annotations__[name]
         except KeyError:
             raise RuntimeError(f'{typ.__name__} does not have the member {name}')
-
-    def do_end(self, name, contents):
-        """Handle closing tag in an ancestor class.
-           Should return a writer adapter - either self or a new child adapter.
-        """
-
-        raise NotImplementedError()
 
     def set_child(self, name, child_obj):
         """Sets the member of the given name in the adapted object"""
@@ -314,17 +294,27 @@ class ABAPBaseWriter:
         raise NotImplementedError()
 
     def end(self, name, contents):
-        """Handle closing tag - (overwrite do_end)"""
+        """Handle closing tag"""
 
-        if name == self.name:
-            if self.parent is not None:
-                mod_log().debug('Setting: %s.%s = %s', self.parent.obj, name, self.obj)
-                self.parent.set_child(name, self.obj)
+        if self.parent is not None:
+            mod_log().debug('Setting: %s.%s = %s', self.parent.obj, name, self.obj)
+            self.parent.set_child(name, self.obj)
 
-            mod_log().debug('%s going to parent', name)
-            return self.parent
+        mod_log().debug('%s going to parent', name)
+        return self.parent
 
-        return self.do_end(name, contents)
+
+class ABAPSimpleObjectWriter(ABAPBaseWriter):
+
+    def get_type(self):
+        return type(self.obj)
+
+    def set_child(self, name, child_obj):
+        raise RuntimeError(f'ABAPSimpleObjectWriter cannot have children: {name} = {child_obj}')
+
+    def end(self, name, contents):
+        self.obj = contents
+        return super().end(name, contents)
 
 
 class ABAPStructureWriter(ABAPBaseWriter):
@@ -334,11 +324,6 @@ class ABAPStructureWriter(ABAPBaseWriter):
 
     def set_child(self, name, child_obj):
         setattr(self.obj, name, child_obj)
-
-    def do_end(self, name, contents):
-        self.set_child(name, contents)
-
-        return self
 
 
 class ABAPTableWriter(ABAPBaseWriter):
@@ -356,41 +341,12 @@ class ABAPTableWriter(ABAPBaseWriter):
     def get_member_type(self, name):
         return self.get_type()
 
-    def do_start(self, name, attrs):
-        if name == 'item':
-            if self.plain_list:
-                return self
-
-        mod_log().debug('New Instance of Complex: %s', self.obj._type.__name__)
-
-        # Return a new adapter for item type of the table
-        row = self.obj._type()
-        return ABAPStructureWriter(self, row, name)
-
     def set_child(self, name, child_obj):
         mod_log().debug('Appending: %s', child_obj)
         self.obj.append(child_obj)
 
-    def do_end(self, name, contents):
-        if name != 'item':
-            # Closing tag of the item type must be
-            # handled in the corresponding adapter.
-            raise RuntimeError('No members allowed')
-
-        if not self.plain_list:
-            raise RuntimeError('Structure called "item" is not allowed')
-
-        mod_log().debug('New Instance of Scalar: %s', self.obj._type.__name__)
-        row = self.obj._type(contents)
-        self.set_child(name, row)
-
-        return self
-
 
 def get_xml_object_adapter(adapted_typ, adapted_obj, xml_tag, parent_adapter):
-
-    adapter_class = None
-
     if issubclass(adapted_typ, Structure):
         mod_log().debug('It is a structure')
         adapter_class = ABAPStructureWriter
@@ -398,7 +354,8 @@ def get_xml_object_adapter(adapted_typ, adapted_obj, xml_tag, parent_adapter):
         mod_log().debug('It is a table')
         adapter_class = ABAPTableWriter
     else:
-        return None
+        mod_log().debug('It is a simple object')
+        adapter_class = ABAPSimpleObjectWriter
 
     if adapted_obj is None:
         mod_log().debug('Creating a target object: %s', adapted_typ.__name__)
@@ -413,9 +370,8 @@ class ABAPContentHandler(ContentHandler):
 
     def __init__(self, master_obj, root_elem=None):
         self.root_elem = master_obj.__class__.__name__ if root_elem is None else root_elem
-
         self.current = get_xml_object_adapter(type(master_obj), master_obj, self.root_elem, None)
-        if self.current is None:
+        if isinstance(self.current, ABAPSimpleObjectWriter):
             raise RuntimeError('Master object must be structure or internal table')
 
         self.contents = None
@@ -437,13 +393,13 @@ class ABAPContentHandler(ContentHandler):
         mod_log().debug('<%s> == %s', name, typ.__name__)
         adapter = get_xml_object_adapter(typ, None, name, self.current)
 
-        if adapter is not None:
-            mod_log().debug('<%s> delve deeper', name)
-            self.current = adapter
-        else:
+        if isinstance(adapter, ABAPSimpleObjectWriter):
             mod_log().debug('<%s> handle scalar value', name)
-            self.current = self.current.start(name, attrs)
             self.contents = ''
+        else:
+            mod_log().debug('<%s> delve deeper', name)
+
+        self.current = adapter
 
     def characters(self, content):
         if self.contents is None:
