@@ -49,3 +49,14 @@ PUT_FUNCITON_MODULE_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <fmodule:abapFunctionModule xmlns:fmodule="http://www.sap.com/adt/functions/fmodules" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="FUGR/FF" adtcore:description="You cannot stop me!" adtcore:name="Z_FN_HELLO_WORLD" adtcore:version="inactive" fmodule:processingType="rfc" fmodule:releaseState="notReleased">
 <adtcore:containerRef adtcore:name="ZFG_HELLO_WORLD" adtcore:type="FUGR/F" adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world" adtcore:packageName="$TEST"/>
 </fmodule:abapFunctionModule>'''
+
+CREATE_FUNCTION_INCLUDE_ADT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<finclude:abapFunctionGroupInclude xmlns:finclude="http://www.sap.com/adt/functions/fincludes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="FUGR/I" adtcore:description="Hello Include!" adtcore:name="ZFI_HELLO_WORLD">
+<adtcore:containerRef adtcore:name="ZFG_HELLO_WORLD" adtcore:type="FUGR/F" adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world"/>
+</finclude:abapFunctionGroupInclude>"""
+
+GET_FUNCTION_INCLUDE_ADT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<finclude:abapFunctionGroupInclude xmlns:finclude="http://www.sap.com/adt/functions/fincludes" adtcore:name="ZFI_HELLO_WORLD" adtcore:type="FUGR/I" adtcore:changedAt="2019-04-24T18:19:16Z" adtcore:version="inactive" adtcore:createdAt="2019-04-24T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:description="Hello Include!" adtcore:descriptionTextLimit="74" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+    <adtcore:containerRef adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world" adtcore:type="FUGR/F" adtcore:name="ZFG_HELLO_WORLD" adtcore:packageName="$TEST"/>
+</finclude:abapFunctionGroupInclude>
+"""

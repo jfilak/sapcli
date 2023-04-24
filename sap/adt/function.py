@@ -208,3 +208,75 @@ class FunctionModule(ADTObject):
             self._reference = FunctionGroup.create_reference(self.connection, self._function_group_name, self.package)
 
         return self._reference
+
+
+class FunctionInclude(ADTObject):
+    """ABAP Function Group Include"""
+
+    OBJTYPE = ADTObjectType(
+        'FUGR/I',
+        'functions/groups/{groupname}/includes',
+        xmlns_adtcore_ancestor('finclude', 'http://www.sap.com/adt/functions/fincludes'),
+        ['application/vnd.sap.adt.functions.fincludes.v2+xml',
+         'application/vnd.sap.adt.functions.fincludes+xml'],
+        {'text/plain': 'source/main'},
+        'abapFunctionGroupInclude',
+        editor_factory=ADTObjectSourceEditorWithResponse
+    )
+
+    def __init__(self, connection, name, function_group_name, metadata=None, active_status=None):
+        super().__init__(connection, name, metadata=metadata, active_status=active_status)
+
+        self._function_group_name = function_group_name
+
+        self._objtype = copy(FunctionInclude.OBJTYPE)
+        self._objtype.basepath = FunctionInclude.OBJTYPE.basepath.format(groupname=function_group_name.lower())
+
+        self._reference = None
+
+    def _get_mime_and_version(self):
+        # because the standard _get_mime_and_version() use basepath which
+        # is modified in the __init__() method
+        return find_mime_version(self.connection, FunctionInclude.OBJTYPE)
+
+    def language(self):
+        """Not supported on Function Include level but Function Group level"""
+
+        return None
+
+    def master_language(self):
+        """Not supported on Function Include level but Function Group level"""
+
+        return None
+
+    def master_system(self):
+        """Not supported on Function Include level but Function Group level"""
+
+        return None
+
+    def responsible(self):
+        """Not supported on Function Include level but Function Group level"""
+
+        return None
+
+    def reference(self):
+        """Function Include has no Package reference but containerRef"""
+
+        return None
+
+    @property
+    def objtype(self):
+        """ADT type definition which is built for each instance
+           and is not per class like other ADT Objects.
+        """
+
+        return self._objtype
+
+    @xml_element('adtcore:containerRef')
+    def function_group_reference(self):
+        """Returns parent Function Group reference"""
+
+        if self._reference is None:
+            self._reference = FunctionGroup.create_reference(self.connection, self._function_group_name, self.package)
+
+        return self._reference
