@@ -473,7 +473,7 @@ def do_checkin(connection, args):
             console.printout('Creating objects ...')
             inactive_objects = _checkin_dependency_group(connection, activation_group, console, args.corrnr)
 
-            if inactive_objects.references is not None:
+            if inactive_objects.references:
                 console.printout('Activating objects ...')
                 _activate(connection, inactive_objects, console)
     except sap.errors.SAPCliError as ex:
