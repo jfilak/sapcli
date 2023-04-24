@@ -13,7 +13,9 @@ from fixtures_adt_function import (
         CREATE_FUNCTION_GROUP_ADT_XML,
         CREATE_FUNCTION_MODULE_ADT_XML,
         GET_FUNCTION_GROUP_ADT_XML,
-        GET_FUNCTION_MODULE_ADT_XML)
+        GET_FUNCTION_MODULE_ADT_XML,
+        CREATE_FUNCTION_INCLUDE_ADT_XML,
+        GET_FUNCTION_INCLUDE_ADT_XML,)
 
 
 class TestFunctionGroup(unittest.TestCase):
@@ -147,6 +149,83 @@ class TestFunctionModule(unittest.TestCase):
         self.assertEqual(function.description, 'You cannot stop me!')
         self.assertEqual(function.processing_type, 'normal')
         self.assertEqual(function.release_state, 'notReleased')
+
+
+class TestFunctionInclude(unittest.TestCase):
+
+    def test_function_include_serializable(self):
+        conn = Connection()
+
+        include = sap.adt.FunctionInclude(conn, 'ZFI_HELLO_WORLD', 'ZFG_HELLO_WORLD', metadata=OBJECT_METADATA)
+        include.description = 'Hello Include!'
+        include.create()
+
+        self.assertEqual(len(conn.execs), 1)
+
+        self.assertEqual(conn.execs[0][0], 'POST')
+        self.assertEqual(conn.execs[0][1], '/sap/bc/adt/functions/groups/zfg_hello_world/includes')
+        self.assertEqual(conn.execs[0][2], {'Content-Type': 'application/vnd.sap.adt.functions.fincludes.v2+xml; charset=utf-8'})
+        self.maxDiff = None
+        self.assertEqual(conn.execs[0][3].decode('utf-8'), CREATE_FUNCTION_INCLUDE_ADT_XML)
+
+    @patch('sap.adt.function.find_mime_version')
+    def test_function_include_correct_mime(self, fake_find_mime_version):
+        conn = Connection()
+
+        include = sap.adt.FunctionInclude(conn, 'ZFI_HELLO_WORLD', 'ZFG_HELLO_WORLD', metadata=OBJECT_METADATA)
+
+        try:
+            include._get_mime_and_version()
+        except SAPCliError:
+            pass
+
+        fake_find_mime_version.assert_called_once_with(conn, sap.adt.FunctionInclude.OBJTYPE)
+
+    def test_function_include_write(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
+
+        include = sap.adt.FunctionInclude(conn, 'ZFI_HELLO_WORLD', 'ZFG_HELLO_WORLD')
+
+        with include.open_editor() as editor:
+            editor.write('FUGR')
+
+        put_request = conn.execs[1]
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, '/sap/bc/adt/functions/groups/zfg_hello_world/includes/zfi_hello_world/source/main')
+
+        self.assertEqual(sorted(put_request.headers), ['Accept', 'Content-Type'])
+        self.assertEqual(put_request.headers['Accept'], 'text/plain')
+        self.assertEqual(put_request.headers['Content-Type'], 'text/plain; charset=utf-8')
+
+        self.assertEqual(put_request.params, {'lockHandle': 'win'})
+
+        self.maxDiff = None
+        self.assertEqual(put_request.body, b'FUGR')
+
+    def test_function_include_write_with_corrnr(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
+
+        include = sap.adt.FunctionInclude(conn, 'ZFI_HELLO_WORLD', 'ZFG_HELLO_WORLD')
+
+        with include.open_editor(corrnr='420') as editor:
+            editor.write('FUGR')
+
+        put_request = conn.execs[1]
+        self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})
+
+    def test_function_include_fetch(self):
+        conn = Connection([Response(text=GET_FUNCTION_INCLUDE_ADT_XML, status_code=200, headers={})])
+        include = sap.adt.FunctionInclude(conn, 'ZFI_HELLO_WORLD', 'ZFG_HELLO_WORLD')
+        include.fetch()
+
+        self.assertEqual(include.name, 'ZFI_HELLO_WORLD')
+        self.assertEqual(include.active, 'inactive')
+        self.assertEqual(include.description, 'Hello Include!')
+        self.assertEqual(include.language(), None)
+        self.assertEqual(include.master_language(), None)
+        self.assertEqual(include.master_system(), None)
+        self.assertEqual(include.responsible(), None)
+        self.assertEqual(include.reference(), None)
 
 
 if __name__ == '__main__':
