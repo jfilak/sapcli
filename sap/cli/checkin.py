@@ -9,7 +9,8 @@ from sap import get_logger
 import sap.errors
 import sap.cli.core
 import sap.platform.abap.abapgit
-from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, SUBC_EXECUTABLE_PROGRAM, SUBC_INCLUDE
+from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, SUBC_EXECUTABLE_PROGRAM, SUBC_INCLUDE,\
+    AREAT, INCLUDES, FUNCTIONS
 import sap.adt
 import sap.adt.objects
 import sap.adt.errors
@@ -101,9 +102,6 @@ class Repository:
         obj_code = obj_file_name[obj_id_start:(obj_id_start + 4)]
         mod_log().debug('Handling object code: %s (%s)', obj_code, obj_file_name)
 
-        if obj_code == 'devc':
-            return None
-
         obj_name = obj_file_name[:obj_id_start - 1]
 
         other_files = []
@@ -182,7 +180,8 @@ def _load_objects(repo):
         package = repo.find_package_by_path(root)
 
         for obj_file_name in files:
-            if not obj_file_name.endswith('.xml'):
+            obj_type, suffix = obj_file_name.split('.')[-2:]
+            if suffix != 'xml' or obj_type not in OBJECT_CHECKIN_HANDLERS:
                 continue
 
             repo.add_object(obj_file_name, package)
@@ -296,7 +295,7 @@ def checkin_intf(connection, repo_obj, corrnr=None):
         with interface.open_editor(corrnr=corrnr) as editor:
             editor.write(source.read())
 
-    return interface
+    return [interface]
 
 
 def checkin_clas(connection, repo_obj, corrnr=None):
@@ -345,7 +344,7 @@ def checkin_clas(connection, repo_obj, corrnr=None):
             with sub_obj.open_editor(corrnr=corrnr) as editor:
                 editor.write(source.read())
 
-    return clas
+    return [clas]
 
 
 def checkin_prog(connection, repo_obj, corrnr=None):
@@ -397,13 +396,96 @@ def checkin_prog(connection, repo_obj, corrnr=None):
         with program.open_editor(corrnr=corrnr) as editor:
             editor.write(source.read())
 
-    return program
+    return [program]
+
+
+def _check_fugr_source_files(repo_obj, functions, includes):
+    """Check that all functions and includes have source files"""
+
+    for func in functions:
+        function_name = func.FUNCNAME.lower()
+        function_file_path = repo_obj.path[:-4] + f'.{function_name}' + '.abap'
+        if function_file_path not in repo_obj.files:
+            raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for function {function_name}')
+
+    for include in includes:
+        include_name = include.lower()
+        include_file_path = repo_obj.path[:-4] + f'.{include_name}' + '.abap'
+        if include_file_path not in repo_obj.files:
+            raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for include {include_name}')
+
+
+def _write_adt_object_source_file(path_prefix, adt_object, corrnr=None):
+    """Write source file for ADT object"""
+
+    adt_object_file_path = path_prefix + f'.{adt_object.name.lower()}' + '.abap'
+    with open(adt_object_file_path, 'r', encoding='utf-8') as source:
+        with adt_object.open_editor(corrnr=corrnr) as editor:
+            editor.write(source.read())
+
+
+def checkin_fugr(connection, repo_obj, corrnr=None):
+    """Checkin ADT Function Group"""
+
+    sap.cli.core.printout('Creating Function Group:', repo_obj.name)
+    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
+        results = sap.platform.abap.abapgit.from_xml([AREAT, INCLUDES, FUNCTIONS], abap_data_file.read())
+
+    includes = results['INCLUDES']
+    functions = results['FUNCTIONS']
+
+    _check_fugr_source_files(repo_obj, functions, includes)
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+    function_group = sap.adt.FunctionGroup(connection, repo_obj.name.upper(), package=repo_obj.package.name,
+                                           metadata=metadata)
+    function_group.description = results['AREAT']
+
+    try:
+        function_group.create(corrnr)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    abap_objs_inactive = [function_group]
+
+    for include in includes:
+        include_obj = sap.adt.FunctionInclude(connection, include, function_group.name, metadata=metadata)
+        abap_objs_inactive.append(include_obj)
+
+        sap.cli.core.printout('Creating Function Group Include:', include_obj.name)
+        try:
+            include_obj.create(corrnr)
+        except sap.adt.errors.ExceptionResourceCreationFailure as err:
+            if not str(err).endswith('already exists'):
+                raise
+
+            mod_log().info(err.message)
+
+        sap.cli.core.printout('Writing Function Group Include:', include_obj.name)
+        _write_adt_object_source_file(repo_obj.path[:-4], include_obj, corrnr=corrnr)
+
+    for func in functions:
+        function_module = sap.adt.FunctionModule(connection, func.FUNCNAME, function_group.name, metadata=metadata)
+        function_module.description = func.SHORT_TEXT
+        abap_objs_inactive.append(function_module)
+
+        sap.cli.core.printout('Creating Function Module:', function_module.name)
+        try:
+            function_module.create(corrnr)
+        except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+            mod_log().info(err.message)
+
+        sap.cli.core.printout('Writing Function Module:', function_module.name)
+        _write_adt_object_source_file(repo_obj.path[:-4], function_module, corrnr=corrnr)
+
+    return abap_objs_inactive
 
 
 OBJECT_CHECKIN_HANDLERS = {
     'intf': checkin_intf,
     'clas': checkin_clas,
     'prog': checkin_prog,
+    'fugr': checkin_fugr,
 }
 
 
@@ -418,8 +500,10 @@ def _checkin_dependency_group(connection, group, console, corrnr):
             continue
 
         try:
-            abap_obj = obj_handler(connection, repo_obj, corrnr)
-            inactive_objects.add_object(abap_obj)
+            abap_objs = obj_handler(connection, repo_obj, corrnr)
+            for abap_obj in abap_objs:
+                inactive_objects.add_object(abap_obj)
+
         except sap.adt.errors.ExceptionCheckinFailure:
             console.printout(f'Object handled without activation: {repo_obj.path}')
 
