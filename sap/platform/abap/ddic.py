@@ -129,3 +129,53 @@ class TPOOL_LINE(Structure):
 
 
 TPOOL = InternalTable.define('TPOOL', TPOOL_LINE)
+
+# Function group
+AREAT = type('AREAT', (str,), {})
+INCLUDES = InternalTable.define('INCLUDES', str)
+
+
+class RSIMP(Structure):
+    """Import metadata"""
+
+    PARAMETER: str
+    DEFAULT: str
+    OPTIONAL: str
+    TYP: str
+
+
+IMPORT_TYPE = InternalTable.define('IMPORT', RSIMP)
+
+
+class RSTBL(Structure):
+    """Table metadata"""
+
+    PARAMETER: str
+    DBSTRUCT: str
+
+
+TABLE_TYPE = InternalTable.define('TABLES', RSTBL)
+
+
+class RSFDO(Structure):
+    """Documentation metadata"""
+
+    PARAMETER: str
+    KIND: str
+
+
+DOCUMENTATION_TYPE = InternalTable.define('DOCUMENTATION', RSFDO)
+
+
+class FUNCTION_LINE(Structure):
+    """Function metadata"""
+
+    FUNCNAME: str
+    REMOTE_CALL: str
+    SHORT_TEXT: str
+    IMPORT: IMPORT_TYPE
+    TABLES: TABLE_TYPE
+    DOCUMENTATION: DOCUMENTATION_TYPE
+
+
+FUNCTIONS = InternalTable.define('FUNCTIONS', FUNCTION_LINE)

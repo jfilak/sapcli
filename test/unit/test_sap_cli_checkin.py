@@ -17,7 +17,7 @@ from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionCheckinFailu
 from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
-from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, INCLUDE_XML, INVALID_TYPE_XML
+from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, INCLUDE_XML, INVALID_TYPE_XML, FUNCTION_GROUP_XML
 from infra import generate_parse_args
 
 
@@ -80,6 +80,14 @@ class DirContentBuilder:
     def add_abap_program(self, name):
         self._files.append(f'{name}.prog.abap')
         self._files.append(f'{name}.prog.xml')
+
+        return self
+
+    def add_abap_function_group(self, name):
+        self._files.append(f'{name}.fugr.xml')
+        self._files.append(f'{name}.fugr.module.abap')
+        self._files.append(f'{name}.fugr.include.xml')
+        self._files.append(f'{name}.fugr.include.abap')
 
         return self
 
@@ -242,7 +250,7 @@ class TestCheckinGroup(ConsoleOutputTestCase):
 
         with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
             fake_handler.get = Mock()
-            fake_handler.get.return_value = lambda x, y, z: adt_object
+            fake_handler.get.return_value = lambda x, y, z: [adt_object]
 
             inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console, None)
 
@@ -265,7 +273,7 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
         super().setUp()
         self.patch_console(self.console)
 
-        simple_root = DirContentBuilder('./src/').add_abap_program('run_report')
+        simple_root = DirContentBuilder('./src/').add_abap_program('run_report').add_abap_function_group('test_fugr')
         simple_sub = simple_root.add_dir('sub').add_abap_interface('if_strategy')
         simple_grand = simple_sub.add_dir('grand').add_abap_class('cl_implementor')
 
@@ -344,7 +352,8 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
                          ['unittest', 'unittest_sub', 'unittest_sub_grand'])
 
         self.assertEqual([(obj.package.name, obj.name) for obj in repo.objects],
-                         [('unittest', 'run_report'), ('unittest_sub', 'if_strategy'), ('unittest_sub_grand', 'cl_implementor')])
+                         [('unittest', 'run_report'), ('unittest', 'test_fugr'), ('unittest_sub', 'if_strategy'),
+                          ('unittest_sub_grand', 'cl_implementor')])
 
     def test_resolve_dependencies(self):
         clas = sap.cli.checkin.RepoObject(code='clas', name='cl_ass', path='./cl_ass', package=None, files=[])
@@ -357,6 +366,37 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
         deps = sap.cli.checkin._resolve_dependencies(objects)
 
         self.assertEqual(deps, [[clas, intf], [prog], [fugr]])
+
+    @patch('sap.cli.checkin._checkin_dependency_group')
+    @patch('sap.cli.checkin._resolve_dependencies')
+    @patch('sap.cli.checkin._get_config')
+    @patch('sap.cli.checkin._load_objects')
+    def _do_checkin(self, _, fake_config, fake_resolve_dependencies, fake_checkin_dependency_group, fake_activate, inactive_objects):
+        fake_checkin_dependency_group.return_value = inactive_objects
+        fake_resolve_dependencies.return_value = [Mock()]
+        fake_config.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
+            FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
+        )
+
+        args = parse_args('$foo')
+        exit_code = args.execute(None, args)
+
+        self.assertEqual(exit_code, 0)
+
+    @patch('sap.cli.checkin._activate')
+    def test_do_checkin_nothing_to_activate(self, fake_activate):
+        self._do_checkin(fake_activate=fake_activate, inactive_objects=Mock(references=[]))
+        fake_activate.assert_not_called()
+
+    @patch('sap.cli.checkin._activate')
+    def test_do_checkin_with_activate(self, fake_activate):
+        inactive_objects = Mock(references=[Mock()])
+        self._do_checkin(fake_activate=fake_activate, inactive_objects=inactive_objects)
+        self.assertConsoleContents(self.console, stdout='''Creating packages ...
+Creating objects ...
+Activating objects ...
+''')
+        fake_activate.assert_called_once_with(None, inactive_objects, self.console)
 
 
 class TestActivate(ConsoleOutputTestCase, PatcherTestCase):
@@ -845,6 +885,175 @@ Writing Program: {self.prog_object.name}
 
         self.assertEqual(str(cm.exception), 'Failed to create program')
         self.program.open_editor.assert_not_called()
+
+
+class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.connection = Mock()
+        self.connection.user = 'test_user'
+
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_open.side_effect = [StringIOFile(FUNCTION_GROUP_XML)]
+
+        self.fake_core_data = self.patch('sap.adt.ADTCoreData')
+
+        self.function_group = MagicMock()
+        self.fake_function_group = self.patch('sap.adt.FunctionGroup')
+        self.fake_function_group.return_value = self.function_group
+
+        self.function_module = MagicMock()
+        self.function_module_editor = MagicMock()
+        self.function_module_editor.__enter__.return_value = self.function_module_editor
+        self.fake_function_module = self.patch('sap.adt.FunctionModule')
+        self.fake_function_module.return_value = self.function_module
+        self.function_module.open_editor.return_value = self.function_module_editor
+
+        self.function_include = MagicMock()
+        self.function_include_editor = MagicMock()
+        self.function_include_editor.__enter__.return_value = self.function_include_editor
+        self.fake_function_include = self.patch('sap.adt.FunctionInclude')
+        self.fake_function_include.return_value = self.function_include
+        self.function_include.open_editor.return_value = self.function_include_editor
+
+        self.metadata = Mock()
+        self.fake_core_data.return_value = self.metadata
+
+        self.package = sap.cli.checkin.RepoPackage('test_package', '/src/package.devc.xml', '/src', None)
+
+        self.fugr_object = sap.cli.checkin.RepoObject('fugr', 'test_fugr', '/src/test_fugr.xml', self.package,
+                                                      ['/src/test_fugr.test_function_module.abap', '/src/test_fugr.test_include.abap'])
+
+    def test_checkin_fugr_no_files(self):
+        fugr_object = sap.cli.checkin.RepoObject('fugr', 'test_fugr', '/src/test_fugr.xml', self.package, [])
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_fugr(self.connection, fugr_object)
+
+        self.assertEqual(str(cm.exception), 'No source file for function test_function_module')
+        self.fake_core_data.assert_not_called()
+        self.fake_function_group.assert_not_called()
+        self.fake_function_module.assert_not_called()
+        self.fake_function_include.assert_not_called()
+
+    def test_checkin_fugr_no_function_module_files(self):
+        fugr_object = sap.cli.checkin.RepoObject('fugr', 'test_fugr', '/src/test_fugr.xml', self.package, ['/src/test_fugr.test_include.abap'])
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_fugr(self.connection, fugr_object)
+
+        self.assertEqual(str(cm.exception), 'No source file for function test_function_module')
+        self.fake_core_data.assert_not_called()
+        self.fake_function_group.assert_not_called()
+        self.fake_function_module.assert_not_called()
+        self.fake_function_include.assert_not_called()
+
+    def test_checkin_fugr_no_function_include_files(self):
+        fugr_object = sap.cli.checkin.RepoObject('fugr', 'test_fugr', '/src/test_fugr.xml', self.package, ['/src/test_fugr.test_function_module.abap'])
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_fugr(self.connection, fugr_object)
+
+        self.assertEqual(str(cm.exception), 'No source file for include test_include')
+        self.fake_core_data.assert_not_called()
+        self.fake_function_group.assert_not_called()
+        self.fake_function_module.assert_not_called()
+        self.fake_function_include.assert_not_called()
+
+    def test_checkin_fugr_create_error(self):
+        self.function_group.create.side_effect = SAPCliError('Failed to create function group')
+
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+
+        self.assertEqual(str(cm.exception), 'Failed to create function group')
+        self.function_module.create.assert_not_called()
+        self.function_include.create.assert_not_called()
+
+    def test_checkin_fugr_include_create_error(self):
+        self.function_include.create.side_effect = ExceptionResourceCreationFailure('Failed to create function include')
+
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+
+        self.assertEqual(str(cm.exception), 'Failed to create function include')
+        self.function_module.create.assert_not_called()
+
+    def test_checkin_fugr_module_create_error(self):
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body')]
+        self.function_module.create.side_effect = SAPCliError('Failed to create function module')
+
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+
+        self.assertEqual(str(cm.exception), 'Failed to create function module')
+
+    def test_checkin_fugr(self):
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile('Test module body')]
+
+        inactive_objects = sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+
+        self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
+
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible=self.connection.user)
+        self.fake_function_group.assert_called_once_with(self.connection, 'TEST_FUGR', package=self.fugr_object.package.name,
+                                                         metadata=self.metadata)
+        self.fake_function_module.assert_called_once_with(self.connection, 'TEST_FUNCTION_MODULE', self.function_group.name,
+                                                          metadata=self.metadata)
+        self.fake_function_include.assert_called_once_with(self.connection, 'TEST_INCLUDE', self.function_group.name,
+                                                           metadata=self.metadata)
+
+        self.function_group.create.assert_called_once_with(None)
+        self.assertEqual(self.function_group.description, 'Test function group')
+        self.function_module.create.assert_called_once_with(None)
+        self.assertEqual(self.function_module.description, 'Test function module')
+        self.function_include.create.assert_called_once_with(None)
+
+        self.function_module.open_editor.assert_called_once_with(corrnr=None)
+        self.function_module_editor.write.assert_called_once_with('Test module body')
+        self.function_include.open_editor.assert_called_once_with(corrnr=None)
+        self.function_include_editor.write.assert_called_once_with('Test include body')
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Function Group: {self.fugr_object.name}
+Creating Function Group Include: {self.function_include.name}
+Writing Function Group Include: {self.function_include.name}
+Creating Function Module: {self.function_module.name}
+Writing Function Module: {self.function_module.name}
+''')
+
+    def test_checkin_fugr_with_corrnr(self):
+        corrnr = '123456'
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile('Test module body')]
+
+        inactive_objects = sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object, corrnr=corrnr)
+
+        self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
+        self.function_group.create.assert_called_once_with(corrnr)
+        self.function_module.create.assert_called_once_with(corrnr)
+        self.function_include.create.assert_called_once_with(corrnr)
+
+        self.function_include.open_editor.assert_called_once_with(corrnr=corrnr)
+        self.function_module.open_editor.assert_called_once_with(corrnr=corrnr)
+
+    @patch('sap.cli.checkin.mod_log')
+    def test_checkin_fugr_already_created(self, fake_mod_log):
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile('Test module body')]
+        self.function_group.create.side_effect = ExceptionResourceAlreadyExists('Function group already exists')
+        self.function_include.create.side_effect = ExceptionResourceCreationFailure('Function include already exists')
+        self.function_module.create.side_effect = ExceptionResourceAlreadyExists('Function module already exists')
+
+        inactive_objects = sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+
+        self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
+        fake_mod_log.return_value.info.assert_has_calls([call('Function group already exists'),
+                                                         call('Function include already exists'),
+                                                         call('Function module already exists')])
 
 
 if __name__ == '__main__':
