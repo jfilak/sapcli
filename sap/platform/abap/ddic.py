@@ -1,5 +1,6 @@
 """Common ABAP types"""
 
+from typing import Any  # noqa: F401
 from sap.platform.abap import Structure, InternalTable
 
 
@@ -144,7 +145,7 @@ class RSIMP(Structure):
     TYP: str
 
 
-IMPORT_TYPE = InternalTable.define('IMPORT', RSIMP)
+IMPORT_TYPE = InternalTable.define('IMPORT', RSIMP)  # type: Any
 
 
 class RSTBL(Structure):
@@ -154,7 +155,7 @@ class RSTBL(Structure):
     DBSTRUCT: str
 
 
-TABLE_TYPE = InternalTable.define('TABLES', RSTBL)
+TABLE_TYPE = InternalTable.define('TABLES', RSTBL)  # type: Any
 
 
 class RSFDO(Structure):
@@ -164,7 +165,7 @@ class RSFDO(Structure):
     KIND: str
 
 
-DOCUMENTATION_TYPE = InternalTable.define('DOCUMENTATION', RSFDO)
+DOCUMENTATION_TYPE = InternalTable.define('DOCUMENTATION', RSFDO)  # type: Any
 
 
 class FUNCTION_LINE(Structure):
