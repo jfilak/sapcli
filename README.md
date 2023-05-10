@@ -13,7 +13,7 @@ where ADT is no sufficient or possible.
 
 ## Installation and usage
 
-First of all you need Python3 (>=3.6) and then you need python-request module.
+First of all you need Python3 (>=3.10) and then you need python-request module.
 Nothing else because ADT works on level HTTP.
 
 ### Ubuntu
