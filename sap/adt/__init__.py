@@ -12,3 +12,4 @@ from sap.adt.repository import Repository  # noqa: F401
 from sap.adt.datapreview import DataPreview  # noqa: F401
 from sap.adt.businessservice import ServiceDefinition, ServiceBinding  # noqa: F401
 from sap.adt.table import Table  # noqa: F401
+from sap.adt.enhancement_implementation import EnhancementImplementation  # noqa: F401
