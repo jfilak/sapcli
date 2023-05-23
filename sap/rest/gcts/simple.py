@@ -28,7 +28,7 @@ def fetch_repos(connection):
         raise exception_from_http_error(ex) from ex
 
     result = response.get('result', [])
-    return [Repository(connection, repo['name'], data=repo) for repo in result]
+    return [Repository(connection, repo['rid'], data=repo) for repo in result]
 
 
 def wait_for_clone(repo, wait_for_ready, http_exc):
@@ -42,13 +42,13 @@ def wait_for_clone(repo, wait_for_ready, http_exc):
                 return
 
         except HTTPRequestError:
-            _mod_log().debug('Failed to get status of the repository %s', repo.name)
+            _mod_log().debug('Failed to get status of the repository %s', repo.rid)
 
     raise SAPCliError(f'Waiting for the repository to be in READY state timed out\n{http_exc}')
 
 
 # pylint: disable=too-many-arguments
-def clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
+def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
           role='SOURCE', typ='GITHUB'):
     """Creates and clones the repository in the target systems"""
 
@@ -60,7 +60,7 @@ def clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=None, e
     if vcs_token:
         config['CLIENT_VCS_AUTH_TOKEN'] = vcs_token
 
-    repo = Repository(connection, name)
+    repo = Repository(connection, rid)
 
     try:
         repo.create(url, vsid, config=config, role=role, typ=typ)
@@ -81,38 +81,38 @@ def clone(connection, url, name, vsid='6IT', start_dir='src/', vcs_token=None, e
     return repo
 
 
-def checkout(connection, branch, name=None, repo=None):
+def checkout(connection, branch, rid=None, repo=None):
     """Checks out the given branch in the given repository on the give system"""
 
     if repo is None:
-        repo = Repository(connection, name)
+        repo = Repository(connection, rid)
 
     return repo.checkout(branch)
 
 
-def log(connection, name=None, repo=None):
+def log(connection, rid=None, repo=None):
     """Returns log history of the given repository on the give system"""
 
     if repo is None:
-        repo = Repository(connection, name)
+        repo = Repository(connection, rid)
 
     return repo.log()
 
 
-def pull(connection, name=None, repo=None):
+def pull(connection, rid=None, repo=None):
     """Pulls the given repository on the give system"""
 
     if repo is None:
-        repo = Repository(connection, name)
+        repo = Repository(connection, rid)
 
     return repo.pull()
 
 
-def delete(connection, name=None, repo=None):
+def delete(connection, rid=None, repo=None):
     """Deletes the given repository on the give system"""
 
     if repo is None:
-        repo = Repository(connection, name)
+        repo = Repository(connection, rid)
 
     return repo.delete()
 

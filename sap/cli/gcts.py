@@ -573,6 +573,7 @@ def repolist(connection, args):
     columns = (
         sap.cli.helpers.TableWriter.Columns()
         ('name', 'Name')
+        ('rid', 'RID')
         ('branch', 'Branch', default='')
         ('head', 'Commit', default='')
         ('status', 'Status')
@@ -593,10 +594,10 @@ def _get_clone_activity_rc(repo):
     try:
         activities_list = repo.activities(activities_params)
     except HTTPRequestError as exc:
-        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.name}"\n{exc}') from exc
+        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
 
     if not activities_list:
-        raise SAPCliError(f'Expected clone activity not found! Repository: "{repo.name}"')
+        raise SAPCliError(f'Expected clone activity not found! Repository: "{repo.rid}"')
 
     return int(activities_list[0]['rc'])
 
@@ -721,7 +722,7 @@ def delete(connection, args):
     repo = get_repository(connection, args.package)
     sap.rest.gcts.simple.delete(connection, repo=repo)
 
-    sap.cli.core.printout(f'The repository "{repo.name}" has been deleted')
+    sap.cli.core.printout(f'The repository "{repo.rid}" has been deleted')
     return 0
 
 
@@ -743,7 +744,7 @@ def checkout(connection, args):
     if args.format.upper() == 'JSON':
         console.printout(sap.cli.core.json_dumps(response))
     else:
-        console.printout(f'The repository "{repo.name}" has been set to the branch "{args.branch}"')
+        console.printout(f'The repository "{repo.rid}" has been set to the branch "{args.branch}"')
         console.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
     return 0
 
@@ -790,7 +791,7 @@ def pull(connection, args):
     if args.format.upper() == 'JSON':
         console.printout(sap.cli.core.json_dumps(response))
     else:
-        console.printout(f'The repository "{repo.name}" has been pulled')
+        console.printout(f'The repository "{repo.rid}" has been pulled')
 
         from_commit = response.get('fromCommit')
         to_commit = response.get('toCommit')
