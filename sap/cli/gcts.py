@@ -358,6 +358,28 @@ def set_url(connection, args):
     return 0
 
 
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command('set-role-target')
+def set_role_target(connection, args):
+    """Set repo Role to TARGET"""
+
+    repo = get_repository(connection, args.package)
+    repo.set_role('TARGET')
+
+    return 0
+
+
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command('set-role-source')
+def set_role_source(connection, args):
+    """Set repo Role to SOURCE"""
+
+    repo = get_repository(connection, args.package)
+    repo.set_role('SOURCE')
+
+    return 0
+
+
 @RepoCommandGroup.argument('--columns', type=str, default=None, help='Visible columns in CSV')
 @RepoCommandGroup.argument('--noheadings', action='store_true', default=False)
 @RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')

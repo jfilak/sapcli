@@ -294,6 +294,11 @@ class Repository:
 
         return self._get_item('role')
 
+    def set_role(self, role):
+        """Sets repository ROLE"""
+
+        return self._set_item('role', role)
+
     def create(self, url, vsid, config=None, role='SOURCE', typ='GITHUB'):
         """Creates the repository
 

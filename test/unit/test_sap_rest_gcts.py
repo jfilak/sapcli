@@ -682,6 +682,25 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertIsNone(response)
 
+    def test_set_role(self):
+        CALL_ID_SET_ROLE = 1
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': self.repo_server_data}),
+            Response.ok()
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=None)
+        response = repo.set_role('TARGET')
+
+        self.conn.execs[CALL_ID_SET_ROLE].assertEqual(
+            Request.post_json(
+                uri=f'repository/{self.repo_rid}',
+                body={"role": "TARGET"}
+            ),
+            self
+        )
+
     def test_create_branch(self):
         branch_name = 'branch'
         expected_response = {
