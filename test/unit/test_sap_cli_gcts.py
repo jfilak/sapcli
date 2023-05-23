@@ -2317,3 +2317,34 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
             self.console,
             stderr='Repo not found.\n'
         )
+
+
+class TestgCTSSetRole(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        self.connection = Mock()
+        self.fake_repository = Mock()
+        self.repo_rid = 'my-repo'
+
+    def repo(self, *args, **kwargs):
+        args = parse_args('repo', *args, **kwargs)
+        with patch('sap.cli.gcts.get_repository', return_value=self.fake_repository) as fake_get_repository:
+            exit_code = args.execute(self.connection, args)
+            fake_get_repository.assert_called_once_with(self.connection, self.repo_rid)
+        return exit_code
+
+    def set_role_target(self, *args, **kwargs):
+        return self.repo('set-role-target', *args, **kwargs)
+
+    def set_role_source(self, *args, **kwargs):
+        return self.repo('set-role-source', *args, **kwargs)
+
+    def test_set_role_target(self):
+        exit_code = self.set_role_target(self.repo_rid)
+        self.fake_repository.set_role.assert_called_once_with('TARGET')
+        self.assertEqual(exit_code, 0)
+
+    def test_set_role_source(self):
+        exit_code = self.set_role_source(self.repo_rid)
+        self.fake_repository.set_role.assert_called_once_with('SOURCE')
+        self.assertEqual(exit_code, 0)
