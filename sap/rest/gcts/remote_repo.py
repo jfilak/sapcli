@@ -47,8 +47,8 @@ def _http_to_gcts_error(func):
 
 class _RepositoryHttpProxy:
 
-    def __init__(self, connection, name):
-        self.url_prefix = f'repository/{name}'
+    def __init__(self, connection, rid):
+        self.url_prefix = f'repository/{rid}'
         self.connection = connection
 
     def _build_url(self, path):
@@ -183,9 +183,9 @@ class Repository:
 
         CLONE_SUCCESS = 4
 
-    def __init__(self, connection, name, data=None):
-        self._http = _RepositoryHttpProxy(connection, name)
-        self._name = name
+    def __init__(self, connection, rid, data=None):
+        self._http = _RepositoryHttpProxy(connection, rid)
+        self._rid = rid
         self._data = data
 
         self._config = None
@@ -193,13 +193,13 @@ class Repository:
             self._config = self._data.get('config', None)
 
     def _fetch_data(self):
-        mod_log().debug('Fetching data of the repository "%s"', self._name)
+        mod_log().debug('Fetching data of the repository "%s"', self._rid)
 
         response = self._http.get_json()
 
         result = response['result']
 
-        mod_log().debug('Fetched data of the repository "%s": %s', self._name, result)
+        mod_log().debug('Fetched data of the repository "%s": %s', self._rid, result)
 
         return result
 
@@ -235,13 +235,13 @@ class Repository:
     def name(self):
         """Returns the repository's name"""
 
-        return self._name
+        return self._get_item('name')
 
     @property
     def rid(self):
         """Returns the repository's RID"""
 
-        return self._get_item('rid')
+        return self._rid
 
     @property
     def status(self):
@@ -310,8 +310,8 @@ class Repository:
         repo = self._data or {}
 
         repo.update({
-            'rid': self._name,
-            'name': self._name,
+            'rid': self._rid,
+            'name': self._rid,
             'vsid': vsid,
             'url': url,
             'role': role,
@@ -326,7 +326,7 @@ class Repository:
             repo['config'] = request_config
 
         create_request = {
-            'repository': self.name,
+            'repository': self._rid,
             'data': repo
         }
 

@@ -111,17 +111,17 @@ class TestgCTSGetRepository(PatcherTestCase, unittest.TestCase):
         self.fake_fetch_repos = self.patch('sap.rest.gcts.simple.fetch_repos')
 
     def test_get_repository_name(self):
-        repo_name = 'the_repo'
-        repo = sap.cli.gcts.get_repository(self.connection, repo_name)
+        repo_rid = 'repo-id'
+        repo = sap.cli.gcts.get_repository(self.connection, repo_rid)
 
-        self.assertEqual(repo.name, repo_name)
+        self.assertEqual(repo.rid, repo_rid)
         self.fake_fetch_repos.assert_not_called()
 
     def test_get_repository_url(self):
-        repo_name = 'the_repo'
+        repo_rid = 'repo-id'
         repo_url = 'http://github.com/the_repo.git'
 
-        fake_repo = mock_repository(self.fake_fetch_repos, name=repo_name, url=repo_url)
+        fake_repo = mock_repository(self.fake_fetch_repos, rid=repo_rid, url=repo_url)
         repo = sap.cli.gcts.get_repository(self.connection, repo_url)
 
         self.assertEqual(repo, fake_repo)
@@ -129,10 +129,10 @@ class TestgCTSGetRepository(PatcherTestCase, unittest.TestCase):
         repo.wipe_data.assert_called_once()
 
     def test_get_repository_url_https(self):
-        repo_name = 'the_repo'
+        repo_rid = 'repo-id'
         repo_url = 'https://github.com/the_repo.git'
 
-        fake_repo = mock_repository(self.fake_fetch_repos, name=repo_name, url=repo_url)
+        fake_repo = mock_repository(self.fake_fetch_repos, rid=repo_rid, url=repo_url)
         repo = sap.cli.gcts.get_repository(self.connection, repo_url)
 
         self.assertEqual(repo, fake_repo)
@@ -410,22 +410,25 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
         conn = Mock()
 
         self.fake_simple_fetch_repos.return_value = [
-            sap.rest.gcts.remote_repo.Repository(conn, 'one', data={
+            sap.rest.gcts.remote_repo.Repository(conn, 'one_rid', data={
                 'rid': 'one_rid',
+                'name': 'one',
                 'status': 'CREATED',
                 'branch': 'one_branch',
                 'url': 'one_url',
                 'vsid': 'vS1D',
                 'currentCommit': '123'}),
-            sap.rest.gcts.remote_repo.Repository(conn, 'two', data={
+            sap.rest.gcts.remote_repo.Repository(conn, 'two_rid', data={
                 'rid': 'two_rid',
+                'name': 'two',
                 'status': 'READY',
                 'branch': 'two_branch',
                 'url': 'two_url',
                 'vsid': 'vS2D',
                 'currentCommit': '456'}),
-            sap.rest.gcts.remote_repo.Repository(conn, 'three', data={
+            sap.rest.gcts.remote_repo.Repository(conn, 'third_rid', data={
                 'rid': 'third_rid',
+                'name': 'three',
                 'status': 'CLONED',
                 'branch': 'third_branch',
                 'url': 'third_url',
@@ -437,12 +440,13 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
         args.execute(conn, args)
 
         self.fake_simple_fetch_repos.assert_called_once_with(conn)
+        self.maxDiff = None
         self.assertConsoleContents(self.console, stdout=
-'''Name  | Branch       | Commit | Status  | vSID | URL      
-----------------------------------------------------------
-one   | one_branch   | 123    | CREATED | vS1D | one_url  
-two   | two_branch   | 456    | READY   | vS2D | two_url  
-three | third_branch | 7890   | CLONED  | vS3D | third_url
+'''Name  | RID       | Branch       | Commit | Status  | vSID | URL      
+----------------------------------------------------------------------
+one   | one_rid   | one_branch   | 123    | CREATED | vS1D | one_url  
+two   | two_rid   | two_branch   | 456    | READY   | vS2D | two_url  
+three | third_rid | third_branch | 7890   | CLONED  | vS3D | third_url
 ''')
 
     @patch('sap.cli.gcts.dump_gcts_messages')
@@ -473,33 +477,34 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
 
     def test_delete_no_params(self):
         conn = Mock()
-        repo_name = 'the_repo'
+        repo_rid = 'repo_id'
 
-        args = self.delete(repo_name)
+        args = self.delete(repo_rid)
         args.execute(conn, args)
 
         repo = self.fake_simple_delete.call_args.kwargs['repo']
-        self.assertEqual(repo.name, repo_name)
+        self.assertEqual(repo.rid, repo_rid)
 
         self.fake_simple_delete.assert_called_once_with(conn, repo=repo)
         self.assertConsoleContents(self.console, stdout=
-'''The repository "the_repo" has been deleted
+'''The repository "repo_id" has been deleted
 ''')
 
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_delete_with_url(self, fake_fetch_repos):
         conn = Mock()
 
+        repo_rid = 'repo-id'
         repo_name = 'the_repo'
         repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url, configuration={})
+        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, url=repo_url, configuration={})
 
         args = self.delete(repo_url)
         args.execute(conn, args)
 
         self.fake_simple_delete.assert_called_once_with(conn, repo=fake_repo)
         self.assertConsoleContents(self.console, stdout=
-'''The repository "the_repo" has been deleted
+f'''The repository "{repo_rid}" has been deleted
 ''')
 
     @patch('sap.cli.gcts.dump_gcts_messages')
@@ -536,6 +541,7 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_simple_checkout = self.patch('sap.rest.gcts.simple.checkout')
         self.fake_repository = self.patch('sap.cli.gcts.Repository')
         self.repo = Mock()
+        self.repo.rid = 'repo-id'
         self.repo.name = 'the_repo'
         self.fake_repository.return_value = self.repo
 
@@ -552,7 +558,7 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_checkout.assert_called_once_with(conn, 'the_branch', repo=self.repo)
         self.assertConsoleContents(self.console, stdout=
-'''The repository "the_repo" has been set to the branch "the_branch"
+f'''The repository "{self.repo.rid}" has been set to the branch "the_branch"
 (old_branch:123) -> (the_branch:456)
 ''')
 
@@ -561,10 +567,11 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         conn = Mock()
         checkout_branch = 'the_branch'
 
+        repo_rid = 'repo-id'
         repo_name = 'the_repo'
         repo_branch = 'old_branch'
         repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, branch=repo_branch, url=repo_url)
+        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
 
         self.fake_simple_checkout.return_value = {'fromCommit': '123', 'toCommit': '456'}
         args = self.checkout(repo_url, checkout_branch)
@@ -572,7 +579,7 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
         self.assertConsoleContents(self.console, stdout=
-f'''The repository "{repo_name}" has been set to the branch "{checkout_branch}"
+f'''The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
 ({repo_branch}:123) -> ({checkout_branch}:456)
 ''')
 
@@ -581,10 +588,11 @@ f'''The repository "{repo_name}" has been set to the branch "{checkout_branch}"
         conn = Mock()
         checkout_branch = 'the_branch'
 
+        repo_rid = 'repo-id'
         repo_name = 'the_repo'
         repo_branch = 'old_branch'
         repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, branch=repo_branch, url=repo_url)
+        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
 
         self.fake_simple_checkout.return_value = {'fromCommit': '123', 'toCommit': '456', 'request': 'YGCTS987654321'}
         args = self.checkout(repo_url, checkout_branch, '--format', 'JSON')
@@ -635,7 +643,7 @@ class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
 
     def test_log_no_params(self):
         conn = Mock()
-        repo_name = 'the_repo'
+        repo_rid = 'repo-id'
         self.fake_simple_log.return_value = [
             { 'id': '456',
               'author': 'Billy Lander',
@@ -651,11 +659,11 @@ class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
             },
         ]
 
-        args = self.log(repo_name)
+        args = self.log(repo_rid)
         args.execute(conn, args)
 
         repo = self.fake_simple_log.call_args.kwargs['repo']
-        self.assertEqual(repo.name, repo_name)
+        self.assertEqual(repo.rid, repo_rid)
 
         self.fake_simple_log.assert_called_once_with(conn, repo=repo)
         self.assertConsoleContents(self.console, stdout=
@@ -674,14 +682,14 @@ Date:   2020-10-02
 
     def test_log_no_params_no_commits(self):
         conn = Mock()
-        repo_name = 'the_repo'
+        repo_rid = 'repo-id'
         self.fake_simple_log.return_value = []
 
-        args = self.log(repo_name)
+        args = self.log(repo_rid)
         args.execute(conn, args)
 
         repo = self.fake_simple_log.call_args.kwargs['repo']
-        self.assertEqual(repo.name, repo_name)
+        self.assertEqual(repo.rid, repo_rid)
 
         self.fake_simple_log.assert_called_once_with(conn, repo=repo)
         self.assertConsoleContents(self.console)
@@ -691,9 +699,10 @@ Date:   2020-10-02
         conn = Mock()
         self.fake_simple_log.return_value = []
 
+        repo_rid = 'repo-id'
         repo_name = 'the_repo'
         repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url)
+        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, url=repo_url)
 
         args = self.log(repo_url)
         args.execute(conn, args)
@@ -738,21 +747,21 @@ class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
 
     def test_pull_no_params(self):
         conn = Mock()
-        repo_name = 'the_repo'
+        repo_rid = 'repo-id'
         self.fake_simple_pull.return_value = {
             'fromCommit': '123',
             'toCommit': '456'
         }
 
-        args = self.pull(repo_name)
+        args = self.pull(repo_rid)
         args.execute(conn, args)
 
         repo = self.fake_simple_pull.call_args.kwargs['repo']
-        self.assertEqual(repo.name, repo_name)
+        self.assertEqual(repo.rid, repo_rid)
 
         self.fake_simple_pull.assert_called_once_with(conn, repo=repo)
         self.assertConsoleContents(self.console, stdout=
-'''The repository "the_repo" has been pulled
+f'''The repository "{repo_rid}" has been pulled
 123 -> 456
 ''')
 
@@ -791,9 +800,10 @@ New HEAD is 456
             'toCommit': '456'
         }
 
+        repo_rid = 'repo-id'
         repo_name = 'the_repo'
         repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url)
+        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, url=repo_url)
 
         args = self.pull(repo_url)
         args.execute(conn, args)
@@ -888,6 +898,7 @@ the_key_two=two
     def test_config_with_url(self, fake_fetch_repos):
         conn = Mock()
 
+        repo_rid = 'repo-id'
         repo_name = 'the_repo'
         repo_url = 'http://github.com/the_repo.git'
         repo_config = {
@@ -895,7 +906,7 @@ the_key_two=two
             'the_key_two': 'two',
         }
 
-        mock_repository(fake_fetch_repos, name=repo_name, url=repo_url, configuration=repo_config)
+        mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, url=repo_url, configuration=repo_config)
 
         args = self.config('-l', repo_url)
         args.execute(conn, args)
@@ -1099,11 +1110,12 @@ class TestgCTSCommit(PatcherTestCase, ConsoleOutputTestCase):
 
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_commit_with_url(self, fake_fetch_repos):
+        repo_rid = 'repo-id'
         repo_name = 'the_repo'
         repo_url = 'http://github.com/the_repo.git'
         corrnr = 'CORRNR'
 
-        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url)
+        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, url=repo_url)
 
         commit_cmd = self.commit_cmd(repo_url, corrnr)
         commit_cmd.execute(self.fake_connection, commit_cmd)
@@ -1229,11 +1241,22 @@ class TestgCTSRepoGetProperty(PatcherTestCase, ConsoleOutputTestCase):
         self.patch_console(console=self.console)
         self.fake_connection = Mock()
 
-        self.repo_name = 'name'
+        self.repo_rid = 'rid'
+        self.repo_name = 'the name'
         self.repo_url = 'http://github.com/name.git'
-        self.repo_data = {'rid': 'rid', 'branch': 'branch', 'head': 'head', 'status': 'status', 'vsid': 'vsid',
-                          'role': 'role', 'url': self.repo_url, 'currentCommit': 'head'}
-        self.fake_repo = sap.cli.gcts.Repository(self.fake_connection, self.repo_name, data=self.repo_data)
+        self.repo_data = {
+            'rid': self.repo_rid,
+            'name': self.repo_name,
+            'branch': 'branch',
+            'head': 'head',
+            'status': 'status',
+            'vsid': 'vsid',
+            'role': 'role',
+            'url': self.repo_url,
+            'currentCommit': 'head'
+        }
+
+        self.fake_repo = sap.cli.gcts.Repository(self.fake_connection, self.repo_rid, data=self.repo_data)
 
     def get_properties_cmd(self, *args, **kwargs):
         return parse_args('repo', 'property', 'get', *args, **kwargs)
@@ -1247,14 +1270,14 @@ class TestgCTSRepoGetProperty(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertConsoleContents(self.console, stdout=
-'''Name: name
-RID: rid
+f'''Name: {self.repo_name}
+RID: {self.repo_rid}
 Branch: branch
 Commit: head
 Status: status
 vSID: vsid
 Role: role
-URL: http://github.com/name.git
+URL: {self.repo_url}
 ''')
 
     @patch('sap.cli.gcts.get_repository')
@@ -1262,14 +1285,14 @@ URL: http://github.com/name.git
         fake_get_repository.return_value = self.fake_repo
 
         properties = [
-            ('Name', 'name\n'),
-            ('RID', 'rid\n'),
+            ('Name', f'{self.repo_name}\n'),
+            ('RID', f'{self.repo_rid}\n'),
             ('Branch', 'branch\n'),
             ('Commit', 'head\n'),
             ('Status', 'status\n'),
             ('vSID', 'vsid\n'),
             ('Role', 'role\n'),
-            ('URL', 'http://github.com/name.git\n')
+            ('URL', f'{self.repo_url}\n')
         ]
 
         for name, value in properties:
@@ -1293,21 +1316,21 @@ URL: http://github.com/name.git
 
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_get_properties_with_url(self, fake_fetch_repos):
-        mock_repository(fake_fetch_repos, name=self.repo_name, **self.repo_data)
+        mock_repository(fake_fetch_repos, **self.repo_data)
 
         the_cmd = self.get_properties_cmd(self.repo_url)
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 0)
         self.assertConsoleContents(self.console, stdout=
-'''Name: name
-RID: rid
+f'''Name: {self.repo_name}
+RID: {self.repo_rid}
 Branch: branch
 Commit: head
 Status: status
 vSID: vsid
 Role: role
-URL: http://github.com/name.git
+URL: {self.repo_url}
 ''')
 
     @patch('sap.cli.gcts.get_repository')
@@ -2287,10 +2310,11 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
     @patch('sap.rest.gcts.simple.fetch_repos')
     def test_update_filesystem_url(self, fake_fetch_repos):
         self.fake_get_repository_patcher.stop()
+        repo_rid = 'repo-id'
         repo_name = 'the_repo'
         branch = 'the_branch'
         repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, name=repo_name, url=repo_url, **self.fake_repo.__dict__)
+        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, url=repo_url, **self.fake_repo.__dict__)
 
         the_cmd = self.update_filesystem_cmd(repo_url, branch)
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
