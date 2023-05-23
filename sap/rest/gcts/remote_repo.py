@@ -68,7 +68,24 @@ class _RepositoryHttpProxy:
     def get_json(self, path=None, params=None):
         """Execute HTTP GET with Accept: application/json and get only the JSON part."""
 
-        return self.connection.get_json(self._build_url(path), params=params)
+        target_url = self._build_url(path)
+        try:
+            return self.connection.get_json(target_url, params=params)
+        except HTTPRequestError as ex:
+            try:
+                response_json = ex.response.json()
+            except Exception as json_ex:
+                mod_log().debug('Error while getting JSON from response: %s', str(json_ex))
+                # Now lets continue as we never tried to analyze the JSON contents.
+                # pylint: disable=W0707
+                raise ex
+
+            if response_json is None or 'result' not in response_json:
+                # Re-use the exception because there is no JSON we can return.
+                raise ex
+
+            mod_log().warning('gCTS backend returned HTTP 500 with data for %s', target_url)
+            return response_json
 
     @_http_to_gcts_error
     def post(self, path=None):

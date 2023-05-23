@@ -149,6 +149,23 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(self.conn.execs), 1)
         self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
 
+    # exactly the same as test_properties_fetch but with 500 as status
+    # testing gCTS' behavior for repos whose remote does not exist
+    def test_properties_fetch_with_500(self):
+        response = {'result': self.repo_server_data}
+
+        self.conn.set_responses([Response.with_json(json=response, status_code=500)])
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+
+        self.assertEqual(repo.status, self.repo_server_data['status'])
+        self.assertEqual(repo.rid, self.repo_server_data['rid'])
+        self.assertEqual(repo.url, self.repo_server_data['url'])
+        self.assertEqual(repo.branch, self.repo_server_data['branch'])
+
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+
     def test_properties_fetch_error(self):
         messages = LogBuilder(exception='Get Repo Error').get_contents()
         self.conn.set_responses(Response.with_json(status_code=500, json=messages))
