@@ -528,9 +528,8 @@ def _print_source_file_jacoco(file_name, lines_data, console, indent, indent_lev
         covered_instructions = '1' if is_covered else '0'
         missed_instructions = '0' if is_covered else '1'
 
-        console.printout(
-            f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" ci="{covered_instructions}" mb="" cb=""/>'
-        )
+        console.printout(f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" '
+                         f'ci="{covered_instructions}" mb="" cb=""/>')
 
     console.printout(f'{file_level_indent}</sourcefile>')
 
