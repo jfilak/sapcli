@@ -529,7 +529,7 @@ def _print_source_file_jacoco(file_name, lines_data, console, indent, indent_lev
         missed_instructions = '0' if is_covered else '1'
 
         console.printout(
-            f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" ci="{covered_instructions}"/>'
+            f'{line_level_indent}<line nr="{line_number}" mi="{missed_instructions}" ci="{covered_instructions}" mb="" cb=""/>'
         )
 
     console.printout(f'{file_level_indent}</sourcefile>')
@@ -553,7 +553,7 @@ def _print_class_jacoco(node, method_lines_mapping, console, indent, indent_leve
     console.printout(f'{class_level_indent}<class name="{node.name}" sourcefilename="{node.name}">')
     for method in node.nodes:
         line, _ = get_line_and_column(method.uri)
-        console.printout(f'{method_level_indent}<method name="{method.name}" line="{line}">')
+        console.printout(f'{method_level_indent}<method name="{method.name}" desc="" line="{line}">')
         _print_counters_jacoco(method, console, indent, indent_level + 2)
         console.printout(f'{method_level_indent}</method>')
 
