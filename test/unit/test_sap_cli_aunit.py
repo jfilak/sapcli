@@ -574,12 +574,12 @@ CL_FOO======CCAU:428
 <report name="ypackage">
    <package name="TEST_CHECK_LIST">
       <class name="FOO" sourcefilename="FOO">
-         <method name="METHOD_A" line="52">
+         <method name="METHOD_A" desc="" line="52">
             <counter type="BRANCH" missed="2" covered="3"/>
             <counter type="METHOD" missed="0" covered="1"/>
             <counter type="INSTRUCTION" missed="0" covered="5"/>
          </method>
-         <method name="METHOD_B" line="199">
+         <method name="METHOD_B" desc="" line="199">
             <counter type="BRANCH" missed="1" covered="1"/>
             <counter type="METHOD" missed="0" covered="1"/>
             <counter type="INSTRUCTION" missed="2" covered="6"/>
@@ -589,19 +589,19 @@ CL_FOO======CCAU:428
          <counter type="INSTRUCTION" missed="3" covered="60"/>
       </class>
       <sourcefile name="FOO">
-         <line nr="53" mi="0" ci="1"/>
-         <line nr="54" mi="0" ci="1"/>
-         <line nr="55" mi="0" ci="1"/>
-         <line nr="56" mi="0" ci="1"/>
-         <line nr="59" mi="0" ci="1"/>
-         <line nr="209" mi="0" ci="1"/>
-         <line nr="212" mi="0" ci="1"/>
-         <line nr="215" mi="0" ci="1"/>
-         <line nr="216" mi="0" ci="1"/>
-         <line nr="219" mi="0" ci="1"/>
-         <line nr="220" mi="0" ci="1"/>
-         <line nr="224" mi="1" ci="0"/>
-         <line nr="225" mi="1" ci="0"/>
+         <line nr="53" mi="0" ci="1" mb="" cb=""/>
+         <line nr="54" mi="0" ci="1" mb="" cb=""/>
+         <line nr="55" mi="0" ci="1" mb="" cb=""/>
+         <line nr="56" mi="0" ci="1" mb="" cb=""/>
+         <line nr="59" mi="0" ci="1" mb="" cb=""/>
+         <line nr="209" mi="0" ci="1" mb="" cb=""/>
+         <line nr="212" mi="0" ci="1" mb="" cb=""/>
+         <line nr="215" mi="0" ci="1" mb="" cb=""/>
+         <line nr="216" mi="0" ci="1" mb="" cb=""/>
+         <line nr="219" mi="0" ci="1" mb="" cb=""/>
+         <line nr="220" mi="0" ci="1" mb="" cb=""/>
+         <line nr="224" mi="1" ci="0" mb="" cb=""/>
+         <line nr="225" mi="1" ci="0" mb="" cb=""/>
       </sourcefile>
       <class name="BAR" sourcefilename="BAR">
          <counter type="BRANCH" missed="0" covered="0"/>
