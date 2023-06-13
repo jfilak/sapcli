@@ -17,7 +17,9 @@ from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionCheckinFailu
 from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
-from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, INCLUDE_XML, INVALID_TYPE_XML, FUNCTION_GROUP_XML
+from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, INCLUDE_XML, INVALID_TYPE_XML, FUNCTION_GROUP_XML, \
+    FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_NO_PARAMS_ADT,\
+    FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT
 from infra import generate_parse_args
 
 
@@ -993,7 +995,7 @@ class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
 
     def test_checkin_fugr(self):
         self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
-                                                                         StringIOFile('Test module body')]
+                                                                         StringIOFile(FUNCTION_MODULE_CODE_ADT)]
 
         inactive_objects = sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
 
@@ -1014,7 +1016,7 @@ class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         self.function_include.create.assert_called_once_with(None)
 
         self.function_module.open_editor.assert_called_once_with(corrnr=None)
-        self.function_module_editor.write.assert_called_once_with('Test module body')
+        self.function_module_editor.write.assert_called_once_with(FUNCTION_MODULE_CODE_ADT)
         self.function_include.open_editor.assert_called_once_with(corrnr=None)
         self.function_include_editor.write.assert_called_once_with('Test include body')
 
@@ -1054,6 +1056,31 @@ Writing Function Module: {self.function_module.name}
         fake_mod_log.return_value.info.assert_has_calls([call('Function group already exists'),
                                                          call('Function include already exists'),
                                                          call('Function module already exists')])
+
+    def test_checkin_fugr_abapgit_format(self):
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile(FUNCTION_MODULE_CODE_ABAPGIT)]
+        inactive_objects = sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+
+        self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
+        self.function_module_editor.write.assert_called_once_with(FUNCTION_MODULE_CODE_ADT)
+
+    def test_checkin_fugr_abapgit_no_parameters(self):
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile(
+                                                                             FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT)]
+        inactive_objects = sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+
+        self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
+        self.function_module_editor.write.assert_called_once_with(FUNCTION_MODULE_CODE_NO_PARAMS_ADT)
+
+    def test_checkin_fugr_abapgit_all_parameters(self):
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile(FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT)]
+        inactive_objects = sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+
+        self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
+        self.function_module_editor.write.assert_called_once_with(FUNCTION_MODULE_CODE_ALL_PARAMS_ADT)
 
 
 if __name__ == '__main__':

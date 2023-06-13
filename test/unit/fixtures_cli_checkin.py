@@ -144,3 +144,71 @@ FUNCTION_GROUP_XML = '''<?xml version="1.0" encoding="utf-8"?>
   </asx:values>
  </asx:abap>
 </abapGit>'''
+
+FUNCTION_MODULE_CODE_ABAPGIT = '''FUNCTION ztest_function_module.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     VALUE(ABAP_PACKAGE) TYPE  DEVCLASS OPTIONAL
+*"  EXPORTING
+*"     VALUE(RETURN) TYPE  BAPIRET2
+*"  TABLES
+*"      RETURN_TAB STRUCTURE  BAPIRET2 OPTIONAL
+*"----------------------------------------------------------------------
+    RETURN = 0.
+ENDFUNCTION.'''
+
+FUNCTION_MODULE_CODE_ADT = '''FUNCTION ztest_function_module
+IMPORTING
+VALUE(ABAP_PACKAGE) TYPE  DEVCLASS OPTIONAL
+EXPORTING
+VALUE(RETURN) TYPE  BAPIRET2
+TABLES
+RETURN_TAB TYPE  BAPIRET2 OPTIONAL
+.
+    RETURN = 0.
+ENDFUNCTION.'''
+
+FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT = '''FUNCTION ztest_function_module.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"----------------------------------------------------------------------
+    RETURN = 0.
+ENDFUNCTION.'''
+
+FUNCTION_MODULE_CODE_NO_PARAMS_ADT = '''FUNCTION ztest_function_module
+.
+    RETURN = 0.
+ENDFUNCTION.'''
+
+FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT = '''FUNCTION ztest_function_module.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     VALUE(IMPORTING_PARAM) TYPE  STRING
+*"  EXPORTING
+*"     VALUE(EXPORTING_PARAM) TYPE  STRING
+*"  CHANGING
+*"     VALUE(CHANGING_PARAM) TYPE  STRING
+*"  TABLES
+*"     TABLES_PARAM STRUCTURE  STRING OPTIONAL
+*"  EXCEPTIONS
+*"      DIVISION_BY_ZERO
+*"----------------------------------------------------------------------
+    RETURN = 0.
+ENDFUNCTION.'''
+
+FUNCTION_MODULE_CODE_ALL_PARAMS_ADT = '''FUNCTION ztest_function_module
+IMPORTING
+VALUE(IMPORTING_PARAM) TYPE  STRING
+EXPORTING
+VALUE(EXPORTING_PARAM) TYPE  STRING
+CHANGING
+VALUE(CHANGING_PARAM) TYPE  STRING
+TABLES
+TABLES_PARAM TYPE  STRING OPTIONAL
+EXCEPTIONS
+DIVISION_BY_ZERO
+.
+    RETURN = 0.
+ENDFUNCTION.'''
