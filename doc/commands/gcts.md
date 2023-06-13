@@ -19,10 +19,11 @@ sapcli's implementation forces use of packages as git repositories.
 15. [repo branch create](#repo-branch-create)
 16. [repo branch delete](#repo-branch-delete)
 17. [repo branch list](#repo-branch-list)
-18. [system config get](#system-config-get)
-19. [system config list](#system-config-list)
-20. [system config set](#system-config-set)
-21. [system config unset](#system-config-unset)
+18. [repo activities](#repo-activities)
+19. [system config get](#system-config-get)
+20. [system config list](#system-config-list)
+21. [system config set](#system-config-set)
+22. [system config unset](#system-config-unset)
 
 ## repolist
 
@@ -244,6 +245,26 @@ sapcli gcts repo branch list PACKAGE [-a|--all] [-r|--remote] [-f|--format] {HUM
 - `--all`: List all branches
 - `--remote`: List `remote` branches only
 - `--format`: The format of the command's output
+
+## repo activities
+
+List activities (history) of a repository. 
+
+Note, the `operation` parameter corresponds to the type of activity.
+
+```bash
+sapcli gcts repo activities PACKAGE [--limit LIMIT] [--offset OFFSET] [--fromcommit FROMCOMMIT] [--tocommit TOCOMMIT] [--operation] {COMMIT,PULL,CLONE,BRANCH_SW} [--noheadings] [--columns] [-f|--format] {HUMAN|JSON}
+```
+
+**Parameters**:
+- `PACKAGE`: The repository name
+- `--limit LIMIT`: The maximum number of activities to return
+- `--offset OFFSET`: The offset of the first activity to return
+- `--fromcommit FROMCOMMIT`: The From Commit hash of activities to return
+- `--tocommit TOCOMMIT`: The To Commit hash of activities to return
+- `--operation {COMMIT,PULL,CLONE,BRANCH_SW}`: The type of activities to return. Possible values follow domain of `SCTS_ABAP_VCS_COMMIT_TYPE`.
+- `--noheadings`: Do not display a header line
+- `--columns`: Specify the columns to display
 
 ## system config get
 
