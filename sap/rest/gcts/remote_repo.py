@@ -97,8 +97,8 @@ class RepoActivitiesQueryParams:
 
         COMMIT = 'COMMIT'
         PULL = 'PULL'
-        CHECKOUT = 'CHECKOUT'
         CLONE = 'CLONE'
+        BRANCH_SW = 'BRANCH_SW'
 
     def __init__(self):
         self._params = {}
