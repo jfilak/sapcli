@@ -71,11 +71,6 @@ class BadiImplementation(metaclass=OrderedClassMembers):
     badi_definition = XmlNodeProperty('enho:badiDefinition', factory=ADTCoreReferenceSimple)
     implementing_class = XmlNodeProperty('enho:implementingClass', factory=ADTCoreReferenceSimple)
 
-    def set_active_implementation(self, value: bool):
-        """Enables or disables this BAdI implementation - disabled means it will not be called"""
-
-        self.active = str(value).lower()
-
     @property
     def is_active_implementation(self) -> bool:
         """Returns logical true if the BAdI implementation will be called; otherwise false.
@@ -84,13 +79,22 @@ class BadiImplementation(metaclass=OrderedClassMembers):
             - SAPCliError if the ADT Backed returned an unexpected value
         """
 
-        match self.active.lower():
+        active_normalized = self.active.lower() if self.active else ''
+
+        match active_normalized:
             case 'true':
                 return True
             case 'false':
                 return False
             case _:
-                raise SAPCliError()
+                msg = f'BadiImplementatiod({self.name or ""}) holds invalid active: "{active_normalized}"'
+                raise SAPCliError(msg)
+
+    @is_active_implementation.setter
+    def is_active_implementation(self, value: bool):
+        """Enables or disables this BAdI implementation - disabled means it will not be called"""
+
+        self.active = str(value).lower()
 
 
 # pylint: disable=too-few-public-methods
@@ -102,7 +106,7 @@ class BadiImplementationContainer(metaclass=OrderedClassMembers):
                                  factory=BadiImplementation,
                                  value=[])
 
-    def __item__(self, value):
+    def __getitem__(self, value):
         for impl in self._items:
             if impl.name == value:
                 return impl

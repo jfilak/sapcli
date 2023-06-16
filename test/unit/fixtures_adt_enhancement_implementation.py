@@ -6,7 +6,7 @@ ADT_XML_ENHANCEMENT_IMPLEMENTATION_V4='''<?xml version="1.0" encoding="UTF-8"?>
     <enho:usages>
       <enhcore:referencedObject xmlns:enhcore="http://www.sap.com/abapsource/enhancementscore" enhcore:program_id="R3TR" enhcore:element_usage="USEO" enhcore:upgrade="false" enhcore:automatic_transport="false">
         <enhcore:objectReference adtcore:uri="/sap/bc/adt/oo/classes/zcl_sapcli_badi_impl" adtcore:type="CLAS/OC" adtcore:name="ZCL_SAPCLI_BADI_IMPL"/>
-        <enhcore:mainObjectReference adtcore:uri="/sap/bc/adt/oo/classes/cl_zcl_sapcli_badi_impl" adtcore:type="CLAS/OC" adtcore:name="ZCL_SAPCLI_BADI_IMPL"/>
+        <enhcore:mainObjectReference adtcore:uri="/sap/bc/adt/oo/classes/zcl_sapcli_badi_impl" adtcore:type="CLAS/OC" adtcore:name="ZCL_SAPCLI_BADI_IMPL"/>
       </enhcore:referencedObject>
       <enhcore:referencedObject xmlns:enhcore="http://www.sap.com/abapsource/enhancementscore" enhcore:program_id="R3TR" enhcore:element_usage="EXTO" enhcore:upgrade="false" enhcore:automatic_transport="false">
         <enhcore:objectReference adtcore:uri="/sap/bc/adt/enhancements/enhsxsb/sapcli_enh_spot" adtcore:type="ENHS/XSB" adtcore:name="SAPCLI_ENH_SPOT"/>
