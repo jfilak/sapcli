@@ -4,7 +4,7 @@ import unittest
 
 from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
-from sap.adt.objects import XMLNamespace
+from sap.adt.objects import XMLNamespace, ADTRootObject
 from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty, XmlElementKind, XmlNodeProperty, \
                                 XmlNodeAttributeProperty, XmlContainer, XmlListNodeProperty
 from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
@@ -352,6 +352,33 @@ class TextElementADTObject(metaclass=OrderedClassMembers):
     @text.setter
     def text(self, value):
         self._text = value
+
+
+class OwnNSADTRootObject(ADTRootObject):
+
+    OBJTYPE = ADTObjectType(
+            None, None, XMLNamespace(name='myxmlns', uri='http://uri/myxmlns'),
+            None, None, 'namespaced')
+
+    @xml_attribute('attr1')
+    def attr_prop(self):
+        return 'fixture_attr'
+
+    @xml_element('elem1', kind=XmlElementKind.TEXT)
+    def elem_prop(self):
+        return 'fixture_elem'
+
+
+class ObjectWithNestedNS(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(
+            None, None, XMLNamespace('topns', 'https://example.org/topns'),
+            None, None, 'root')
+
+    @xml_element(XmlElementProperty.NAME_FROM_OBJECT)
+    def namespaced(self):
+        return OwnNSADTRootObject()
 
 
 class XmlNodePropertyADTObject(metaclass=OrderedClassMembers):
@@ -853,6 +880,21 @@ class TestADTAnnotation(unittest.TestCase):
 <mock:empty xmlns:mock="https://example.org/mock">
 <empty_elem/>
 </mock:empty>''')
+
+
+class TestADTRootObject(unittest.TestCase):
+
+    def test_serialize_nested_xmlns(self):
+        deser = ObjectWithNestedNS()
+        marshal = Marshal()
+        xml = marshal.serialize(deser)
+
+        self.assertEqual(xml, '''<?xml version="1.0" encoding="UTF-8"?>
+<topns:root xmlns:topns="https://example.org/topns">
+<myxmlns:namespaced xmlns:myxmlns="http://uri/myxmlns" attr1="fixture_attr">
+<elem1>fixture_elem</elem1>
+</myxmlns:namespaced>
+</topns:root>''')
 
 
 if __name__ == '__main__':
