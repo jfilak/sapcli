@@ -783,6 +783,20 @@ class ADTObjectSourceEditorWithResponse(ADTObjectSourceEditor):
         return headers
 
 
+class ADTObjectPropertyEditor(ADTObjectEditor):
+    """Object property modification actions - for objects which have only the
+       XML and other resource associated.
+
+       This editor implements the abstract method write without causing any
+       activity.
+    """
+
+    def write(self, content):
+        """No code can be written"""
+
+        mod_log().info("(%s) does not support writing of text", self._obj)
+
+
 class ADTObjectReference(metaclass=OrderedClassMembers):
     """ADT Object Reference"""
 
