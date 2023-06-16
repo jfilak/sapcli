@@ -11,8 +11,14 @@ import sap.adt
 
 from mock import Connection, Response, Request
 
+from fixtures_adt import (
+    LOCK_RESPONSE_OK,
+    EMPTY_RESPONSE_OK,
+)
+
 from fixtures_adt_enhancement_implementation import (
     ADT_XML_ENHANCEMENT_IMPLEMENTATION_V4,
+    SAPCLI_XML_ENHANCEMENT_IMPLEMENTATION_V4,
 )
 
 
@@ -96,6 +102,34 @@ class TestEnhancementImplemenetation(unittest.TestCase):
 
         first_badi_item = enh_impl.specific.badis.implementations[first_badi.name]
         self.assertEqual(first_badi, first_badi_item)
+
+
+    def test_enhancement_implementation_write(self):
+        conn = Connection([RESPONSE_ENHANCEMENT_IMPLEMENTATION_OK, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
+
+        enh_impl_name = 'SAPCLI_ENH_IMPL'
+
+        enh_impl = sap.adt.EnhancementImplementation(conn, enh_impl_name)
+        enh_impl.fetch()
+
+        badi = enh_impl.specific.badis.implementations['SAPCLI_BADI_IMPL']
+        badi.is_active_implementation = False
+
+        with enh_impl.open_editor() as editor:
+            editor.push()
+
+        put_request = conn.execs[2]
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, '/sap/bc/adt/enhancements/enhoxhb/sapcli_enh_impl')
+
+        self.assertEqual(sorted(put_request.headers), ['Content-Type'])
+        self.assertEqual(put_request.headers['Content-Type'], 'application/vnd.sap.adt.enh.enhoxhb.v4+xml; charset=utf-8')
+
+        self.assertEqual(put_request.params, {'lockHandle': 'win'})
+
+        self.maxDiff = None
+        self.assertEqual(put_request.body.decode('utf-8'), SAPCLI_XML_ENHANCEMENT_IMPLEMENTATION_V4)
+
 
 class BadiImplementationContainer(unittest.TestCase):
 

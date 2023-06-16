@@ -4,8 +4,10 @@ from sap.errors import SAPCliError
 from sap.adt.objects import (
     xmlns_adtcore_ancestor,
     ADTObject,
+    ADTRootObject,
     ADTObjectType,
-    OrderedClassMembers
+    OrderedClassMembers,
+    ADTObjectPropertyEditor
 )
 from sap.adt.annotations import (
     XmlNodeAttributeProperty,
@@ -29,8 +31,11 @@ class ADTCoreReferenceSimple(metaclass=OrderedClassMembers):
 
 
 # pylint: disable=too-few-public-methods
-class ReferencedObject(metaclass=OrderedClassMembers):
+class ReferencedObject(ADTRootObject):
     """Usage object reference"""
+
+    OBJTYPE = ADTObjectType(None, None, XMLNS_ENHCORE,
+                            None, None, 'referencedObject')
 
     program_id = XmlNodeAttributeProperty('enhcore:program_id')
     element_usage = XmlNodeAttributeProperty('enhcore:element_usage')
@@ -87,7 +92,7 @@ class BadiImplementation(metaclass=OrderedClassMembers):
             case 'false':
                 return False
             case _:
-                msg = f'BadiImplementatiod({self.name or ""}) holds invalid active: "{active_normalized}"'
+                msg = f'BadiImplementation({self.name or ""}) holds invalid active: "{active_normalized}"'
                 raise SAPCliError(msg)
 
     @is_active_implementation.setter
@@ -102,22 +107,22 @@ class BadiImplementationContainer(metaclass=OrderedClassMembers):
     """The xml node BadiImplementations"""
 
     # Beware: the setter appends the value :(
-    _items = XmlListNodeProperty('enho:badiImplementation',
-                                 factory=BadiImplementation,
-                                 value=[])
+    items = XmlListNodeProperty('enho:badiImplementation',
+                                factory=BadiImplementation,
+                                value=[])
 
     def __getitem__(self, value):
-        for impl in self._items:
+        for impl in self.items:
             if impl.name == value:
                 return impl
 
         raise KeyError(value)
 
     def __iter__(self):
-        return iter(self._items)
+        return iter(self.items)
 
     def __len__(self):
-        return len(self._items)
+        return len(self.items)
 
 
 # pylint: disable=too-few-public-methods
@@ -144,7 +149,8 @@ class EnhancementImplementation(ADTObject):
         ['application/vnd.sap.adt.enh.enhoxhb.v4+xml',
          'application/vnd.sap.adt.enh.enhoxhb.v3+xml'],
         {},
-        'objectData'
+        'objectData',
+        editor_factory=ADTObjectPropertyEditor
     )
 
     common = XmlNodeProperty('enho:contentCommon', factory=ContentCommon)
