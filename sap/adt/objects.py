@@ -352,6 +352,46 @@ class ADTCoreData:
         self._package_reference = value
 
 
+class ADTRootObject(metaclass=OrderedClassMembers):
+    """Abstract base class for ADT object's elments/members having own xmlns
+       but not representing a top ADT object.
+
+       Create ancestors like:
+
+           class MyADTNaspacedObject(ADTRootObject):
+
+              OBJTYPE =  ADTObjectType(
+                            None, None, XMLNamespace('myns', 'http://example.org/myns'),
+                            None, None, 'element_name')
+
+       And use in a class like:
+
+           class WithNamespacedElement(ADTObject):
+
+              OBJTYPE =  ADTObjectType(
+                            None, None, XMLNamespace('topns', 'http://example.org/topns'),
+                            None, None, 'root')
+
+               @xml_element(XmlElementProperty.NAME_FROM_OBJECT)
+               def children(self):
+                   return MyADTNaspacedObject()
+
+       To get XML document like:
+
+            <?xml version="1.0" encoding="UTF-8"?>
+            <topns:root xmlns:topns="https://example.org/topns">
+              <myns:element_name xmlns:myns="http://example.org/myns"/>
+            </topns:root>
+    """
+
+    @property
+    def objtype(self):
+        """ADT type definition"""
+
+        # pylint: disable=no-member
+        return self.__class__.OBJTYPE
+
+
 # pylint: disable=too-many-public-methods
 class ADTObject(metaclass=OrderedClassMembers):
     """Abstract base class for ADT objects
