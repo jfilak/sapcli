@@ -264,7 +264,7 @@ class ADTCoreData:
     # pylint: disable=too-many-arguments
     def __init__(self, package=None, description=None, language=None,
                  master_language=None, master_system=None, responsible=None,
-                 package_reference=None):
+                 package_reference=None, abap_language_version=None):
         self._package = package
         self._description = description
         self._language = language
@@ -272,6 +272,7 @@ class ADTCoreData:
         self._master_system = master_system
         self._responsible = responsible
         self._package_reference = ADTCoreData.Reference(name=package_reference)
+        self._abap_language_version = abap_language_version
 
     @property
     def package(self):
@@ -302,6 +303,18 @@ class ADTCoreData:
         """Language"""
 
         self._language = value
+
+    @property
+    def abap_language_version(self):
+        """ABAP language version"""
+
+        return self._abap_language_version
+
+    @abap_language_version.setter
+    def abap_language_version(self, value):
+        """ABAP language version"""
+
+        self._abap_language_version = value
 
     @property
     def master_language(self):
@@ -477,6 +490,18 @@ class ADTObject(metaclass=OrderedClassMembers):
 
         if value != self._name:
             raise SAPCliError(f'Deserializing wrong object: {self._name} != {value}')
+
+    @xml_attribute('adtcore:abapLanguageVersion')
+    def abap_language_version(self):
+        """SAP object ABAP Language Version"""
+
+        return self._metadata.abap_language_version
+
+    @abap_language_version.setter
+    def abap_language_version(self, value):
+        """Set SAP object ABAP Language Version"""
+
+        self._metadata.abap_language_version = value
 
     @xml_attribute('adtcore:masterLanguage')
     def master_language(self):
