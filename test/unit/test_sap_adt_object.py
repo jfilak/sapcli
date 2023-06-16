@@ -396,5 +396,16 @@ class TestADTObjectSets(unittest.TestCase):
         self.assertSetsContents()
 
 
+class TestADTPropertyEditor(unittest.TestCase):
+
+    def test_no_exception_write(self):
+        obj = 'mock object'
+        lock_handle = None
+        editor = sap.adt.objects.ADTObjectPropertyEditor(obj, lock_handle)
+
+        # This is it - if the method raises, this test fails
+        editor.write('ignored')
+
+
 if __name__ == '__main__':
     unittest.main()
