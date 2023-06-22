@@ -21,3 +21,4 @@
 19. [rap](commands/businessservice.md) - RAP Business Services
 20. [strust](commands/strust.md) - SSL Certificates
 21. [table](commands/table.md) - ABAP DDIC transparent tables
+21. [badi](commands/badi.md) - New style (Enhancements) BAdI operations

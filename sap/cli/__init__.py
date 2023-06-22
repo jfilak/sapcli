@@ -45,6 +45,7 @@ class CommandsCache:
         import sap.cli.flp
         import sap.cli.rap
         import sap.cli.table
+        import sap.cli.badi
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -67,6 +68,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.rap.CommandGroup()),
                 (adt_connection_from_args, sap.cli.table.CommandGroup()),
                 (adt_connection_from_args, sap.cli.checkin.CommandGroup()),
+                (adt_connection_from_args, sap.cli.badi.CommandGroup()),
             ]
 
         if CommandsCache.rest is None:
