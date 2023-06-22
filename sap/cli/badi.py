@@ -5,6 +5,7 @@ ADT proxy for New BAdI (Enhancement Implementation BAdIs) commands
 import sap
 import sap.adt
 import sap.cli.core
+import sap.cli.object
 
 
 def mod_log():
@@ -50,6 +51,7 @@ def list_badis(connection, args):
     return _list(connection, args)
 
 
+@CommandGroup.argument('-a', '--activate', action='store_true', default=False, help='Activate after modification')
 @CommandGroup.argument('--corrnr', nargs='?', default=None, help='transport number')
 @CommandGroup.argument('-b', '--badi', required=True, help='BAdI implementation name')
 @CommandGroup.argument('active', choices=['true', 'false'], help='New value for Active')
@@ -82,3 +84,9 @@ def set_active(connection, args):
     console.printout(f'* {args.enhancement_implementation}/{args.badi}')
     with enho.open_editor(corrnr=args.corrnr) as editor:
         editor.push()
+
+    if not args.activate:
+        return 0
+
+    activator = sap.cli.wb.ObjectActivationWorker()
+    sap.cli.object.activate_object_list(activator, ((args.enhancement_implementation, enho),), count=1)

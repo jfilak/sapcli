@@ -167,3 +167,37 @@ class TestBadiEnhImplList(PatcherTestCase, ConsoleOutputTestCase):
             set_active_cmd.execute(conn, set_active_cmd)
 
         self.assertEqual(str(caught.exception), 'The BAdI UKNONWN_BADI not found in the enhancement implementation SAPCLI_ENH_IMPL')
+
+    def test_set_active_with_activation(self):
+        ok_inactive_enho_response = Response(
+            status_code=200,
+            text=ADT_XML_ENHANCEMENT_IMPLEMENTATION_V4.replace('enho:active="true"', 'enho:active="false"'),
+            content_type='application/vnd.sap.adt.enh.enhoxhb.v4+xml'
+        )
+
+        ok_active_enho_response = Response(
+            status_code=200,
+            text=ADT_XML_ENHANCEMENT_IMPLEMENTATION_V4.replace('enho:active="false"', 'enho:active="true"'),
+            content_type='application/vnd.sap.adt.enh.enhoxhb.v4+xml'
+        )
+
+        conn = Connection([
+            ok_inactive_enho_response, # GET original object
+            LOCK_RESPONSE_OK,  # POST lock
+            OK_ENHO_RESPONSE,  # PUT updated
+            EMPTY_RESPONSE_OK, # POST unlock
+            EMPTY_RESPONSE_OK, # POST activate
+            ok_active_enho_response, # GET the object again
+        ])
+
+        set_active_cmd = self.set_active('SAPCLI_ENH_IMPL', 'SAPCLI_BADI_IMPL', True, '-a')
+        set_active_cmd.execute(conn, set_active_cmd)
+
+        self.assertConsoleContents(self.console, stdout='''Updating:
+* SAPCLI_ENH_IMPL/SAPCLI_BADI_IMPL
+Activating:
+* SAPCLI_ENH_IMPL
+Activation has finished
+Warnings: 0
+Errors: 0
+''')
