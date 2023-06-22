@@ -72,8 +72,13 @@ def set_active(connection, args):
         msg = f'The BAdI {args.badi} not found in the enhancement implementation {args.enhancement_implementation}'
         raise sap.errors.SAPCliError(msg) from exc
 
-    mod_log().info("Active: '%s' -> '%s'", badi.is_active_implementation, args.active)
+    if badi.is_active_implementation == value:
+        console.printout(f'Nothing to do! The BAdI {args.badi}\'s Active is already: {args.active}')
+        return 0
+
     badi.is_active_implementation = value
 
+    console.printout('Updating:')
+    console.printout(f'* {args.enhancement_implementation}/{args.badi}')
     with enho.open_editor(corrnr=args.corrnr) as editor:
         editor.push()
