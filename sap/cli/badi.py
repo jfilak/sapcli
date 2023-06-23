@@ -90,3 +90,4 @@ def set_active(connection, args):
 
     activator = sap.cli.wb.ObjectActivationWorker()
     sap.cli.object.activate_object_list(activator, ((args.enhancement_implementation, enho),), count=1)
+    return 0
