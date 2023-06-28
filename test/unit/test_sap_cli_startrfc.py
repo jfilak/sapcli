@@ -242,14 +242,16 @@ Raw response:
 
         self.rfc_connection.call.return_value = {
             'FORBIDDEN_OBJECTS': [],
-            'RETURN': [BAPIRET2_ERROR]
+            'RETURN': [BAPIRET2_WARNING, BAPIRET2_ERROR]
         }
 
         exit_code = self.execute_cmd(
             params=params,
             exp_call=False,
             exp_stdout='',
-            exp_stderr='Error(CICD_GCTS_TR|045): List of ABAP repository objects (piece list) is empty\n')
+            exp_stderr='''Warning(CICD_GCTS_TR|045): List of ABAP repository objects (piece list) is empty
+Error(CICD_GCTS_TR|045): List of ABAP repository objects (piece list) is empty
+''')
 
         self.assertEqual(1, exit_code)
 

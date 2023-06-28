@@ -165,13 +165,16 @@ def startrfc(connection, args):
             console.printerr(response_formatted)
             return 1
 
-        # response is parsed, we can decide if the response represents error or possitive status + info message
+        # Print out all messages because we can have more Errors
+        # and Non-Error messages can help reades to understand
+        # error messages better.
+        all_message_lines = "\n".join(bapi_return.message_lines())
+
         if bapi_return.is_error:
-            console.printerr(bapi_return.error_message)
+            console.printerr(all_message_lines)
             return 1
 
-        # this is what we do if response represents positive status
-        console.printout("\n".join(bapi_return.message_lines()))
+        console.printout(all_message_lines)
         return 0
 
     # if result_checker == RESULT_CHECKER_RAW:
