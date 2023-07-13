@@ -428,83 +428,6 @@ def _write_adt_object_source_file(path_prefix, adt_object, corrnr=None):
         _write_source_file(source.read(), adt_object, corrnr)
 
 
-def _get_parameters_block(source_lines):
-    """Get parameters block of function module
-
-    The block is delimited by '*"--' lines.
-    Example:
-    *"----------------------------------------------------------------------
-    *"*"Local Interface:
-    ...
-    *"----------------------------------------------------------------------
-    """
-
-    start_block = 0
-    end_block = 0
-    for i, line in enumerate(source_lines):
-        if line.startswith('*"--'):
-            start_block = i
-            break
-
-    for i, line in enumerate(source_lines[start_block + 1:]):
-        if line.startswith('*"--'):
-            end_block = i + start_block + 1
-            break
-
-    return start_block, end_block
-
-
-def _parse_function_parameters(parameters_block):
-    """Parse parameters of function module
-
-    From the parameters block:
-    ```
-        *"----------------------------------------------------------------------
-        *"*"Local Interface:
-        *"  IMPORTING
-        *"     VALUE(IV_PARAM1) TYPE  STRING
-        *"  EXPORTING
-        *"     VALUE(EV_PARAM2) TYPE  STRING
-        *"  TABLES
-        *"     ET_PARAM3 STRUCTURE  STRING
-        *"----------------------------------------------------------------------
-    ```
-    The parsed parameters are:
-    {
-        'IMPORTING': ['VALUE(IV_PARAM1) TYPE STRING'],
-        'EXPORTING': ['VALUE(EV_PARAM2) TYPE STRING'],
-        'CHANGING': [],
-        'TABLES': ['ET_PARAM3 TYPE  STRING'],
-        'EXCEPTIONS': []
-    }
-
-    Note the change from STRUCTURE to TYPE for TABLES parameters.
-    """
-
-    parameters = {
-        'IMPORTING': [],
-        'EXPORTING': [],
-        'CHANGING': [],
-        'TABLES': [],
-        'EXCEPTIONS': []
-    }
-    current_param = None
-    for line in parameters_block:
-        line = line.lstrip('*" ').rstrip()
-        if any(param == line for param in parameters):
-            current_param = line
-        elif current_param is not None:
-            param = line
-            parameters[current_param].append(param)
-
-    for i, table_param in enumerate(parameters['TABLES']):
-        var_name, abap_typing, *abap_type = table_param.split(' ')
-        if abap_typing == 'STRUCTURE':
-            parameters['TABLES'][i] = f'{var_name} TYPE {" ".join(abap_type)}'
-
-    return parameters
-
-
 def _format_function(source_code):
     """Format parameters of function
 
@@ -535,13 +458,13 @@ def _format_function(source_code):
     """
 
     source_lines = source_code.split('\n')
-    start_block, end_block = _get_parameters_block(source_lines)
+    start_block, end_block = sap.adt.function.FunctionModule.get_parameters_block(source_lines)
     if end_block == 0:
         # Source code is in ADT format
         return '\n'.join(source_lines)
 
     source_lines[0] = source_lines[0].replace('.', '')  # Remove dot at the end of first line
-    parameters = _parse_function_parameters(source_lines[start_block:end_block])
+    parameters = sap.adt.function.FunctionModule.parse_function_parameters(source_lines[start_block:end_block])
     adt_parameters_block = []
     for param_type, params in parameters.items():
         if not params:
