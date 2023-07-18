@@ -218,6 +218,20 @@ class TestSAPPlatformABAP(unittest.TestCase):
 
 class TestSAPPlatformABAPToXML(unittest.TestCase):
 
+    def test_to_xml_simple_object(self):
+        simple = type('SIMPLE', (str,), {})('foo')
+
+        dest = StringIO()
+        sap.platform.abap.to_xml(simple, dest)
+
+        self.assertEqual(dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <SIMPLE>foo</SIMPLE>
+ </asx:values>
+</asx:abap>
+''')
+
     def test_to_xml_plain_stucture(self):
         struct = PLAIN_STRUCT(PYTHON='theBest', LINUX='better')
 
@@ -297,6 +311,61 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
  </asx:values>
 </asx:abap>\n''')
 
+    def test_to_xml_nested_structure(self):
+        class NESTED_STRUCT(sap.platform.abap.Structure):
+            PLAIN_STRUCT: PLAIN_STRUCT
+
+        struct = NESTED_STRUCT(PLAIN_STRUCT=PLAIN_STRUCT(PYTHON='theBest', LINUX='better'))
+
+        dest = StringIO()
+        sap.platform.abap.XMLSerializers.abap_to_xml(struct, dest, '')
+
+        self.assertEqual(dest.getvalue(), '''<NESTED_STRUCT>
+ <PLAIN_STRUCT>
+  <PYTHON>theBest</PYTHON>
+  <LINUX>better</LINUX>
+ </PLAIN_STRUCT>
+</NESTED_STRUCT>
+''')
+
+    def test_to_xml_structure_with_none_value(self):
+        struct = PLAIN_STRUCT(PYTHON='theBest', LINUX=None)
+
+        dest = StringIO()
+        sap.platform.abap.XMLSerializers.abap_to_xml(struct, dest, '')
+
+        self.assertEqual(dest.getvalue(), '''<PLAIN_STRUCT>
+ <PYTHON>theBest</PYTHON>
+</PLAIN_STRUCT>
+''')
+
+    def test_to_xml_internal_table_in_structure(self):
+        distros_type = sap.platform.abap.InternalTable.define('DISTROS', str)
+        distros = distros_type()
+        distros.append('Fedora')
+        distros.append('CentOS')
+
+        class STRUCT_WITH_INTERNAL_TABLE(sap.platform.abap.Structure):
+            PYTHON: str
+            LINUX: str
+            DISTROS: distros_type
+
+        struct = STRUCT_WITH_INTERNAL_TABLE(PYTHON='theBest', LINUX='better',
+                                            DISTROS=distros)
+
+        dest = StringIO()
+        sap.platform.abap.XMLSerializers.abap_to_xml(struct, dest, '')
+
+        self.assertEqual(dest.getvalue(), '''<STRUCT_WITH_INTERNAL_TABLE>
+ <PYTHON>theBest</PYTHON>
+ <LINUX>better</LINUX>
+ <DISTROS>
+  <item>Fedora</item>
+  <item>CentOS</item>
+ </DISTROS>
+</STRUCT_WITH_INTERNAL_TABLE>
+''')
+
     def test_to_xml_internal_table_of_structure_with_own_element(self):
         lines = PLAIN_STRUCT_TT()
 
@@ -319,6 +388,117 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
 </PLAIN_STRUCT_TT>
 ''')
 
+    def test_to_xml_plain_internal_table(self):
+        plain_table = sap.platform.abap.InternalTable.define('PLAIN_TABLE', str)()
+        plain_table.append('<TAG_NAME>foo</TAG_NAME>')
+        plain_table.append('<TAG_NAME>bar</TAG_NAME>')
+
+        dest = StringIO()
+        sap.platform.abap.XMLSerializers.abap_to_xml(plain_table, dest, '')
+
+        self.assertEqual(dest.getvalue(), '''<PLAIN_TABLE>
+ <item><TAG_NAME>foo</TAG_NAME></item>
+ <item><TAG_NAME>bar</TAG_NAME></item>
+</PLAIN_TABLE>
+''')
+
+    def test_to_xml_nested_internal_table(self):
+        root_table = sap.platform.abap.InternalTable.define('ROOT_TABLE', sap.platform.abap.InternalTable)()
+        root_table.append(sap.platform.abap.InternalTable.define('CHILD_TABLE', str)())
+
+        dest = StringIO()
+
+        with self.assertRaises(sap.errors.SAPCliError) as cm:
+            sap.platform.abap.XMLSerializers.abap_to_xml(root_table, dest, '')
+
+        self.assertEqual(str(cm.exception), 'XML serialization of nested internal tables is not implemented')
+
+    def test_to_xml_itemized_table(self):
+        itemized_table = sap.platform.abap.ItemizedTable.define('ITEMIZED_TABLE', str)()
+        itemized_table.append('<TAG_NAME>foo</TAG_NAME>')
+        itemized_table.append('<TAG_NAME>bar</TAG_NAME>')
+
+        dest = StringIO()
+        sap.platform.abap.XMLSerializers.abap_to_xml(itemized_table, dest, '')
+        self.assertEqual(dest.getvalue(), '''<ITEMIZED_TABLE>
+ <item><TAG_NAME>foo</TAG_NAME></item>
+ <item><TAG_NAME>bar</TAG_NAME></item>
+</ITEMIZED_TABLE>
+''')
+
+    def test_to_xml_itemized_table_in_structure(self):
+        distros_type = sap.platform.abap.ItemizedTable.define('DISTROS', str)
+        distros = distros_type()
+        distros.append('Fedora')
+        distros.append('CentOS')
+
+        class STRUCT_WITH_ITEMIZED_TABLE(sap.platform.abap.Structure):
+            PYTHON: str
+            LINUX: str
+            DISTROS: distros_type
+
+        struct = STRUCT_WITH_ITEMIZED_TABLE(PYTHON='theBest', LINUX='better', DISTROS=distros)
+
+        dest = StringIO()
+        sap.platform.abap.XMLSerializers.abap_to_xml(struct, dest, '')
+        self.assertEqual(dest.getvalue(), '''<STRUCT_WITH_ITEMIZED_TABLE>
+ <PYTHON>theBest</PYTHON>
+ <LINUX>better</LINUX>
+ <DISTROS>
+  <item>Fedora</item>
+  <item>CentOS</item>
+ </DISTROS>
+</STRUCT_WITH_ITEMIZED_TABLE>
+''')
+
+    def test_to_xml_itemized_table_in_internal_table(self):
+        itemized_type = sap.platform.abap.ItemizedTable.define('ITEMIZED_TABLE', str)
+        itemized_table = itemized_type()
+        itemized_table.append('foo')
+        itemized_table.append('bar')
+
+        internal_table_type = sap.platform.abap.InternalTable.define('INTERNAL_TABLE', itemized_type)()
+        internal_table_type.append(itemized_table)
+
+        dest = StringIO()
+        with self.assertRaises(sap.errors.SAPCliError) as cm:
+            sap.platform.abap.XMLSerializers.abap_to_xml(internal_table_type, dest, '')
+
+        self.assertEqual(str(cm.exception), 'XML serialization of nested internal tables is not implemented')
+
+    def test_to_xml_nested_itemized_table(self):
+        item_type = sap.platform.abap.ItemizedTable.define('ITEM', str)
+        items = item_type()
+        items.append('foo')
+        items.append('bar')
+
+        class STRUCT_TYPE(sap.platform.abap.Structure):
+            STRUCT_ITEM: item_type
+
+        struct = STRUCT_TYPE(STRUCT_ITEM=items)
+        root_type = sap.platform.abap.ItemizedTable.define('ROOT', STRUCT_TYPE)
+        root = root_type()
+        root.append(struct)
+        root.append(struct)
+
+        dest = StringIO()
+        sap.platform.abap.XMLSerializers.abap_to_xml(root, dest, '')
+        self.assertEqual(dest.getvalue(), '''<ROOT>
+ <item>
+  <STRUCT_ITEM>
+   <item>foo</item>
+   <item>bar</item>
+  </STRUCT_ITEM>
+ </item>
+ <item>
+  <STRUCT_ITEM>
+   <item>foo</item>
+   <item>bar</item>
+  </STRUCT_ITEM>
+ </item>
+</ROOT>
+''')
+        
 
 class TestSAPPlatformABAPFromXML(unittest.TestCase):
 

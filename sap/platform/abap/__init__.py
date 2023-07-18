@@ -5,7 +5,7 @@ import xml.sax
 from xml.sax.handler import ContentHandler
 
 from sap import get_logger
-from sap.errors import InputError
+from sap.errors import InputError, SAPCliError
 
 
 def mod_log():
@@ -184,8 +184,16 @@ class InternalTable(metaclass=InternalTableMeta):
             self._rows.append(factory(**kwargs))
 
 
+class ItemizedTable(InternalTable):
+    """An alias for InternalTable which is used to indicate that its rows
+       should be serialized as <item> elements.
+    """
+
+    pass
+
+
 # pylint: disable=invalid-name
-StringTable = InternalTable.define('StringTable', str)
+StringTable = ItemizedTable.define('StringTable', str)
 
 
 def row_type_name_getter(row):
@@ -196,6 +204,21 @@ def row_type_name_getter(row):
 
 class XMLSerializers:
     """Helper"""
+
+    @staticmethod
+    def itemized_table_to_xml(itemized_table, dest, prefix):
+        """Serializes ItemizedTable"""
+
+        for item in itemized_table:
+
+            if isinstance(item, Structure):
+                dest.write(f'{prefix}<item>\n')
+                XMLSerializers.struct_members_to_xml(item, dest, prefix + ' ')
+                dest.write(f'{prefix}</item>\n')
+            elif isinstance(item, InternalTable):
+                raise SAPCliError('XML serialization of nested internal tables is not implemented')
+            else:
+                dest.write(f'{prefix}<item>{item}</item>\n')
 
     @staticmethod
     def internal_table_to_xml(abap_table, dest, prefix, row_name_getter=None):
@@ -210,6 +233,8 @@ class XMLSerializers:
                 dest.write(f'{prefix}<{element}>\n')
                 XMLSerializers.struct_members_to_xml(item, dest, prefix + ' ')
                 dest.write(f'{prefix}</{element}>\n')
+            elif isinstance(item, InternalTable):
+                raise SAPCliError('XML serialization of nested internal tables is not implemented')
             else:
                 dest.write(f'{prefix}<item>{item}</item>\n')
 
@@ -220,17 +245,20 @@ class XMLSerializers:
         for attr, value in abap_struct.__dict__.items():
             if attr.startswith('_'):
                 continue
+            if value is None:  # do not write elements with None value
+                continue
 
             dest.write(f'{prefix}<{attr}>')
 
-            if isinstance(value, Structure):
+            if isinstance(value, (Structure, InternalTable)):
                 dest.write('\n')
-                XMLSerializers.struct_members_to_xml(value, dest, prefix + ' ')
-                dest.write(prefix)
-            elif isinstance(value, InternalTable):
                 item_prefix = prefix + ' '
-                dest.write('\n')
-                XMLSerializers.internal_table_to_xml(value, dest, item_prefix)
+                if isinstance(value, Structure):
+                    XMLSerializers.struct_members_to_xml(value, dest, item_prefix)
+                elif isinstance(value, ItemizedTable):
+                    XMLSerializers.itemized_table_to_xml(value, dest, item_prefix)
+                else:
+                    XMLSerializers.internal_table_to_xml(value, dest, item_prefix)
                 dest.write(prefix)
             else:
                 dest.write(f'{value}')
@@ -244,14 +272,21 @@ class XMLSerializers:
         if top_element is None:
             top_element = abap.__class__.__name__
 
-        dest.write(f'''{prefix}<{top_element}>\n''')
+        dest.write(f'''{prefix}<{top_element}>''')
 
-        if isinstance(abap, Structure):
-            XMLSerializers.struct_members_to_xml(abap, dest, prefix + ' ')
-        elif isinstance(abap, InternalTable):
-            XMLSerializers.internal_table_to_xml(abap, dest, prefix + ' ', row_name_getter=row_name_getter)
+        if isinstance(abap, (Structure, InternalTable)):
+            dest.write('\n')
+            if isinstance(abap, Structure):
+                XMLSerializers.struct_members_to_xml(abap, dest, prefix + ' ')
+            elif isinstance(abap, ItemizedTable):
+                XMLSerializers.itemized_table_to_xml(abap, dest, prefix + ' ')
+            else:
+                XMLSerializers.internal_table_to_xml(abap, dest, prefix + ' ', row_name_getter=row_name_getter)
+            dest.write(f'{prefix}')
+        else:
+            dest.write(f'{abap}')
 
-        dest.write(f'''{prefix}</{top_element}>\n''')
+        dest.write(f'''</{top_element}>\n''')
 
 
 def to_xml(abap_struct_or_table, dest, top_element=None):
