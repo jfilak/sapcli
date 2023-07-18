@@ -1,7 +1,7 @@
 """Common ABAP types"""
 
 from typing import Any  # noqa: F401
-from sap.platform.abap import Structure, InternalTable
+from sap.platform.abap import Structure, InternalTable, ItemizedTable
 
 
 # pylint: disable=invalid-name
@@ -179,4 +179,4 @@ class FUNCTION_LINE(Structure):
     DOCUMENTATION: DOCUMENTATION_TYPE
 
 
-FUNCTIONS = InternalTable.define('FUNCTIONS', FUNCTION_LINE)
+FUNCTIONS = ItemizedTable.define('FUNCTIONS', FUNCTION_LINE)

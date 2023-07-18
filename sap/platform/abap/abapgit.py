@@ -72,7 +72,7 @@ class XMLWriter:
     def add(self, abap):
         """Write the structure to the dest file"""
 
-        XMLSerializers.abap_to_xml(abap, self.dest_file, '   ', row_name_getter=lambda x: 'item')
+        XMLSerializers.abap_to_xml(abap, self.dest_file, '   ')
 
     def close(self):
         """Write the end sequence"""

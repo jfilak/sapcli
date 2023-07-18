@@ -3,7 +3,7 @@
 import unittest
 from io import StringIO
 
-from sap.platform.abap import Structure, InternalTable
+from sap.platform.abap import Structure, ItemizedTable
 
 import sap.platform.abap.abapgit
 
@@ -14,7 +14,7 @@ class SIMPLE_ABAP_STRUCT(Structure):
     BAR: str
 
 
-class SIMPLE_ABAP_STRUCT_TT(InternalTable[SIMPLE_ABAP_STRUCT]): pass
+class SIMPLE_ABAP_STRUCT_TT(ItemizedTable[SIMPLE_ABAP_STRUCT]): pass
 
 
 class TestXMLSerializer(unittest.TestCase):
