@@ -63,8 +63,9 @@ class XMLWriter:
     def __init__(self, serializer, dest_file):
         self.dest_file = dest_file
 
+        serializer_options = f' serializer="{serializer}" serializer_version="v1.0.0"' if serializer else ''
         self.dest_file.write(f'''<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="{serializer}" serializer_version="v1.0.0">
+<abapGit version="v1.0.0"{serializer_options}>
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
 ''')
