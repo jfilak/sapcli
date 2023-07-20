@@ -5,15 +5,22 @@ from types import SimpleNamespace
 
 import sap.adt
 
-from mock import Connection
-
+from mock import Connection, PatcherTestCase
 from fixtures_adt_repository import (PACKAGE_ROOT_NODESTRUCTURE_OK_RESPONSE,
                                      PACKAGE_ROOT_REQUEST_XML,
                                      PACKAGE_SOURCE_LIBRARY_NODESTRUCUTRE_OK_RESPONSE,
                                      PACKAGE_SOURCE_LIBRARY_REQUEST_XML)
 
 
-class TestRepository(unittest.TestCase):
+class TestRepository(unittest.TestCase, PatcherTestCase):
+
+    @staticmethod
+    def get_ordered_set(items):
+        return dict.fromkeys(items)  # as of Python 3.7, dict keeps insertion order
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.patch('sap.adt.repository.set', new=lambda items: self.get_ordered_set(items))
 
     def read_package_node(self, responses, nodekeys):
         connection = Connection(responses)
@@ -153,6 +160,12 @@ class TestRepository(unittest.TestCase):
                               DESCRIPTION_TYPE='P',
                               ))
                          ])
+
+    def test_read_node_not_unique_nodekeys(self):
+        node, connection = self.read_package_node([PACKAGE_SOURCE_LIBRARY_NODESTRUCUTRE_OK_RESPONSE],
+                                                  ('000005', '000011', '000002', '000005'))
+
+        self.assertEqual(connection.execs[0].body, PACKAGE_SOURCE_LIBRARY_REQUEST_XML)
 
 
 if __name__ == '__main__':

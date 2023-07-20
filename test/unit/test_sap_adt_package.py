@@ -7,8 +7,7 @@ from sap import get_logger
 import sap.errors
 import sap.adt
 
-from mock import Connection, Response
-
+from mock import Connection, Response, PatcherTestCase
 from fixtures_adt_package import GET_PACKAGE_ADT_XML
 from fixtures_adt_repository import (PACKAGE_ROOT_NODESTRUCTURE_OK_RESPONSE,
                                      PACKAGE_ROOT_REQUEST_XML,
@@ -91,7 +90,11 @@ class TestADTPackage(unittest.TestCase):
         self.assertEqual(package.description, 'This is a package')
 
 
-class TestADTPackageWalk(unittest.TestCase):
+class TestADTPackageWalk(unittest.TestCase, PatcherTestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.patch('sap.adt.repository.set', new=lambda x: x)
 
     def test_with_empty_subpackage(self):
         connection = Connection([PACKAGE_ROOT_NODESTRUCTURE_OK_RESPONSE,
