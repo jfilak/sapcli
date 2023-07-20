@@ -167,6 +167,45 @@ class TestRepository(unittest.TestCase, PatcherTestCase):
 
         self.assertEqual(connection.execs[0].body, PACKAGE_SOURCE_LIBRARY_REQUEST_XML)
 
+    def test_walk_step(self):
+        subpackages = [SimpleNamespace(OBJECT_NAME='SUBPACKAGE1'), SimpleNamespace(OBJECT_NAME='SUBPACKAGE2')]
+        types = [SimpleNamespace(NODE_ID='000005', OBJECT_TYPE='CLAS/OC'),
+                 SimpleNamespace(NODE_ID='000011', OBJECT_TYPE='DEVC/K')]
+        first_call = SimpleNamespace(objects=subpackages, types=types)
+
+        objects = [SimpleNamespace(OBJECT_NAME='OBJECT1', OBJECT_TYPE='PROG', OBJECT_URI='URI'),
+                   SimpleNamespace(OBJECT_NAME='OBJECT2', OBJECT_TYPE='FUGR/F', OBJECT_URI='URI')]
+        second_call = SimpleNamespace(objects=objects)
+
+        self.patch('sap.adt.repository.Repository.read_node', side_effect=[first_call, second_call])
+
+        repository = sap.adt.Repository(None)
+        actual_subpackages, actual_objects = repository.walk_step('PACKAGE')
+
+        self.assertEqual(actual_subpackages, [subpackage.OBJECT_NAME for subpackage in subpackages])
+        self.assertEqual(actual_objects,
+                         [SimpleNamespace(typ=obj.OBJECT_TYPE, name=obj.OBJECT_NAME, uri=obj.OBJECT_URI) for obj in objects])
+
+    def test_walk_step_empty_nodekeys(self):
+        subpackages = [SimpleNamespace(OBJECT_NAME='SUBPACKAGE1'), SimpleNamespace(OBJECT_NAME='SUBPACKAGE2')]
+        types = [SimpleNamespace(NODE_ID='000005', OBJECT_TYPE='DEVC/K')]
+        first_call = SimpleNamespace(objects=subpackages, types=types)
+        self.patch('sap.adt.repository.Repository.read_node', side_effect=[first_call])
+
+        repository = sap.adt.Repository(None)
+        actual_subpackages, actual_objects = repository.walk_step('PACKAGE')
+
+        self.assertEqual(actual_subpackages, [subpackage.OBJECT_NAME for subpackage in subpackages])
+        self.assertEqual(actual_objects, [])
+
+    def test_walk_step_with_description(self):
+        fake_read_node = self.patch('sap.adt.repository.Repository.read_node')
+
+        repository = sap.adt.Repository(None)
+        repository.walk_step('PACKAGE', withdescr=True)
+
+        fake_read_node.assert_called_once_with('PACKAGE', withdescr=True)
+
 
 if __name__ == '__main__':
     unittest.main()

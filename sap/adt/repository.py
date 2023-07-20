@@ -123,3 +123,19 @@ class Repository:
         xml.sax.parseString(resp.text, parser)
 
         return SimpleNamespace(objects=parser.tree_content, types=parser.object_types, categories=parser.categories)
+
+    def walk_step(self, adt_object, withdescr=False):
+        """Returns list of intermediate subpackages and objects"""
+
+        root_node = self.read_node(adt_object, withdescr=withdescr)
+        subpackages = [subpkg.OBJECT_NAME for subpkg in root_node.objects]
+
+        nodekeys = [objtyp.NODE_ID for objtyp in root_node.types if objtyp.OBJECT_TYPE != 'DEVC/K']
+        if nodekeys:
+            objects_node = self.read_node(adt_object, withdescr=withdescr, nodekeys=nodekeys)
+            objects = [SimpleNamespace(typ=obj.OBJECT_TYPE, name=obj.OBJECT_NAME, uri=obj.OBJECT_URI)
+                       for obj in objects_node.objects]
+        else:
+            objects = []
+
+        return subpackages, objects

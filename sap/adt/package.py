@@ -1,6 +1,5 @@
 """ABAP Package (DEV/C) ADT functionality module"""
 
-from types import SimpleNamespace
 from collections import deque
 
 # pylint: disable=unused-import
@@ -206,18 +205,7 @@ def walk(package):
 
     while toexplore:
         explored, path = toexplore.pop()
-        root_node = repository.read_node(explored)
-
-        subpackages = [subpkg.OBJECT_NAME for subpkg in root_node.objects]
-
-        nodekeys = [objtyp.NODE_ID for objtyp in root_node.types if objtyp.OBJECT_TYPE != 'DEVC/K']
-        if nodekeys:
-            objects_node = repository.read_node(explored, nodekeys=nodekeys)
-            objects = [SimpleNamespace(typ=obj.OBJECT_TYPE, name=obj.OBJECT_NAME, uri=obj.OBJECT_URI)
-                       for obj in objects_node.objects]
-        else:
-            objects = []
-
+        subpackages, objects = repository.walk_step(explored)
         toexplore.extendleft(((Package(package.connection, subpkg), path + [subpkg]) for subpkg in subpackages))
 
         yield (path, subpackages, objects)
