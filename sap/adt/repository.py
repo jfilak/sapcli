@@ -95,6 +95,7 @@ class Repository:
         if nodekeys is None:
             keys = nodekeys_list_table(('000000',))
         else:
+            nodekeys = set(nodekeys)  # remove duplicates
             keys = nodekeys_list_table(nodekeys)
 
         resp = self._connection.execute(
