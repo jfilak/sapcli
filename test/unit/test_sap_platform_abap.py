@@ -218,13 +218,16 @@ class TestSAPPlatformABAP(unittest.TestCase):
 
 class TestSAPPlatformABAPToXML(unittest.TestCase):
 
+    def setUp(self) -> None:
+        self.dest = StringIO()
+        self.xml_serializer = sap.platform.abap.XMLSerializers(self.dest)
+
     def test_to_xml_simple_object(self):
         simple = type('SIMPLE', (str,), {})('foo')
 
-        dest = StringIO()
-        sap.platform.abap.to_xml(simple, dest)
+        sap.platform.abap.to_xml(simple, self.dest)
 
-        self.assertEqual(dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
+        self.assertEqual(self.dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
  <asx:values>
   <SIMPLE>foo</SIMPLE>
@@ -235,10 +238,9 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
     def test_to_xml_plain_stucture(self):
         struct = PLAIN_STRUCT(PYTHON='theBest', LINUX='better')
 
-        dest = StringIO()
-        sap.platform.abap.to_xml(struct, dest)
+        sap.platform.abap.to_xml(struct, self.dest)
 
-        self.assertEqual(dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
+        self.assertEqual(self.dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
  <asx:values>
   <PLAIN_STRUCT>
@@ -251,10 +253,9 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
     def test_to_xml_plain_stucture_changed_top(self):
         struct = PLAIN_STRUCT(PYTHON='theBest', LINUX='better')
 
-        dest = StringIO()
-        sap.platform.abap.to_xml(struct, dest, top_element='ROOT')
+        sap.platform.abap.to_xml(struct, self.dest, top_element='ROOT')
 
-        self.assertEqual(dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
+        self.assertEqual(self.dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
  <asx:values>
   <ROOT>
@@ -268,10 +269,9 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         struct = STRUCT_WITH_STRING_TABLE(PYTHON='theBest', LINUX='better',
                                           DISTROS=StringTable('Fedora', 'CentOS'))
 
-        dest = StringIO()
-        sap.platform.abap.to_xml(struct, dest)
+        sap.platform.abap.to_xml(struct, self.dest)
 
-        self.assertEqual(dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
+        self.assertEqual(self.dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
  <asx:values>
   <STRUCT_WITH_STRING_TABLE>
@@ -291,11 +291,10 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         lines.append(PYTHON='Nice', LINUX='Awesome')
         lines.append(PYTHON='Cool', LINUX='Fabulous')
 
-        dest = StringIO()
-        sap.platform.abap.to_xml(lines, dest)
+        sap.platform.abap.to_xml(lines, self.dest)
 
         self.maxDiff = None
-        self.assertEqual(dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
+        self.assertEqual(self.dest.getvalue(), '''<?xml version="1.0" encoding="utf-8"?>
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
  <asx:values>
   <PLAIN_STRUCT_TT>
@@ -317,10 +316,9 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
 
         struct = NESTED_STRUCT(PLAIN_STRUCT=PLAIN_STRUCT(PYTHON='theBest', LINUX='better'))
 
-        dest = StringIO()
-        sap.platform.abap.XMLSerializers.abap_to_xml(struct, dest, '')
+        self.xml_serializer.abap_to_xml(struct, '')
 
-        self.assertEqual(dest.getvalue(), '''<NESTED_STRUCT>
+        self.assertEqual(self.dest.getvalue(), '''<NESTED_STRUCT>
  <PLAIN_STRUCT>
   <PYTHON>theBest</PYTHON>
   <LINUX>better</LINUX>
@@ -331,10 +329,9 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
     def test_to_xml_structure_with_none_value(self):
         struct = PLAIN_STRUCT(PYTHON='theBest', LINUX=None)
 
-        dest = StringIO()
-        sap.platform.abap.XMLSerializers.abap_to_xml(struct, dest, '')
+        self.xml_serializer.abap_to_xml(struct, '')
 
-        self.assertEqual(dest.getvalue(), '''<PLAIN_STRUCT>
+        self.assertEqual(self.dest.getvalue(), '''<PLAIN_STRUCT>
  <PYTHON>theBest</PYTHON>
 </PLAIN_STRUCT>
 ''')
@@ -353,10 +350,9 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         struct = STRUCT_WITH_INTERNAL_TABLE(PYTHON='theBest', LINUX='better',
                                             DISTROS=distros)
 
-        dest = StringIO()
-        sap.platform.abap.XMLSerializers.abap_to_xml(struct, dest, '')
+        self.xml_serializer.abap_to_xml(struct, '')
 
-        self.assertEqual(dest.getvalue(), '''<STRUCT_WITH_INTERNAL_TABLE>
+        self.assertEqual(self.dest.getvalue(), '''<STRUCT_WITH_INTERNAL_TABLE>
  <PYTHON>theBest</PYTHON>
  <LINUX>better</LINUX>
  <DISTROS>
@@ -372,11 +368,10 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         lines.append(PYTHON='Nice', LINUX='Awesome')
         lines.append(PYTHON='Cool', LINUX='Fabulous')
 
-        dest = StringIO()
-        sap.platform.abap.XMLSerializers.abap_to_xml(lines, dest, '', row_name_getter=lambda x: 'item')
+        self.xml_serializer.abap_to_xml(lines, '', row_name_getter=lambda x: 'item')
 
         self.maxDiff = None
-        self.assertEqual(dest.getvalue(), '''<PLAIN_STRUCT_TT>
+        self.assertEqual(self.dest.getvalue(), '''<PLAIN_STRUCT_TT>
  <item>
   <PYTHON>Nice</PYTHON>
   <LINUX>Awesome</LINUX>
@@ -393,10 +388,9 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         plain_table.append('<TAG_NAME>foo</TAG_NAME>')
         plain_table.append('<TAG_NAME>bar</TAG_NAME>')
 
-        dest = StringIO()
-        sap.platform.abap.XMLSerializers.abap_to_xml(plain_table, dest, '')
+        self.xml_serializer.abap_to_xml(plain_table, '')
 
-        self.assertEqual(dest.getvalue(), '''<PLAIN_TABLE>
+        self.assertEqual(self.dest.getvalue(), '''<PLAIN_TABLE>
  <item><TAG_NAME>foo</TAG_NAME></item>
  <item><TAG_NAME>bar</TAG_NAME></item>
 </PLAIN_TABLE>
@@ -406,10 +400,8 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         root_table = sap.platform.abap.InternalTable.define('ROOT_TABLE', sap.platform.abap.InternalTable)()
         root_table.append(sap.platform.abap.InternalTable.define('CHILD_TABLE', str)())
 
-        dest = StringIO()
-
         with self.assertRaises(sap.errors.SAPCliError) as cm:
-            sap.platform.abap.XMLSerializers.abap_to_xml(root_table, dest, '')
+            self.xml_serializer.abap_to_xml(root_table, '')
 
         self.assertEqual(str(cm.exception), 'XML serialization of nested internal tables is not implemented')
 
@@ -418,9 +410,8 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         itemized_table.append('<TAG_NAME>foo</TAG_NAME>')
         itemized_table.append('<TAG_NAME>bar</TAG_NAME>')
 
-        dest = StringIO()
-        sap.platform.abap.XMLSerializers.abap_to_xml(itemized_table, dest, '')
-        self.assertEqual(dest.getvalue(), '''<ITEMIZED_TABLE>
+        self.xml_serializer.abap_to_xml(itemized_table, '')
+        self.assertEqual(self.dest.getvalue(), '''<ITEMIZED_TABLE>
  <item><TAG_NAME>foo</TAG_NAME></item>
  <item><TAG_NAME>bar</TAG_NAME></item>
 </ITEMIZED_TABLE>
@@ -439,9 +430,8 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
 
         struct = STRUCT_WITH_ITEMIZED_TABLE(PYTHON='theBest', LINUX='better', DISTROS=distros)
 
-        dest = StringIO()
-        sap.platform.abap.XMLSerializers.abap_to_xml(struct, dest, '')
-        self.assertEqual(dest.getvalue(), '''<STRUCT_WITH_ITEMIZED_TABLE>
+        self.xml_serializer.abap_to_xml(struct, '')
+        self.assertEqual(self.dest.getvalue(), '''<STRUCT_WITH_ITEMIZED_TABLE>
  <PYTHON>theBest</PYTHON>
  <LINUX>better</LINUX>
  <DISTROS>
@@ -460,9 +450,8 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         internal_table_type = sap.platform.abap.InternalTable.define('INTERNAL_TABLE', itemized_type)()
         internal_table_type.append(itemized_table)
 
-        dest = StringIO()
         with self.assertRaises(sap.errors.SAPCliError) as cm:
-            sap.platform.abap.XMLSerializers.abap_to_xml(internal_table_type, dest, '')
+            self.xml_serializer.abap_to_xml(internal_table_type, '')
 
         self.assertEqual(str(cm.exception), 'XML serialization of nested internal tables is not implemented')
 
@@ -481,9 +470,8 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
         root.append(struct)
         root.append(struct)
 
-        dest = StringIO()
-        sap.platform.abap.XMLSerializers.abap_to_xml(root, dest, '')
-        self.assertEqual(dest.getvalue(), '''<ROOT>
+        self.xml_serializer.abap_to_xml(root, '')
+        self.assertEqual(self.dest.getvalue(), '''<ROOT>
  <item>
   <STRUCT_ITEM>
    <item>foo</item>

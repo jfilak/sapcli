@@ -8,6 +8,7 @@ import sap.errors
 import sap.platform.abap
 from sap.platform.abap import (
     Structure,
+    InternalTable,
     StringTable,
     XMLSerializers,
     ABAPContentHandler
@@ -56,6 +57,27 @@ class DOT_ABAP_GIT(Structure):
         return config
 
 
+class AbapGitXMLSerializer(XMLSerializers):
+    """XML Serializer to AbapGit format"""
+
+    def internal_table_to_xml(self, abap_table, prefix, row_name_getter=None):
+        """Serializes internal table to XML in AbapGit format"""
+
+        if row_name_getter is None:
+            row_name_getter = sap.platform.abap.row_type_name_getter
+
+        for item in abap_table:
+            if isinstance(item, Structure):
+                element = row_name_getter(item)
+                self.dest.write(f'{prefix}<{element}>\n')
+                self.struct_members_to_xml(item, prefix + ' ')
+                self.dest.write(f'{prefix}</{element}>\n')
+            elif isinstance(item, InternalTable):
+                raise sap.errors.SAPCliError('XML serialization of nested internal tables is not implemented')
+            else:
+                self.dest.write(f'{prefix}{item}\n')
+
+
 # TODO: make it a context manager
 class XMLWriter:
     """ABAP GIT XML writer"""
@@ -73,7 +95,7 @@ class XMLWriter:
     def add(self, abap):
         """Write the structure to the dest file"""
 
-        XMLSerializers.abap_to_xml(abap, self.dest_file, '   ')
+        AbapGitXMLSerializer(self.dest_file).abap_to_xml(abap, '   ')
 
     def close(self):
         """Write the end sequence"""
