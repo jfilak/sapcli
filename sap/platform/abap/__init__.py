@@ -205,23 +205,24 @@ def row_type_name_getter(row):
 class XMLSerializers:
     """Helper"""
 
-    @staticmethod
-    def itemized_table_to_xml(itemized_table, dest, prefix):
+    def __init__(self, dest):
+        self.dest = dest
+
+    def itemized_table_to_xml(self, itemized_table, prefix):
         """Serializes ItemizedTable"""
 
         for item in itemized_table:
 
             if isinstance(item, Structure):
-                dest.write(f'{prefix}<item>\n')
-                XMLSerializers.struct_members_to_xml(item, dest, prefix + ' ')
-                dest.write(f'{prefix}</item>\n')
+                self.dest.write(f'{prefix}<item>\n')
+                self.struct_members_to_xml(item, prefix + ' ')
+                self.dest.write(f'{prefix}</item>\n')
             elif isinstance(item, InternalTable):
                 raise SAPCliError('XML serialization of nested internal tables is not implemented')
             else:
-                dest.write(f'{prefix}<item>{item}</item>\n')
+                self.dest.write(f'{prefix}<item>{item}</item>\n')
 
-    @staticmethod
-    def internal_table_to_xml(abap_table, dest, prefix, row_name_getter=None):
+    def internal_table_to_xml(self, abap_table, prefix, row_name_getter=None):
         """Serializes internal table"""
 
         if row_name_getter is None:
@@ -230,16 +231,15 @@ class XMLSerializers:
         for item in abap_table:
             if isinstance(item, Structure):
                 element = row_name_getter(item)
-                dest.write(f'{prefix}<{element}>\n')
-                XMLSerializers.struct_members_to_xml(item, dest, prefix + ' ')
-                dest.write(f'{prefix}</{element}>\n')
+                self.dest.write(f'{prefix}<{element}>\n')
+                self.struct_members_to_xml(item, prefix + ' ')
+                self.dest.write(f'{prefix}</{element}>\n')
             elif isinstance(item, InternalTable):
                 raise SAPCliError('XML serialization of nested internal tables is not implemented')
             else:
-                dest.write(f'{prefix}<item>{item}</item>\n')
+                self.dest.write(f'{prefix}<item>{item}</item>\n')
 
-    @staticmethod
-    def struct_members_to_xml(abap_struct, dest, prefix):
+    def struct_members_to_xml(self, abap_struct, prefix):
         """Serializes structure members"""
 
         for attr, value in abap_struct.__dict__.items():
@@ -248,45 +248,44 @@ class XMLSerializers:
             if value is None:  # do not write elements with None value
                 continue
 
-            dest.write(f'{prefix}<{attr}>')
+            self.dest.write(f'{prefix}<{attr}>')
 
             if isinstance(value, (Structure, InternalTable)):
-                dest.write('\n')
+                self.dest.write('\n')
                 item_prefix = prefix + ' '
                 if isinstance(value, Structure):
-                    XMLSerializers.struct_members_to_xml(value, dest, item_prefix)
+                    self.struct_members_to_xml(value, item_prefix)
                 elif isinstance(value, ItemizedTable):
-                    XMLSerializers.itemized_table_to_xml(value, dest, item_prefix)
+                    self.itemized_table_to_xml(value, item_prefix)
                 else:
-                    XMLSerializers.internal_table_to_xml(value, dest, item_prefix)
-                dest.write(prefix)
+                    self.internal_table_to_xml(value, item_prefix)
+                self.dest.write(prefix)
             else:
-                dest.write(f'{value}')
+                self.dest.write(f'{value}')
 
-            dest.write(f'</{attr}>\n')
+            self.dest.write(f'</{attr}>\n')
 
-    @staticmethod
-    def abap_to_xml(abap, dest, prefix, top_element=None, row_name_getter=None):
+    def abap_to_xml(self, abap, prefix, top_element=None, row_name_getter=None):
         """Turns an abap instance to an XML"""
 
         if top_element is None:
             top_element = abap.__class__.__name__
 
-        dest.write(f'''{prefix}<{top_element}>''')
+        self.dest.write(f'''{prefix}<{top_element}>''')
 
         if isinstance(abap, (Structure, InternalTable)):
-            dest.write('\n')
+            self.dest.write('\n')
             if isinstance(abap, Structure):
-                XMLSerializers.struct_members_to_xml(abap, dest, prefix + ' ')
+                self.struct_members_to_xml(abap, prefix + ' ')
             elif isinstance(abap, ItemizedTable):
-                XMLSerializers.itemized_table_to_xml(abap, dest, prefix + ' ')
+                self.itemized_table_to_xml(abap, prefix + ' ')
             else:
-                XMLSerializers.internal_table_to_xml(abap, dest, prefix + ' ', row_name_getter=row_name_getter)
-            dest.write(f'{prefix}')
+                self.internal_table_to_xml(abap, prefix + ' ', row_name_getter=row_name_getter)
+            self.dest.write(f'{prefix}')
         else:
-            dest.write(f'{abap}')
+            self.dest.write(f'{abap}')
 
-        dest.write(f'''</{top_element}>\n''')
+        self.dest.write(f'''</{top_element}>\n''')
 
 
 def to_xml(abap_struct_or_table, dest, top_element=None):
@@ -296,7 +295,7 @@ def to_xml(abap_struct_or_table, dest, top_element=None):
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
  <asx:values>\n''')
 
-    XMLSerializers.abap_to_xml(abap_struct_or_table, dest, '  ', top_element=top_element)
+    XMLSerializers(dest).abap_to_xml(abap_struct_or_table, '  ', top_element=top_element)
 
     dest.write(''' </asx:values>
 </asx:abap>\n''')
