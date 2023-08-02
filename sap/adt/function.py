@@ -115,6 +115,8 @@ class FunctionGroup(ADTObject):
 class FunctionModule(ADTObject):
     """ABAP Function Module"""
 
+    PARAMETER_TYPE_ORDER = ('IMPORTING', 'CHANGING', 'EXPORTING', 'TABLES', 'EXCEPTIONS')
+    DOCUMENTATION_ORDER = ('IMPORTING', 'EXPORTING', 'TABLES', 'CHANGING', 'EXCEPTIONS')
     OBJTYPE = ADTObjectType(
         'FUGR/FF',
         'functions/groups/{groupname}/fmodules',
@@ -263,13 +265,7 @@ class FunctionModule(ADTObject):
         Note the change from STRUCTURE to TYPE for TABLES parameters.
         """
 
-        parameters = {
-            'IMPORTING': [],
-            'EXPORTING': [],
-            'CHANGING': [],
-            'TABLES': [],
-            'EXCEPTIONS': []
-        }
+        parameters = {param: [] for param in FunctionModule.PARAMETER_TYPE_ORDER}
         current_param = None
         for line in parameters_block:
             line = line.lstrip('*" ').rstrip()
