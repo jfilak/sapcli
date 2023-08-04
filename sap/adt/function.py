@@ -88,6 +88,7 @@ class FunctionGroup(ADTObject):
         self._metadata.package_reference.name = package
 
         self._fixpntar = None
+        self._active_unicode_check = None
 
     @xml_attribute('abapsource:fixPointArithmetic')
     def fix_point_arithmetic(self):
@@ -100,6 +101,18 @@ class FunctionGroup(ADTObject):
         """Fixed point arithmetic flag"""
 
         self._fixpntar = value == 'true'
+
+    @xml_attribute('abapsource:activeUnicodeCheck')
+    def active_unicode_check(self):
+        """Unicode check flag"""
+
+        return self._active_unicode_check
+
+    @active_unicode_check.setter
+    def active_unicode_check(self, value):
+        """Unicode check flag"""
+
+        self._active_unicode_check = value == 'true'
 
     @classmethod
     def create_reference(cls, connection, name, package_name):
