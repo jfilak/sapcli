@@ -297,7 +297,7 @@ class TestCheckoutProgram(unittest.TestCase):
         self.assertEqual(progdir.LDBNAME, 'HANA')
         self.assertEqual(progdir.UCCHECK, 'X')
 
-        self.assertEqual(['DBNA', 'RLOAD', 'RSTAT'], sorted([attr for attr, value in progdir.__dict__.items() if not attr.startswith('_') and value is None]))
+        self.assertEqual(['APPL', 'DBNA', 'RLOAD', 'RSTAT'], sorted([attr for attr, value in progdir.__dict__.items() if not attr.startswith('_') and value is None]))
 
         self.assertEqual(len(tpool), 1)
         descr = tpool[0]
