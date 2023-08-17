@@ -113,6 +113,7 @@ class PROGDIR(Structure):
     RLOAD: str
     RSTAT: str
     DBNA: str
+    APPL: str
 
 
 # pylint: disable=too-few-public-methods
@@ -129,7 +130,7 @@ class TPOOL_LINE(Structure):
     LENGTH: str
 
 
-TPOOL = InternalTable.define('TPOOL', TPOOL_LINE)
+TPOOL = ItemizedTable.define('TPOOL', TPOOL_LINE)
 
 # Function group
 AREAT = type('AREAT', (str,), {})
@@ -142,20 +143,55 @@ class RSIMP(Structure):
     PARAMETER: str
     DEFAULT: str
     OPTIONAL: str
+    REFERENCE: str
     TYP: str
 
 
 IMPORT_TYPE = InternalTable.define('IMPORT', RSIMP)  # type: Any
 
 
+class RSCHA(Structure):
+    """Changing metadata"""
+
+    PARAMETER: str
+    DEFAULT: str
+    OPTIONAL: str
+    REFERENCE: str
+    TYP: str
+
+
+CHANGING_TYPE = InternalTable.define('CHANGING', RSCHA)  # type: Any
+
+
+class RSEXP(Structure):
+    """Export metadata"""
+
+    PARAMETER: str
+    REFERENCE: str
+    TYP: str
+
+
+EXPORT_TYPE = InternalTable.define('EXPORT', RSEXP)  # type: Any
+
+
 class RSTBL(Structure):
     """Table metadata"""
 
     PARAMETER: str
+    OPTIONAL: str
     DBSTRUCT: str
 
 
 TABLE_TYPE = InternalTable.define('TABLES', RSTBL)  # type: Any
+
+
+class RSEXC(Structure):
+    """Exception metadata"""
+
+    EXCEPTION: str
+
+
+EXCEPTION_TYPE = InternalTable.define('EXCEPTION', RSEXC)  # type: Any
 
 
 class RSFDO(Structure):
@@ -175,7 +211,10 @@ class FUNCTION_LINE(Structure):
     REMOTE_CALL: str
     SHORT_TEXT: str
     IMPORT: IMPORT_TYPE
+    CHANGING: CHANGING_TYPE
+    EXPORT: EXPORT_TYPE
     TABLES: TABLE_TYPE
+    EXCEPTION: EXCEPTION_TYPE
     DOCUMENTATION: DOCUMENTATION_TYPE
 
 
