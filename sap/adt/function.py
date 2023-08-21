@@ -7,6 +7,8 @@ from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import ADTObjectType, ADTObject, ADTObjectSourceEditorWithResponse, xmlns_adtcore_ancestor
 from sap.adt.objects import find_mime_version
 from sap.adt.annotations import xml_attribute, xml_element
+from sap.platform.abap.ddic_builders import (ImportBuilder, ChangingBuilder, ExportBuilder, TableBuilder,
+                                             ExceptionBuilder)
 
 
 class ADTContainer(metaclass=OrderedClassMembers):
@@ -302,6 +304,45 @@ class FunctionModule(ADTObject):
                 parameters['TABLES'][i] = f'{var_name} TYPE {" ".join(abap_type)}'
 
         return parameters
+
+    def get_parameters(self):
+        """Returns parameters of the function module in ADT format"""
+
+        fn_text = self.text
+        end_of_block = fn_text.find('.')
+        source_code = fn_text[:end_of_block]
+        source_lines = source_code.split('\n')
+
+        return self.parse_function_parameters(source_lines[1:])
+
+    def get_local_interface(self):
+        """Returns local interface of the function module"""
+
+        parameters = self.get_parameters()
+        param_builder = {
+            'IMPORTING': ImportBuilder,
+            'EXPORTING': ExportBuilder,
+            'CHANGING': ChangingBuilder,
+            'TABLES': TableBuilder,
+            'EXCEPTIONS': ExceptionBuilder
+        }
+
+        interface = {param_type: [] for param_type in self.PARAMETER_TYPE_ORDER}
+
+        for param_type, param_list in parameters.items():
+            for param in param_list:
+                interface[param_type].append(param_builder[param_type](param).build())
+
+        return interface
+
+    def get_body(self):
+        """Returns the body of function module source code"""
+
+        fn_text = self.text
+        end_of_parameters = fn_text.find('.') + 1
+        end_of_function = fn_text.find('ENDFUNCTION.')
+
+        return fn_text[end_of_parameters:end_of_function].strip('\n')
 
 
 class FunctionInclude(ADTObject):
