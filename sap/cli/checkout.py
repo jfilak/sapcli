@@ -1,15 +1,24 @@
 """ADT Object export"""
-
+import enum
 import os
 import sys
 
 import sap.adt
 import sap.cli.core
 
-from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC
+from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
+    FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
+    TPOOL_LINE
 from sap.platform.language import iso_code_to_sap_code
 
-from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter
+from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
+
+
+class SourceCodeFormat(enum.Enum):
+    """Source code format of ADT objects"""
+
+    ABAP = 'ABAP'
+    ABAPGIT = 'ABAPGIT'
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -43,17 +52,34 @@ def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer,
         writer.close()
 
 
+def write_source(source, object_name, typsfx, destdir=None):
+    """Write source code to file"""
+
+    filename = build_filename(object_name, typsfx, 'abap', destdir=destdir)
+    with open(filename, 'w', encoding='utf8') as dest:
+        dest.write(source)
+
+
+def download_abapgit_source(object_name, source_object, typsfx, translate_fn, destdir=None):
+    """Saves the source code of object in AbapGit format"""
+
+    try:
+        source_code = translate_fn(source_object)
+    except sap.adt.errors.ADTError as err:
+        sap.cli.core.printerr(f'Download of AbapGit source code failed: {err}')
+    else:
+        write_source(source_code, object_name, typsfx, destdir)
+
+
 def download_abap_source(object_name, source_object, typsfx, destdir=None):
     """Reads the text and saves it in the corresponding file"""
 
     try:
         text = source_object.text
     except sap.adt.errors.ADTError as err:
-        print(err, file=sys.stderr)
+        sap.cli.core.printerr(f'Download of ABAP source code failed: {err}')
     else:
-        filename = build_filename(object_name, typsfx, 'abap', destdir=destdir)
-        with open(filename, 'w', encoding='utf8') as dest:
-            dest.write(text)
+        write_source(text, object_name, typsfx, destdir)
 
 
 def build_class_abap_attributes(clas):
@@ -173,6 +199,156 @@ def interface(connection, args):
     checkout_interface(connection, args.name.upper())
 
 
+def build_function_module_abap_attributes(func_module):
+    """Returns populated FUNCTION_LINE ABAP structure with attributes"""
+
+    func_line = FUNCTION_LINE()
+    func_line.FUNCNAME = func_module.name
+    func_line.REMOTE_CALL = 'R' if func_module.processing_type == 'rfc' else None
+    func_line.SHORT_TEXT = func_module.description
+
+    func_local_interface = func_module.get_local_interface()
+    interface_helper = {
+        'IMPORTING': (IMPORT_TYPE, 'IMPORT'),
+        'CHANGING': (CHANGING_TYPE, 'CHANGING'),
+        'EXPORTING': (EXPORT_TYPE, 'EXPORT'),
+        'TABLES': (TABLE_TYPE, 'TABLES'),
+        'EXCEPTIONS': (EXCEPTION_TYPE, 'EXCEPTION')
+    }
+
+    for param_type, params in func_local_interface.items():
+        ddic_type, func_line_attr = interface_helper[param_type]
+        ddic_type = ddic_type()
+        for param in params:
+            ddic_type.append(param)
+
+        setattr(func_line, func_line_attr, ddic_type if ddic_type else None)
+
+    documentation = DOCUMENTATION_TYPE()
+    for param_type in func_module.DOCUMENTATION_ORDER:
+        for param in func_local_interface[param_type]:
+            if param_type == 'EXCEPTIONS':
+                documentation.append(RSFDO(PARAMETER=param.EXCEPTION, KIND='X'))
+            else:
+                documentation.append(RSFDO(PARAMETER=param.PARAMETER, KIND='P'))
+
+    func_line.DOCUMENTATION = documentation
+    return func_line
+
+
+def build_function_group_abap_attributes(adt_funcgrp, function_modules, funcgrp_includes):
+    """Returns populated ABAP structure with attributes"""
+
+    areat = AREAT(adt_funcgrp.description)
+    includes = INCLUDES()
+    for include in funcgrp_includes:
+        includes.append(f'<SOBJ_NAME>{include.name}</SOBJ_NAME>')
+
+    functions = FUNCTIONS()
+    for func_module in function_modules:
+        functions.append(build_function_module_abap_attributes(func_module))
+
+    return areat, includes, functions
+
+
+def build_user_fn_include_abap_attributes(include, funcgrp):
+    """Returns populated PROGDIR ABAP structure with attributes for user-defined function include"""
+
+    progdir = PROGDIR()
+    progdir.NAME = include.name
+    progdir.SUBC = 'I'
+    progdir.APPL = 'S'
+    progdir.RLOAD = 'E' if include.description else None
+    progdir.UCCHECK = 'X' if funcgrp.active_unicode_check else None
+
+    tpool = TPOOL()
+    if include.description:
+        tpool_line = TPOOL_LINE()
+        tpool_line.ID = 'R'
+        tpool_line.ENTRY = include.description
+        tpool_line.LENGTH = len(include.description)
+        tpool.append(tpool_line)
+
+    return progdir, tpool
+
+
+def build_system_fn_include_abap_attributes(include, funcgrp):
+    """Returns populated PROGDIR ABAP structure with attributes for system function include"""
+
+    progdir, _ = build_user_fn_include_abap_attributes(include, funcgrp)
+    progdir.DBAPL = 'S'
+    progdir.DBNA = 'D$'
+    progdir.FIXPT = 'X' if funcgrp.fix_point_arithmetic else None
+    progdir.LDBNAME = 'D$S'
+
+    return (progdir,)
+
+
+def checkout_function_include(include_name, funcgrp, destdir=None):
+    """Checkout Function Group Include"""
+
+    include = sap.adt.FunctionInclude(funcgrp.connection, include_name, funcgrp.name)
+    if include_name.endswith('TOP'):
+        include_attrs = build_system_fn_include_abap_attributes(include, funcgrp)
+    else:
+        include_attrs = build_user_fn_include_abap_attributes(include, funcgrp)
+
+    dump_attributes_to_file(funcgrp.name, include_attrs, f'.fugr.{include.name}', '', destdir=destdir)
+
+    return include
+
+
+def checkout_function_group(connection, name, destdir=None, source_format=SourceCodeFormat.ABAPGIT):
+    """Download function group sources"""
+
+    funcgrp = sap.adt.FunctionGroup(connection, name)
+    function_modules = []
+    includes = []
+
+    walk_step = funcgrp.walk()[0]  # Function group always has only a single step
+    objects = walk_step[2]
+    for obj in objects:
+        if obj.name.endswith('UXX'):
+            sap.cli.core.printout(f'Skipping system generated "UXX" function group include: {obj.name}.')
+            continue
+
+        if obj.typ == 'FUGR/FF':
+            adt_obj = sap.adt.FunctionModule(funcgrp.connection, obj.name, funcgrp.name)
+            function_modules.append(adt_obj)
+            if source_format == SourceCodeFormat.ABAPGIT:
+                download_abapgit_source(funcgrp.name, adt_obj, f'.fugr.{adt_obj.name}',
+                                        AbapToAbapGitTranslator.translate_function_module, destdir=destdir)
+            else:
+                download_abap_source(funcgrp.name, adt_obj, f'.fugr.{adt_obj.name}', destdir=destdir)
+
+        elif obj.typ in ('FUGR/I', 'FUGR/PX'):
+            adt_obj = checkout_function_include(obj.name, funcgrp, destdir=destdir)
+            includes.append(adt_obj)
+            download_abap_source(funcgrp.name, adt_obj, f'.fugr.{adt_obj.name}', destdir=destdir)
+        else:
+            raise sap.cli.core.SAPCliError(f'Unsupported function group object: {obj.typ} {obj.name}')
+
+    funcgrp_attrs = build_function_group_abap_attributes(funcgrp, function_modules, includes)
+    dump_attributes_to_file(funcgrp.name, funcgrp_attrs, '.fugr', 'LCL_OBJECT_FUGR', destdir=destdir)
+
+
+@CommandGroup.argument('-f', '--format', type=str,
+                       choices=[SourceCodeFormat.ABAP.value, SourceCodeFormat.ABAPGIT.value],
+                       default=SourceCodeFormat.ABAPGIT.value)
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def function_group(connection, args):
+    """Download function group sources command wrapper"""
+
+    try:
+        checkout_function_group(connection, args.name.upper(), source_format=SourceCodeFormat(args.format))
+    except sap.cli.core.SAPCliError as ex:
+        sap.cli.core.printerr(f'Checkout failed: {str(ex)}')
+        return 1
+
+    return 0
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
@@ -181,6 +357,7 @@ def checkout_objects(connection, objects, destdir=None):
         'PROG/P': checkout_program,
         'CLAS/OC': checkout_class,
         'INTF/OI': checkout_interface,
+        'FUGR/F': checkout_function_group,
     }
 
     if not os.path.isdir(destdir):

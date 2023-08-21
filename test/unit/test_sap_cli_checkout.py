@@ -4,15 +4,18 @@ import os
 import sys
 from argparse import ArgumentParser
 import unittest
-from unittest.mock import Mock, PropertyMock, patch, mock_open, call
+from unittest.mock import Mock, PropertyMock, patch, mock_open, call, MagicMock
 from types import SimpleNamespace
 from io import StringIO
 
 import sap.cli.checkout
 import sap.platform.abap
 import sap.platform.abap.abapgit
+import sap.adt
 
-from mock import Connection
+from mock import Connection, patch, PatcherTestCase, ConsoleOutputTestCase
+from test.unit.fixtures_cli_checkout import FUNCTION_GROUP_XML, FUNCTION_INCLUDE_1_XML, FUNCTION_INCLUDE_2_XML, FUNCTION_MODULE_1_CODE, FUNCTION_MODULE_2_CODE,\
+    FUNCTION_MODULE_1_CODE_ABAPGIT, FUNCTION_MODULE_2_CODE_ABAPGIT
 
 
 def parse_args(argv):
@@ -310,11 +313,12 @@ class TestCheckoutPackage(unittest.TestCase):
 
     @patch('sap.adt.Package.fetch')
     @patch('sap.cli.checkout.dump_attributes_to_file')
+    @patch('sap.cli.checkout.checkout_function_group')
     @patch('sap.cli.checkout.checkout_class')
     @patch('sap.cli.checkout.checkout_interface')
     @patch('sap.cli.checkout.checkout_program')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_dump, fake_fetch):
+    def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_fugr, fake_dump, fake_fetch):
         conn = Connection([])
 
         package_name = '$VICTORY'
@@ -325,7 +329,8 @@ class TestCheckoutPackage(unittest.TestCase):
               [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD'),
                SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD'),
                SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD'),
-               SimpleNamespace(typ='7777/3', name='Magic Unicorn')]),
+               SimpleNamespace(typ='7777/3', name='Magic Unicorn'),
+               SimpleNamespace(typ='FUGR/F', name='ZFUGR_HELLO')]),
              ([sub_package_name],
               [],
               [SimpleNamespace(typ='CLAS/OC', name='ZCL_TESTS')]))
@@ -354,6 +359,7 @@ class TestCheckoutPackage(unittest.TestCase):
         exp_sub_destdir = os.path.abspath(os.path.join(package_name, 'src', sub_package_name.lower()))
         fake_prog.assert_called_once_with(conn, 'Z_HELLO_WORLD', exp_destdir)
         fake_intf.assert_called_once_with(conn, 'ZIF_HELLO_WORLD', exp_destdir)
+        fake_fugr.assert_called_once_with(conn, 'ZFUGR_HELLO', exp_destdir)
         self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_HELLO_WORLD', exp_destdir),
                                                 call(conn, 'ZCL_TESTS', exp_sub_destdir)])
 
@@ -515,6 +521,140 @@ class TestDOT_ABAP_GIT(unittest.TestCase):
  </asx:values>
 </asx:abap>
 ''')
+
+
+class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
+
+    class MockOpenWrite:
+        def __init__(self):
+            self.content = ''
+
+        def write(self, *args, **kwargs):
+            self.content += args[0]
+
+    def mock_function_module(self, conn, name, args):
+        return {fn_module.name: fn_module for fn_module in self.fn_modules}[name]
+
+    def mock_include(self, conn, name, args):
+        return {include.name: include for include in self.includes}[name]
+
+    def set_up_fixture_objects(self):
+        self.fake_include_1 = sap.adt.FunctionInclude(Connection(), 'TEST_INCLUDE_1TOP', self.fake_funcgrp.name)
+        self.fake_include_1.connection.get_text = Mock(return_value='Include 1 source code.')
+        self.fake_include_1.description = 'Test include 1 description.'
+        self.fake_include_2 = sap.adt.FunctionInclude(Connection(), 'TEST_INCLUDE_2', self.fake_funcgrp.name)
+        self.fake_include_2.connection.get_text = Mock(return_value='Include 2 source code.')
+        self.fake_include_2.description = 'Test include 2 description.'
+        self.includes = [self.fake_include_1, self.fake_include_2]
+        fake_fun_include_class = self.patch('sap.adt.FunctionInclude')
+        fake_fun_include_class.side_effect = self.mock_include
+
+        # Fake function modules must correspond to XMLs in fixtures
+        self.fake_func_module_1 = sap.adt.FunctionModule(Connection([]), 'TEST_FUNCTION_1', self.fake_funcgrp.name,
+                                                         metadata=SimpleNamespace(
+                                                             description='Test function 1 description.'))
+        self.fake_func_module_1.connection.get_text = Mock(return_value=FUNCTION_MODULE_1_CODE)
+        self.fake_func_module_2 = sap.adt.FunctionModule(Connection([]), 'TEST_FUNCTION_2', self.fake_funcgrp.name,
+                                                         metadata=SimpleNamespace(
+                                                             description='Test function 2 description.'))
+        self.fake_func_module_2.connection.get_text = Mock(return_value=FUNCTION_MODULE_2_CODE)
+        self.fake_func_module_2.processing_type = 'rfc'
+        self.fn_modules = [self.fake_func_module_1, self.fake_func_module_2]
+
+        fake_func_module_class = self.patch('sap.adt.FunctionModule')
+        fake_func_module_class.side_effect = self.mock_function_module
+
+        fake_walk = MagicMock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/I', name=include.name) for include in self.includes]
+                                             + [SimpleNamespace(typ='FUGR/FF', name=fn_module.name) for fn_module in self.fn_modules])])
+        self.fake_funcgrp.walk = fake_walk
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.conn = Connection([])
+        self.patch_console(self.console)
+
+        self.fake_metadata = SimpleNamespace(description='TEST FUNCTION GROUP',
+                                             package_reference=SimpleNamespace(name='TEST_PACKAGE'))
+        self.fake_funcgrp = sap.adt.FunctionGroup(self.conn, 'TEST_FUNCGRP', metadata=self.fake_metadata)
+        self.fake_funcgrp.fix_point_arithmetic = 'true'
+        self.fake_funcgrp.active_unicode_check = 'true'
+        fake_funcgrp_class = self.patch('sap.adt.FunctionGroup')
+        fake_funcgrp_class.return_value = self.fake_funcgrp
+
+    @patch('sap.cli.checkout.open')
+    def test_checkout_function_group(self, fake_open):
+        self.set_up_fixture_objects()
+        fake_write = self.MockOpenWrite()
+        fake_open.return_value.__enter__.return_value = fake_write
+
+        fake_download_abap_source = self.patch('sap.cli.checkout.download_abap_source')
+
+        args = parse_args(['function_group', 'TEST_FUNCGRP'])
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+        expected_content = FUNCTION_INCLUDE_1_XML + FUNCTION_INCLUDE_2_XML + FUNCTION_MODULE_1_CODE_ABAPGIT + FUNCTION_MODULE_2_CODE_ABAPGIT + FUNCTION_GROUP_XML
+        self.assertEqual(fake_write.content, expected_content)
+        fake_download_abap_source.assert_has_calls(
+            [call(self.fake_funcgrp.name, fn_include, f'.fugr.{fn_include.name}', destdir=None) for fn_include in self.includes]
+        )
+
+    @patch('sap.cli.checkout.open')
+    def test_checkout_function_group_abap(self, fake_open):
+        self.set_up_fixture_objects()
+        fake_write = self.MockOpenWrite()
+        fake_open.return_value.__enter__.return_value = fake_write
+
+        args = parse_args(['function_group', 'TEST_FUNCGRP', '--format', 'ABAP'])
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+        expected_content = (FUNCTION_INCLUDE_1_XML + 'Include 1 source code.' + FUNCTION_INCLUDE_2_XML + 'Include 2 source code.' +
+                            FUNCTION_MODULE_1_CODE + FUNCTION_MODULE_2_CODE + FUNCTION_GROUP_XML)
+        self.assertEqual(fake_write.content, expected_content)
+
+    def test_checkout_function_group_unsupported_type(self):
+        self.fake_funcgrp.walk = Mock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='UNSUPPORTED/THIS', name='TEST')])])
+
+        args = parse_args(['function_group', 'TEST_FUNCGRP'])
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='Checkout failed: Unsupported function group object: UNSUPPORTED/THIS TEST\n')
+
+    @patch('sap.cli.checkout.build_function_group_abap_attributes')
+    @patch('sap.cli.checkout.build_system_fn_include_abap_attributes')
+    @patch('sap.cli.checkout.dump_attributes_to_file')
+    @patch('sap.cli.checkout.download_abap_source')
+    def test_checkout_function_group_px_include(self, fake_download, fake_dump, fake_build_include, fake_build_funcgrp):
+        self.fake_funcgrp.walk = Mock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/PX', name='TESTTOP')])])
+        fake_build_include.return_value = 'FAKE_INCLUDE_PARAMS'
+        fake_build_funcgrp.return_value = 'FAKE_FUNCGRP_PARAMS'
+
+        args = parse_args(['function_group', 'TEST_FUNCGRP'])
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+        fake_download.assert_called_once()
+        fake_dump.assert_has_calls([
+            call(self.fake_funcgrp.name, 'FAKE_INCLUDE_PARAMS', '.fugr.TESTTOP', '', destdir=None),
+            call(self.fake_funcgrp.name, 'FAKE_FUNCGRP_PARAMS', '.fugr', 'LCL_OBJECT_FUGR', destdir=None)
+        ])
+
+    @patch('sap.cli.checkout.build_function_group_abap_attributes')
+    @patch('sap.cli.checkout.dump_attributes_to_file')
+    @patch('sap.cli.checkout.download_abap_source')
+    def test_checkout_function_group_skip_uxx(self, fake_download, fake_dump, fake_build_funcgrp):
+        self.fake_funcgrp.walk = Mock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/I', name='TESTUXX')])])
+
+        args = parse_args(['function_group', 'TEST_FUNCGRP'])
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+        fake_download.assert_not_called()
+        fake_build_funcgrp.assert_called_once()
+        fake_dump.assert_called_once()
+        self.assertConsoleContents(self.console, stdout='Skipping system generated "UXX" function group include: TESTUXX.\n')
 
 
 if __name__ == '__main__':
