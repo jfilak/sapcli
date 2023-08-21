@@ -1,8 +1,8 @@
 """Function Group and Function Module object proxies"""
-
 from copy import copy
 
 # pylint: disable=unused-import
+from sap.adt.repository import Repository
 from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import ADTObjectType, ADTObject, ADTObjectSourceEditorWithResponse, xmlns_adtcore_ancestor
 from sap.adt.objects import find_mime_version
@@ -123,6 +123,14 @@ class FunctionGroup(ADTObject):
             object_type=cls.OBJTYPE.code,
             object_name=name,
             package_name=package_name)
+
+    def walk(self):
+        """Returns the same structure as python os.walk"""
+
+        repository = Repository(connection=self._connection)
+        _, objects = repository.walk_step(self)
+
+        return [([], [], objects)]
 
 
 class FunctionModule(ADTObject):

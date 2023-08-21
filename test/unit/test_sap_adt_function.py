@@ -77,6 +77,16 @@ class TestFunctionGroup(unittest.TestCase):
         self.assertEqual(fugr.description, 'You cannot stop me!')
         self.assertEqual(fugr.fix_point_arithmetic, True)
 
+    @patch('sap.adt.function.Repository')
+    def test_function_group_walk(self, fake_repo):
+        fake_walk = Mock()
+        fake_walk.walk_step.return_value = 'subpackages', 'objects'
+        fake_repo.return_value = fake_walk
+
+        fugr = sap.adt.FunctionGroup(None, 'ZFG_HELLO_WORLD')
+
+        self.assertEqual(fugr.walk(), [([], [], 'objects')])
+
 
 class TestFunctionModule(unittest.TestCase):
 
