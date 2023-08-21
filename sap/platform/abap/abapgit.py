@@ -175,3 +175,37 @@ def from_xml(body_types, xml_contents):
     xml.sax.parseString(xml_contents, parser)
 
     return parser.current.results
+
+
+class AbapToAbapGitTranslator:
+    """Collection of Abap to AbapGit translators"""
+
+    @staticmethod
+    def translate_function_module(func_module):
+        """Returns the function module source code in AbapGit format"""
+
+        delimiter = f'*"{"-" * 68}'
+        source = (f'FUNCTION {func_module.name.lower()}.\n'
+                  f'{delimiter}\n'
+                  f'*"*"Local Interface:\n')
+        fn_params = func_module.get_parameters()
+        for param_type, params in fn_params.items():
+            if not params:
+                continue
+
+            prefix = '*"  '
+            source += f'{prefix}{param_type}\n'
+
+            prefix += '   '
+            for param in params:
+                if param_type == 'TABLES':
+                    var_name, _, *abap_type = param.split(' ')
+                    source += f'{prefix}{var_name} STRUCTURE {" ".join(abap_type)}\n'
+                else:
+                    source += f'{prefix}{param}\n'
+
+        source += (f'{delimiter}\n'
+                   f'\n{func_module.get_body()}\n'
+                   f'\nENDFUNCTION.\n')
+
+        return source

@@ -5,6 +5,7 @@ from unittest.mock import Mock, PropertyMock, patch
 
 from sap.errors import SAPCliError
 import sap.adt.wb
+from sap.platform.abap.ddic import RSIMP, RSCHA, RSEXP, RSEXC, RSTBL
 
 from mock import Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, OBJECT_METADATA
@@ -15,7 +16,9 @@ from fixtures_adt_function import (
         GET_FUNCTION_GROUP_ADT_XML,
         GET_FUNCTION_MODULE_ADT_XML,
         CREATE_FUNCTION_INCLUDE_ADT_XML,
-        GET_FUNCTION_INCLUDE_ADT_XML,)
+        GET_FUNCTION_INCLUDE_ADT_XML,
+        FUNCTION_MODULE_CODE,
+        FUNCTION_MODULE_CODE_ABAPGIT,)
 
 
 class TestFunctionGroup(unittest.TestCase):
@@ -159,6 +162,43 @@ class TestFunctionModule(unittest.TestCase):
         self.assertEqual(function.description, 'You cannot stop me!')
         self.assertEqual(function.processing_type, 'normal')
         self.assertEqual(function.release_state, 'notReleased')
+
+    def test_function_module_get_parameters(self):
+        conn = Connection([Response(text=FUNCTION_MODULE_CODE, status_code=200, headers={})])
+        function = sap.adt.FunctionModule(conn, 'TEST_FUNCTION', 'TEST_FUNCTION_GROUP')
+        parameters = function.get_parameters()
+
+        self.assertEqual(parameters['IMPORTING'], ["VALUE(IMPORT_PARAM_1) TYPE  STRING DEFAULT '/src/'",
+                                                   "VALUE(IMPORT_PARAM_2) TYPE  STRING"])
+        self.assertEqual(parameters['EXPORTING'], ["VALUE(EXPORT_PARAM_1) TYPE  BAPIRET2",
+                                                   "REFERENCE(EXPORT_PARAM_2) TYPE  STRING"])
+        self.assertEqual(parameters['CHANGING'], ["REFERENCE(CHANGING_PARAM_1) TYPE  BAPIRET2",
+                                                  "VALUE(CHANGING_PARAM_2) TYPE  BAPIRET2 DEFAULT 'default'"])
+        self.assertEqual(parameters['TABLES'], ["TABLES_PARAM_1 TYPE  BAPIRET2",
+                                                "TABLES_PARAM_2 TYPE  BAPIRET2 OPTIONAL"])
+        self.assertEqual(parameters['EXCEPTIONS'], ["TEST_EXCEPTION"])
+
+    def test_function_module_get_local_interface(self):
+        conn = Connection([Response(text=FUNCTION_MODULE_CODE, status_code=200, headers={})])
+        function = sap.adt.FunctionModule(conn, 'TEST_FUNCTION', 'TEST_FUNCTION_GROUP')
+        local_interface = function.get_local_interface()
+
+        self.assertEqual(local_interface['IMPORTING'], [RSIMP(PARAMETER='IMPORT_PARAM_1', DEFAULT='&apos;/src/&apos;', OPTIONAL='X', TYP='STRING'),
+                                                        RSIMP(PARAMETER='IMPORT_PARAM_2', TYP='STRING')])
+        self.assertEqual(local_interface['CHANGING'], [RSCHA(PARAMETER='CHANGING_PARAM_1', REFERENCE='X', TYP='BAPIRET2'),
+                                                       RSCHA(PARAMETER='CHANGING_PARAM_2', DEFAULT='&apos;default&apos;', OPTIONAL='X', TYP='BAPIRET2')])
+        self.assertEqual(local_interface['EXPORTING'], [RSEXP(PARAMETER='EXPORT_PARAM_1', TYP='BAPIRET2'),
+                                                        RSEXP(PARAMETER='EXPORT_PARAM_2', REFERENCE='X', TYP='STRING')])
+        self.assertEqual(local_interface['TABLES'], [RSTBL(PARAMETER='TABLES_PARAM_1', DBSTRUCT='BAPIRET2'),
+                                                     RSTBL(PARAMETER='TABLES_PARAM_2', OPTIONAL='X', DBSTRUCT='BAPIRET2')])
+        self.assertEqual(local_interface['EXCEPTIONS'], [RSEXC(EXCEPTION='TEST_EXCEPTION')])
+
+    def test_function_module_get_body(self):
+        conn = Connection([Response(text=FUNCTION_MODULE_CODE, status_code=200, headers={})])
+        function = sap.adt.FunctionModule(conn, 'TEST_FUNCTION', 'TEST_FUNCTION_GROUP')
+        body = function.get_body()
+
+        self.assertEqual(body, '''    Write 'Hello World'.''')
 
 
 class TestFunctionInclude(unittest.TestCase):

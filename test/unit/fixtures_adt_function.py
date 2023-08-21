@@ -60,3 +60,46 @@ GET_FUNCTION_INCLUDE_ADT_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <adtcore:containerRef adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world" adtcore:type="FUGR/F" adtcore:name="ZFG_HELLO_WORLD" adtcore:packageName="$TEST"/>
 </finclude:abapFunctionGroupInclude>
 """
+
+FUNCTION_MODULE_CODE = '''FUNCTION test_function
+  IMPORTING
+     VALUE(IMPORT_PARAM_1) TYPE  STRING DEFAULT '/src/'
+     VALUE(IMPORT_PARAM_2) TYPE  STRING
+  CHANGING
+     REFERENCE(CHANGING_PARAM_1) TYPE  BAPIRET2
+     VALUE(CHANGING_PARAM_2) TYPE  BAPIRET2 DEFAULT 'default'
+  EXPORTING
+     VALUE(EXPORT_PARAM_1) TYPE  BAPIRET2
+     REFERENCE(EXPORT_PARAM_2) TYPE  STRING
+  TABLES
+      TABLES_PARAM_1 STRUCTURE  BAPIRET2
+      TABLES_PARAM_2 STRUCTURE  BAPIRET2 OPTIONAL
+  EXCEPTIONS
+      TEST_EXCEPTION.
+
+    Write 'Hello World'.
+ENDFUNCTION.'''
+
+FUNCTION_MODULE_CODE_ABAPGIT = '''FUNCTION test_function.
+*"--------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     VALUE(IMPORT_PARAM_1) TYPE  STRING DEFAULT '/src/'
+*"     VALUE(IMPORT_PARAM_2) TYPE  STRING
+*"  CHANGING
+*"     REFERENCE(CHANGING_PARAM_1) TYPE  BAPIRET2
+*"     VALUE(CHANGING_PARAM_2) TYPE  BAPIRET2 DEFAULT 'default'
+*"  EXPORTING
+*"     VALUE(EXPORT_PARAM_1) TYPE  BAPIRET2
+*"     REFERENCE(EXPORT_PARAM_2) TYPE  STRING
+*"  TABLES
+*"     TABLES_PARAM_1 STRUCTURE  BAPIRET2
+*"     TABLES_PARAM_2 STRUCTURE  BAPIRET2 OPTIONAL
+*"  EXCEPTIONS
+*"     TEST_EXCEPTION
+*"--------------------------------------------------------------------
+
+    Write 'Hello World'.
+
+ENDFUNCTION.
+'''
