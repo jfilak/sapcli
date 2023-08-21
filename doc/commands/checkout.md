@@ -21,6 +21,12 @@ Fetches source codes of the given interface and stores it a local file.
 sapcli checkout interface zif_hello_world
 ```
 
+Fetches objects of given function group and stores objects' source codes to a local files.
+
+```bash
+sapcli checkout function_group zhello_world
+```
+
 Fetches source codes of classes, programs and interfaces of the given package
 and stores them in corresponding files in a local file system directory.
 
