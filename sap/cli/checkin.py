@@ -9,8 +9,18 @@ from sap import get_logger
 import sap.errors
 import sap.cli.core
 import sap.platform.abap.abapgit
-from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, SUBC_EXECUTABLE_PROGRAM, SUBC_INCLUDE,\
-    AREAT, INCLUDES, FUNCTIONS
+from sap.platform.abap.ddic import (
+    VSEOCLASS,
+    PROGDIR,
+    TPOOL,
+    VSEOINTERF,
+    DEVC,
+    SUBC_EXECUTABLE_PROGRAM,
+    SUBC_INCLUDE,
+    AREAT,
+    INCLUDES,
+    FUNCTIONS
+)
 import sap.adt
 import sap.adt.objects
 import sap.adt.errors
