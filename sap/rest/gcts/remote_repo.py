@@ -303,6 +303,9 @@ class Repository:
         if self._config is None:
             self._config = self._get_item('config')
 
+        if self._config is None:
+            return {}
+
         return _config_list_to_dict(self._config)
 
     @property

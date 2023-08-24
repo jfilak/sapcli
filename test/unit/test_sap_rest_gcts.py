@@ -350,6 +350,15 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(caught.exception), 'gCTS exception: Get Config Error')
 
+    def test_repo_without_config(self):
+        data = dict(self.repo_server_data)
+        del data['config']
+
+        self.conn.set_responses(Response.with_json(status_code=200, json={"result": data}))
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+
+        self.assertEqual(repo.configuration, {})
+
     def test_delete_config_ok(self):
         key = 'CLIENT_VCS_URI'
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
