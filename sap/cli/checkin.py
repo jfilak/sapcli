@@ -499,6 +499,27 @@ def _write_function_source_code(path_prefix, adt_object, corrnr=None):
     _write_source_file(source_code, adt_object, corrnr)
 
 
+def create_function_module(connection, func, function_group, metadata, corrnr):
+    """Create Function Module"""
+
+    function_module = sap.adt.FunctionModule(connection, func.FUNCNAME, function_group.name, metadata=metadata)
+    function_module.description = func.SHORT_TEXT
+
+    sap.cli.core.printout('Creating Function Module:', function_module.name)
+    try:
+        function_module.create(corrnr)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    if func.REMOTE_CALL == 'R':
+        function_module.processing_type = 'rfc'
+        lock_handle = function_module.lock()
+        with function_module.open_editor(lock_handle, corrnr) as fn_editor:
+            fn_editor.push()
+
+    return function_module
+
+
 def checkin_fugr(connection, repo_obj, corrnr=None):
     """Checkin ADT Function Group"""
 
@@ -540,15 +561,8 @@ def checkin_fugr(connection, repo_obj, corrnr=None):
         _write_adt_object_source_file(repo_obj.path[:-4], include_obj, corrnr=corrnr)
 
     for func in functions:
-        function_module = sap.adt.FunctionModule(connection, func.FUNCNAME, function_group.name, metadata=metadata)
-        function_module.description = func.SHORT_TEXT
+        function_module = create_function_module(connection, func, function_group, metadata, corrnr)
         abap_objs_inactive.append(function_module)
-
-        sap.cli.core.printout('Creating Function Module:', function_module.name)
-        try:
-            function_module.create(corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-            mod_log().info(err.message)
 
         sap.cli.core.printout('Writing Function Module:', function_module.name)
         _write_function_source_code(repo_obj.path[:-4], function_module, corrnr=corrnr)

@@ -145,6 +145,40 @@ FUNCTION_GROUP_XML = '''<?xml version="1.0" encoding="utf-8"?>
  </asx:abap>
 </abapGit>'''
 
+FUNCTION_GROUP_XML_NO_RFC = '''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_FUGR" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <AREAT>Test function group</AREAT>
+   <INCLUDES>
+    <SOBJ_NAME>TEST_INCLUDE</SOBJ_NAME>
+   </INCLUDES>
+   <FUNCTIONS>
+    <item>
+     <FUNCNAME>TEST_FUNCTION_MODULE</FUNCNAME>
+     <SHORT_TEXT>Test function module</SHORT_TEXT>
+     <IMPORT>
+      <RSIMP>
+       <PARAMETER>ABAP_PACKAGE</PARAMETER>
+       <DEFAULT>&apos;&apos;</DEFAULT>
+       <OPTIONAL>X</OPTIONAL>
+       <TYP>DEVCLASS</TYP>
+      </RSIMP>
+     </IMPORT>
+     <TABLES>
+     </TABLES>
+     <DOCUMENTATION>
+      <RSFDO>
+       <PARAMETER>ABAP_PACKAGE</PARAMETER>
+       <KIND>P</KIND>
+      </RSFDO>
+     </DOCUMENTATION>
+    </item>
+   </FUNCTIONS>
+  </asx:values>
+ </asx:abap>
+</abapGit>'''
+
 FUNCTION_MODULE_CODE_ABAPGIT = '''FUNCTION ztest_function_module.
 *"----------------------------------------------------------------------
 *"*"Local Interface:

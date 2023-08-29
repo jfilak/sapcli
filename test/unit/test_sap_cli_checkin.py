@@ -19,7 +19,7 @@ from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
 from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, INCLUDE_XML, INVALID_TYPE_XML, FUNCTION_GROUP_XML, \
     FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_NO_PARAMS_ADT,\
-    FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT
+    FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, FUNCTION_GROUP_XML_NO_RFC
 from infra import generate_parse_args
 
 
@@ -908,6 +908,7 @@ class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_function_group.return_value = self.function_group
 
         self.function_module = MagicMock()
+        self.function_module.lock.return_value = 'lock_handle'
         self.function_module_editor = MagicMock()
         self.function_module_editor.__enter__.return_value = self.function_module_editor
         self.fake_function_module = self.patch('sap.adt.FunctionModule')
@@ -1015,7 +1016,11 @@ class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(self.function_module.description, 'Test function module')
         self.function_include.create.assert_called_once_with(None)
 
-        self.function_module.open_editor.assert_called_once_with(corrnr=None)
+        self.assertEqual(self.function_module.processing_type, 'rfc')
+
+        self.function_module.open_editor.assert_any_call('lock_handle', None)
+        self.function_module.open_editor.assert_any_call(corrnr=None)
+        self.assertEqual(self.function_module.open_editor.call_count, 2)
         self.function_module_editor.write.assert_called_once_with(FUNCTION_MODULE_CODE_ADT)
         self.function_include.open_editor.assert_called_once_with(corrnr=None)
         self.function_include_editor.write.assert_called_once_with('Test include body')
@@ -1040,7 +1045,17 @@ Writing Function Module: {self.function_module.name}
         self.function_include.create.assert_called_once_with(corrnr)
 
         self.function_include.open_editor.assert_called_once_with(corrnr=corrnr)
-        self.function_module.open_editor.assert_called_once_with(corrnr=corrnr)
+        self.function_module.open_editor.assert_any_call('lock_handle', corrnr)
+        self.function_module.open_editor.assert_any_call(corrnr=corrnr)
+        self.assertEqual(self.function_module.open_editor.call_count, 2)
+
+    def test_checkin_fugr_no_rfc(self):
+        self.fake_open.side_effect = [StringIOFile(FUNCTION_GROUP_XML_NO_RFC), StringIOFile('Test include'),
+                                      StringIOFile('Test function module')]
+
+        inactive_objects = sap.cli.checkin.checkin_fugr(self.connection, self.fugr_object)
+        self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
+        self.assertTrue(isinstance(self.function_module.processing_type, MagicMock))  # processing_type is MagicMock => is not defined
 
     @patch('sap.cli.checkin.mod_log')
     def test_checkin_fugr_already_created(self, fake_mod_log):
