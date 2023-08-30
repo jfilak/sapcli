@@ -783,6 +783,49 @@ class ADTObjectSourceEditorWithResponse(ADTObjectSourceEditor):
         return headers
 
 
+class ClassIncludeEditor(ADTObjectSourceEditorWithResponse):
+    """Source Code Editor"""
+
+    def __init__(self, include_type, instance, lock_handle=None, corrnr=None):
+        super().__init__(instance, lock_handle=lock_handle, corrnr=corrnr)
+
+        self.include_type = include_type
+
+    def generate_includes(self):
+        """Generates the corresponding Class Inlcude"""
+
+        self.connection.execute(
+            'POST',
+            self.uri + '/includes',
+            headers={'content-type': 'application/vnd.sap.adt.oo.classincludes+xml'},
+            params=modify_object_params(self.lock_handle, self.corrnr),
+            body=f'''<?xml version="1.0" encoding="UTF-8"?><class:abapClassInclude xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="dummy" class:includeType="{self.include_type}"/>'''
+        )
+
+    def write(self, content):
+        """Tries to write twice. If the first attempt fails, the method blindly
+           tries to generate the includes (because that is the most commont
+           root cause of failed writes) and repeats the write attempt.
+        """
+
+        try:
+            super().write(content)
+            # Hooray, the class include exists!!!
+            return
+        except sap.adt.errors.ExceptionResourceSaveFailure as ex:
+            # Oops, the class include most probably does not exist.
+            mod_log().debug("Writing of the class include has failed: %s", str(ex))
+            # But we do not give up as that is expected.
+            # When you create an ABAP class in SAPGUI (or pull by abapGit)
+            # and then you try to write its test classes over ADT API
+            # you get the caught error because the test classes include
+            # was not generated automatically.
+
+        # So lets try to generate the class include ...
+        self.generate_includes()
+        # and give it one more try - this time unprotected to die on errors
+        super().write(content)
+
 class ADTObjectPropertyEditor(ADTObjectEditor):
     """Object property modification actions - for objects which have only the
        XML and other resource associated.
@@ -1209,7 +1252,7 @@ class Class(OOADTObjectBase):
             if lock_handle is None:
                 lock_handle = self.lock()
 
-            return self._clas.objtype.open_editor(self, lock_handle=lock_handle, corrnr=corrnr)
+            return ClassIncludeEditor(self.objtype.include_type, self, lock_handle=lock_handle, corrnr=corrnr)
 
         def fetch(self):
             """Retrieve data from ADT"""
