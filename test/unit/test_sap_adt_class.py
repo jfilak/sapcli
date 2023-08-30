@@ -11,7 +11,8 @@ from mock import Connection, Response
 from fixtures_adt import (LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 
-from fixtures_adt_clas import CREATE_CLASS_ADT_XML, GET_CLASS_ADT_XML
+from fixtures_adt_clas import (CREATE_CLASS_ADT_XML, GET_CLASS_ADT_XML, WRITE_INCLUDE_ERROR_XML,
+                               GENERATE_INCLUDE_REQUEST_XML)
 
 
 FIXTURE_CLASS_MAIN_CODE='''class zcl_hello_world definition public.
@@ -134,6 +135,24 @@ class TestADTClass(unittest.TestCase):
 
     def test_adt_class_write_tests(self):
         self.include_write_test(lambda clas: clas.test_classes, 'includes/testclasses')
+
+    def test_adt_class_write_include_with_generate(self):
+        GENERATE_INCLUDE_REQUEST_ID = 2
+        GENERATE_INCLUDE_ADT_URI = '/sap/bc/adt/oo/classes/zcl_hello_world/includes'
+        WRITE_GENERATED_INCLUDE_REQUEST_ID = 3
+
+        conn = Connection([LOCK_RESPONSE_OK,
+                           Response(status_code=405, headers={'content-type': 'application/xml'}, text=WRITE_INCLUDE_ERROR_XML),
+                           EMPTY_RESPONSE_OK,  # generate test class
+                           EMPTY_RESPONSE_OK,  # write test class
+                           None])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        with clas.test_classes.open_editor() as editor:
+            editor.write('* new test')
+
+        self.assertEqual(conn.execs[GENERATE_INCLUDE_REQUEST_ID].adt_uri, GENERATE_INCLUDE_ADT_URI)
+        self.assertEqual(conn.execs[GENERATE_INCLUDE_REQUEST_ID].body, GENERATE_INCLUDE_REQUEST_XML)
+        self.assertEqual(conn.execs[WRITE_GENERATED_INCLUDE_REQUEST_ID].body, b'* new test')
 
     def include_activate_test(self, getter, includes_uri):
         conn = Connection(

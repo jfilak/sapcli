@@ -46,3 +46,7 @@ GET_CLASS_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
     <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="source/main" rel="http://www.sap.com/adt/relations/source" type="text/html" etag="20190202130106001000001"/>
   </class:include>
 </class:abapClass>'''
+
+WRITE_INCLUDE_ERROR_XML = '''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceSaveFailure"/><message lang="EN">TEST=====CCAU does not have any inactive version</message></exc:exception>'''
+
+GENERATE_INCLUDE_REQUEST_XML = '''<?xml version="1.0" encoding="UTF-8"?><class:abapClassInclude xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="dummy" class:includeType="testclasses"/>'''
