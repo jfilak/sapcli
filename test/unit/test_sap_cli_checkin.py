@@ -568,7 +568,10 @@ class TestCheckInClass(PatcherTestCase, ConsoleOutputTestCase):
         self.clas_editor = MagicMock()
         self.clas_editor.__enter__.return_value = self.clas_editor
 
-        self.clas = MagicMock()
+        self.package_reference = Mock()
+        self.package_reference.name = 'test_package'
+
+        self.clas = MagicMock(reference=self.package_reference)
         self.clas.open_editor.return_value = self.clas_editor
         self.clas.definitions.open_editor.return_value = self.clas_editor
         self.clas.implementations.open_editor.return_value = self.clas_editor
@@ -618,6 +621,16 @@ Writing Clas: {self.clas_object.name} locals_imp
 Writing Clas: {self.clas_object.name} testclasses
 ''')
 
+    def test_checkin_clas_already_exists(self):
+        self.fake_open.return_value = StringIOFile(CLAS_XML)
+        self.clas.create.side_effect = [ExceptionResourceAlreadyExists('Class already exists.'), None]
+
+        sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        self.clas.fetch.assert_called_once()
+        self.clas.delete.assert_called_once()
+        self.clas.create.assert_has_calls([call(None), call(None)])
+
     def test_checkin_clas_with_corrnr(self):
         self.fake_open.return_value = StringIOFile(CLAS_XML)
 
@@ -626,15 +639,37 @@ Writing Clas: {self.clas_object.name} testclasses
         self.clas.create.assert_called_once_with('corrnr')
         self.assert_open_editor_calls([], corrnr='corrnr')
 
-    @patch('sap.cli.checkin.mod_log')
-    def test_checkin_clas_create_error(self, fake_mod_log):
+    def test_checkin_clas_already_exists_with_corrnr(self):
         self.fake_open.return_value = StringIOFile(CLAS_XML)
-        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Clas already created.')
+        self.clas.create.side_effect = [ExceptionResourceAlreadyExists('Class already exists.'), None]
 
-        sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+        sap.cli.checkin.checkin_clas(self.connection, self.clas_object, 'corrnr')
 
-        fake_mod_log.return_value.info.assert_called_once_with('Clas already created.')
-        self.assert_open_editor_calls([])
+        self.clas.fetch.assert_called_once()
+        self.clas.delete.assert_called_once_with('corrnr')
+        self.clas.create.assert_has_calls([call('corrnr'), call('corrnr')])
+
+    def test_checkin_clas_in_different_package(self):
+        self.fake_open.return_value = StringIOFile(CLAS_XML)
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+        self.package_reference.name = 'different_package'
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        self.assertEqual(str(cm.exception),
+                         f'Cannot checkin class {self.clas_object.name} into package {self.package.name}.'
+                         ' It already exists in package different_package.')
+
+    def test_checkin_clas_create_error(self):
+        self.fake_open.return_value = StringIOFile(CLAS_XML)
+        self.clas.create.side_effect = SAPCliError('Class creation failed.')
+
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        self.assertEqual(str(cm.exception), 'Class creation failed.')
+        self.clas.object_editor.assert_not_called()
 
     def test_checkin_clas_source_file_wrong_suffix(self):
         self.fake_open.return_value = StringIOFile(CLAS_XML)
