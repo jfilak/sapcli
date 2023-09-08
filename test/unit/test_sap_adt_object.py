@@ -237,6 +237,31 @@ class TestADTObject(unittest.TestCase):
 
         self.assertEqual(str(caught.exception), 'Not supported mimes: application/something.else+xml not in application/vnd.sap.super.cool.txt+xml;application/vnd.sap.super.cool.txt.v2+xml')
 
+    def test_delete(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+        DummyADTObject(connection=conn, name='dummy').delete()
+
+        self.assertEqual(conn.execs[0].method, 'POST')
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/deletion/delete')
+        self.assertEqual(conn.execs[0].body, b'''<?xml version="1.0" encoding="UTF-8"?>
+<del:deletionRequest xmlns:adtcore="http://www.sap.com/adt/core" xmlns:del="http://www.sap.com/adt/deletion">
+  <del:object adtcore:uri="/sap/bc/adt/awesome/success/dummy">
+    <del:transportNumber></del:transportNumber>
+  </del:object>
+</del:deletionRequest>''')
+
+    def test_delete_with_corrnr(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+        DummyADTObject(connection=conn, name='dummy').delete(corrnr='NPLK900000')
+
+        self.assertEqual(conn.execs[0].method, 'POST')
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/deletion/delete')
+        self.assertEqual(conn.execs[0].body, b'''<?xml version="1.0" encoding="UTF-8"?>
+<del:deletionRequest xmlns:adtcore="http://www.sap.com/adt/core" xmlns:del="http://www.sap.com/adt/deletion">
+  <del:object adtcore:uri="/sap/bc/adt/awesome/success/dummy">
+    <del:transportNumber>NPLK900000</del:transportNumber>
+  </del:object>
+</del:deletionRequest>''')
 
     def test_properties(self):
         victory = DummyADTObject()
