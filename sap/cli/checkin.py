@@ -326,8 +326,20 @@ def checkin_clas(connection, repo_obj, corrnr=None):
 
     try:
         clas.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as exc:
+        mod_log().info('Class already exists. Recreating.')
+        clas.fetch()
+
+        # pylint: disable=no-member
+        if clas.reference.name != repo_obj.package.name:
+            raise sap.adt.errors.ExceptionCheckinFailure(f'Cannot checkin class {repo_obj.name} into package'
+                                                         f' {repo_obj.package.name}. It already exists in package'
+                                                         f' {clas.reference.name}.') from exc
+
+        clas.delete(corrnr)
+        # Recreate class object to avoid stale data, which causes create to fail
+        clas = sap.adt.Class(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
+        clas.create(corrnr)
 
     for source_file in repo_obj.files:
         if not source_file.endswith('.abap'):
