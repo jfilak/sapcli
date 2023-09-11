@@ -1399,24 +1399,24 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.fake_log_info.assert_called_once_with(log_msg)
 
     def test_abap_modifications_disabled_reset(self):
-        self.fake_repo.get_config.return_value = 'false'
+        self.fake_repo.get_config.return_value = ''
 
         with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
-            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "true" ...'),
-                              call('Successfully changed the config VCS_NO_IMPORT = "false" -> "true"')]
+            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "X" ...'),
+                              call('Successfully changed the config VCS_NO_IMPORT = "" -> "X"')]
             self.fake_log_info.assert_has_calls(log_info_calls)
-            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'X')
             self.assertEqual(self.progress.recover_message,
-                             'Please set the configuration option VCS_NO_IMPORT = "false" manually')
+                             'Please set the configuration option VCS_NO_IMPORT = "" manually')
 
-        log_info_calls += [call('Resetting the config VCS_NO_IMPORT = "false" ...'),
-                           call('Successfully reset the config VCS_NO_IMPORT = "false"')]
+        log_info_calls += [call('Resetting the config VCS_NO_IMPORT = "" ...'),
+                           call('Successfully reset the config VCS_NO_IMPORT = ""')]
         self.fake_log_info.assert_has_calls(log_info_calls)
-        self.fake_repo.set_config.assert_called_with('VCS_NO_IMPORT', 'false')
+        self.fake_repo.set_config.assert_called_with('VCS_NO_IMPORT', '')
         self.assertEqual(self.progress.recover_message, None)
 
     def test_abap_modifications_disabled_reset_error(self):
-        self.fake_repo.get_config.return_value = 'false'
+        self.fake_repo.get_config.return_value = ''
 
         with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
             with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
@@ -1424,16 +1424,16 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(cm.exception), 'Set of configuration failed.')
         self.assertEqual(self.progress.recover_message,
-                         'Please set the configuration option VCS_NO_IMPORT = "false" manually')
+                         'Please set the configuration option VCS_NO_IMPORT = "" manually')
 
     def test_abap_modifications_disabled_delete(self):
         self.fake_repo.get_config.return_value = None
 
         with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
-            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "true" ...'),
-                              call('Successfully added the config VCS_NO_IMPORT = "true"')]
+            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "X" ...'),
+                              call('Successfully added the config VCS_NO_IMPORT = "X"')]
             self.fake_log_info.assert_has_calls(log_info_calls)
-            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'X')
             self.assertEqual(self.progress.recover_message,
                              'Please delete the configuration option VCS_NO_IMPORT manually')
 
@@ -1455,26 +1455,26 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
                          'Please delete the configuration option VCS_NO_IMPORT manually')
 
     def test_abap_modifications_disabled_donothing(self):
-        self.fake_repo.get_config.return_value = 'true'
+        self.fake_repo.get_config.return_value = 'X'
 
         with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
-            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "true" ...'),
-                              call('The config VCS_NO_IMPORT was already set to "true"')]
+            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "X" ...'),
+                              call('The config VCS_NO_IMPORT was already set to "X"')]
             self.fake_log_info.assert_has_calls(log_info_calls)
-            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'X')
 
         log_info_calls += [call('The config VCS_NO_IMPORT has not beed changed')]
         self.fake_log_info.assert_has_calls(log_info_calls)
         self.assertEqual(self.progress.recover_message, None)
 
     def test_abap_modifications_disabled_without_progress(self):
-        self.fake_repo.get_config.return_value = 'true'
+        self.fake_repo.get_config.return_value = 'X'
 
         with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo):
-            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "true" ...'),
-                              call('The config VCS_NO_IMPORT was already set to "true"')]
+            log_info_calls = [call('Disabling imports by setting the config VCS_NO_IMPORT = "X" ...'),
+                              call('The config VCS_NO_IMPORT was already set to "X"')]
             self.fake_log_info.assert_has_calls(log_info_calls)
-            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'X')
 
         log_info_calls += [call('The config VCS_NO_IMPORT has not beed changed')]
         self.fake_log_info.assert_has_calls(log_info_calls)

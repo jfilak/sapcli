@@ -62,7 +62,7 @@ def abap_modifications_disabled(repo, progress=None):
     def _donothing(_):
         progress.update('The config VCS_NO_IMPORT has not beed changed')
 
-    tmp_vcs_no_import = 'true'
+    tmp_vcs_no_import = 'X'
 
     progress.update(f'Disabling imports by setting the config VCS_NO_IMPORT = "{tmp_vcs_no_import}" ...')
     # Let's pray for no raceconditions.

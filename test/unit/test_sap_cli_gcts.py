@@ -2300,7 +2300,7 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_repo.pull.assert_called_once()
         fake_dump_msgs.assert_called_once_with(self.console, 'Pull error.')
         self.fake_repo.checkout.assert_has_calls([call(branch), call(old_branch)])
-        self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'true')
+        self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'X')
         self.fake_repo.delete_config.assert_called_once_with('VCS_NO_IMPORT')
         self.assertConsoleContents(
             self.console,
