@@ -25,7 +25,7 @@ class TestADTStructure(unittest.TestCase):
         connection = Connection()
 
         metadata = sap.adt.ADTCoreData(description='Test structure', language='EN', master_language='EN',
-                                       responsible='DEVELOPER')
+                                       responsible='ANZEIGER')
         structure = sap.adt.Structure(connection, STRUCTURE_NAME, package='PACKAGE', metadata=metadata)
         structure.create()
 

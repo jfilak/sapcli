@@ -5,7 +5,7 @@ STRUCTURE_DEFINITION_ADT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
   abapsource:sourceUri="./{STRUCTURE_NAME.lower()}/source/main"
   abapsource:fixPointArithmetic="false"
   abapsource:activeUnicodeCheck="false"
-  adtcore:responsible="DEVELOPER"
+  adtcore:responsible="ANZEIGER"
   adtcore:masterLanguage="EN"
   adtcore:masterSystem="C50"
   adtcore:abapLanguageVersion="standard"
@@ -30,7 +30,7 @@ STRUCTURE_DEFINITION_ADT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
 </blue:blueSource>'''
 
 CREATE_STRUCTURE_ADT_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
-<blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="TABL/DS" adtcore:description="Test structure" adtcore:language="EN" adtcore:name="{STRUCTURE_NAME}" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER" adtcore:version="inactive">
+<blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="TABL/DS" adtcore:description="Test structure" adtcore:language="EN" adtcore:name="{STRUCTURE_NAME}" adtcore:masterLanguage="EN" adtcore:responsible="ANZEIGER" adtcore:version="inactive">
 <adtcore:packageRef adtcore:name="PACKAGE"/>
 </blue:blueSource>'''
 
