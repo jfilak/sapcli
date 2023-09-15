@@ -304,6 +304,9 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 0)
 
+        repo = self.fake_simple_wait_for_operation.mock_calls[0].args[0]
+        clone_test = self.fake_simple_wait_for_operation.mock_calls[0].args[1]
+        self.assertTrue(clone_test(repo))
         self.assertEqual(self.fake_repo.activities.mock_calls[0].args[0].get_params()['type'], 'CLONE')
         self.assertConsoleContents(self.console, stdout=
 '''Clone request responded with an error. Checking clone process ...
@@ -348,7 +351,7 @@ Cloned repository:
         self.fake_repo.activities.assert_called_once()
         self.assertConsoleContents(self.console,
                                    stdout='Clone request responded with an error. Checking clone process ...\n',
-                                   stderr='Expected clone activity not found! Repository: "sample"\n')
+                                   stderr='Expected CLONE activity not found! Repository: "sample"\n')
 
     def test_clone_internal_error_with_wait_get_activity_rc_failed(self):
         fake_response = Mock()

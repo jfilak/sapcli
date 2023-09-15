@@ -121,6 +121,21 @@ def get_repository(connection, package):
     return Repository(connection, package)
 
 
+def get_activity_rc(repo, operation: RepoActivitiesQueryParams.Operation):
+    """Get the return code of the operation"""
+
+    activities_params = RepoActivitiesQueryParams().set_operation(operation.value)
+    try:
+        activities_list = repo.activities(activities_params)
+    except HTTPRequestError as exc:
+        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
+
+    if not activities_list:
+        raise SAPCliError(f'Expected {operation.value} activity not found! Repository: "{repo.rid}"')
+
+    return int(activities_list[0]['rc'])
+
+
 class UserCommandGroup(sap.cli.core.CommandGroup):
     """Container for user commands."""
     commands_wrapper = gcts_exception_handler
@@ -587,21 +602,6 @@ def repolist(connection, args):
     return 0
 
 
-def _get_clone_activity_rc(repo):
-    """Get the return code of the latest clone activity"""
-
-    activities_params = RepoActivitiesQueryParams().set_operation('CLONE')
-    try:
-        activities_list = repo.activities(activities_params)
-    except HTTPRequestError as exc:
-        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
-
-    if not activities_list:
-        raise SAPCliError(f'Expected clone activity not found! Repository: "{repo.rid}"')
-
-    return int(activities_list[0]['rc'])
-
-
 @CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=0)
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--vsid', type=str, nargs='?', default='6IT')
@@ -638,7 +638,7 @@ def clone(connection, args):
             repo = get_repository(connection, args.url)
 
             console.printout('Clone request responded with an error. Checking clone process ...')
-            clone_rc = _get_clone_activity_rc(repo)
+            clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
             if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
                 console.printerr(f'Clone process failed with return code: {clone_rc}!')
                 console.printerr(str(exc))
