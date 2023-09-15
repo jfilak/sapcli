@@ -988,7 +988,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json={'result': self.repo_server_data})
         ])
 
-        sap.rest.gcts.simple.wait_for_clone(repo, 10, None)
+        sap.rest.gcts.simple.wait_for_operation(repo, lambda r: r.is_cloned, 10, None)
         repo.wipe_data.assert_called_once()
         fake_mod_log.return_value.debug.assert_not_called()
 
@@ -1006,7 +1006,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json={'result': self.repo_server_data})
         ])
 
-        sap.rest.gcts.simple.wait_for_clone(repo, 10, None)
+        sap.rest.gcts.simple.wait_for_operation(repo, lambda r: r.is_cloned, 10, None)
         self.assertEqual(repo.wipe_data.mock_calls, [call(), call(), call()])
         fake_mod_log.return_value.debug.assert_called_once_with('Failed to get status of the repository %s', repo.name)
 
@@ -1025,9 +1025,9 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         http_error = HTTPRequestError(None, Response(status_code=500, text='Test HTTP Request Exception'))
 
         with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
-            sap.rest.gcts.simple.wait_for_clone(repo, 2, http_error)
+            sap.rest.gcts.simple.wait_for_operation(repo, lambda r: r.is_cloned, 2, http_error)
 
-        self.assertEqual(str(cm.exception), 'Waiting for the repository to be in READY state timed out\n'
+        self.assertEqual(str(cm.exception), 'Waiting for the operation timed out\n'
                                             '500\nTest HTTP Request Exception')
 
     def test_simple_fetch_no_repo(self):

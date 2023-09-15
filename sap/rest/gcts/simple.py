@@ -31,20 +31,20 @@ def fetch_repos(connection):
     return [Repository(connection, repo['rid'], data=repo) for repo in result]
 
 
-def wait_for_clone(repo, wait_for_ready, http_exc):
-    """Wait for clone process to finish"""
+def wait_for_operation(repo, condition_fn, wait_for_ready, http_exc):
+    """Wait for operation to finish"""
 
     start_time = time.time()
     while time.time() - start_time < wait_for_ready:
         repo.wipe_data()
         try:
-            if repo.is_cloned:
+            if condition_fn(repo):
                 return
 
         except HTTPRequestError:
             _mod_log().debug('Failed to get status of the repository %s', repo.rid)
 
-    raise SAPCliError(f'Waiting for the repository to be in READY state timed out\n{http_exc}')
+    raise SAPCliError(f'Waiting for the operation timed out\n{http_exc}')
 
 
 # pylint: disable=too-many-arguments

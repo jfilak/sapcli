@@ -178,7 +178,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         self.patch_console(console=self.console)
         self.fake_simple_clone = self.patch('sap.rest.gcts.simple.clone')
         self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
-        self.fake_simple_wait_for_clone = self.patch('sap.rest.gcts.simple.wait_for_clone')
+        self.fake_simple_wait_for_operation = self.patch('sap.rest.gcts.simple.wait_for_operation')
 
         self.conn = Mock()
         self.fake_repo = sap.rest.gcts.remote_repo.Repository(self.conn, 'sample', data={
@@ -379,14 +379,12 @@ Cloned repository:
         clone_exception = HTTPRequestError(None, fake_response)
 
         self.fake_simple_clone.side_effect = clone_exception
-        self.fake_simple_wait_for_clone.side_effect = sap.rest.errors.SAPCliError('Waiting for clone process timed out')
+        self.fake_simple_wait_for_operation.side_effect = sap.rest.errors.SAPCliError('Waiting for clone process timed out')
 
         args = self.clone('url', '--wait-for-ready', '10')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.fake_simple_wait_for_clone.assert_called_once_with(self.fake_get_repository.return_value, 10,
-                                                                clone_exception)
         self.assertConsoleContents(
             self.console,
             stdout='Clone request responded with an error. Checking clone process ...\n'

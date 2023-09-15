@@ -646,7 +646,10 @@ def clone(connection, args):
 
             console.printout('Clone process finished successfully. Waiting for repository to be ready ...')
             with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                sap.rest.gcts.simple.wait_for_clone(repo, args.wait_for_ready, exc)
+                def is_clone_done(repo: Repository):
+                    return repo.is_cloned
+
+                sap.rest.gcts.simple.wait_for_operation(repo, is_clone_done, args.wait_for_ready, exc)
 
         else:
             console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
