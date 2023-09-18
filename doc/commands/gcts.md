@@ -59,10 +59,11 @@ sapcli gcts clone [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type
 Checkout branch
 
 ```bash
-sapcli gcts checkout [--format HUMAN|JSON] PACKAGE BRANCH
+sapcli gcts checkout [--format HUMAN|JSON] [--wait-for-ready SECONDS] PACKAGE BRANCH
 ```
 
 **Parameters:**:
+- `--wait-for-ready SECONDS`: Wait for the checkout to finish (repository has switched branch)
 - `--format`: Output format. The JSON format is particularly useful for automations because it contains Transport Request number.
 - `PACKAGE`: Repository name or URL
 - `BRANCH`: Name of the branch to checkout

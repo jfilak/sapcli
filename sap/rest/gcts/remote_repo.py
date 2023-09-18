@@ -199,6 +199,7 @@ class Repository:
         """Repository activity return codes"""
 
         CLONE_SUCCESS = 4
+        BRANCH_SW_SUCCES = 0
 
     def __init__(self, connection, rid, data=None):
         self._http = _RepositoryHttpProxy(connection, rid)
