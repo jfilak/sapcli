@@ -730,6 +730,7 @@ def delete(connection, args):
 
 
 @CommandGroup.argument('-f', '--format', choices=['HUMAN', 'JSON'], default='HUMAN')
+@CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=0)
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('branch')
 @CommandGroup.argument('package')
@@ -741,14 +742,42 @@ def checkout(connection, args):
     console = sap.cli.core.get_console()
     repo = get_repository(connection, args.package)
     old_branch = repo.branch
-    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-        response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
+    from_commit = repo.head
+    try:
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
 
+    except HTTPRequestError as exc:
+        if args.wait_for_ready > 0:
+            repo = get_repository(connection, args.package)
+
+            console.printout('Checkout request responded with an error. Checking checkout process ...')
+            checkout_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.BRANCH_SW)
+            if checkout_rc != Repository.ActivityReturnCode.BRANCH_SW_SUCCES.value:
+                console.printerr(f'Checkout process failed with return code: {checkout_rc}!')
+                console.printerr(str(exc))
+                return 1
+
+            console.printout('Checkout process finished successfully. Waiting for repository to be ready ...')
+            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                def is_checkout_done(repo: Repository):
+                    return repo.branch == args.branch
+
+                sap.rest.gcts.simple.wait_for_operation(repo, is_checkout_done, args.wait_for_ready, exc)
+
+        else:
+            console.printout('Checkout request responded with an error. Checkout "--wait-for-ready" parameter!')
+            console.printerr(str(exc))
+            return 1
+    else:
+        repo.wipe_data()
+
+    to_commit = repo.head
     if args.format.upper() == 'JSON':
         console.printout(sap.cli.core.json_dumps(response))
     else:
         console.printout(f'The repository "{repo.rid}" has been set to the branch "{args.branch}"')
-        console.printout(f'({old_branch}:{response["fromCommit"]}) -> ({args.branch}:{response["toCommit"]})')
+        console.printout(f'({old_branch}:{from_commit}) -> ({args.branch}:{to_commit})')
     return 0
 
 
