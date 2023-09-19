@@ -1,7 +1,8 @@
 """ADT proxy for ABAP DDIC Data Element"""
 
+from sap.errors import SAPCliError
 import sap.adt
-from sap.adt.dataelement import VALIDATION_ISSUE_KEYS
+from sap.adt.dataelement import DataElementValidationIssues
 from sap.adt.errors import ExceptionResourceAlreadyExists
 import sap.cli.object
 import sap.cli.wb
@@ -98,12 +99,25 @@ def define(connection, args):
     dataelement.normalize()
 
     validation_issue_key = dataelement.validate()
-    if validation_issue_key == VALIDATION_ISSUE_KEYS['domain_name_not_defined']:
-        console.printerr('Domain name must be provided (--domain_name) if the type (--type) is "domain"')
-        return
-    if validation_issue_key == VALIDATION_ISSUE_KEYS['data_type_not_defined']:
-        console.printerr('Data type name must be provided (--data_type) if the type (--type) is "predefinedAbapType"')
-        return
+
+    match validation_issue_key:
+        case DataElementValidationIssues.MISSING_DOMAIN_NAME:
+            console.printerr(
+                'Domain name must be provided (--domain_name) if the type (--type) is "domain"')
+
+        case DataElementValidationIssues.MISSING_TYPE_NAME:
+            console.printerr(
+                'Data type name must be provided (--data_type) if the type (--type) is "predefinedAbapType"')
+
+        case DataElementValidationIssues.NO_ISSUE:
+            pass
+
+        case _:
+            raise SAPCliError(
+                f'BUG: please report a forgotten case DataElementValidationIssues({validation_issue_key})')
+
+    if validation_issue_key != DataElementValidationIssues.NO_ISSUE:
+        return 1
 
     # Push Data Element changes
     console.printout(f'Data element {args.name} setup performed')

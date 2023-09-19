@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import call
+from unittest.mock import call, patch, Mock
 from sap.adt.errors import ExceptionResourceAlreadyExists
 
 import sap.cli.dataelement
@@ -43,7 +43,7 @@ class TestDataElementCreate(unittest.TestCase):
         the_cmd = self.data_element_create_cmd(DATA_ELEMENT_NAME, 'Test data element', 'package')
         the_cmd.execute(connection, the_cmd)
 
-        exptected_request = Request(
+        expected_request = Request(
             adt_uri='/sap/bc/adt/ddic/dataelements',
             method='POST',
             headers={'Content-Type': 'application/vnd.sap.adt.dataelements.v2+xml; charset=utf-8'},
@@ -51,7 +51,7 @@ class TestDataElementCreate(unittest.TestCase):
             params=None
         )
 
-        self.assertEqual(connection.execs[0], exptected_request)
+        expected_request.assertEqual(connection.execs[0], self)
 
 
 class TestDataElementActivate(unittest.TestCase):
@@ -146,7 +146,7 @@ class TestDataElementDefine(unittest.TestCase):
             params={'lockHandle': FAKE_LOCK_HANDLE}
         )
 
-        self.assertEqual(connection.execs[2], expected_request_push)
+        expected_request_push.assertEqual(connection.execs[2], self)
 
         expected_request_activate = Request(
             adt_uri='/sap/bc/adt/activation',
@@ -494,3 +494,16 @@ class TestDataElementDefine(unittest.TestCase):
         )
 
         self.assertEqual(connection.execs[4], expected_request_fetch)
+
+    @patch('sap.adt.DataElement')
+    def test_define_element_forgotten_issue(self, mock_data_element):
+        mock_data_element.return_value.validate.return_value = 9999
+
+        the_cmd = self.data_element_define_cmd(DATA_ELEMENT_NAME, 'Test data element', 'package', '--activate', '--no-error-existing', '--type=domain', '--domain_name=ABC', '--label_short=Tst DTEL', '--label_medium=Test Label Medium', '--label_long=Test Label Long', '--label_heading=Test Label Heading')
+
+        with self.assertRaises(SAPCliError) as caught:
+            the_cmd.execute(Mock(), the_cmd)
+
+        self.assertEqual(
+            'BUG: please report a forgotten case DataElementValidationIssues(9999)',
+            str(caught.exception))

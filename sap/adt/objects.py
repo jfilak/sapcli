@@ -233,7 +233,9 @@ class ADTObjectType:
         """
 
         try:
-            return '/' + self._typeuris[mimetype]
+            mimetype_uri = self._typeuris[mimetype]
+
+            return '/' + mimetype_uri if mimetype_uri != '' else ''
         except KeyError:
             # pylint: disable=raise-missing-from
             raise SAPCliError('Object {type} does not support plain \'text\' format')
