@@ -10,7 +10,7 @@
 Create executable program
 
 ```bash
-sapcli include create "ZHELLOWORLD_INC" "Just a description" "$TMP"
+sapcli include create "ZHELLOWORLD_INC" "Just a description" '$TMP'
 ```
 
 ## write
