@@ -14,3 +14,4 @@ from sap.adt.businessservice import ServiceDefinition, ServiceBinding  # noqa: F
 from sap.adt.table import Table  # noqa: F401
 from sap.adt.enhancement_implementation import EnhancementImplementation  # noqa: F401
 from sap.adt.structure import Structure  # noqa: F401
+from sap.adt.dataelement import DataElement  # noqa: F401
