@@ -1,8 +1,14 @@
 """ABAP Data Element ADT functionality module"""
 
-from sap.adt.objects import ADTObject, ADTObjectType, ADTCoreData, ADTObjectSourceEditor
+from enum import Enum
+
+from sap.adt.objects import ADTObject, ADTObjectType, ADTObjectSourceEditor
 # pylint: disable=unused-import
-from sap.adt.annotations import OrderedClassMembers, xml_element, xml_text_node_property
+from sap.adt.annotations import (
+    OrderedClassMembers,
+    xml_text_node_property,
+    XmlNodeProperty,
+)
 from sap.adt.objects import XMLNamespace, XMLNS_ADTCORE
 
 XMLNS_DTEL = XMLNamespace('dtel', 'http://www.sap.com/adt/dictionary/dataelements')
@@ -14,63 +20,45 @@ LABELS_LENGTH = {
     'heading': '55'
 }
 
-VALIDATION_ISSUE_KEYS = {
-    'none': 'none',
-    'domain_name_not_defined': 'domain_name_not_defined',
-    'data_type_not_defined': 'data_type_not_defined'
-}
+
+class DataElementValidationIssues(Enum):
+    """"DataElement validation issues"""
+
+    NO_ISSUE = 0  # DataElement is correctly defined
+    MISSING_DOMAIN_NAME = 1  # DataElement is Domain based by Domain Name was not provided
+    MISSING_TYPE_NAME = 2  # DataElement is created from a predefined type by it was not provided
 
 
-class ADTDataElementData(ADTCoreData):
-    """Data Element nodes data.
-    """
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-few-public-methods
+class DataElementDefinition(metaclass=OrderedClassMembers):
+    """ADT Data Element data collector"""
 
-    # pylint: disable=too-many-instance-attributes
-    # pylint: disable=too-few-public-methods
-    class DataElement(metaclass=OrderedClassMembers):
-        """ADT Data Element data collector"""
-
-        type = xml_text_node_property('dtel:typeKind')
-        type_name = xml_text_node_property('dtel:typeName')
-        data_type = xml_text_node_property('dtel:dataType')
-        data_type_length = xml_text_node_property('dtel:dataTypeLength')
-        data_type_decimals = xml_text_node_property('dtel:dataTypeDecimals')
-        label_short = xml_text_node_property('dtel:shortFieldLabel')
-        label_short_length = xml_text_node_property('dtel:shortFieldLength')
-        label_short_max_length = xml_text_node_property('dtel:shortFieldMaxLength')
-        label_medium = xml_text_node_property('dtel:mediumFieldLabel')
-        label_medium_length = xml_text_node_property('dtel:mediumFieldLength')
-        label_medium_max_length = xml_text_node_property('dtel:mediumFieldMaxLength')
-        label_long = xml_text_node_property('dtel:longFieldLabel')
-        label_long_length = xml_text_node_property('dtel:longFieldLength')
-        label_long_max_length = xml_text_node_property('dtel:longFieldMaxLength')
-        label_heading = xml_text_node_property('dtel:headingFieldLabel')
-        label_heading_length = xml_text_node_property('dtel:headingFieldLength')
-        label_heading_max_length = xml_text_node_property('dtel:headingFieldMaxLength')
-        search_help = xml_text_node_property('dtel:searchHelp')
-        search_help_parameter = xml_text_node_property('dtel:searchHelpParameter')
-        set_get_parameter = xml_text_node_property('dtel:setGetParameter')
-        default_component_name = xml_text_node_property('dtel:defaultComponentName')
-        deactivate_input_history = xml_text_node_property('dtel:deactivateInputHistory')
-        change_document = xml_text_node_property('dtel:changeDocument')
-        left_to_right_direction = xml_text_node_property('dtel:leftToRightDirection')
-        deactivate_bidi_filtering = xml_text_node_property('dtel:deactivateBIDIFiltering')
-
-    # pylint: disable=too-many-arguments
-    def __init__(self, package=None, description=None, language=None,
-                 master_language=None, master_system=None, responsible=None,
-                 package_reference=None, abap_language_version=None):
-        super().__init__(package, description, language,
-                         master_language, master_system, responsible,
-                         package_reference, abap_language_version)
-
-        self._data_element = ADTDataElementData.DataElement()
-
-    @property
-    def data_element(self):
-        """The Data Element's reference"""
-
-        return self._data_element
+    typ = xml_text_node_property('dtel:typeKind')
+    typ_name = xml_text_node_property('dtel:typeName')
+    data_type = xml_text_node_property('dtel:dataType')
+    data_type_length = xml_text_node_property('dtel:dataTypeLength')
+    data_type_decimals = xml_text_node_property('dtel:dataTypeDecimals')
+    label_short = xml_text_node_property('dtel:shortFieldLabel')
+    label_short_length = xml_text_node_property('dtel:shortFieldLength')
+    label_short_max_length = xml_text_node_property('dtel:shortFieldMaxLength')
+    label_medium = xml_text_node_property('dtel:mediumFieldLabel')
+    label_medium_length = xml_text_node_property('dtel:mediumFieldLength')
+    label_medium_max_length = xml_text_node_property('dtel:mediumFieldMaxLength')
+    label_long = xml_text_node_property('dtel:longFieldLabel')
+    label_long_length = xml_text_node_property('dtel:longFieldLength')
+    label_long_max_length = xml_text_node_property('dtel:longFieldMaxLength')
+    label_heading = xml_text_node_property('dtel:headingFieldLabel')
+    label_heading_length = xml_text_node_property('dtel:headingFieldLength')
+    label_heading_max_length = xml_text_node_property('dtel:headingFieldMaxLength')
+    search_help = xml_text_node_property('dtel:searchHelp')
+    search_help_parameter = xml_text_node_property('dtel:searchHelpParameter')
+    set_get_parameter = xml_text_node_property('dtel:setGetParameter')
+    default_component_name = xml_text_node_property('dtel:defaultComponentName')
+    deactivate_input_history = xml_text_node_property('dtel:deactivateInputHistory')
+    change_document = xml_text_node_property('dtel:changeDocument')
+    left_to_right_direction = xml_text_node_property('dtel:leftToRightDirection')
+    deactivate_bidi_filtering = xml_text_node_property('dtel:deactivateBIDIFiltering')
 
 
 class DataElement(ADTObject):
@@ -89,80 +77,69 @@ class DataElement(ADTObject):
         editor_factory=ADTObjectSourceEditor
     )
 
+    definition = XmlNodeProperty('dtel:dataElement')
+
     def __init__(self, connection, name, package=None, metadata=None):
         super().__init__(connection, name, metadata, active_status='inactive')
 
-        self._metadata = ADTDataElementData(
-            metadata.package, metadata.description,
-            metadata.language, metadata.master_language,
-            metadata.master_system, metadata.responsible,
-            metadata.package_reference.name if metadata.package_reference is not None else None,
-            metadata.abap_language_version
-        ) if metadata is not None else ADTDataElementData()
-
         self._metadata.package_reference.name = package
-
-    @xml_element('dtel:dataElement')
-    def data_element(self):
-        """The Data Element's reference"""
-
-        return self._metadata.data_element
+        self.definition = DataElementDefinition()
 
     def set_type(self, value):
         """Setter for Type Kind element"""
 
-        self._metadata.data_element.type = value
+        self.definition.typ = value
 
     def set_type_name(self, value):
         """Setter for Type Name element"""
 
-        self._metadata.data_element.type_name = value.upper() if value is not None else None
+        self.definition.typ_name = value.upper() if value is not None else None
 
     def set_data_type(self, value):
         """Setter for Data Type element"""
 
-        self._metadata.data_element.data_type = value.upper() if value is not None else None
+        self.definition.data_type = value.upper() if value is not None else None
 
     def set_data_type_length(self, value):
         """Setter for Data Type Length element"""
 
-        self._metadata.data_element.data_type_length = value
+        self.definition.data_type_length = value
 
     def set_data_type_decimals(self, value):
         """Setter for Data Type Decimals element"""
 
-        self._metadata.data_element.data_type_decimals = value
+        self.definition.data_type_decimals = value
 
     def set_label_short(self, value):
         """Setter for Label Short element"""
 
-        self._metadata.data_element.label_short = value
+        self.definition.label_short = value
 
     def set_label_medium(self, value):
         """Setter for Label Medium element"""
 
-        self._metadata.data_element.label_medium = value
+        self.definition.label_medium = value
 
     def set_label_long(self, value):
         """Setter for Label Long element"""
 
-        self._metadata.data_element.label_long = value
+        self.definition.label_long = value
 
     def set_label_heading(self, value):
         """Setter for Label Heading element"""
 
-        self._metadata.data_element.label_heading = value
+        self.definition.label_heading = value
 
     def normalize(self):
         """Validate Data Element setup before save"""
-        de = self._metadata.data_element
+        de = self.definition
 
-        if de.type == 'domain':
+        if de.typ == 'domain':
             de.data_type = ''
             de.data_type_length = '0'
             de.data_type_decimals = '0'
-        if de.type == 'predefinedAbapType':
-            de.type_name = ''
+        if de.typ == 'predefinedAbapType':
+            de.typ_name = ''
 
         de.label_short_length = de.label_short_length if not de.label_short_length else LABELS_LENGTH['short']
         de.label_medium_length = de.label_medium_length if not de.label_medium_length else LABELS_LENGTH['medium']
@@ -178,9 +155,9 @@ class DataElement(ADTObject):
     def validate(self):
         """Validate Data Element setup"""
 
-        if self._metadata.data_element.type == 'domain' and not self._metadata.data_element.type_name:
-            return VALIDATION_ISSUE_KEYS['domain_name_not_defined']
-        if self._metadata.data_element.type == 'predefinedAbapType' and not self._metadata.data_element.data_type:
-            return VALIDATION_ISSUE_KEYS['data_type_not_defined']
+        if self.definition.typ == 'domain' and not self.definition.typ_name:
+            return DataElementValidationIssues.MISSING_DOMAIN_NAME
+        if self.definition.typ == 'predefinedAbapType' and not self.definition.data_type:
+            return DataElementValidationIssues.MISSING_TYPE_NAME
 
-        return VALIDATION_ISSUE_KEYS['none']
+        return DataElementValidationIssues.NO_ISSUE

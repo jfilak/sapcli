@@ -24,8 +24,8 @@ class TestADTDataElement(unittest.TestCase):
     def test_data_element_serialize(self):
         connection = Connection()
 
-        metadata = sap.adt.dataelement.ADTDataElementData(description='Test data element', language='EN', master_language='EN',
-                                                          responsible='ANZEIGER')
+        metadata = sap.adt.ADTCoreData(description='Test data element', language='EN', master_language='EN',
+                                       responsible='ANZEIGER')
         data_element = sap.adt.DataElement(connection, DATA_ELEMENT_NAME, package='PACKAGE', metadata=metadata)
         data_element.create()
 
@@ -37,4 +37,5 @@ class TestADTDataElement(unittest.TestCase):
             params=None
         )
 
-        self.assertEqual(connection.execs[0], expected_request)
+        self.maxDiff = None
+        expected_request.assertEqual(connection.execs[0], self)
