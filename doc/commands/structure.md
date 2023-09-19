@@ -1,10 +1,10 @@
-# Table
+# Structure
 
-- [Table](#table)
-	- [create](#create)
-	- [write](#write)
-	- [activate](#activate)
-	- [read](#read)
+- [Structure](#structure)
+  - [create](#create)
+  - [write](#write)
+  - [activate](#activate)
+  - [read](#read)
 
 ## create
 
