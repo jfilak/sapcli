@@ -20,6 +20,7 @@
 18. [flp](commands/flp.md) - Fiori Launchpad
 19. [rap](commands/businessservice.md) - RAP Business Services
 20. [strust](commands/strust.md) - SSL Certificates
-21. [structure](commands/structure.md) - ABAP DDIC structures
-22. [table](commands/table.md) - ABAP DDIC transparent tables
-23. [badi](commands/badi.md) - New style (Enhancements) BAdI operations
+21. [dataelement](commands/dataelement.md) - ABAP DDIC Data Elements
+22. [structure](commands/structure.md) - ABAP DDIC structures
+23. [table](commands/table.md) - ABAP DDIC transparent tables
+24. [badi](commands/badi.md) - New style (Enhancements) BAdI operations
