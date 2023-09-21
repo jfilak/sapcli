@@ -36,10 +36,10 @@ sapcli functiongroup write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corr
 Changes attributes of the given function module.
 
 ```bash
-sapcli functionmodule chattr "ZFG_PARENT" "Z_FUNCTION_MODULE [--type basic|rfc] [--corrnr TRANSPORT]
+sapcli functionmodule chattr "ZFG_PARENT" "Z_FUNCTION_MODULE [--type normal|rfc] [--corrnr TRANSPORT]
 ```
 
-* _--type [basic|rfc]_ could be used to make RFC enabled
+* _--type [normal|rfc]_ could be used to make RFC enabled
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 
 ### activate
