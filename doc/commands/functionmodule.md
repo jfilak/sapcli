@@ -1,10 +1,11 @@
 # Function Module
 
-1. [create](#create)
-2. [chattr](#chattr)
-3. [write](#write)
-4. [activate](#activate)
-5. [read](#read)
+- [Function Module](#function-module)
+	- [create](#create)
+	- [write](#write)
+	- [chattr](#chattr)
+	- [activate](#activate)
+	- [read](#read)
 
 ## create
 
@@ -20,7 +21,7 @@ sapcli functionmodule create ZFG_PARENT Z_FUNCTION_MODULE "Class description"
 Changes main source code of the given function module.
 
 ```
-sapcli functiongroup write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli functionmodule write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
 ```
 
 * _GROUP\_NAME_ either function group name or - when it should be deduced from FILE\_PATH
@@ -36,13 +37,13 @@ sapcli functiongroup write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corr
 Changes attributes of the given function module.
 
 ```bash
-sapcli functionmodule chattr "ZFG_PARENT" "Z_FUNCTION_MODULE [--type normal|rfc] [--corrnr TRANSPORT]
+sapcli functionmodule chattr "ZFG_PARENT" "Z_FUNCTION_MODULE [--processing_type normal|rfc] [--corrnr TRANSPORT]
 ```
 
-* _--type [normal|rfc]_ could be used to make RFC enabled
+* _--processing_type [normal|rfc]_ could be used to make RFC enabled
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 
-### activate
+## activate
 
 Activates the given function module.
 
@@ -50,7 +51,7 @@ Activates the given function module.
 sapcli functionmodule activate ZFG_PARENT Z_FUNCTION_MODULE
 ```
 
-### read
+## read
 
 Download main source codes of the given function module
 
