@@ -103,3 +103,27 @@ FUNCTION_MODULE_CODE_ABAPGIT = '''FUNCTION test_function.
 
 ENDFUNCTION.
 '''
+
+FAKE_LOCK_HANDLE = 'lock_handle'
+
+FUNCTION_GROUP_INCLUDE_ADT_XML='''<?xml version="1.0" encoding="utf-8"?>
+<finclude:abapFunctionGroupInclude abapsource:sourceUri="source/main" adtcore:name="ZFG_I_HELLO_WORLD" adtcore:type="FUGR/I" adtcore:version="active" adtcore:description="Hello FUGR/I!" adtcore:language="EN"
+xmlns:finclude="http://www.sap.com/adt/functions/fincludes"
+xmlns:abapsource="http://www.sap.com/adt/abapsource"
+xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:containerRef adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world" adtcore:type="FUGR/F" adtcore:name="ZFG_HELLO_WORLD" adtcore:packageName="$PACKAGE"/>
+</finclude:abapFunctionGroupInclude>'''
+
+CREATE_FUNCTION_GROUP_INCLUDE_ADT_XML='''<?xml version="1.0" encoding="UTF-8"?>
+<finclude:abapFunctionGroupInclude xmlns:finclude="http://www.sap.com/adt/functions/fincludes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="FUGR/I" adtcore:description="Hello FUGR/I!" adtcore:name="ZFG_I_HELLO_WORLD">
+<adtcore:containerRef adtcore:name="ZFG_HELLO_WORLD" adtcore:type="FUGR/F" adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world"/>
+</finclude:abapFunctionGroupInclude>'''
+
+WRITE_FUNCTION_GROUP_INCLUDE_BODY='''DATA: test_write TYPE string.'''
+
+READ_FUNCTION_GROUP_INCLUDE_BODY='''DATA: test_read TYPE string.'''
+
+ACTIVATE_FUNCTION_GROUP_INCLUDE_BODY = '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:objectReference adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world/includes/zfg_i_hello_world" adtcore:name="ZFG_I_HELLO_WORLD"/>
+</adtcore:objectReferences>'''
