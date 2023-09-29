@@ -9,7 +9,13 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger, config_get
-from sap.rest.errors import HTTPRequestError, UnexpectedResponseContent, UnauthorizedError, TimedOutRequestError
+from sap.rest.errors import (
+    HTTPRequestError,
+    UnexpectedResponseContent,
+    UnauthorizedError,
+    TimedOutRequestError,
+    GCTSConnectionError,
+)
 
 
 KEEPALIVE_CONFIGURED = False
@@ -120,6 +126,8 @@ class Connection:
             res = session.send(req, timeout=self._timeout)
         except requests.exceptions.ConnectTimeout as ex:
             raise TimedOutRequestError(req, self._timeout) from ex
+        except requests.exceptions.ConnectionError as ex:
+            raise GCTSConnectionError(ex.args[-1]) from ex
 
         mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
 

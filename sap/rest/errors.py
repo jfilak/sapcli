@@ -88,3 +88,13 @@ class TimedOutRequestError(SAPCliError):
 
     def __str__(self):
         return repr(self)
+
+
+class GCTSConnectionError(SAPCliError):
+    """Exception for connection errors"""
+
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return f'GCTS connection error: {self.message}'
