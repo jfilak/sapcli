@@ -10,12 +10,12 @@ from requests.auth import HTTPBasicAuth
 
 from sap import get_logger, config_get
 from sap.rest.connection import setup_keepalive
-from sap.adt.errors import new_adt_error_from_xml
+from sap.adt.errors import new_adt_error_from_xml, ADTConnectionError
 from sap.rest.errors import (
     HTTPRequestError,
     UnexpectedResponseContent,
     UnauthorizedError,
-    TimedOutRequestError
+    TimedOutRequestError,
 )
 
 
@@ -172,6 +172,8 @@ class Connection:
             res = session.send(req, timeout=self._timeout)
         except requests.exceptions.ConnectTimeout as ex:
             raise TimedOutRequestError(req, self._timeout) from ex
+        except requests.exceptions.ConnectionError as ex:
+            raise ADTConnectionError(ex.args[-1]) from ex
 
         mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
 

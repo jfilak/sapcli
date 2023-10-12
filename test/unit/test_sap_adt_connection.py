@@ -2,6 +2,7 @@
 
 import unittest
 from unittest.mock import Mock, patch
+from requests.exceptions import ConnectionError
 
 import sap.adt
 import sap.adt.errors
@@ -334,6 +335,16 @@ class TestADTConnection(unittest.TestCase):
 
         resp = self.connection.execute('GET', 'test', headers={'awesome': 'fabulous'})
         self.assertEqual(resp.text, 'success')
+
+    @patch('sap.adt.core.requests.Request')
+    def test_connection_error(self, _):
+        session = Mock()
+        session.send.side_effect = ConnectionError('Wrong creds')
+
+        with self.assertRaises(sap.adt.errors.ADTConnectionError) as cm:
+            self.connection._retrieve(session, 'method', 'url')
+
+        self.assertEqual(str(cm.exception), 'ADT Connection error: Wrong creds')
 
 
 if __name__ == '__main__':
