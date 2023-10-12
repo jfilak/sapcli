@@ -6,6 +6,8 @@ from typing import Any, Dict
 import sap
 import sap.errors
 
+from sap.rfc.errors import RFCLoginError, RFCCommunicationError
+
 
 RFCParams = Dict[str, Any]
 RFCResponse = Dict[str, Any]
@@ -65,7 +67,13 @@ def connect(**kwargs):
     _assert_rfc_availability()
 
     mod_log().info('Connecting via SAP rfc with params %s', kwargs)
-    return SAPRFC_MODULE.Connection(**kwargs)
+    # pylint: disable=protected-access
+    try:
+        return SAPRFC_MODULE.Connection(**kwargs)
+    except SAPRFC_MODULE._exception.LogonError as exc:
+        raise RFCLoginError(exc) from exc
+    except SAPRFC_MODULE._exception.CommunicationError as exc:
+        raise RFCCommunicationError(exc) from exc
 
 
 def try_pyrfc_exception_type():
