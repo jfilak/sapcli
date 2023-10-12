@@ -67,6 +67,17 @@ class ExceptionCheckinFailure(SAPCliError):
         return f'{self.message}'
 
 
+class ADTConnectionError(SAPCliError):
+    """Wrapper for ADT connection errors"""
+
+    def __init__(self, message):
+        super().__init__()
+        self.message = message
+
+    def __str__(self):
+        return f'ADT Connection error: {self.message}'
+
+
 class ExceptionResourceSaveFailure(ADTError):
     """Thin wrapper for the class type of ADTErrors"""
 
