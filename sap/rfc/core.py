@@ -71,9 +71,9 @@ def connect(**kwargs):
     try:
         return SAPRFC_MODULE.Connection(**kwargs)
     except SAPRFC_MODULE._exception.LogonError as exc:
-        raise RFCLoginError(exc) from exc
+        raise RFCLoginError(kwargs['ashost'], kwargs['user'], exc) from exc
     except SAPRFC_MODULE._exception.CommunicationError as exc:
-        raise RFCCommunicationError(exc) from exc
+        raise RFCCommunicationError(kwargs['ashost'], kwargs['user'], exc) from exc
 
 
 def try_pyrfc_exception_type():
