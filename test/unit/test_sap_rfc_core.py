@@ -29,10 +29,10 @@ class TestTryPyRFCExceptionType(unittest.TestCase):
         patch('sap.rfc.core.SAPRFC_MODULE', new=fake_saprfc_module).start()
 
         with self.assertRaises(RFCLoginError) as cm:
-            sap.rfc.core.connect()
+            sap.rfc.core.connect(ashost='host', user='user')
             print('the exception is not raised')
 
-        self.assertEqual(str(cm.exception), 'RFC connection error: Bad login')
+        self.assertEqual(str(cm.exception), 'RFC connection error: [HOST:"host", USER:"user"] Error: Bad login')
 
     def test_pyrfc_communication_error(self):
         class FakeLogonError(Exception):
@@ -52,6 +52,6 @@ class TestTryPyRFCExceptionType(unittest.TestCase):
         patch('sap.rfc.core.SAPRFC_MODULE', new=fake_saprfc_module).start()
 
         with self.assertRaises(RFCCommunicationError) as cm:
-            sap.rfc.core.connect()
+            sap.rfc.core.connect(ashost='host', user='user')
 
-        self.assertEqual(str(cm.exception), 'RFC connection error: Communication error')
+        self.assertEqual(str(cm.exception), 'RFC connection error: [HOST:"host", USER:"user"] Error: Communication error')
