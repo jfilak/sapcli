@@ -23,6 +23,16 @@ def stub_retrieve(response, session, method, url, params=None, headers=None, bod
 
 class TestConnectionExecute(unittest.TestCase):
 
+    def setUp(self):
+        icf_path = '/foo'
+        login_path = '/bar'
+        host = 'books.fr'
+        client = '69'
+        user = 'Arsan'
+        password = 'Emmanuelle'
+
+        self.conn = Connection(icf_path, login_path, host, client, user, password)
+
     @patch('sap.rest.connection.Connection._retrieve')
     def test_unauthorized_error(self, fake_retrieve):
         icf_path = '/foo'
@@ -46,22 +56,46 @@ class TestConnectionExecute(unittest.TestCase):
         self.assertEqual(str(caught.exception), f'Authorization for the user "{user}" has failed: {method} {url}')
 
     @patch('sap.rest.connection.requests.Request')
-    def test_connection_error(self, _):
+    def test_protocol_error(self, _):
         session = Mock()
-        session.send.side_effect = ConnectionError('Wrong creds')
+        session.send.side_effect = ConnectionError('Remote end closed connection without response')
 
-        icf_path = '/foo'
-        login_path = '/bar'
-        host = 'books.fr'
-        client = '69'
-        user = 'Arsan'
-        password = 'Emmanuelle'
         method = 'GET'
         url = '/all'
 
-        conn = Connection(icf_path, login_path, host, client, user, password)
+        with self.assertRaises(GCTSConnectionError) as cm:
+            self.conn._retrieve(session, method, url)
+
+        self.assertEqual(str(cm.exception),
+                         f'GCTS connection error: [HOST:"{self.conn._host}", PORT:"443", '
+                         'SSL:"True"] Error: Remote end closed connection without response')
+
+    @patch('sap.rest.connection.requests.Request')
+    def test_dns_error(self, _):
+        session = Mock()
+        session.send.side_effect = ConnectionError('[Errno -5] Dummy name resolution error')
+
+        method = 'GET'
+        url = '/all'
 
         with self.assertRaises(GCTSConnectionError) as cm:
-            conn._retrieve(session, method, url)
+            self.conn._retrieve(session, method, url)
 
-        self.assertEqual(str(cm.exception), 'GCTS connection error: Wrong creds')
+        self.assertEqual(str(cm.exception),
+                         f'GCTS connection error: [HOST:"{self.conn._host}", PORT:"443", '
+                         'SSL:"True"] Error: Name resolution error. Check the HOST configuration.')
+
+    @patch('sap.rest.connection.requests.Request')
+    def test_connection_error(self, _):
+        session = Mock()
+        session.send.side_effect = ConnectionError('[Errno 111] Dummy connection error')
+
+        method = 'GET'
+        url = '/all'
+
+        with self.assertRaises(GCTSConnectionError) as cm:
+            self.conn._retrieve(session, method, url)
+
+        self.assertEqual(str(cm.exception),
+                         f'GCTS connection error: [HOST:"{self.conn._host}", PORT:"443", '
+                         'SSL:"True"] Error: Cannot connect to the system. Check the HOST and PORT configuration.')
