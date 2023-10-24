@@ -117,6 +117,9 @@ class Connection:
                 port = '80'
         self._ssl_verify = verify
 
+        self._host = host
+        self._port = port
+        self._ssl = ssl
         self._adt_uri = 'sap/bc/adt'
         self._base_url = f'{protocol}://{host}:{port}/{self._adt_uri}'
         self._query_args = f'sap-client={client}&saml2=disabled'
@@ -173,7 +176,8 @@ class Connection:
         except requests.exceptions.ConnectTimeout as ex:
             raise TimedOutRequestError(req, self._timeout) from ex
         except requests.exceptions.ConnectionError as ex:
-            raise ADTConnectionError(ex.args[-1]) from ex
+            msg = str(ex)
+            raise ADTConnectionError(self._host, self._port, self._ssl, msg) from ex
 
         mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
 

@@ -337,14 +337,40 @@ class TestADTConnection(unittest.TestCase):
         self.assertEqual(resp.text, 'success')
 
     @patch('sap.adt.core.requests.Request')
-    def test_connection_error(self, _):
+    def test_protocol_error(self, _):
         session = Mock()
-        session.send.side_effect = ConnectionError('Wrong creds')
+        session.send.side_effect = ConnectionError('Remote end closed connection without response')
 
         with self.assertRaises(sap.adt.errors.ADTConnectionError) as cm:
             self.connection._retrieve(session, 'method', 'url')
 
-        self.assertEqual(str(cm.exception), 'ADT Connection error: Wrong creds')
+        self.assertEqual(str(cm.exception),
+                         f'ADT Connection error: [HOST:"{self.connection._host}", PORT:"{self.connection._port}", '
+                         f'SSL:"{self.connection._ssl}"] Error: Remote end closed connection without response')
+
+    @patch('sap.adt.core.requests.Request')
+    def test_dns_error(self, _):
+        session = Mock()
+        session.send.side_effect = ConnectionError('[Errno -5] Dummy name resolution error.')
+
+        with self.assertRaises(sap.adt.errors.ADTConnectionError) as cm:
+            self.connection._retrieve(session, 'method', 'url')
+
+        self.assertEqual(str(cm.exception),
+                         f'ADT Connection error: [HOST:"{self.connection._host}", PORT:"{self.connection._port}", '
+                         f'SSL:"{self.connection._ssl}"] Error: Name resolution error. Check the HOST configuration.')
+
+    @patch('sap.adt.core.requests.Request')
+    def test_connection_error(self, _):
+        session = Mock()
+        session.send.side_effect = ConnectionError('[Errno 111] Dummy connection error.')
+
+        with self.assertRaises(sap.adt.errors.ADTConnectionError) as cm:
+            self.connection._retrieve(session, 'method', 'url')
+
+        self.assertEqual(str(cm.exception),
+                         f'ADT Connection error: [HOST:"{self.connection._host}", PORT:"{self.connection._port}", '
+                         f'SSL:"{self.connection._ssl}"] Error: Cannot connect to the system. Check the HOST and PORT configuration.')
 
 
 if __name__ == '__main__':
