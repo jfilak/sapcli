@@ -1,6 +1,7 @@
 """ADT SQL Console wrappers"""
 
 import xml.sax
+import html
 from xml.sax.handler import ContentHandler
 
 from sap import get_logger
@@ -66,7 +67,7 @@ class FreeStyleTableXMLHandler(ContentHandler):
 
     def characters(self, content):
         mod_log().debug('XML: data: %s', content)
-        self._datahandler(content)
+        self._datahandler(html.unescape(content))
 
     def endElement(self, name):
         mod_log().debug('XML: %s: CLOSING', name)
@@ -92,7 +93,7 @@ def parse_freestyle_table(freestyle_table_xml, rows):
     """Converts XML results into Python representation"""
 
     xml_handler = FreeStyleTableXMLHandler(rows)
-    xml.sax.parseString(freestyle_table_xml, xml_handler)
+    xml.sax.parseString(wrap_xml_data_content_with_cdata(freestyle_table_xml), xml_handler)
 
     return xml_handler.table
 
@@ -101,6 +102,15 @@ def freestyle_table_params(rows, aging):
     """Returns parameters for OpenSQL freestyle request"""
 
     return {'rowNumber': str(rows), 'dataAging': str(aging).lower()}
+
+
+def wrap_xml_data_content_with_cdata(freestyle_table_xml):
+    """Wraps content in <dataPreview:data>...</dataPreview:data> with
+    <dataPreview:data><![CDATA[...]]></dataPreview:data>
+    to be able to process specail characters in string (&, <, >, ...)"""
+
+    return freestyle_table_xml.replace('<dataPreview:data>', '<dataPreview:data><![CDATA[')\
+                              .replace('</dataPreview:data>', ']]></dataPreview:data>')
 
 
 class DataPreview:

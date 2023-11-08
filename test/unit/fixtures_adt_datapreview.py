@@ -21,7 +21,7 @@ ADT_XML_FREESTYLE_TABLE_T000='''<?xml version="1.0" encoding="UTF-8"?>
   <dataPreview:columns>
     <dataPreview:metadata dataPreview:name="ORT01" dataPreview:type="C" dataPreview:description="ORT01" dataPreview:keyAttribute="false" dataPreview:colType="" dataPreview:isKeyFigure="false"/>
     <dataPreview:dataSet>
-      <dataPreview:data>Walldorf</dataPreview:data>
+      <dataPreview:data>Walldorf &amp; Brno &lt; London</dataPreview:data>
       <dataPreview:data>Walldorf</dataPreview:data>
     </dataPreview:dataSet>
   </dataPreview:columns>
