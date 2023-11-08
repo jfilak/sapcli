@@ -36,7 +36,7 @@ class TestFreeStyleTableParseResults(unittest.TestCase):
                                     'MANDT': '000',
                                     'MTEXT': 'SAP SE',
                                     'MWAER': 'EUR',
-                                    'ORT01': 'Walldorf'},
+                                    'ORT01': 'Walldorf & Brno < London'},
                                    {'ADRNR': '',
                                     'CCCATEGORY': 'C',
                                     'CCCOPYLOCK': '',

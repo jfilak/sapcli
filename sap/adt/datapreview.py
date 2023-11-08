@@ -38,7 +38,8 @@ class FreeStyleTableXMLHandler(ContentHandler):
             i += 1
 
     def _assigncolumn(self, content):
-        self._row[self._column] = content
+        chunk = self._row.get(self._column, '')
+        self._row[self._column] = chunk + content
 
     def _grow_table_by_one_row(self):
         extra_row = {}
