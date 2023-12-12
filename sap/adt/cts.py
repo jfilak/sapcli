@@ -390,7 +390,9 @@ class WorkbenchTask(AbstractWorkbenchRequest):
     def _create_request(self):
         """Create the request"""
 
-        return (f'cts/transportrequests/{self.transport}/tasks', f'''<?xml version="1.0" encoding="ASCII"?>
+        return (f'cts/transportrequests/{self.transport}/tasks',
+                # pylint: disable=line-too-long
+                f'''<?xml version="1.0" encoding="ASCII"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="{self.transport}" tm:targetuser="{self.owner}" tm:useraction="newtask"/>
 ''')
 
@@ -423,6 +425,7 @@ class WorkbenchTask(AbstractWorkbenchRequest):
         self._connection.execute(
             'PUT',
             self.uri,
+            # pylint: disable=line-too-long
             body=f'''<?xml version="1.0" encoding="ASCII"?>
 <tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:number="{self._number}" tm:useraction="removeobject">
   <tm:request>
