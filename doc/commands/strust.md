@@ -67,7 +67,7 @@ sapcli strust removepse [-i|--identity IDENTITY] [-s|--storage STORAGE]
 
 ## createidentity
 
-Creates a new (or replaces an existing) STRUSTR Identity. The description will be store under the current users
+Creates a new (or replaces an existing) STRUST Identity. The description will be store under the current users
 language settings.
 
 ```bash

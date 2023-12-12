@@ -145,7 +145,7 @@ def createpse(connection, args):
 
 
 @CommandGroup.argument('-d', '--description', type=str, help='Identity description')
-@CommandGroup.argument('--overwrite', help='Overwrite the existing PSE file', action='store_true', default=False)
+@CommandGroup.argument('--overwrite', help='Overwrite the existing STRUST Identity', action='store_true', default=False)
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
                        choices=[CLIENT_ANONYMOUS, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None,
