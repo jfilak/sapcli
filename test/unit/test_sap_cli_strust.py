@@ -108,7 +108,7 @@ class TestAddAllFiles(unittest.TestCase):
 
         #print(mock_file.mock_calls)
 
-        self.assertEquals(
+        self.assertEqual(
             mock_file.mock_calls,
             [call('/path/1', 'rb'),
              call().__enter__(),
@@ -121,7 +121,7 @@ class TestAddAllFiles(unittest.TestCase):
 
         #print(mock_connection.call.call_args_list)
 
-        self.assertEquals(
+        self.assertEqual(
             self.mock_connection.call.call_args_list,
             [call('SSFR_PSE_CHECK',
                   IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
@@ -230,7 +230,7 @@ dGVzdF93aXRoX2NlcnRpZmljYXRl
 
         # print(self.mock_connection.call.call_args_list)
 
-        self.assertEquals(
+        self.assertEqual(
             self.mock_connection.call.call_args_list,
             [call('SSFR_PSE_CHECK',
                   IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),
@@ -276,7 +276,7 @@ dGVzdF93aXRoX3NlY29uZF9jZXJ0aWZpY2F0ZQ==
 
         # print(self.mock_connection.call.call_args_list)
 
-        self.assertEquals(
+        self.assertEqual(
             self.mock_connection.call.call_args_list,
             [call('SSFR_PSE_CHECK',
                   IS_STRUST_IDENTITY={'PSE_CONTEXT': 'SSLC', 'PSE_APPLIC': 'DFAULT'}),

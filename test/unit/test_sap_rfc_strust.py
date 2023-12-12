@@ -74,12 +74,14 @@ class TestSSLCertStorage(unittest.TestCase):
         self.assertIs(self.ssl_storage._connection, self.connection)
         self.assertEqual(self.ssl_storage.identity['PSE_CONTEXT'], self.pse_context)
         self.assertEqual(self.ssl_storage.identity['PSE_APPLIC'], self.pse_applic)
+        self.assertEqual(self.ssl_storage.description['PSE_DESCRIPT'], self.pse_description)
+        self.assertEqual(self.ssl_storage.description['SPRSL'], '1')
 
     def test_repr(self):
-        self.assertEquals(repr(self.ssl_storage), f'SSL Storage {self.pse_context}/{self.pse_applic}')
+        self.assertEqual(repr(self.ssl_storage), f'SSL Storage {self.pse_context}/{self.pse_applic}')
 
     def test_str(self):
-        self.assertEquals(str(self.ssl_storage), f'SSL Storage {self.pse_context}/{self.pse_applic}')
+        self.assertEqual(str(self.ssl_storage), f'SSL Storage {self.pse_context}/{self.pse_applic}')
 
     def test_exists_raises(self):
         self.connection.set_responses([{
@@ -260,7 +262,7 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assert_rfc_call('SSFR_PUT_CERTIFICATE', **expected_call_arguments)
 
-        self.assertEquals(str(cm.exception),
+        self.assertEqual(str(cm.exception),
                           f'Failed to put the CERT to the SSL Storage {self.pse_context}/{self.pse_applic}: '
                           'Put has failed')
 
