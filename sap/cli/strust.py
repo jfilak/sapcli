@@ -70,7 +70,12 @@ def _get_ssl_storage_from_args(connection, args):
     if identity is None:
         raise SAPCliError('Neither -i nor -s was provided.')
 
-    return SSLCertStorage(connection, identity.pse_context, identity.pse_applic)
+    return SSLCertStorage(
+        connection,
+        identity.pse_context,
+        identity.pse_applic,
+        description=getattr(args, 'description', None)
+    )
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -112,7 +117,9 @@ def listidentities(connection, args):
                        help='Distinguished Name (LDAP DN) of PSE file if no other system info provided')
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
                        choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
-@CommandGroup.argument('-i', '--identity', default=None, help='Mutually exclusive with the option -s',)
+@CommandGroup.argument('-i', '--identity', default=None,
+                       help='Mutually exclusive with the option -s. '
+                       'The identity must match the pattern <PSE_CONTEXT>/<PSE_APPLIC>')
 @CommandGroup.command()
 def createpse(connection, args):
     """Creates the specified PSE file.
@@ -124,7 +131,7 @@ def createpse(connection, args):
         sap.cli.core.printout(f'Nothing to do - the PSE {ssl_storage.identity} already exists')
         return 0
 
-    ssl_storage.create(
+    ssl_storage.create_pse(
         alg=PSE_ALGORITHM_MAPPING[args.algorithm],
         keylen=args.key_length,
         dn=args.dn,
@@ -134,6 +141,26 @@ def createpse(connection, args):
     notify_icm_changed_pse(connection)
 
     sap.cli.core.printout(f'Done - the PSE {ssl_storage.identity} has been created')
+    return 0
+
+
+@CommandGroup.argument('-d', '--description', type=str, help='Identity description')
+@CommandGroup.argument('--overwrite', help='Overwrite the existing PSE file', action='store_true', default=False)
+@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
+                       choices=[CLIENT_ANONYMOUS, CLIENT_STANDARD, SERVER_STANDARD, ])
+@CommandGroup.argument('-i', '--identity', default=None,
+                       help='Mutually exclusive with the option -s. '
+                       'The identity must match the pattern <PSE_CONTEXT>/<PSE_APPLIC>')
+@CommandGroup.command()
+def createidentity(connection, args):
+    """Creates the specified Identity.
+    """
+
+    ssl_storage = _get_ssl_storage_from_args(connection, args)
+
+    ssl_storage.create_identity(replace=args.overwrite)
+
+    sap.cli.core.printout(f'Done - the Identity {ssl_storage.identity} has been created')
     return 0
 
 
@@ -255,7 +282,7 @@ def putcertificate(connection, args):
     for ssl_storage in ssl_storages:
 
         if not ssl_storage.exists():
-            ssl_storage.create(
+            ssl_storage.create_pse(
                 alg=args.algorithm,
                 keylen=args.key_length,
                 dn=args.dn
