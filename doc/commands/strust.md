@@ -21,6 +21,7 @@ List of available `Storages`:
 1. [list](#list)
 2. [createpse](#createpse)
 3. [removepse](#removepse)
+2. [createidentity](#createidentity)
 4. [getcsr](#getcsr)
 5. [putpkc](#putpkc)
 6. [upload](#upload)
@@ -63,6 +64,21 @@ sapcli strust removepse [-i|--identity IDENTITY] [-s|--storage STORAGE]
 **Parameters**:
 - `--identity`: STRUST identity (PSE context + PSE application). **(Mutually exclusive with the option --storage)**
 - `--storage`: Predefined STRUST identities. **(Mutually exclusive with the option --identity)**
+
+## createidentity
+
+Creates a new (or replaces an existing) STRUSTR Identity. The description will be store under the current users
+language settings.
+
+```bash
+sapcli strust createidentity [-i|--identity IDENTITY] [-s|--storage STORAGE] [-d|--description DESCRIPTION] [--overwrite]
+```
+
+**Parameters**:
+- `--identity`: STRUST identity (PSE context + PSE application). **(Mutually exclusive with the option --storage)**
+- `--storage`: Predefined STRUST identities. **(Mutually exclusive with the option --identity)**
+- `--description`: Identity Description. **(optional)**
+- `--overwrite`: Overwrite the existing Identity, default is `False`. **(optional)**
 
 # getcsr
 

@@ -522,7 +522,7 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual('User either -i or -s but not both.', str(caught.exception))
 
-    @patch('sap.rfc.strust.SSLCertStorage.create', side_effect=Exception)
+    @patch('sap.rfc.strust.SSLCertStorage.create_pse', side_effect=Exception)
     @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=True)
     def test_storage_ok_exists(self, fake_exists, fake_create):
         identity = {
@@ -536,7 +536,7 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
         fake_create.assert_not_called()
         self.assertConsoleContents(console=self.console, stdout=f'Nothing to do - the PSE {identity} already exists\n')
 
-    @patch('sap.rfc.strust.SSLCertStorage.create', side_effect=Exception)
+    @patch('sap.rfc.strust.SSLCertStorage.create_pse', side_effect=Exception)
     @patch('sap.rfc.strust.SSLCertStorage.exists', return_value=True)
     def test_identity_ok_exists(self, fake_exists, fake_create):
         identity = {
@@ -552,7 +552,7 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertConsoleContents(console=self.console, stdout=f'Nothing to do - the PSE {identity} already exists\n')
 
-    @patch.object(sap.rfc.strust.SSLCertStorage, 'create', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'create_pse', autospec=True)
     @patch.object(sap.rfc.strust.SSLCertStorage, 'exists', autospec=True)
     def test_storage_ok_create(self, fake_exists, fake_create):
         fake_exists.return_value = False
@@ -560,7 +560,7 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
         self.createpse('-s', 'server_standard', '--dn', self.fixture_nice_dn)
         self.assert_defaults_for_server_standard(fake_exists, fake_create)
 
-    @patch.object(sap.rfc.strust.SSLCertStorage, 'create', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'create_pse', autospec=True)
     @patch.object(sap.rfc.strust.SSLCertStorage, 'exists', autospec=True)
     def test_identity_ok_create(self, fake_exists, fake_create):
         fake_exists.return_value = False
@@ -568,7 +568,7 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
         self.createpse('-i', 'SSLS/DFAULT', '--dn', self.fixture_nice_dn)
         self.assert_defaults_for_server_standard(fake_exists, fake_create)
 
-    @patch.object(sap.rfc.strust.SSLCertStorage, 'create', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'create_pse', autospec=True)
     @patch.object(sap.rfc.strust.SSLCertStorage, 'exists', autospec=True)
     def test_storage_ok_create_overwrite(self, fake_exists, fake_create):
         fake_exists.return_value = True
@@ -576,7 +576,7 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
         self.createpse('-s', 'server_standard', '--dn', 'CN=SuccessfulExists, OU=Victory, O=Cool, C=CZ', '--overwrite')
         self.assert_defaults_for_server_standard(fake_exists, fake_create, replace=True)
 
-    @patch.object(sap.rfc.strust.SSLCertStorage, 'create', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'create_pse', autospec=True)
     @patch.object(sap.rfc.strust.SSLCertStorage, 'exists', autospec=True)
     def test_identity_ok_create_overwrite(self, fake_exists, fake_create):
         fake_exists.return_value = True
@@ -584,7 +584,7 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
         self.createpse('-i', 'SSLS/DFAULT', '--dn', 'CN=SuccessfulExists, OU=Victory, O=Cool, C=CZ', '--overwrite')
         self.assert_defaults_for_server_standard(fake_exists, fake_create, replace=True)
 
-    @patch.object(sap.rfc.strust.SSLCertStorage, 'create', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'create_pse', autospec=True)
     @patch.object(sap.rfc.strust.SSLCertStorage, 'exists', autospec=True)
     def test_storage_ok_create_all(self, fake_exists, fake_create):
         fake_exists.return_value = False
@@ -592,7 +592,7 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
         self.createpse('-s', 'server_standard', '-l', 'RSA', '-k', '4096', '--dn', self.fixture_nice_dn)
         self.assert_defaults_for_server_standard(fake_exists, fake_create, alg='R', keylen=4096)
 
-    @patch.object(sap.rfc.strust.SSLCertStorage, 'create', autospec=True)
+    @patch.object(sap.rfc.strust.SSLCertStorage, 'create_pse', autospec=True)
     @patch.object(sap.rfc.strust.SSLCertStorage, 'exists', autospec=True)
     def test_identity_ok_create_all(self, fake_exists, fake_create):
         fake_exists.return_value = False
@@ -1029,6 +1029,67 @@ dGVzdF9nZXRfb3duX2NlcnRpZmljYXRl
 -----END CERTIFICATE-----
 ''')
 
+
+class TestCreateIdentity(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.mock_connection = Mock()
+        self.mock_connection.call = Mock()
+        self.fixture_nice_dn = 'CN=SuccessfulExists, OU=Victory, O=Cool, C=CZ'
+
+    def createidentity(self, *test_args):
+        cmd_args = parse_args('createidentity', *test_args)
+        cmd_args.execute(self.mock_connection, cmd_args)
+
+    def test_createidentity_with_storage_ok(self):
+        self.mock_connection.call.return_value = {'ET_BAPIRET2':[]}
+
+        self.createidentity('-s', 'server_standard', '--description', 'Identity Description')
+
+        self.mock_connection.call.assert_called_once_with(
+            'SSFR_IDENTITY_CREATE',
+            IS_STRUST_IDENTITY={
+                'PSE_CONTEXT': 'SSLS',
+                'PSE_APPLIC': 'DFAULT',
+                'PSE_DESCRIPT': 'Identity Description',
+            },
+            IV_REPLACE_EXISTING_APPL='-',
+        )
+
+    def test_createidentity_with_identity_ok(self):
+        self.mock_connection.call.return_value = {'ET_BAPIRET2':[]}
+
+        self.createidentity('-i', 'SSLC/100_SD', '--description', 'Identity Description')
+
+        self.mock_connection.call.assert_called_once_with(
+            'SSFR_IDENTITY_CREATE',
+            IS_STRUST_IDENTITY={
+                'PSE_CONTEXT': 'SSLC',
+                'PSE_APPLIC': '100_SD',
+                'PSE_DESCRIPT': 'Identity Description',
+            },
+            IV_REPLACE_EXISTING_APPL='-',
+        )
+
+    def test_createidentity_with_replace_ok(self):
+        self.mock_connection.call.return_value = {'ET_BAPIRET2':[]}
+
+        self.createidentity('-s', 'server_standard', '--description', 'Identity Description', '--overwrite')
+
+        self.mock_connection.call.assert_called_once_with(
+            'SSFR_IDENTITY_CREATE',
+            IS_STRUST_IDENTITY={
+                'PSE_CONTEXT': 'SSLS',
+                'PSE_APPLIC': 'DFAULT',
+                'PSE_DESCRIPT': 'Identity Description',
+            },
+            IV_REPLACE_EXISTING_APPL='X',
+        )
 
 
 if __name__ == '__main__':

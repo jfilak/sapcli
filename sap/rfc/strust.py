@@ -1,5 +1,6 @@
 """SAP STRUST utilities"""
 
+from sap.platform.language import iso_code_to_sap_code
 from sap.rfc.bapi import (
     BAPIReturn,
     BAPIError
@@ -40,6 +41,13 @@ PSE_ALGORITHM_MAPPING = {
                  # but we cannot pass it via the RFC FM SSFR_PSE_CREATE
     'DSA': 'D'
 }
+
+
+class InvalidSSLIdentity(Exception):
+    """Invalid SSL Identity errors"""
+
+    # pylint: disable=unnecessary-pass
+    pass
 
 
 class UploadCertError(Exception):
@@ -106,12 +114,19 @@ class PKCResponseABAPData:
 class SSLCertStorage:
     """SAP STRUST representation"""
 
-    def __init__(self, connection, pse_context, pse_applic):
+    def __init__(self, connection, pse_context, pse_applic, description=None, lang_iso_code=None):
         self._connection = connection
         self.identity = {
             'PSE_CONTEXT': pse_context,
             'PSE_APPLIC': pse_applic
         }
+
+        self.description = {
+            'PSE_DESCRIPT': description
+        }
+
+        if lang_iso_code:
+            self.description['SPRSL'] = iso_code_to_sap_code(lang_iso_code)
 
     def __repr__(self):
         return 'SSL Storage {PSE_CONTEXT}/{PSE_APPLIC}'.format(**self.identity)
@@ -148,7 +163,7 @@ class SSLCertStorage:
         return True
 
     # pylint: disable=invalid-name
-    def create(self, alg='R', keylen=2048, replace=False, dn=None):
+    def create_pse(self, alg='R', keylen=2048, replace=False, dn=None):
         """Create storage"""
 
         create_params = {
@@ -166,6 +181,27 @@ class SSLCertStorage:
         ret = stat['ET_BAPIRET2']
         if ret:
             raise InvalidSSLStorage(str(ret))
+
+    def create_identity(self, replace=False):
+        """Creates PSE Application Identity"""
+
+        create_params = self.identity | self.description
+
+        stat = self._connection.call(
+            'SSFR_IDENTITY_CREATE',
+            IS_STRUST_IDENTITY=create_params,
+            IV_REPLACE_EXISTING_APPL='X' if replace else '-'
+        )
+
+        ret = stat['ET_BAPIRET2']
+        if ret:
+            raise InvalidSSLIdentity(str(ret))
+
+    def create(self, alg='R', keylen=2048, replace=False, dn=None):
+        """Creates Application Identity and PSE file"""
+
+        self.create_identity(replace=replace)
+        self.create_pse(alg=alg, keylen=keylen, replace=replace, dn=dn)
 
     def remove(self):
         """Remove storage aka PSE"""
@@ -224,7 +260,7 @@ class SSLCertStorage:
         if msgtype == 'E' and msgno == '522':
             message = ret[0]['MESSAGE']
             return f'SSFR_PUT_CERTIFICATE reported Error 522 - ' \
-                   f'probably already exists (check manually): {message}'
+                f'probably already exists (check manually): {message}'
 
         raise PutCertificateError(
             f'Failed to put the CERT to the {str(self)}: {ret[0]["MESSAGE"]}'
