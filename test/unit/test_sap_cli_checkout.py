@@ -50,7 +50,7 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['class', 'ZCL_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEquals(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE'), call(conn, 'ZCL_UPPERCASE')])
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE'), call(conn, 'ZCL_UPPERCASE')])
 
     @patch('sap.cli.checkout.checkout_interface')
     def test_checkout_uppercase_name_intf(self, fake_intf):

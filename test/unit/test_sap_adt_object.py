@@ -47,19 +47,19 @@ class TestADTObject(unittest.TestCase):
     def test_uri(self):
         victory = DummyADTObject()
 
-        self.assertEquals(victory.uri, 'awesome/success/noobject')
+        self.assertEqual(victory.uri, 'awesome/success/noobject')
 
     def test_str(self):
         victory = DummyADTObject(name='objname')
 
-        self.assertEquals(str(victory), 'DUMMY/S objname')
+        self.assertEqual(str(victory), 'DUMMY/S objname')
 
     def test_lock_modify_ok(self):
         connection = Connection([LOCK_RESPONSE_OK, LOCK_RESPONSE_OK])
 
         victory = DummyADTObject(connection=connection)
         handle = victory.lock()
-        self.assertEquals(handle, 'win')
+        self.assertEqual(handle, 'win')
 
         self.assertEqual([(e.method, e.adt_uri) for e in connection.execs], [('POST', '/sap/bc/adt/awesome/success/noobject')])
 
@@ -73,7 +73,7 @@ class TestADTObject(unittest.TestCase):
         self.assertEqual(lock_request.headers['Accept'], 'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8, application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9')
 
         handle = victory.lock()
-        self.assertEquals(handle, 'win')
+        self.assertEqual(handle, 'win')
 
     def test_lock_modify_invalid(self):
         response = Response(text='invalid',
@@ -88,13 +88,13 @@ class TestADTObject(unittest.TestCase):
             victory.lock()
             self.assertFail('Exception was expected')
         except SAPCliError as ex:
-            self.assertEquals(str(ex), f'Object {victory.uri}: lock response does not have lock result\ninvalid')
+            self.assertEqual(str(ex), f'Object {victory.uri}: lock response does not have lock result\ninvalid')
 
         try:
             victory.lock()
             self.assertFail('Exception was expected')
         except SAPCliError as ex:
-            self.assertEquals(str(ex), f'Object {victory.uri}: lock response does not have lock result\ninvalid')
+            self.assertEqual(str(ex), f'Object {victory.uri}: lock response does not have lock result\ninvalid')
 
     def test_unlock_ok(self):
         connection = Connection([LOCK_RESPONSE_OK, None])
@@ -123,7 +123,7 @@ class TestADTObject(unittest.TestCase):
         try:
             victory.unlock('NOTLOCKED')
         except SAPCliError as ex:
-            self.assertEquals(str(ex), f'Object {victory.uri}: not locked')
+            self.assertEqual(str(ex), f'Object {victory.uri}: not locked')
 
         self.assertEqual(
             [(e.method, e.adt_uri) for e in connection.execs],

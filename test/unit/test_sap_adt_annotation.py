@@ -71,10 +71,10 @@ class TestADTAnnotation(unittest.TestCase):
 
     def test_xml_attribute_decorator(self):
         victory = DummyClass('initial')
-        self.assertEquals(victory.value, 'initial')
+        self.assertEqual(victory.value, 'initial')
 
         victory.value = 'updated'
-        self.assertEquals(victory.value, 'updated')
+        self.assertEqual(victory.value, 'updated')
 
     def test_xml_attribute_version(self):
         deserialized = xml_attribute('versioned')
@@ -102,10 +102,10 @@ class TestADTAnnotation(unittest.TestCase):
 
     def test_xml_element_decorator(self):
         victory = ElementClass(DummyClass('initial'))
-        self.assertEquals(victory.dummy.value, 'initial')
+        self.assertEqual(victory.dummy.value, 'initial')
 
         victory.dummy = DummyClass('updated')
-        self.assertEquals(victory.dummy.value, 'updated')
+        self.assertEqual(victory.dummy.value, 'updated')
 
     def test_xml_element_deserialize(self):
         deserialized = xml_element('deserialized')

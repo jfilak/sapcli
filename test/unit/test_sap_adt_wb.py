@@ -197,8 +197,8 @@ class TestADTWBFetchInactive(unittest.TestCase):
 
         my_inactive_objects = sap.adt.wb.fetch_inactive_objects(conn)
 
-        self.assertEquals(my_inactive_objects.entries[0].transport.reference.name, 'C50K000377')
-        self.assertEquals(my_inactive_objects.entries[1].object.reference.name, 'CL_HELLO_WORLD')
+        self.assertEqual(my_inactive_objects.entries[0].transport.reference.name, 'C50K000377')
+        self.assertEqual(my_inactive_objects.entries[1].object.reference.name, 'CL_HELLO_WORLD')
 
 
 class TestADTWBTryMassActivate(unittest.TestCase):

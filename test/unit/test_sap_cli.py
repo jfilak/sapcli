@@ -16,7 +16,7 @@ class TestModule(unittest.TestCase):
         self.assertTrue(commands, msg='Some commands should be registered')
 
         for idx, cmd in enumerate(commands):
-            self.assertEquals(len(cmd), 2,
+            self.assertEqual(len(cmd), 2,
                 msg='The command should be 2 tuple - Command: ' + str(idx))
 
             self.assertTrue(callable(cmd[0]),
