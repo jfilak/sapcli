@@ -105,14 +105,24 @@ class TestSSLCertStorage(unittest.TestCase):
 
         self.assertEqual(self.ssl_storage.identity['PSE_CONTEXT'], self.pse_context)
         self.assertEqual(self.ssl_storage.identity['PSE_APPLIC'], self.pse_applic)
-        self.assertEqual(self.ssl_storage.description['PSE_DESCRIPT'], None)
-        self.assertEqual(len(self.ssl_storage.description), 1)
+        self.assertEqual(len(self.ssl_storage.description), 0)
 
     def test_ctor_with_description_and_lang(self):
         self.assertIs(self.ssl_storage._connection, self.connection)
         self.assertEqual(self.ssl_storage.identity['PSE_CONTEXT'], self.pse_context)
         self.assertEqual(self.ssl_storage.identity['PSE_APPLIC'], self.pse_applic)
         self.assertEqual(self.ssl_storage.description['PSE_DESCRIPT'], self.pse_description)
+        self.assertEqual(self.ssl_storage.description['SPRSL'], '1')
+
+    def test_ctor_with_description_and_lang_from_locale(self):
+        with patch('sap.rfc.strust.locale_lang_sap_code', return_value='1') as fake_locale_lang_sap_code:
+            self.ssl_storage = SSLCertStorage(
+                    self.connection,
+                    self.pse_context,
+                    self.pse_applic,
+                    description=self.pse_description)
+
+        fake_locale_lang_sap_code.assert_called_once_with()
         self.assertEqual(self.ssl_storage.description['SPRSL'], '1')
 
     def test_repr(self):
