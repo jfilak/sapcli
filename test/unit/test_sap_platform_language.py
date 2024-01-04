@@ -20,6 +20,9 @@ class TestSAPPlatformLanguageCodes(unittest.TestCase):
     def test_iso_code_to_sap_code_ok(self):
         self.assertEqual(sap.platform.language.iso_code_to_sap_code('EN'), 'E')
 
+    def test_iso_code_to_sap_code_lower_ok(self):
+        self.assertEqual(sap.platform.language.iso_code_to_sap_code('en'), 'E')
+
     def test_iso_code_to_sap_code_not_found(self):
         with self.assertRaises(sap.errors.SAPCliError) as raised:
             sap.platform.language.iso_code_to_sap_code('#')
