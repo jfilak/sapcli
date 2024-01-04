@@ -66,6 +66,7 @@ def sap_code_to_iso_code(sap_code: str) -> str:
 def iso_code_to_sap_code(iso_code: str) -> str:
     """Coverts ISO codes to one letter SAP language codes"""
 
+    iso_code = iso_code.upper()
     try:
         return next((entry[1] for entry in CODE_LIST if entry[0] == iso_code))
     except StopIteration:
