@@ -71,13 +71,14 @@ Creates a new (or replaces an existing) STRUST Identity. The description will be
 language settings.
 
 ```bash
-sapcli strust createidentity [-i|--identity IDENTITY] [-s|--storage STORAGE] [-d|--description DESCRIPTION] [--overwrite]
+sapcli strust createidentity [-i|--identity IDENTITY] [-s|--storage STORAGE] [-d|--description DESCRIPTION] [-l|--language-iso-code LANG-ISO-639] [--overwrite]
 ```
 
 **Parameters**:
 - `--identity`: STRUST identity (PSE context + PSE application). **(Mutually exclusive with the option --storage)**
 - `--storage`: Predefined STRUST identities. **(Mutually exclusive with the option --identity)**
 - `--description`: Identity Description. **(optional)**
+- `--language-iso-code`: Language of Identity Description - if not given, the language will be deduced from the current system locale. **(optional)**
 - `--overwrite`: Overwrite the existing Identity, default is `False`. **(optional)**
 
 # getcsr

@@ -1049,7 +1049,10 @@ class TestCreateIdentity(PatcherTestCase, ConsoleOutputTestCase):
     def test_createidentity_with_storage_ok(self):
         self.mock_connection.call.return_value = {'ET_BAPIRET2':[]}
 
-        self.createidentity('-s', 'server_standard', '--description', 'Identity Description')
+        self.createidentity(
+                '-s', 'server_standard',
+                '--description', 'Identity Description',
+                '-l', 'zh')
 
         self.mock_connection.call.assert_called_once_with(
             'SSFR_IDENTITY_CREATE',
@@ -1057,6 +1060,7 @@ class TestCreateIdentity(PatcherTestCase, ConsoleOutputTestCase):
                 'PSE_CONTEXT': 'SSLS',
                 'PSE_APPLIC': 'DFAULT',
                 'PSE_DESCRIPT': 'Identity Description',
+                'SPRSL': '1',
             },
             IV_REPLACE_EXISTING_APPL='-',
         )
@@ -1064,7 +1068,10 @@ class TestCreateIdentity(PatcherTestCase, ConsoleOutputTestCase):
     def test_createidentity_with_identity_ok(self):
         self.mock_connection.call.return_value = {'ET_BAPIRET2':[]}
 
-        self.createidentity('-i', 'SSLC/100_SD', '--description', 'Identity Description')
+        self.createidentity(
+                '-i', 'SSLC/100_SD',
+                '--description', 'Identity Description',
+                '-l', 'zh')
 
         self.mock_connection.call.assert_called_once_with(
             'SSFR_IDENTITY_CREATE',
@@ -1072,6 +1079,7 @@ class TestCreateIdentity(PatcherTestCase, ConsoleOutputTestCase):
                 'PSE_CONTEXT': 'SSLC',
                 'PSE_APPLIC': '100_SD',
                 'PSE_DESCRIPT': 'Identity Description',
+                'SPRSL': '1',
             },
             IV_REPLACE_EXISTING_APPL='-',
         )
@@ -1079,7 +1087,11 @@ class TestCreateIdentity(PatcherTestCase, ConsoleOutputTestCase):
     def test_createidentity_with_replace_ok(self):
         self.mock_connection.call.return_value = {'ET_BAPIRET2':[]}
 
-        self.createidentity('-s', 'server_standard', '--description', 'Identity Description', '--overwrite')
+        self.createidentity(
+                '-s', 'server_standard',
+                '--description', 'Identity Description',
+                '--language-iso-code', 'zh',
+                '--overwrite')
 
         self.mock_connection.call.assert_called_once_with(
             'SSFR_IDENTITY_CREATE',
@@ -1087,10 +1099,29 @@ class TestCreateIdentity(PatcherTestCase, ConsoleOutputTestCase):
                 'PSE_CONTEXT': 'SSLS',
                 'PSE_APPLIC': 'DFAULT',
                 'PSE_DESCRIPT': 'Identity Description',
+                'SPRSL': '1',
             },
             IV_REPLACE_EXISTING_APPL='X',
         )
 
+    def test_createidentity_with_language_from_locale(self):
+        self.mock_connection.call.return_value = {'ET_BAPIRET2':[]}
+
+        with patch('sap.platform.language.getlocale', return_value=('zh_CN', 'UTF-8')):
+            self.createidentity(
+                    '-s', 'server_standard',
+                    '--description', 'Identity Description')
+
+        self.mock_connection.call.assert_called_once_with(
+            'SSFR_IDENTITY_CREATE',
+            IS_STRUST_IDENTITY={
+                'PSE_CONTEXT': 'SSLS',
+                'PSE_APPLIC': 'DFAULT',
+                'PSE_DESCRIPT': 'Identity Description',
+                'SPRSL': '1',
+            },
+            IV_REPLACE_EXISTING_APPL='-',
+        )
 
 if __name__ == '__main__':
     unittest.main()
