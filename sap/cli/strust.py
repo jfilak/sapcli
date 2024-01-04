@@ -74,7 +74,8 @@ def _get_ssl_storage_from_args(connection, args):
         connection,
         identity.pse_context,
         identity.pse_applic,
-        description=getattr(args, 'description', None)
+        description=getattr(args, 'description', None),
+        lang_iso_code=getattr(args, 'language_iso_code', None)
     )
 
 
@@ -144,6 +145,8 @@ def createpse(connection, args):
     return 0
 
 
+@CommandGroup.argument('-l', '--language-iso-code', type=str,
+                       help='ISO code of language of Identity description (default: the current system locale')
 @CommandGroup.argument('-d', '--description', type=str, help='Identity description')
 @CommandGroup.argument('--overwrite', help='Overwrite the existing STRUST Identity', action='store_true', default=False)
 @CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
