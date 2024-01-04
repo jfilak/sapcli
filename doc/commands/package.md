@@ -10,8 +10,17 @@
 Creates non-transportable packages
 
 ```bash
-sapcli package create \$tests "with description"
+sapcli package create [--super-package SUPER_PKG] [--app-component APP_COMP] [--software-component SW_COMP] [--transport-layer TR_LAYER] [--no-error-existing] NAME DESCRIPTION
 ```
+
+**Parameters**:
+- `--super-package SUPER_PKG`: Name of the parent package. **(optional)**
+- `--app-component APP_COMP`: Name of assigned Application Component. **(optional)**
+- `--software-component SW_COMP`: Name of assigned Software Component. **(optional)**
+- `--transport-layer TR_LAYER`: Name of assigned Transport Layer. **(optional)**
+- `--no-error-existing`: Do not exit with non-0 exit code if the package already exists. **(optional)**
+- `NAME`: Name of the newly created package. Do not forget to escape $ in shell to avoid ENV variable evaluation.
+- `DESCRIPTION`: Description of the newly created package. Do not forget to use " if you need more words.
 
 ## list
 
