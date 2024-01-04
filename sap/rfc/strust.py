@@ -1,6 +1,9 @@
 """SAP STRUST utilities"""
 
-from sap.platform.language import iso_code_to_sap_code
+from sap.platform.language import (
+    iso_code_to_sap_code,
+    locale_lang_sap_code
+)
 from sap.rfc.bapi import (
     BAPIReturn,
     BAPIError
@@ -121,12 +124,15 @@ class SSLCertStorage:
             'PSE_APPLIC': pse_applic
         }
 
-        self.description = {
-            'PSE_DESCRIPT': description
-        }
+        self.description = {}
 
-        if lang_iso_code:
-            self.description['SPRSL'] = iso_code_to_sap_code(lang_iso_code)
+        if description is not None:
+            self.description['PSE_DESCRIPT'] = description
+
+            if lang_iso_code:
+                self.description['SPRSL'] = iso_code_to_sap_code(lang_iso_code)
+            else:
+                self.description['SPRSL'] = locale_lang_sap_code()
 
     def __repr__(self):
         return 'SSL Storage {PSE_CONTEXT}/{PSE_APPLIC}'.format(**self.identity)
