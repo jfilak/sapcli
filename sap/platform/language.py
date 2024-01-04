@@ -1,5 +1,7 @@
 """ABAP Platform helpers and utilities"""
 
+from locale import getlocale
+
 from sap.errors import SAPCliError
 
 # Supported Languages and Code Pages (Non-Unicode)
@@ -72,3 +74,21 @@ def iso_code_to_sap_code(iso_code: str) -> str:
     except StopIteration:
         # pylint: disable=raise-missing-from
         raise SAPCliError(f'Not found ISO Code: {iso_code}')
+
+
+def locale_lang_sap_code() -> str:
+    """Reads current system locale and attempts to convert the language part
+       to SAP Language Code
+    """
+
+    loc = getlocale()
+    lang = loc[0] or ""
+
+    if len(lang) < 2:
+        raise SAPCliError(f'The current system locale language is not ISO 3166: {lang}')
+
+    try:
+        return iso_code_to_sap_code(lang[0:2].upper())
+    except SAPCliError as ex:
+        raise SAPCliError(
+            f'The current system locale language cannot be converted to SAP language code: {lang}') from ex
