@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch, mock_open, call, Mock
 from io import StringIO
 from sap.errors import SAPCliError
-from sap.rfc.strust import CLIENT_ANONYMOUS, CLIENT_STANDARD, CLIENT_STANDART
+from sap.rfc.strust import CLIENT_ANONYMOUS, CLIENT_STANDARD, CLIENT_STANDART, SERVER_STANDARD
 
 from infra import generate_parse_args
 from mock import (
@@ -308,6 +308,16 @@ dGVzdF93aXRoX3NlY29uZF9jZXJ0aWZpY2F0ZQ==
 
 
 class TestArgumentsToStores(unittest.TestCase):
+
+    def test_valid_storage(self):
+        mock_connection = Mock()
+
+        for test_storage in [CLIENT_ANONYMOUS, CLIENT_STANDARD, SERVER_STANDARD]:
+            sap.cli.strust.ssl_storages_from_arguments(
+                mock_connection, SimpleNamespace(
+                    storage=[test_storage],
+                    identity=[]
+                ))
 
     def test_invalid_storage(self):
         mock_connection = Mock()

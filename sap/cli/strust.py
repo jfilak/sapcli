@@ -398,7 +398,7 @@ def ssl_storages_from_arguments(connection, args):
     identities = []
 
     for storage in args.storage:
-        if storage in (CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD):
+        if storage in (CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD):
             if storage == CLIENT_STANDART:
                 storage_deprecation_warning()
 
