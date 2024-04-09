@@ -17,10 +17,19 @@ explanatory.
 3. Create commits for logical changes - it is better to create more commits
    than less
 
+4. Use the short commit message to provide an apt description of the change.
+   Write the short message in the imperative, present tense.
+
+5. Use the commit message body to explain your motivation and document your
+   thinking process (to put it simple - care to explain "why"). Everybody can
+   see the changes made, so do not try to summarize them unless you changed
+   dozens of files. In the case you change visible output, it is a good idea to
+   provide current version and the new one.
+
 4. Open a pull request - if you see Merge commits in your PR, you did something
    wrong, so please try to get rid of them
 
-5. Check Travis build results
+5. Check GitHub Actions builder
 
 6. In case of build failures, please, **amend your commits** - IOW try to avoid adding
    new commits fixing your commits to your pull request
