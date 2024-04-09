@@ -26,23 +26,23 @@ explanatory.
    dozens of files. In the case you change visible output, it is a good idea to
    provide current version and the new one.
 
-4. Open a pull request - if you see Merge commits in your PR, you did something
+6. Open a pull request - if you see Merge commits in your PR, you did something
    wrong, so please try to get rid of them
 
-5. Check GitHub Actions builder
+7. Check GitHub Actions builder
 
-6. In case of build failures, please, **amend your commits** - IOW try to avoid adding
+8. In case of build failures, please, **amend your commits** - IOW try to avoid adding
    new commits fixing your commits to your pull request
 
-7. If a reviewer request changes, try to amend existing commits
+9. If a reviewer request changes, try to amend existing commits
 
-8. When you amend a commit, please add a new line with '--- vX' where X is the
+10. When you amend a commit, please add a new line with '--- vX' where X is the
    number of version of the commit and describe the changes to the commit below
    that line
 
-9. To keep history linear and easy to understand, your pull request commits
+11. To keep history linear and easy to understand, your pull request commits
    will be either Squashed or more likely your PR branch will be merged with
    Rebase
 
-10. When your PR is merged, you need to do **Rebase** too to synchronize your local
+12. When your PR is merged, you need to do **Rebase** too to synchronize your local
     master branch - `git pull -r` or `git fetch upstream && git rebase upstream/master`
