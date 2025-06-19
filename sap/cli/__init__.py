@@ -42,6 +42,7 @@ class CommandsCache:
         import sap.cli.adt
         import sap.cli.abapgit
         import sap.cli.bsp
+        import sap.cli.featuretoggle
         import sap.cli.flp
         import sap.cli.rap
         import sap.cli.table
@@ -73,6 +74,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.dataelement.CommandGroup()),
                 (adt_connection_from_args, sap.cli.checkin.CommandGroup()),
                 (adt_connection_from_args, sap.cli.badi.CommandGroup()),
+                (adt_connection_from_args, sap.cli.featuretoggle.CommandGroup()),
             ]
 
         if CommandsCache.rest is None:

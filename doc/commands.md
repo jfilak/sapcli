@@ -24,3 +24,4 @@
 22. [structure](commands/structure.md) - ABAP DDIC structures
 23. [table](commands/table.md) - ABAP DDIC transparent tables
 24. [badi](commands/badi.md) - New style (Enhancements) BAdI operations
+25. [featuretoggle](commands/featuretoggles.md) - Feature Toggles
