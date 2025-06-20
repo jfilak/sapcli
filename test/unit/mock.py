@@ -118,14 +118,15 @@ class Request(NamedTuple):
 
 
     @staticmethod
-    def post_json(uri=None, headers=None, body=None, params=None, accept=None):
+    def post_json(uri=None, headers=None, body=None, params=None, accept=None, content_type=None):
         headers = headers or {}
-        headers.update({'Content-Type': 'application/json'})
+        headers.update({'Content-Type': content_type or 'application/json'})
         if accept:
             headers['Accept'] = accept
 
         json_body = json.dumps(body)
         return Request(method='POST', adt_uri=uri, headers=headers, body=json_body, params=params)
+
 
     @staticmethod
     def post_text(uri=None, headers=None, body=None, params=None, accept=None):
