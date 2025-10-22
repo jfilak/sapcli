@@ -5,7 +5,6 @@ import sys
 import unittest
 from unittest.mock import patch, Mock
 from io import StringIO
-from types import SimpleNamespace
 
 import sap
 
