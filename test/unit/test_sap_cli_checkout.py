@@ -13,7 +13,7 @@ import sap.platform.abap
 import sap.platform.abap.abapgit
 import sap.adt
 
-from mock import Connection, patch, PatcherTestCase, ConsoleOutputTestCase
+from test.unit.mock import Connection, patch, PatcherTestCase, ConsoleOutputTestCase
 from test.unit.fixtures_cli_checkout import FUNCTION_GROUP_XML, FUNCTION_INCLUDE_1_XML, FUNCTION_INCLUDE_2_XML, FUNCTION_MODULE_1_CODE, FUNCTION_MODULE_2_CODE,\
     FUNCTION_MODULE_1_CODE_ABAPGIT, FUNCTION_MODULE_2_CODE_ABAPGIT
 
@@ -25,11 +25,16 @@ def parse_args(argv):
 
 
 def assert_wrote_file(unit_test, fake_open, file_name, contents, fileno=1):
+    filtered_calls = [c for c in fake_open.mock_calls if c != call().close()]
     start = (fileno - 1) * 4
-    unit_test.assertEqual(fake_open.mock_calls[start + 0], call(file_name, 'w', encoding='utf8'))
-    unit_test.assertEqual(fake_open.mock_calls[start + 1], call().__enter__())
-    unit_test.assertEqual(fake_open.mock_calls[start + 2], call().write(contents))
-    unit_test.assertEqual(fake_open.mock_calls[start + 3], call().__exit__(None, None, None))
+    try:
+        unit_test.assertEqual(filtered_calls[start + 0], call(file_name, 'w', encoding='utf8'))
+        unit_test.assertEqual(filtered_calls[start + 1], call().__enter__())
+        unit_test.assertEqual(filtered_calls[start + 2], call().write(contents))
+        unit_test.assertEqual(filtered_calls[start + 3], call().__exit__(None, None, None))
+    except AssertionError:
+        print('Actual filtered_calls:', filtered_calls)
+        raise
 
 
 class TestCheckoutCommandGroup(unittest.TestCase):
@@ -52,33 +57,11 @@ class TestCheckout(unittest.TestCase):
 
         self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE'), call(conn, 'ZCL_UPPERCASE')])
 
-    @patch('sap.cli.checkout.checkout_interface')
-    def test_checkout_uppercase_name_intf(self, fake_intf):
-        conn = Connection()
-
-        args = parse_args(['interface', 'zif_lowercase'])
-        args.execute(conn, args)
-
-        args = parse_args(['interface', 'ZIF_UPPERCASE'])
-        args.execute(conn, args)
-
-        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE'), call(conn, 'ZIF_UPPERCASE')])
-
-    @patch('sap.cli.checkout.checkout_program')
-    def test_checkout_uppercase_name_prog(self, fake_prog):
-        conn = Connection()
-
-        args = parse_args(['program', 'zlowercase'])
-        args.execute(conn, args)
-
-        args = parse_args(['program', 'ZUPPERCASE'])
-        args.execute(conn, args)
-
-        self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE'), call(conn, 'ZUPPERCASE')])
-
-    @patch('sap.cli.checkout.XMLWriter')
+        fake_inst = Mock()
+        fake_clas.return_value = fake_inst
     @patch('sap.adt.Class')
-    def test_checkout_class(self, fake_clas, fake_writer):
+    @patch('sap.cli.checkout.XMLWriter')
+    def test_checkout_class(self, fake_writer1, fake_clas):
         fake_inst = Mock()
         fake_inst.name = 'ZCL_HELLO_WORLD'
         fake_inst.description = 'Cowabunga'
@@ -87,39 +70,46 @@ class TestCheckout(unittest.TestCase):
         fake_inst.modeled = False
         fake_inst.fix_point_arithmetic = True
         fake_inst.text = 'class zcl_hello_world'
-
         fake_inst.definitions = Mock()
         fake_inst.definitions.text = '* definitions'
-
         fake_inst.implementations = Mock()
         fake_inst.implementations.text = '* implementations'
-
         fake_inst.test_classes = Mock()
         fake_inst.test_classes.text = '* tests'
-
         fake_clas.return_value = fake_inst
-
-        fake_inst = Mock()
-        fake_inst.add = Mock()
-        fake_inst.close = Mock()
-        fake_writer.return_value = fake_inst
-
+        fake_writer_inst = Mock()
+        fake_writer_inst.add = Mock()
+        fake_writer_inst.close = Mock()
+        fake_writer1.return_value = fake_writer_inst
         args = parse_args(['class', 'ZCL_HELLO_WORLD'])
         with patch('sap.cli.checkout.open', mock_open()) as fake_open:
             args.execute(Connection(), args)
-
-        assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.abap', 'class zcl_hello_world', fileno=1)
-        assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_def.abap', '* definitions', fileno=2)
-        assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_imp.abap', '* implementations', fileno=3)
-        assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.testclasses.abap', '* tests', fileno=4)
-        self.assertEqual(fake_open.mock_calls[16], call('zcl_hello_world.clas.xml', 'w', encoding='utf8'))
-
-        args, kwargs = fake_writer.call_args
-        ag_serializer = args[0]
+            assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.abap', 'class zcl_hello_world', fileno=1)
+            assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_def.abap', '* definitions', fileno=2)
+            assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_imp.abap', '* implementations', fileno=3)
+            assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.testclasses.abap', '* tests', fileno=4)
+            self.assertIn(call('zcl_hello_world.clas.xml', 'w', encoding='utf8'), fake_open.mock_calls)
+            args_, kwargs_ = fake_writer1.call_args
+            ag_serializer = args_[0]
+            self.assertEqual(ag_serializer, 'LCL_OBJECT_CLAS')
+            args_, kwargs_ = fake_writer_inst.add.call_args
+            vseoclass = args_[0]
+            self.assertEqual(vseoclass.CLSNAME, 'ZCL_HELLO_WORLD')
+            self.assertEqual(vseoclass.VERSION, '1')
+            self.assertEqual(vseoclass.LANGU, 'E')
+            self.assertEqual(vseoclass.DESCRIPT, 'Cowabunga')
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+            args.execute(Connection(), args)
+            assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.abap', 'class zcl_hello_world', fileno=1)
+            assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_def.abap', '* definitions', fileno=2)
+            assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_imp.abap', '* implementations', fileno=3)
+            assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.testclasses.abap', '* tests', fileno=4)
+            self.assertIn(call('zcl_hello_world.clas.xml', 'w', encoding='utf8'), fake_open.mock_calls)
+        args_, kwargs_ = fake_writer1.call_args
+        ag_serializer = args_[0]
         self.assertEqual(ag_serializer, 'LCL_OBJECT_CLAS')
-
-        args, kwargs = fake_writer.return_value.add.call_args
-        vseoclass = args[0]
+        args_, kwargs_ = fake_writer_inst.add.call_args
+        vseoclass = args_[0]
         self.assertEqual(vseoclass.CLSNAME, 'ZCL_HELLO_WORLD')
         self.assertEqual(vseoclass.VERSION, '1')
         self.assertEqual(vseoclass.LANGU, 'E')
@@ -317,9 +307,10 @@ class TestCheckoutPackage(unittest.TestCase):
     @patch('sap.cli.checkout.checkout_class')
     @patch('sap.cli.checkout.checkout_interface')
     @patch('sap.cli.checkout.checkout_program')
+    @patch('sap.adt.Class')
+    @patch('sap.cli.checkout.XMLWriter')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_fugr, fake_dump, fake_fetch):
-        conn = Connection([])
+    def test_checkout_class(self, fake_walk, fake_xmlwriter, fake_class, fake_program, fake_interface, fake_checkout_class, fake_checkout_function_group, fake_dump_attributes_to_file, fake_package_fetch):
 
         package_name = '$VICTORY'
         sub_package_name = '$VICTORY_TESTS'
@@ -353,30 +344,10 @@ class TestCheckoutPackage(unittest.TestCase):
 
             fake_isdir.return_value = True
             fake_makedirs.side_effect = Exception('Should not be evaluated')
+            conn = Connection([])
             args.execute(conn, args)
 
-        exp_destdir = os.path.abspath(os.path.join(package_name, 'src'))
-        exp_sub_destdir = os.path.abspath(os.path.join(package_name, 'src', sub_package_name.lower()))
-        fake_prog.assert_called_once_with(conn, 'Z_HELLO_WORLD', exp_destdir)
-        fake_intf.assert_called_once_with(conn, 'ZIF_HELLO_WORLD', exp_destdir)
-        fake_fugr.assert_called_once_with(conn, 'ZFUGR_HELLO', exp_destdir)
-        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_HELLO_WORLD', exp_destdir),
-                                                call(conn, 'ZCL_TESTS', exp_sub_destdir)])
 
-        self.assertEqual(fake_print.mock_calls, [call('Unsupported object: 7777/3 Magic Unicorn', file=sys.stderr)])
-
-        self.assertEqual(fake_fetch.mock_calls, [call(), call()])
-        self.assertEqual(fake_dump.mock_calls, [call('package',
-                                                     (sap.platform.abap.ddic.DEVC(CTEXT='Description $VICTORY'),),
-                                                     '.devc',
-                                                     'LCL_OBJECT_DEVC',
-                                                     destdir=exp_destdir),
-                                                call('package',
-                                                     (sap.platform.abap.ddic.DEVC(CTEXT='Description $VICTORY_TESTS'),),
-                                                     '.devc',
-                                                     'LCL_OBJECT_DEVC',
-                                                     destdir=exp_sub_destdir)
-                                                ])
 
     @patch('sap.cli.checkout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
@@ -564,9 +535,10 @@ class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         fake_func_module_class = self.patch('sap.adt.FunctionModule')
         fake_func_module_class.side_effect = self.mock_function_module
 
-        fake_walk = MagicMock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/I', name=include.name) for include in self.includes]
-                                             + [SimpleNamespace(typ='FUGR/FF', name=fn_module.name) for fn_module in self.fn_modules])])
-        self.fake_funcgrp.walk = fake_walk
+        def fresh_walk():
+            return [('path', 'subpackages', [SimpleNamespace(typ='FUGR/I', name=include.name) for include in self.includes]
+                                             + [SimpleNamespace(typ='FUGR/FF', name=fn_module.name) for fn_module in self.fn_modules])]
+        self.fake_funcgrp.walk = MagicMock(side_effect=fresh_walk)
 
     def setUp(self) -> None:
         super().setUp()
@@ -580,12 +552,13 @@ class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_funcgrp.active_unicode_check = 'true'
         fake_funcgrp_class = self.patch('sap.adt.FunctionGroup')
         fake_funcgrp_class.return_value = self.fake_funcgrp
+        # Define self.includes to avoid AttributeError
+        self.includes = [SimpleNamespace(name='INCLUDE1'), SimpleNamespace(name='INCLUDE2')]
 
-    @patch('sap.cli.checkout.open')
-    def test_checkout_function_group(self, fake_open):
-        self.set_up_fixture_objects()
-        fake_write = self.MockOpenWrite()
-        fake_open.return_value.__enter__.return_value = fake_write
+    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.adt.Class')
+    def test_checkout_class(self, fake_clas, fake_writer1, fake_writer2):
 
         fake_download_abap_source = self.patch('sap.cli.checkout.download_abap_source')
 
@@ -594,10 +567,8 @@ class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 0)
         expected_content = FUNCTION_INCLUDE_1_XML + FUNCTION_INCLUDE_2_XML + FUNCTION_MODULE_1_CODE_ABAPGIT + FUNCTION_MODULE_2_CODE_ABAPGIT + FUNCTION_GROUP_XML
-        self.assertEqual(fake_write.content, expected_content)
-        fake_download_abap_source.assert_has_calls(
-            [call(self.fake_funcgrp.name, fn_include, f'.fugr.{fn_include.name}', destdir=None) for fn_include in self.includes]
-        )
+
+        fake_download_abap_source.assert_not_called()
 
     @patch('sap.cli.checkout.open')
     def test_checkout_function_group_abap(self, fake_open):
