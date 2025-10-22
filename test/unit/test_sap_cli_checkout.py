@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import sys
 from argparse import ArgumentParser
 import unittest
 from unittest.mock import Mock, PropertyMock, patch, mock_open, call, MagicMock
