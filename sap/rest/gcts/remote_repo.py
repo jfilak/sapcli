@@ -189,6 +189,150 @@ class RepoActivitiesQueryParams:
         return self._params
 
 
+# pylint: disable=R0902
+class RepositoryTask:
+    """Represents a gCTS repository task with its definition, status, and parameters."""
+
+    class TaskDefinition(Enum):
+        """Task definition types"""
+
+        CLONE_REPOSITORY = 'clone_repository'  # 0: Clone repository
+        SWITCH_BRANCH = 'switch_branch'  # 1: Switch branch
+        PULL_COMMIT = 'pull_commit'  # 2: Pull commit
+        DEPLOY = 'deploy'  # 3: Deploy
+        MERGE_BRANCH = 'merge_branch'  # 4: Merge branch
+        MIGRATE_REPOSITORY = 'migrate_repository'  # 5: Migrate repository
+
+    class TaskStatus(Enum):
+        """Task definition types"""
+
+        READY = 'READY'
+        RUNNING = 'RUNNING'
+        SCHEDULED = 'SCHEDULED'
+        ABORTED = 'ABORTED'
+        SUSPENDED = 'SUSPENDED'
+        FINISHED = 'FINISHED'
+        PRELIMINAR = 'PRELIMINAR'  # Task created as entity
+
+    class TaskParameters:
+        """Parameters structure for gCTS operations"""
+
+        def __init__(self, branch=None, commit=None, deploy_scope=None,
+                     merge_strategy=None, merge_fast_forward=None,
+                     commit_message=None, objects=None, trkorr=None,
+                     deploy_operation=None, layout=None):
+            self.branch = branch
+            self.commit = commit
+            self.deploy_scope = deploy_scope
+            self.merge_strategy = merge_strategy
+            self.merge_fast_forward = merge_fast_forward
+            self.commit_message = commit_message
+            self.objects = objects
+            self.trkorr = trkorr
+            self.deploy_operation = deploy_operation
+            self.layout = layout
+
+        def to_dict(self):
+            """Convert parameters to dictionary for API calls"""
+            params = {}
+            if self.branch is not None:
+                params['branch'] = self.branch
+            if self.commit is not None:
+                params['commit'] = self.commit
+            if self.deploy_scope is not None:
+                params['deploy_scope'] = self.deploy_scope
+            if self.merge_strategy is not None:
+                params['merge_strategy'] = self.merge_strategy
+            if self.merge_fast_forward is not None:
+                params['merge_fast_forward'] = self.merge_fast_forward
+            if self.commit_message is not None:
+                params['commit_message'] = self.commit_message
+            if self.objects is not None:
+                params['objects'] = self.objects
+            if self.trkorr is not None:
+                params['trkorr'] = self.trkorr
+            if self.deploy_operation is not None:
+                params['deploy_operation'] = self.deploy_operation
+            if self.layout is not None:
+                params['layout'] = self.layout
+            return params
+
+    def __init__(self, data: dict = None):
+        self._data = data or {}
+
+    def update_data(self, data: dict):
+        """Update internal task data from a dictionary returned by gCTS.
+
+        The expected keys include: tid, rid, jobId, log, variant, name, type,
+        status, createdBy, createdAt, changedBy, changedAt, startAt, scheduledAt.
+        Unknown keys are stored as-is for forward compatibility.
+        """
+
+        self._data.update(data)
+
+    # Accessors
+
+    @property
+    def tid(self):
+        return self._data.get('tid')
+
+    @property
+    def rid(self):
+        return self._data.get('rid')
+
+    @property
+    def jobId(self):
+        return self._data.get('jobId')
+
+    @property
+    def log(self):
+        return self._data.get('log')
+
+    @property
+    def variant(self):
+        return self._data.get('variant')
+
+    @property
+    def name(self):
+        return self._data.get('name')
+
+    @property
+    def type(self):
+        return self._data.get('type')
+
+    @property
+    def status(self):
+        return self._data.get('status')
+
+    def get_status(self):
+        """Return current task status value (string)."""
+        return self.status
+
+    @property
+    def createdBy(self):
+        return self._data.get('createdBy')
+
+    @property
+    def createdAt(self):
+        return self._data.get('createdAt')
+
+    @property
+    def changedBy(self):
+        return self._data.get('changedBy')
+
+    @property
+    def changedAt(self):
+        return self._data.get('changedAt')
+
+    @property
+    def startAt(self):
+        return self._data.get('startAt')
+
+    @property
+    def scheduledAt(self):
+        return self._data.get('scheduledAt')
+
+
 # pylint: disable=R0904
 class Repository:
     """A proxy to gCTS repository"""
@@ -427,6 +571,20 @@ class Repository:
         self.wipe_data()
         return response
 
+    def async_clone(self):
+        """Clones the repository on the configured system
+
+           Raises:
+             GCTSRequestError
+        """
+
+        task = self.create_task(RepositoryTask.TaskDefinition.CLONE_REPOSITORY)
+        mod_log().info('Clone task created: %s', task)
+        self.schedule_task(task)
+        mod_log().info('Clone task scheduled: %s', task)
+
+        return task
+
     def checkout(self, branch):
         """Checks out the given branch of the repo on the configured system"""
 
@@ -545,3 +703,30 @@ class Repository:
             raise SAPCliError("gCTS response does not contain 'branches'")
 
         return branches
+
+    def create_task(self, task_definition: RepositoryTask.TaskDefinition, parameters: RepositoryTask.TaskParameters = None):
+        """Create task"""
+        if self._rid is None:
+            raise SAPCliError("Repository is not initialized")
+
+        data = {
+            'type': task_definition.value,
+        }
+        if parameters is not None:
+            data['parameters'] = parameters.to_dict()
+
+        response = self._http.post_obj_as_json('task', data)
+        return RepositoryTask(response.json()['task'])
+
+    def get_task_by_id(self, task_id: str):
+        """Get task by ID"""
+
+        response = self._http.get_json(f'task/{task_id}')
+        return RepositoryTask(response.get('task'))
+
+    def schedule_task(self, task: RepositoryTask):
+        """Schedule task"""
+
+        response = self._http.get_json(f'task/{task.tid}/schedule')
+        task.update_data(response.get('task'))
+        return task

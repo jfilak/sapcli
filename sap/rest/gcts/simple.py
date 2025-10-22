@@ -3,9 +3,13 @@
 import json
 import time
 
+from sap.cli.core import get_console
 from sap import get_logger
 from sap.rest.errors import HTTPRequestError
-from sap.rest.gcts.remote_repo import Repository
+from sap.rest.gcts.remote_repo import (
+    Repository,
+    RepositoryTask
+)
 from sap.rest.gcts.errors import (
     exception_from_http_error,
     GCTSRepoAlreadyExistsError,
@@ -47,10 +51,58 @@ def wait_for_operation(repo, condition_fn, wait_for_ready, http_exc):
     raise SAPCliError(f'Waiting for the operation timed out\n{http_exc}')
 
 
+def wait_for_task_execution(repo, task_id, wait_for_ready, pull_period):
+    """Wait for task execution to finish"""
+    console = get_console()
+    start_time = time.time()
+    while time.time() - start_time < wait_for_ready:
+        try:
+            task = repo.get_task_by_id(task_id)
+            filtered_task_info = {
+                'tid': task.tid,
+                'rid': task.rid,
+                'type': task.type,
+                'status': task.status
+            }
+            console.printout('\n', 'Task monitoring:', json.dumps(filtered_task_info, indent=4))
+            if task.status == RepositoryTask.TaskStatus.FINISHED.value:
+                return task
+
+            if task.status == RepositoryTask.TaskStatus.ABORTED.value:
+                raise SAPCliError(f'Task execution aborted: task {task_id} for repository {repo.rid}')
+
+        except HTTPRequestError:
+            _mod_log().debug(f'Failed to get status of the task {task_id} for repository {repo.rid}')
+        time.sleep(pull_period)
+    raise SAPCliError(f'Waiting for the task execution timed out: task {task_id} for repository {repo.rid}. You can check the task status manually with the command "gcts task_info --tid {task_id} {repo.rid} "')
+
+
 # pylint: disable=too-many-arguments
-def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
-          role='SOURCE', typ='GITHUB'):
-    """Creates and clones the repository in the target systems"""
+def clone(repo: Repository):
+    """Clones the repository in the target systems"""
+
+    if not repo.is_cloned:
+        repo.clone()
+    else:
+        _mod_log().info('Not cloning the repository "%s": already performed or repository is not created.')
+
+    return repo
+
+
+def schedule_clone(repo):
+    """Schedule a repository cloning task on the target systems"""
+    task = None
+    if not repo.is_cloned:
+        task = repo.async_clone()
+    else:
+        _mod_log().info('Repository "%s" cloning not scheduled: already performed or repository is not created.')
+
+    return task
+
+
+def create(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
+           role='SOURCE', typ='GITHUB'):
+    """Creates the repository in the target systems"""
 
     config = {}
 
@@ -72,11 +124,8 @@ def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, er
         _mod_log().info(str(ex))
 
         repo.wipe_data()
-
-    if not repo.is_cloned:
-        repo.clone()
-    else:
-        _mod_log().info('Not cloning the repository "%s": already performed')
+        # Fetch repository data to ensure it exists
+        _ = repo.status
 
     return repo
 
