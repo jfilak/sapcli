@@ -5,6 +5,7 @@ import warnings
 
 import sap.cli.core
 import sap.cli.helpers
+
 import sap.rest.gcts.simple
 from sap.rest.gcts.sugar import (
     abap_modifications_disabled,
@@ -14,10 +15,13 @@ from sap.rest.gcts.sugar import (
 from sap.rest.gcts.remote_repo import (
     Repository,
     RepoActivitiesQueryParams,
+)
+from sap.rest.gcts.repo_task import (
     RepositoryTask,
 )
 from sap.rest.gcts.errors import (
     GCTSRequestError,
+    GCTSRepoAlreadyExistsError,
     SAPCliError,
 )
 from sap.rest.errors import HTTPRequestError
@@ -627,13 +631,22 @@ def clone(connection, args):
 
     console = sap.cli.core.get_console()
 
-    repo = sap.rest.gcts.simple.create(connection, args.url, package,
-                                       start_dir=args.starting_folder,
-                                       vcs_token=args.vcs_token,
-                                       vsid=args.vsid,
-                                       error_exists=not args.no_fail_exists,
-                                       role=args.role,
-                                       typ=args.type)
+    try:
+        repo = sap.rest.gcts.simple.create(connection, args.url, package,
+                                           start_dir=args.starting_folder,
+                                           vcs_token=args.vcs_token,
+                                           vsid=args.vsid,
+                                           error_exists=not args.no_fail_exists,
+                                           role=args.role,
+                                           typ=args.type)
+    except GCTSRepoAlreadyExistsError as exc:
+        console.printout('Repository already exists.')
+        console.printerr(str(exc))
+        return 1
+    except GCTSRequestError as exc:
+        console.printout('Repository creation request responded with an error.')
+        console.printerr(str(exc))
+        return 1
 
     if getattr(args, 'sync_clone', False):
         try:
@@ -663,22 +676,21 @@ def clone(connection, args):
                 return 1
     else:
         try:
-            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                task = sap.rest.gcts.simple.schedule_clone(repo)
+            task = sap.rest.gcts.simple.schedule_clone(repo, connection)
 
-                if isinstance(task, RepositoryTask) and task.tid:
-                    if args.wait_for_ready > 0:
-                        sap.rest.gcts.simple.wait_for_task_execution(repo, task.tid, args.wait_for_ready,
-                                                                     args.pull_period)
-                    else:
-                        console.printout(f'Task {task.tid} created for repository {repo.rid}. You can check the task status manually with the command "gcts task_info --tid {task.tid} {repo.rid} "')
-                        return 0
+            if isinstance(task, RepositoryTask) and task.tid:
+                if args.wait_for_ready > 0:
+                    sap.rest.gcts.simple.wait_for_task_execution(task, args.wait_for_ready,
+                                                                 args.pull_period, args.heartbeat)
                 else:
-                    console.printout('Clone request responded with an error. No task found!')
-                    return 1
+                    console.printout(f'Task {task.tid} created for repository {repo.rid}. You can check the task status manually with the command "gcts_task task_info --tid {task.tid} {repo.rid} "')
+                    return 0
+            else:
+                console.printout('Clone request responded with an error. No task found!')
+                return 1
 
-                # update data after cloning
-                repo = get_repository(connection, args.url)
+            # update data after cloning
+            repo = get_repository(connection, args.url)
 
         except HTTPRequestError as exc:
             console.printout('Clone request responded with an error.')
@@ -689,38 +701,6 @@ def clone(connection, args):
     console.printout(' URL   :', repo.url)
     console.printout(' branch:', repo.branch)
     console.printout(' HEAD  :', repo.head)
-
-    return 0
-
-
-@CommandGroup.argument('--tid', type=str)
-@CommandGroup.argument('package')
-@CommandGroup.command()
-def task_info(connection, args):
-    """Get task information"""
-
-    console = sap.cli.core.get_console()
-
-    # Validate parameters
-    if not args.tid or not args.tid.strip():
-        console.printerr('Task ID (--tid) is required and cannot be empty')
-        return 1
-
-    if not args.package or not args.package.strip():
-        console.printerr('Package name is required and cannot be empty')
-        return 1
-
-    repo = get_repository(connection, args.package)
-
-    try:
-        task = repo.get_task_by_id(args.tid)
-    except HTTPRequestError as exc:
-        console.printerr(f'Task retrieval failed: {exc}')
-        return 1
-
-    console.printout('Task ID:', task.tid)
-    console.printout('Task Status:', task.status)
-    console.printout('Task Type:', task.type)
 
     return 0
 
