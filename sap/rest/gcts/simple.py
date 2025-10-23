@@ -8,8 +8,8 @@ from sap import get_logger
 from sap.rest.errors import HTTPRequestError
 from sap.rest.gcts.remote_repo import (
     Repository,
-    RepositoryTask
 )
+from sap.rest.gcts.repo_task import RepositoryTask
 from sap.rest.gcts.errors import (
     exception_from_http_error,
     GCTSRepoAlreadyExistsError,
@@ -89,11 +89,11 @@ def clone(repo: Repository):
     return repo
 
 
-def schedule_clone(repo):
+def schedule_clone(repo, connection, branch=None):
     """Schedule a repository cloning task on the target systems"""
     task = None
     if not repo.is_cloned:
-        task = repo.async_clone()
+        task = RepositoryTask(connection, repo.rid).create(RepositoryTask.TaskDefinition.CLONE_REPOSITORY, parameters=RepositoryTask.TaskParameters(branch=branch)).schedule_task()
     else:
         _mod_log().info('Repository "%s" cloning not scheduled: already performed or repository is not created.')
 
