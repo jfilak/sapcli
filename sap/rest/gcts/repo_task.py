@@ -1,6 +1,5 @@
 
 from enum import Enum
-import logging as log
 from sap import get_logger
 
 from sap.rest.errors import HTTPRequestError
@@ -187,7 +186,7 @@ class RepositoryTask:
         status, createdBy, createdAt, changedBy, changedAt, startAt, scheduledAt.
         Unknown keys are stored as-is for forward compatibility.
         """
-        # Define expected fields for validation
+
         expected_fields = {
             'tid', 'jobId', 'log', 'variant', 'name', 'type',
             'status', 'createdBy', 'createdAt', 'changedBy', 'changedAt',
@@ -199,13 +198,8 @@ class RepositoryTask:
 
         self._data.update(filtered_data)
 
-        log.info('--------------DATA-----------------------')
-        log.info('---------------------------------------------')
-        log.info(data)
-        log.info('---------------------------------------------')
-        log.info('--------------DATA-----------------------')
-
     # Accessors
+
     def to_dict(self):
         dictionary = dict(self._data)
         dictionary['rid'] = self._rid
@@ -270,6 +264,10 @@ class RepositoryTask:
     @property
     def scheduledAt(self):
         return self._data.get('scheduledAt')
+
+    def get_parameters(self):
+        """Get task parameters"""
+        return self._data.get('parameters')
 
     def create(self, task_definition: 'RepositoryTask.TaskDefinition', parameters: 'RepositoryTask.TaskParameters' = None):
         """Create task
