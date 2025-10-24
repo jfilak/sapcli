@@ -5,18 +5,9 @@ import sys
 import unittest
 from unittest.mock import patch, Mock
 from io import StringIO
-from types import SimpleNamespace
-
-import importlib.util
-from importlib.machinery import SourceFileLoader
 
 import sap
 
-loader = SourceFileLoader(fullname='sapcli', path='bin/sapcli')
-spec = importlib.util.spec_from_file_location('sapcli', 'bin/sapcli', loader=loader)
-sapcli = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(sapcli)
-sys.modules['sapcli'] = sapcli
 
 ALL_PARAMETERS = [
     'sapcli', '--ashost', 'fixtures', '--sysnr', '69', '--client', '975',
@@ -32,10 +23,21 @@ def remove_cmd_param_from_list(params_list, param_name):
 
 
 class TestParseCommandLine(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not os.path.exists('bin/sapcli'):
+            raise unittest.SkipTest("bin/sapcli not found, skipping CLI tests")
+        import importlib.util
+        from importlib.machinery import SourceFileLoader
+        loader = SourceFileLoader(fullname='sapcli', path='bin/sapcli')
+        spec = importlib.util.spec_from_file_location('sapcli', 'bin/sapcli', loader=loader)
+        cls.sapcli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.sapcli)
+        sys.modules['sapcli'] = cls.sapcli
 
     def test_args_sanity(self):
         params = ALL_PARAMETERS.copy()
-        args = sapcli.parse_command_line(params)
+        args = self.__class__.sapcli.parse_command_line(params)
 
         self.assertEqual(
             vars(args), {
@@ -65,7 +67,7 @@ class TestParseCommandLine(unittest.TestCase):
 
         with patch('sys.stderr', new_callable=StringIO) as fake_output, \
              self.assertRaises(SystemExit) as exit_cm:
-            sapcli.parse_command_line(test_params)
+            self.__class__.sapcli.parse_command_line(test_params)
 
         self.assertEqual(str(exit_cm.exception), '3')
         self.assertTrue(fake_output.getvalue().startswith('No SAP Application Server Host name provided: use the option --ashost or the environment variable SAP_ASHOST'))
@@ -75,7 +77,7 @@ class TestParseCommandLine(unittest.TestCase):
         test_params.remove('--sysnr')
         print("PARAMS: ", str(test_params), file=sys.stderr)
 
-        args = sapcli.parse_command_line(test_params)
+        args = self.__class__.sapcli.parse_command_line(test_params)
 
         self.assertEqual(args.sysnr, '00')
 
@@ -86,7 +88,7 @@ class TestParseCommandLine(unittest.TestCase):
 
         with patch('sys.stderr', new_callable=StringIO) as fake_output, \
              self.assertRaises(SystemExit) as exit_cm:
-            sapcli.parse_command_line(test_params)
+            self.__class__.sapcli.parse_command_line(test_params)
 
         self.assertEqual(str(exit_cm.exception), '3')
         self.assertEqual(fake_output.getvalue().split('\n')[0], 'No SAP Client provided: use the option --client or the environment variable SAP_CLIENT')
@@ -96,7 +98,7 @@ class TestParseCommandLine(unittest.TestCase):
         remove_cmd_param_from_list(test_params, '--port')
         print("PARAMS: ", str(test_params), file=sys.stderr)
 
-        args = sapcli.parse_command_line(test_params)
+        args = self.__class__.sapcli.parse_command_line(test_params)
 
         self.assertEqual(args.port, 443)
 
@@ -105,7 +107,7 @@ class TestParseCommandLine(unittest.TestCase):
         test_params.remove('--no-ssl')
         print("PARAMS: ", str(test_params), file=sys.stderr)
 
-        args = sapcli.parse_command_line(test_params)
+        args = self.__class__.sapcli.parse_command_line(test_params)
 
         self.assertTrue(args.ssl)
 
@@ -115,7 +117,7 @@ class TestParseCommandLine(unittest.TestCase):
         print("PARAMS: ", str(test_params), file=sys.stderr)
 
         with patch('sapcli.input', lambda pfx: 'fantomas') as fake_input:
-            args = sapcli.parse_command_line(test_params)
+            args = self.__class__.sapcli.parse_command_line(test_params)
 
         self.assertEqual(args.user, 'fantomas')
 
@@ -125,7 +127,7 @@ class TestParseCommandLine(unittest.TestCase):
         print("PARAMS: ", str(test_params), file=sys.stderr)
 
         with patch('getpass.getpass', lambda : 'Down1oad') as fake_getpass:
-            args = sapcli.parse_command_line(test_params)
+            args = self.__class__.sapcli.parse_command_line(test_params)
 
         self.assertEqual(args.user, 'fantomas')
 
@@ -137,7 +139,7 @@ class TestParseCommandLine(unittest.TestCase):
 
         with patch('getpass.getpass', lambda : 'Down1oad') as fake_getpass, \
              patch('sapcli.input', lambda pfx: 'fantomas') as fake_input:
-            args = sapcli.parse_command_line(test_params)
+            args = self.__class__.sapcli.parse_command_line(test_params)
 
         self.assertEqual(args.user, 'fantomas')
         self.assertEqual(args.password, 'Down1oad')
@@ -163,7 +165,7 @@ class TestParseCommandLine(unittest.TestCase):
         os.environ['SAP_SSL'] = 'false'
 
         try:
-            args = sapcli.parse_command_line(test_params)
+            args = self.__class__.sapcli.parse_command_line(test_params)
         finally:
             del os.environ['SAP_USER']
             del os.environ['SAP_PASSWORD']
@@ -192,7 +194,7 @@ class TestParseCommandLine(unittest.TestCase):
             os.environ['SAP_SSL'] = variant
 
             try:
-                args = sapcli.parse_command_line(test_params)
+                args = self.__class__.sapcli.parse_command_line(test_params)
             finally:
                 del os.environ['SAP_SSL']
 
@@ -203,7 +205,7 @@ class TestParseCommandLine(unittest.TestCase):
             os.environ['SAP_SSL'] = variant
 
             try:
-                args = sapcli.parse_command_line(test_params)
+                args = self.__class__.sapcli.parse_command_line(test_params)
             finally:
                 del os.environ['SAP_SSL']
 
@@ -218,7 +220,7 @@ class TestParseCommandLine(unittest.TestCase):
             os.environ['SAP_SSL_VERIFY'] = variant
 
             try:
-                args = sapcli.parse_command_line(test_params)
+                args = self.__class__.sapcli.parse_command_line(test_params)
             finally:
                 del os.environ['SAP_SSL_VERIFY']
 
@@ -229,7 +231,7 @@ class TestParseCommandLine(unittest.TestCase):
             os.environ['SAP_SSL_VERIFY'] = variant
 
             try:
-                args = sapcli.parse_command_line(test_params)
+                args = self.__class__.sapcli.parse_command_line(test_params)
             finally:
                 del os.environ['SAP_SSL_VERIFY']
 
@@ -237,6 +239,16 @@ class TestParseCommandLine(unittest.TestCase):
 
 
 class TestParseCommandLineWithCorrnr(unittest.TestCase):
+    def setUp(self):
+        if not os.path.exists('bin/sapcli'):
+            self.skipTest("bin/sapcli not found, skipping CLI tests")
+        import importlib.util
+        from importlib.machinery import SourceFileLoader
+        loader = SourceFileLoader(fullname='sapcli', path='bin/sapcli')
+        spec = importlib.util.spec_from_file_location('sapcli', 'bin/sapcli', loader=loader)
+        self.sapcli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.sapcli)
+        sys.modules['sapcli'] = self.sapcli
 
     def configure_mock(self, fake_commands):
         fake_cmd = Mock()
@@ -265,7 +277,7 @@ class TestParseCommandLineWithCorrnr(unittest.TestCase):
         os.environ['SAP_CORRNR'] = exp_corrnr
 
         try:
-            args = sapcli.parse_command_line(test_params)
+            args = self.sapcli.parse_command_line(test_params)
         finally:
             del os.environ['SAP_CORRNR']
 
@@ -285,45 +297,51 @@ class TestParseCommandLineWithCorrnr(unittest.TestCase):
         os.environ['SAP_CORRNR'] = exp_corrnr
 
         try:
-            args = sapcli.parse_command_line(test_params)
+            args = self.sapcli.parse_command_line(test_params)
         finally:
             del os.environ['SAP_CORRNR']
 
         self.assertEqual(args.corrnr, '420WEEDTIME')
 
 class TestMainBinary(unittest.TestCase):
+    def setUp(self):
+        if not os.path.exists('bin/sapcli'):
+            self.skipTest("bin/sapcli not found, skipping CLI tests")
+        import importlib.util
+        from importlib.machinery import SourceFileLoader
+        loader = SourceFileLoader(fullname='sapcli', path='bin/sapcli')
+        spec = importlib.util.spec_from_file_location('sapcli', 'bin/sapcli', loader=loader)
+        self.sapcli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.sapcli)
+        sys.modules['sapcli'] = self.sapcli
 
-    @patch('sapcli.parse_command_line')
-    def test_execution_successful(self, fake_parse_command_line):
-
-        fake_parse_command_line.return_value.execute.return_value = 0
-
+    def test_execution_successful(self):
+        from unittest.mock import patch
         params = ALL_PARAMETERS.copy()
-        retval = sapcli.main(params)
+        with patch.object(self.sapcli, 'parse_command_line') as fake_parse_command_line:
+            fake_parse_command_line.return_value.execute.return_value = 0
+            retval = self.sapcli.main(params)
         self.assertEqual(retval, 0)
 
-    @patch('sapcli.parse_command_line')
-    def test_execution_interrupted(self, fake_parse_command_line):
-
-        fake_parse_command_line.return_value.execute.side_effect = KeyboardInterrupt
-
-        with patch('sys.stderr', new_callable=StringIO) as fake_output:
-            params = ALL_PARAMETERS.copy()
-            retval = sapcli.main(params)
-#
+    def test_execution_interrupted(self):
+        from unittest.mock import patch
+        params = ALL_PARAMETERS.copy()
+        with patch.object(self.sapcli, 'parse_command_line') as fake_parse_command_line:
+            fake_parse_command_line.return_value.execute.side_effect = KeyboardInterrupt
+            with patch('sys.stderr', new_callable=StringIO) as fake_output:
+                retval = self.sapcli.main(params)
         self.assertEqual(retval, 1)
         self.assertEqual(fake_output.getvalue(), 'Program interrupted!\n')
 
-    @patch('sapcli.parse_command_line')
-    def test_execution_failed(self, fake_parse_command_line):
-
-        fake_parse_command_line.return_value.execute.side_effect = sap.errors.ResourceAlreadyExistsError
-
-        with patch('sys.stderr', new_callable=StringIO) as fake_output:
-            with patch('sys.stdout', new_callable=StringIO) as fake_stdout_output:
-                params = ALL_PARAMETERS.copy()
-                retval = sapcli.main(params)
-
+    def test_execution_failed(self):
+        from unittest.mock import patch
+        import sap
+        params = ALL_PARAMETERS.copy()
+        with patch.object(self.sapcli, 'parse_command_line') as fake_parse_command_line:
+            fake_parse_command_line.return_value.execute.side_effect = sap.errors.ResourceAlreadyExistsError
+            with patch('sys.stderr', new_callable=StringIO) as fake_output:
+                with patch('sys.stdout', new_callable=StringIO) as fake_stdout_output:
+                    retval = self.sapcli.main(params)
         self.assertEqual(retval, 1)
         self.assertRegex(fake_output.getvalue(), r'^Exception \(ResourceAlreadyExistsError\):')
         self.assertRegex(fake_output.getvalue(), r'Resource already exists')

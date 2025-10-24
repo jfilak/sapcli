@@ -2118,11 +2118,10 @@ class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
 
     @patch('sys.stderr', new_callable=StringIO)
     def test_activities_incorrect_operation(self, mock_stderr):
-
         with self.assertRaises(SystemExit):
             the_cmd = self.activities_cmd('the_repo', '--operation', 'NOT_CLONE')
-
-        self.assertIn("--operation: invalid choice: 'NOT_CLONE' (choose from 'COMMIT', 'PULL', 'CLONE', 'BRANCH_SW')", mock_stderr.getvalue())
+            the_cmd.execute(self.fake_connection, the_cmd)
+        self.assertIn("--operation: invalid choice: 'NOT_CLONE' (choose from COMMIT, PULL, CLONE, BRANCH_SW)", mock_stderr.getvalue())
 
     @patch('sap.cli.gcts.get_repository')
     def test_activities_repo_not_found(self, fake_get_repository):
