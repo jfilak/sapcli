@@ -5,6 +5,7 @@ import unittest
 import json
 from unittest.mock import MagicMock, patch, Mock, PropertyMock, mock_open, call
 from sap.rest.gcts import package_name_from_url
+from sap.rest.gcts.simple import get_task_timeout_error_message
 
 import sap.cli.gcts
 import sap.cli.core
@@ -547,7 +548,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertConsoleContents(
             console=self.console,
-            stdout=f'Task {self.fake_task.tid} created for repository {self.fake_repo.rid}. You can check the task status manually with the command "gcts_task task_info --tid {self.fake_task.tid} {self.fake_repo.rid} "\n',
+            stdout=get_task_timeout_error_message(self.fake_task) + '\n'
         )
 
     def test_async_clone_with_all_params(self):
@@ -837,7 +838,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_wait_for_task_execution.assert_not_called()
         self.assertEqual(exit_code, 0)
-        self.assertConsoleContents(self.console, stdout=f'Task {self.fake_task.tid} created for repository {self.fake_repo.rid}. You can check the task status manually with the command "gcts task_info --tid {self.fake_task.tid} {self.fake_repo.rid} "\n')
+        self.assertConsoleContents(self.console, stdout=get_task_timeout_error_message(self.fake_task) + '\n')
 
 
 # class TestgCTSGetTaskInfo(PatcherTestCase, ConsoleOutputTestCase):

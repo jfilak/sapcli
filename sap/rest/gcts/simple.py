@@ -81,10 +81,16 @@ def wait_for_task_execution(task: RepositoryTask, wait_for_ready, pull_period, h
             except HTTPRequestError:
                 _mod_log().debug(f'Failed to get status of the task {task.tid} for repository {task.rid}.')
             time.sleep(pull_period)
-    raise SAPCliError(f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}. You can check the task status manually with the command "gcts task_info --tid {task.tid} {task.rid} "')
+    raise SAPCliError(get_task_timeout_error_message(task))
 
+
+def get_task_timeout_error_message(task: RepositoryTask):
+    """Get the error message for a task timeout"""
+    return f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}. You can check the task status manually with the command "gcts task_info --tid {task.tid} {task.rid} "'
 
 # pylint: disable=too-many-arguments
+
+
 def clone(repo: Repository):
     """Clones the repository in the target systems"""
 
