@@ -683,7 +683,7 @@ def clone(connection, args):
                     sap.rest.gcts.simple.wait_for_task_execution(task, args.wait_for_ready,
                                                                  args.pull_period, args.heartbeat)
                 else:
-                    console.printout(f'Task {task.tid} created for repository {repo.rid}. You can check the task status manually with the command "gcts_task task_info --tid {task.tid} {repo.rid} "')
+                    console.printout(f'Task {task.tid} created for repository {repo.rid}. You can check the task status manually with the command "gcts task_info --tid {task.tid} {repo.rid} "')
                     return 0
             else:
                 console.printout('Clone request responded with an error. No task found!')
