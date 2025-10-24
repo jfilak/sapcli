@@ -1983,17 +1983,17 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             'status': RepositoryTask.TaskStatus.FINISHED.value
         }
 
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        repo.get_task_by_id = Mock(side_effect=repo.get_task_by_id)
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data=task_data)
+        task.get_by_id = Mock(side_effect=task.get_by_id)
 
         self.conn.set_responses([
             Response.with_json(status_code=200, json={'task': task_data})
         ])
 
-        result_task = sap.rest.gcts.simple.wait_for_task_execution(repo, task_id, 10, 1)
+        result_task = sap.rest.gcts.simple.wait_for_task_execution(task, 10, 1)
 
-        repo.get_task_by_id.assert_called_once_with(task_id)
-        fake_console.printout.assert_called_once()
+        task.get_by_id.assert_called_once_with(task_id)
+        self.assertEqual(fake_console.printout.call_count, 3)  # TableWriter prints header, separator, and data
         fake_mod_log.return_value.debug.assert_not_called()
         self.assertEqual(result_task.status, RepositoryTask.TaskStatus.FINISHED.value)
 
@@ -2018,8 +2018,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             'status': RepositoryTask.TaskStatus.FINISHED.value
         }
 
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        repo.get_task_by_id = Mock(side_effect=repo.get_task_by_id)
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data=task_data_running)
+        task.get_by_id = Mock(side_effect=task.get_by_id)
 
         self.conn.set_responses([
             Response(status_code=500, text='Test HTTP Request Exception'),
@@ -2027,10 +2027,10 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json={'task': task_data_finished})
         ])
 
-        result_task = sap.rest.gcts.simple.wait_for_task_execution(repo, task_id, 10, 1)
+        result_task = sap.rest.gcts.simple.wait_for_task_execution(task, 10, 1)
 
-        self.assertEqual(repo.get_task_by_id.mock_calls, [call(task_id), call(task_id), call(task_id)])
-        fake_mod_log.return_value.debug.assert_called_once_with(f'Failed to get status of the task {task_id} for repository {repo.rid}')
+        self.assertEqual(task.get_by_id.mock_calls, [call(task_id), call(task_id), call(task_id)])
+        fake_mod_log.return_value.debug.assert_called_once_with(f'Failed to get status of the task {task_id} for repository {task.rid}.')
         self.assertEqual(result_task.status, RepositoryTask.TaskStatus.FINISHED.value)
 
     @patch('sap.rest.gcts.simple._mod_log')
@@ -2051,17 +2051,17 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         fake_time.side_effect = [0, 1, 2]
 
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        repo.get_task_by_id = Mock(side_effect=repo.get_task_by_id)
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data=task_data_running)
+        task.get_by_id = Mock(side_effect=task.get_by_id)
 
         self.conn.set_responses([
             Response.with_json(status_code=200, json={'task': task_data_running}),
         ])
 
         with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
-            sap.rest.gcts.simple.wait_for_task_execution(repo, task_id, 2, 1)
+            sap.rest.gcts.simple.wait_for_task_execution(task, 2, 1)
 
-        expected_message = f'Waiting for the task execution timed out: task {task_id} for repository {repo.rid}. You can check the task status manually with the command "gcts task_info --tid {task_id} {repo.rid} "'
+        expected_message = f'Waiting for the task execution timed out: task {task_id} for repository {task.rid}. You can check the task status manually with the command "gcts task_info --tid {task_id} {task.rid} "'
         self.assertEqual(str(cm.exception), expected_message)
 
     @patch('sap.rest.gcts.simple.get_console')
@@ -2078,17 +2078,17 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             'status': RepositoryTask.TaskStatus.ABORTED.value
         }
 
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        repo.get_task_by_id = Mock(side_effect=repo.get_task_by_id)
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data=task_data)
+        task.get_by_id = Mock(side_effect=task.get_by_id)
 
         self.conn.set_responses([
             Response.with_json(status_code=200, json={'task': task_data})
         ])
 
         with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
-            sap.rest.gcts.simple.wait_for_task_execution(repo, task_id, 10, 1)
+            sap.rest.gcts.simple.wait_for_task_execution(task, 10, 1)
 
-        expected_message = f'Task execution aborted: task {task_id} for repository {repo.rid}'
+        expected_message = f'Task execution aborted: task {task_id} for repository {task.rid}.'
         self.assertEqual(str(cm.exception), expected_message)
 
     def test_simple_fetch_no_repo(self):
