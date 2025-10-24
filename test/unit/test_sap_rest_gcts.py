@@ -2,15 +2,16 @@
 
 import json
 import unittest
+import time
 from unittest.mock import Mock, call, patch
 
 from sap.rest.errors import HTTPRequestError, UnauthorizedError
-from sap.rest.gcts.remote_repo import RepositoryTask
+from sap.rest.gcts.repo_task import RepositoryTask
 import sap.rest.gcts
 import sap.rest.gcts.remote_repo
 import sap.rest.gcts.simple
 import sap.rest.gcts.sugar
-import time
+
 
 from mock import Request, Response, RESTConnection, make_gcts_log_error
 from mock import GCTSLogBuilder as LogBuilder
@@ -395,280 +396,6 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertIsNotNone(repo._data)
         self.assertEqual(str(caught.exception), 'gCTS exception: Clone Error')
-
-    def test_async_clone_task_create_and_schedule(self):
-        task_scheduledAt = int(time.time() * 1000)  # /ms
-        task_id = '123'
-        self.conn.set_responses(
-            # Response for create_task
-            Response.with_json(status_code=200, json={
-                'task': {
-                    'tid': task_id,
-                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-                    'status': RepositoryTask.TaskStatus.PRELIMINAR.value
-                }
-            }),
-            # Response for schedule_task
-            Response.with_json(status_code=200, json={
-                'task': {
-                    'tid': task_id,
-                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-                    'status': RepositoryTask.TaskStatus.RUNNING.value,
-                    'scheduledAt': task_scheduledAt
-                }
-            })
-        )
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        task = repo.async_clone()
-
-        self.assertIsNotNone(task)
-        self.assertTrue(isinstance(task, RepositoryTask))
-        self.assertEqual(task.scheduledAt, task_scheduledAt)
-        self.assertEqual(task.tid, task_id)
-        self.assertEqual(task.type, RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value)
-        self.assertEqual(task.status, RepositoryTask.TaskStatus.RUNNING.value)
-        self.assertEqual(task.scheduledAt, task_scheduledAt)
-
-        self.assertEqual(len(self.conn.execs), 2)
-
-        # Check create_task call
-        create_request = self.conn.execs[0]
-        self.assertEqual(create_request.method, 'POST')
-        self.assertEqual(create_request.adt_uri, f'repository/{self.repo_rid}/task')
-
-        # Check schedule_task call
-        schedule_request = self.conn.execs[1]
-        self.assertEqual(schedule_request.method, 'GET')
-        self.assertEqual(schedule_request.adt_uri, f'repository/{self.repo_rid}/task/{task_id}/schedule')
-
-    def test_async_clone_create_task_error(self):
-        """Test async_clone when create_task returns an error"""
-        messages = LogBuilder(exception='Create Task Error').get_contents()
-        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
-            repo.async_clone()
-
-        self.assertIsNotNone(repo._data)
-        self.assertEqual(str(caught.exception), 'gCTS exception: Create Task Error')
-        self.assertEqual(len(self.conn.execs), 1)
-
-        create_request = self.conn.execs[0]
-        self.assertEqual(create_request.method, 'POST')
-        self.assertEqual(create_request.adt_uri, f'repository/{self.repo_rid}/task')
-
-    def test_async_clone_schedule_task_error(self):
-        """Test async_clone when schedule_task returns an error"""
-
-        task_id = '123'
-        messages = LogBuilder(exception='Schedule Task Error').get_contents()
-        self.conn.set_responses(
-            Response.with_json(status_code=200, json={
-                'task': {
-                    'tid': task_id,
-                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-                    'status': RepositoryTask.TaskStatus.PRELIMINAR.value
-                }
-            }),
-            Response.with_json(status_code=500, json=messages)
-        )
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
-            repo.async_clone()
-
-        self.assertIsNotNone(repo._data)
-        self.assertEqual(str(caught.exception), 'gCTS exception: Schedule Task Error')
-        self.assertEqual(len(self.conn.execs), 2)
-
-        create_request = self.conn.execs[0]
-        self.assertEqual(create_request.method, 'POST')
-        self.assertEqual(create_request.adt_uri, f'repository/{self.repo_rid}/task')
-
-        schedule_request = self.conn.execs[1]
-        self.assertEqual(schedule_request.method, 'GET')
-        self.assertEqual(schedule_request.adt_uri, f'repository/{self.repo_rid}/task/{task_id}/schedule')
-
-    def test_create_task_for_repository(self):
-        """Test create_task method with successful response"""
-        import time
-
-        task_id = '123'
-        task_scheduledAt = int(time.time() * 1000)  # /ms
-        self.conn.set_responses(
-            Response.with_json(status_code=200, json={
-                'task': {
-                    'tid': task_id,
-                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-                    'status': RepositoryTask.TaskStatus.PRELIMINAR.value,
-                    'scheduledAt': task_scheduledAt
-                }
-            })
-        )
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        task_definition = RepositoryTask.TaskDefinition.CLONE_REPOSITORY
-        parameters = RepositoryTask.TaskParameters(branch='main')
-
-        task = repo.create_task(task_definition, parameters)
-
-        self.assertIsNotNone(task)
-        self.assertTrue(isinstance(task, RepositoryTask))
-        self.assertEqual(task.tid, task_id)
-        self.assertEqual(task.type, RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value)
-        self.assertEqual(task.status, RepositoryTask.TaskStatus.PRELIMINAR.value)
-        self.assertEqual(task.scheduledAt, task_scheduledAt)
-
-        self.assertEqual(len(self.conn.execs), 1)
-
-        create_request = self.conn.execs[0]
-        self.assertEqual(create_request.method, 'POST')
-        self.assertEqual(create_request.adt_uri, f'repository/{self.repo_rid}/task')
-
-    def test_create_task_for_repository_error(self):
-        """Test create_task when server returns an error"""
-
-        messages = LogBuilder(exception='Create Task Error').get_contents()
-        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        task_definition = RepositoryTask.TaskDefinition.CLONE_REPOSITORY
-        parameters = RepositoryTask.TaskParameters(branch='main')
-
-        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
-            repo.create_task(task_definition, parameters)
-
-        self.assertIsNotNone(repo._data)
-        self.assertEqual(str(caught.exception), 'gCTS exception: Create Task Error')
-        self.assertEqual(len(self.conn.execs), 1)
-
-        create_request = self.conn.execs[0]
-        self.assertEqual(create_request.method, 'POST')
-        self.assertEqual(create_request.adt_uri, f'repository/{self.repo_rid}/task')
-
-    def test_get_task_by_id_for_repository(self):
-        """Test get_task_by_id method with successful response"""
-        import time
-
-        task_id = '123'
-        task_scheduledAt = int(time.time() * 1000)  # /ms
-        self.conn.set_responses(
-            Response.with_json(status_code=200, json={
-                'task': {
-                    'tid': task_id,
-                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-                    'status': RepositoryTask.TaskStatus.RUNNING.value,
-                    'scheduledAt': task_scheduledAt,
-                    'createdBy': 'test_user',
-                    'createdAt': task_scheduledAt
-                }
-            })
-        )
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-
-        task = repo.get_task_by_id(task_id)
-
-        self.assertIsNotNone(task)
-        self.assertTrue(isinstance(task, RepositoryTask))
-        self.assertEqual(task.tid, task_id)
-        self.assertEqual(task.type, RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value)
-        self.assertEqual(task.status, RepositoryTask.TaskStatus.RUNNING.value)
-        self.assertEqual(task.scheduledAt, task_scheduledAt)
-        self.assertEqual(task.createdBy, 'test_user')
-        self.assertEqual(task.createdAt, task_scheduledAt)
-
-        self.assertEqual(len(self.conn.execs), 1)
-
-        get_request = self.conn.execs[0]
-        self.assertEqual(get_request.method, 'GET')
-        self.assertEqual(get_request.adt_uri, f'repository/{self.repo_rid}/task/{task_id}')
-
-    def test_get_task_by_id_for_repository_error(self):
-        """Test get_task_by_id when server returns an error"""
-        task_id = '123'
-        messages = LogBuilder(exception='Get Task Error').get_contents()
-        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-
-        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
-            repo.get_task_by_id(task_id)
-
-        self.assertIsNotNone(repo._data)
-        self.assertEqual(str(caught.exception), 'gCTS exception: Get Task Error')
-        self.assertEqual(len(self.conn.execs), 1)
-
-        get_request = self.conn.execs[0]
-        self.assertEqual(get_request.method, 'GET')
-        self.assertEqual(get_request.adt_uri, f'repository/{self.repo_rid}/task/{task_id}')
-
-    def test_schedule_task_for_repository(self):
-        """Test schedule_task method with successful response"""
-        import time
-
-        task_id = '123'
-        task_scheduledAt = int(time.time() * 1000)  # /ms
-        task_data = {
-            'tid': task_id,
-            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-            'status': RepositoryTask.TaskStatus.RUNNING.value,
-            'scheduledAt': task_scheduledAt
-        }
-
-        self.conn.set_responses(
-            Response.with_json(status_code=200, json={
-                'task': task_data
-            })
-        )
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        task = RepositoryTask(task_data)
-
-        updated_task = repo.schedule_task(task)
-
-        self.assertIsNotNone(updated_task)
-        self.assertTrue(isinstance(updated_task, RepositoryTask))
-        self.assertEqual(updated_task.tid, task_id)
-        self.assertEqual(updated_task.type, RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value)
-        self.assertEqual(updated_task.status, RepositoryTask.TaskStatus.RUNNING.value)
-        self.assertEqual(updated_task.scheduledAt, task_scheduledAt)
-
-        self.assertEqual(len(self.conn.execs), 1)
-
-        # Check schedule_task call
-        schedule_request = self.conn.execs[0]
-        self.assertEqual(schedule_request.method, 'GET')
-        self.assertEqual(schedule_request.adt_uri, f'repository/{self.repo_rid}/task/{task_id}/schedule')
-
-    def test_schedule_task_for_repository_error(self):
-        """Test schedule_task when server returns an error"""
-
-        task_id = '123'
-        task_data = {
-            'tid': task_id,
-            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-            'status': RepositoryTask.TaskStatus.PRELIMINAR.value
-        }
-
-        messages = LogBuilder(exception='Schedule Task Error').get_contents()
-        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
-
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
-        task = RepositoryTask(task_data)
-
-        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
-            repo.schedule_task(task)
-
-        self.assertIsNotNone(repo._data)
-        self.assertEqual(str(caught.exception), 'gCTS exception: Schedule Task Error')
-        self.assertEqual(len(self.conn.execs), 1)
-
-        schedule_request = self.conn.execs[0]
-        self.assertEqual(schedule_request.method, 'GET')
-        self.assertEqual(schedule_request.adt_uri, f'repository/{self.repo_rid}/task/{task_id}/schedule')
 
     def test_checkout_ok(self):
         self.conn.set_responses(Response.with_json(status_code=200, json={'result': {
@@ -1111,9 +838,11 @@ class TestRepositoryTask(unittest.TestCase):
 
     def setUp(self):
         """Set up test data for RepositoryTask tests"""
+
+        self.conn = RESTConnection()
+        self.rid = 'repo-id'
         self.task_data = {
             'tid': '123',
-            'rid': 'repo-id',
             'jobId': 'job-456',
             'log': 'Task log message',
             'variant': 'default',
@@ -1130,10 +859,10 @@ class TestRepositoryTask(unittest.TestCase):
 
     def test_task_creation_with_data(self):
         """Test RepositoryTask creation with initial data"""
-        task = RepositoryTask(self.task_data)
+        task = RepositoryTask(self.conn, self.rid, self.task_data)
 
         self.assertEqual(task.tid, self.task_data['tid'])
-        self.assertEqual(task.rid, self.task_data['rid'])
+        self.assertEqual(task.rid, self.rid)
         self.assertEqual(task.jobId, self.task_data['jobId'])
         self.assertEqual(task.log, self.task_data['log'])
         self.assertEqual(task.variant, self.task_data['variant'])
@@ -1149,10 +878,10 @@ class TestRepositoryTask(unittest.TestCase):
 
     def test_task_creation_without_data(self):
         """Test RepositoryTask creation without initial data"""
-        task = RepositoryTask()
+        task = RepositoryTask(self.conn, self.rid)
 
+        self.assertEqual(task.rid, self.rid)
         self.assertIsNone(task.tid)
-        self.assertIsNone(task.rid)
         self.assertIsNone(task.jobId)
         self.assertIsNone(task.log)
         self.assertIsNone(task.variant)
@@ -1168,10 +897,10 @@ class TestRepositoryTask(unittest.TestCase):
 
     def test_task_creation_with_empty_data(self):
         """Test RepositoryTask creation with empty data dictionary"""
-        task = RepositoryTask({})
+        task = RepositoryTask(self.conn, self.rid, {})
 
+        self.assertEqual(task.rid, self.rid)
         self.assertIsNone(task.tid)
-        self.assertIsNone(task.rid)
         self.assertIsNone(task.jobId)
         self.assertIsNone(task.log)
         self.assertIsNone(task.variant)
@@ -1185,9 +914,9 @@ class TestRepositoryTask(unittest.TestCase):
         self.assertIsNone(task.startAt)
         self.assertIsNone(task.scheduledAt)
 
-    def test_update_data(self):
+    def test_update_task_data(self):
         """Test updating task data"""
-        task = RepositoryTask(self.task_data)
+        task = RepositoryTask(self.conn, self.rid, self.task_data)
 
         new_data = {
             'status': RepositoryTask.TaskStatus.FINISHED.value,
@@ -1201,23 +930,23 @@ class TestRepositoryTask(unittest.TestCase):
 
     def test_update_data_empty(self):
         """Test updating task data with empty dictionary"""
-        task = RepositoryTask(self.task_data)
+        task = RepositoryTask(self.conn, self.rid, self.task_data)
         original_data = task._data.copy()
 
         task.update_data({})
 
         self.assertEqual(task._data, original_data)
 
-    def test_get_status(self):
+    def test_get_task_status(self):
         """Test get_status method"""
-        task = RepositoryTask(self.task_data)
+        task = RepositoryTask(self.conn, self.rid, self.task_data)
 
         self.assertEqual(task.get_status(), self.task_data['status'])
         self.assertEqual(task.get_status(), task.status)
 
-    def test_get_status_none(self):
+    def test_get_task_status_none(self):
         """Test get_status method when status is None"""
-        task = RepositoryTask()
+        task = RepositoryTask(self.conn, self.rid)
 
         self.assertIsNone(task.get_status())
 
@@ -1240,7 +969,7 @@ class TestRepositoryTask(unittest.TestCase):
         self.assertEqual(RepositoryTask.TaskStatus.ABORTED.value, 'ABORTED')
         self.assertEqual(RepositoryTask.TaskStatus.SUSPENDED.value, 'SUSPENDED')
         self.assertEqual(RepositoryTask.TaskStatus.FINISHED.value, 'FINISHED')
-        self.assertEqual(RepositoryTask.TaskStatus.PRELIMINAR.value, 'PRELIMINAR')
+        self.assertEqual(RepositoryTask.TaskStatus.PRELIMINARY.value, 'PRELIMINARY')
 
     def test_task_parameters_creation_empty(self):
         """Test TaskParameters creation with no parameters"""
@@ -1365,11 +1094,10 @@ class TestRepositoryTask(unittest.TestCase):
 
     def test_task_property_access_missing_keys(self):
         """Test property access when keys are missing from data"""
-        task = RepositoryTask({'tid': '123'})
+        task = RepositoryTask(self.conn, self.rid, {'tid': '123'})
 
         self.assertEqual(task.tid, '123')
-
-        self.assertIsNone(task.rid)
+        self.assertEqual(task.rid, self.rid)
         self.assertIsNone(task.jobId)
         self.assertIsNone(task.log)
         self.assertIsNone(task.variant)
@@ -1382,6 +1110,525 @@ class TestRepositoryTask(unittest.TestCase):
         self.assertIsNone(task.changedAt)
         self.assertIsNone(task.startAt)
         self.assertIsNone(task.scheduledAt)
+
+    def test_clone_task_create_and_schedule_success(self):
+        """Test async clone task create and schedule"""
+        task_scheduledAt = int(time.time() * 1000)  # /ms
+        task_id = '123'
+        self.conn.set_responses(
+            # Response for create_task
+            Response.with_json(status_code=200, json={
+                'task': {
+                    'tid': task_id,
+                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+                    'status': RepositoryTask.TaskStatus.PRELIMINARY.value
+                }
+            }),
+            # Response for schedule_task
+            Response.with_json(status_code=200, json={
+                'task': {
+                    'tid': task_id,
+                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+                    'status': RepositoryTask.TaskStatus.RUNNING.value,
+                    'scheduledAt': task_scheduledAt
+                }
+            })
+        )
+
+        # repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.rid, data=self.repo_server_data)
+        task = RepositoryTask(self.conn, self.rid).create(RepositoryTask.TaskDefinition.CLONE_REPOSITORY).schedule_task()
+
+        self.assertIsNotNone(task)
+        self.assertTrue(isinstance(task, RepositoryTask))
+        self.assertEqual(task.scheduledAt, task_scheduledAt)
+        self.assertEqual(task.tid, task_id)
+        self.assertEqual(task.type, RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value)
+        self.assertEqual(task.status, RepositoryTask.TaskStatus.RUNNING.value)
+        self.assertEqual(task.scheduledAt, task_scheduledAt)
+
+        self.assertEqual(len(self.conn.execs), 2)
+
+        # Check create_task call
+        create_request = self.conn.execs[0]
+        self.assertEqual(create_request.method, 'POST')
+        self.assertEqual(create_request.adt_uri, f'repository/{self.rid}/task')
+
+        # Check schedule_task call
+        schedule_request = self.conn.execs[1]
+        self.assertEqual(schedule_request.method, 'GET')
+        self.assertEqual(schedule_request.adt_uri, f'repository/{self.rid}/task/{task_id}/schedule')
+
+    def test_clone_task_create_success(self):
+        """Test async clone task create only"""
+        task_id = '123'
+        self.conn.set_responses(
+            # Response for create_task
+            Response.with_json(status_code=200, json={
+                'task': {
+                    'tid': task_id,
+                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+                    'status': RepositoryTask.TaskStatus.PRELIMINARY.value
+                }
+            })
+        )
+
+        task = RepositoryTask(self.conn, self.rid).create(RepositoryTask.TaskDefinition.CLONE_REPOSITORY)
+
+        self.assertIsNotNone(task)
+        self.assertTrue(isinstance(task, RepositoryTask))
+        self.assertEqual(task.tid, task_id)
+        self.assertEqual(task.type, RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value)
+        self.assertEqual(task.status, RepositoryTask.TaskStatus.PRELIMINARY.value)
+
+        self.assertEqual(len(self.conn.execs), 1)
+
+        # Check create_task call
+        create_request = self.conn.execs[0]
+        self.assertEqual(create_request.method, 'POST')
+        self.assertEqual(create_request.adt_uri, f'repository/{self.rid}/task')
+
+    def test_clone_task_create_with_parameters_success(self):
+        """Test create with task parameters"""
+        task_id = '123'
+        task_response = {
+            'task': {
+                'tid': task_id,
+                'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+                'status': RepositoryTask.TaskStatus.PRELIMINARY.value,
+                'parameters': {
+                    'branch': 'main'
+                }
+            }
+        }
+        self.conn.set_responses(Response.with_json(status_code=200, json=task_response))
+
+        # Create task parameters
+        parameters = RepositoryTask.TaskParameters()
+        parameters.branch = 'main'
+
+        task = RepositoryTask(self.conn, self.rid).create(
+            RepositoryTask.TaskDefinition.CLONE_REPOSITORY,
+            parameters
+        )
+
+        self.assertIsNotNone(task)
+        self.assertEqual(task.tid, task_id)
+        self.assertEqual(task.type, RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value)
+        self.assertEqual(len(self.conn.execs), 1)
+
+        create_request = self.conn.execs[0]
+        self.assertEqual(create_request.method, 'POST')
+        self.assertEqual(create_request.adt_uri, f'repository/{self.rid}/task')
+
+        request_data = json.loads(create_request.body)
+        self.assertIn('parameters', request_data)
+        self.assertEqual(request_data['parameters']['branch'], 'main')
+
+    def test__clone_task_create_repository_not_set_error(self):
+        """Test create when repository is not set (rid is None)"""
+        task = RepositoryTask(self.conn, self.rid)
+        task._rid = None
+
+        with self.assertRaises(sap.rest.gcts.errors.SAPCliError) as caught:
+            task.create(RepositoryTask.TaskDefinition.CLONE_REPOSITORY)
+
+        self.assertEqual(str(caught.exception), 'Repository is not set')
+        self.assertEqual(len(self.conn.execs), 0)  # No HTTP request should be made
+
+    def test_clone_task_create_general_request_error(self):
+        """Test create when HTTP request returns a general error"""
+        messages = LogBuilder(exception='Create Task Error').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            RepositoryTask(self.conn, self.rid).create(RepositoryTask.TaskDefinition.CLONE_REPOSITORY)
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Create Task Error')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        create_request = self.conn.execs[0]
+        self.assertEqual(create_request.method, 'POST')
+        self.assertEqual(create_request.adt_uri, f'repository/{self.rid}/task')
+
+    def test_clone_task_repository_not_exists_error(self):
+        """Test create when repository does not exist"""
+        messages = LogBuilder(exception='No relation between system and repository').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRepoNotExistsError) as caught:
+            RepositoryTask(self.conn, self.rid).create(RepositoryTask.TaskDefinition.CLONE_REPOSITORY)
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Repository does not exist')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        create_request = self.conn.execs[0]
+        self.assertEqual(create_request.method, 'POST')
+        self.assertEqual(create_request.adt_uri, f'repository/{self.rid}/task')
+
+    def test_clone_task_schedule_success(self):
+        """Test async clone task schedule only"""
+        task_scheduledAt = int(time.time() * 1000)  # /ms
+        task_id = '123'
+        self.conn.set_responses(
+            # Response for schedule_task
+            Response.with_json(status_code=200, json={
+                'task': {
+                    'tid': task_id,
+                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+                    'status': RepositoryTask.TaskStatus.RUNNING.value,
+                    'scheduledAt': task_scheduledAt
+                }
+            })
+        )
+
+        # Create a task instance with preliminary data
+        task = RepositoryTask(self.conn, self.rid)
+        task.update_data({
+            'tid': task_id,
+            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+            'status': RepositoryTask.TaskStatus.PRELIMINARY.value
+        })
+
+        scheduled_task = task.schedule_task()
+
+        self.assertIsNotNone(scheduled_task)
+        self.assertTrue(isinstance(scheduled_task, RepositoryTask))
+        self.assertEqual(scheduled_task.scheduledAt, task_scheduledAt)
+        self.assertEqual(scheduled_task.tid, task_id)
+        self.assertEqual(scheduled_task.type, RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value)
+        self.assertEqual(scheduled_task.status, RepositoryTask.TaskStatus.RUNNING.value)
+
+        self.assertEqual(len(self.conn.execs), 1)
+
+        # Check schedule_task call
+        schedule_request = self.conn.execs[0]
+        self.assertEqual(schedule_request.method, 'GET')
+        self.assertEqual(schedule_request.adt_uri, f'repository/{self.rid}/task/{task_id}/schedule')
+
+    def test_schedule_task_task_not_set_error(self):
+        """Test schedule_task when task is not set (tid is None)"""
+        task = RepositoryTask(self.conn, self.rid)
+
+        with self.assertRaises(sap.rest.gcts.errors.SAPCliError) as caught:
+            task.schedule_task()
+
+        self.assertEqual(str(caught.exception), 'Task is not set')
+        self.assertEqual(len(self.conn.execs), 0)  # No HTTP request should be made
+
+    def test_schedule_task_task_not_preliminary_error(self):
+        """Test schedule_task when task is not in PRELIMINARY status"""
+        task = RepositoryTask(self.conn, self.rid)
+        task.update_data({
+            'tid': '123',
+            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+            'status': RepositoryTask.TaskStatus.RUNNING.value  # Not PRELIMINARY
+        })
+
+        with self.assertRaises(sap.rest.gcts.errors.SAPCliError) as caught:
+            task.schedule_task()
+
+        self.assertEqual(str(caught.exception), 'Task is not in PRELIMINARY status')
+        self.assertEqual(len(self.conn.execs), 0)  # No HTTP request should be made
+
+    def test_schedule_task_general_request_error(self):
+        """Test schedule_task when HTTP request returns a general error"""
+        task_id = '123'
+        messages = LogBuilder(exception='Schedule Task Error').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid)
+        task.update_data({
+            'tid': task_id,
+            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+            'status': RepositoryTask.TaskStatus.PRELIMINARY.value
+        })
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            task.schedule_task()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Schedule Task Error')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        schedule_request = self.conn.execs[0]
+        self.assertEqual(schedule_request.method, 'GET')
+        self.assertEqual(schedule_request.adt_uri, f'repository/{self.rid}/task/{task_id}/schedule')
+
+    def test_schedule_task_repository_not_exists_error(self):
+        """Test schedule_task when repository does not exist"""
+        task_id = '123'
+        messages = LogBuilder(exception='No relation between system and repository').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid)
+        task.update_data({
+            'tid': task_id,
+            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+            'status': RepositoryTask.TaskStatus.PRELIMINARY.value
+        })
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRepoNotExistsError) as caught:
+            task.schedule_task()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Repository does not exist')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        schedule_request = self.conn.execs[0]
+        self.assertEqual(schedule_request.method, 'GET')
+        self.assertEqual(schedule_request.adt_uri, f'repository/{self.rid}/task/{task_id}/schedule')
+
+    def test_delete_task_success(self):
+        """Test delete task success"""
+        task_id = '123'
+        task = RepositoryTask(self.conn, self.rid, self.task_data)
+        task.update_data({'tid': task_id})
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+
+        result = task.delete()
+
+        self.assertIsNotNone(result)
+        self.assertTrue(isinstance(result, RepositoryTask))
+        self.assertEqual(result, task)
+
+        self.assertEqual(len(self.conn.execs), 1)
+        delete_request = self.conn.execs[0]
+        self.assertEqual(delete_request.method, 'DELETE')
+        self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
+
+    def test_delete_task_task_not_set_error(self):
+        """Test delete task when task is not set (tid is None)"""
+        task = RepositoryTask(self.conn, self.rid)
+
+        # The delete method doesn't validate tid, so it will make an HTTP request with task/None
+        messages = LogBuilder(exception='Task not found').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            task.delete()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Task not found')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        delete_request = self.conn.execs[0]
+        self.assertEqual(delete_request.method, 'DELETE')
+        self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/None')
+
+    def test_delete_task_general_request_error(self):
+        """Test delete task when HTTP request returns a general error"""
+        task_id = '123'
+        messages = LogBuilder(exception='Delete Task Error').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid, self.task_data)
+        task.update_data({'tid': task_id})
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            task.delete()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Delete Task Error')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        delete_request = self.conn.execs[0]
+        self.assertEqual(delete_request.method, 'DELETE')
+        self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
+
+    def test_delete_task_repository_not_exists_error(self):
+        """Test delete task when repository does not exist"""
+        task_id = '123'
+        messages = LogBuilder(exception='No relation between system and repository').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid, self.task_data)
+        task.update_data({'tid': task_id})
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRepoNotExistsError) as caught:
+            task.delete()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Repository does not exist')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        delete_request = self.conn.execs[0]
+        self.assertEqual(delete_request.method, 'DELETE')
+        self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
+
+    def test_delete_task_task_not_found_error(self):
+        """Test delete task when task does not exist"""
+        task_id = '123'
+        messages = LogBuilder(exception='Task not found').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid, self.task_data)
+        task.update_data({'tid': task_id})
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            task.delete()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Task not found')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        delete_request = self.conn.execs[0]
+        self.assertEqual(delete_request.method, 'DELETE')
+        self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
+
+    def test_get_list_success(self):
+        """Test get_list method with successful response"""
+        task_list = [
+            {
+                'tid': '123',
+                'rid': self.rid,
+                'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+                'status': RepositoryTask.TaskStatus.FINISHED.value,
+                'name': 'Clone Task',
+                'createdBy': 'test_user',
+                'createdAt': int(time.time() * 1000)
+            },
+            {
+                'tid': '456',
+                'rid': self.rid,
+                'type': RepositoryTask.TaskDefinition.SWITCH_BRANCH.value,
+                'status': RepositoryTask.TaskStatus.RUNNING.value,
+                'name': 'Switch Branch Task',
+                'createdBy': 'test_user',
+                'createdAt': int(time.time() * 1000)
+            }
+        ]
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'tasks': task_list})
+        )
+
+        task = RepositoryTask(self.conn, self.rid)
+        result = task.get_list()
+
+        self.assertEqual(result, task_list)
+        self.assertEqual(len(self.conn.execs), 1)
+
+        get_request = self.conn.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(get_request.adt_uri, f'repository/{self.rid}/task')
+
+    def test_get_list_empty_response(self):
+        """Test get_list method with empty task list"""
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'tasks': []})
+        )
+
+        task = RepositoryTask(self.conn, self.rid)
+        result = task.get_list()
+
+        self.assertEqual(result, [])
+        self.assertEqual(len(self.conn.execs), 1)
+
+        get_request = self.conn.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(get_request.adt_uri, f'repository/{self.rid}/task')
+
+    def test_get_list_general_request_error(self):
+        """Test get_list method when HTTP request returns a general error"""
+        messages = LogBuilder(exception='Get Task List Error').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid)
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            task.get_list()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Get Task List Error')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        get_request = self.conn.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(get_request.adt_uri, f'repository/{self.rid}/task')
+
+    def test_get_list_repository_not_exists_error(self):
+        """Test get_list method when repository does not exist"""
+        messages = LogBuilder(exception='No relation between system and repository').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid)
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRepoNotExistsError) as caught:
+            task.get_list()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Repository does not exist')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        get_request = self.conn.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(get_request.adt_uri, f'repository/{self.rid}/task')
+
+    def test_get_by_id_success(self):
+        """Test get_by_id method with successful response"""
+        task_id = '123'
+        task_data = {
+            'tid': task_id,
+            'rid': self.rid,
+            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+            'status': RepositoryTask.TaskStatus.FINISHED.value,
+            'name': 'Test Task',
+            'createdBy': 'test_user',
+            'createdAt': int(time.time() * 1000)
+        }
+
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'task': task_data})
+        )
+
+        task = RepositoryTask(self.conn, self.rid)
+        result = task.get_by_id(task_id)
+
+        self.assertIsNotNone(result)
+        self.assertTrue(isinstance(result, RepositoryTask))
+        self.assertEqual(result.tid, task_id)
+        self.assertEqual(result.rid, self.rid)
+        self.assertEqual(result.type, task_data['type'])
+        self.assertEqual(result.status, task_data['status'])
+        self.assertEqual(result.name, task_data['name'])
+        self.assertEqual(result.createdBy, task_data['createdBy'])
+        self.assertEqual(result.createdAt, task_data['createdAt'])
+
+        self.assertEqual(len(self.conn.execs), 1)
+        get_request = self.conn.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(get_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
+
+    def test_get_by_id_general_request_error(self):
+        """Test get_by_id method when HTTP request returns a general error"""
+        task_id = '123'
+        messages = LogBuilder(exception='Get Task Error').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid)
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            task.get_by_id(task_id)
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Get Task Error')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        get_request = self.conn.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(get_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
+
+    def test_get_by_id_repository_not_exists_error(self):
+        """Test get_by_id method when repository does not exist"""
+        task_id = '123'
+        messages = LogBuilder(exception='No relation between system and repository').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
+
+        task = RepositoryTask(self.conn, self.rid)
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRepoNotExistsError) as caught:
+            task.get_by_id(task_id)
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Repository does not exist')
+        self.assertEqual(len(self.conn.execs), 1)
+
+        get_request = self.conn.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(get_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
 
 
 class TestRepoActivitiesQueryParams(unittest.TestCase):
@@ -1410,59 +1657,65 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         task_id = '123'
         task_scheduledAt = int(time.time() * 1000)  # /ms
 
-        with patch.object(repo, 'async_clone', wraps=repo.async_clone) as spy_async_clone:
-            self.conn.set_responses(
-                Response.with_json(status_code=200, json={
-                    'task': {
-                        'tid': task_id,
-                        'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-                        'status': RepositoryTask.TaskStatus.PRELIMINAR.value
-                    }
-                }),
-                Response.with_json(status_code=200, json={
-                    'task': {
-                        'tid': task_id,
-                        'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-                        'status': RepositoryTask.TaskStatus.RUNNING.value,
-                        'scheduledAt': task_scheduledAt
-                    }
-                })
-            )
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={
+                'task': {
+                    'tid': task_id,
+                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+                    'status': RepositoryTask.TaskStatus.PRELIMINARY.value
+                }
+            }),
+            Response.with_json(status_code=200, json={
+                'task': {
+                    'tid': task_id,
+                    'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+                    'status': RepositoryTask.TaskStatus.RUNNING.value,
+                    'scheduledAt': task_scheduledAt
+                }
+            })
+        )
 
-            result = sap.rest.gcts.simple.schedule_clone(repo)
+        result = sap.rest.gcts.simple.schedule_clone(repo, self.conn)
 
-            spy_async_clone.assert_called_once()
+        self.assertIsNotNone(result)
+        self.assertTrue(isinstance(result, RepositoryTask))
+        self.assertEqual(result.tid, task_id)
 
-            self.assertIsNotNone(result)
-            self.assertTrue(isinstance(result, RepositoryTask))
-            self.assertEqual(result.tid, task_id)
+        self.assertEqual(len(self.conn.execs), 2)
 
-            self.assertEqual(len(self.conn.execs), 2)
+        create_request = self.conn.execs[0]
+        self.assertEqual(create_request.method, 'POST')
+        self.assertEqual(create_request.adt_uri, f'repository/{self.repo_rid}/task')
 
-            create_request = self.conn.execs[0]
-            self.assertEqual(create_request.method, 'POST')
-            self.assertEqual(create_request.adt_uri, f'repository/{self.repo_rid}/task')
-
-            schedule_request = self.conn.execs[1]
-            self.assertEqual(schedule_request.method, 'GET')
-            self.assertEqual(schedule_request.adt_uri, f'repository/{self.repo_rid}/task/{task_id}/schedule')
+        schedule_request = self.conn.execs[1]
+        self.assertEqual(schedule_request.method, 'GET')
+        self.assertEqual(schedule_request.adt_uri, f'repository/{self.repo_rid}/task/{task_id}/schedule')
 
     @patch('sap.rest.gcts.simple._mod_log')
-    def test_simple_schedule_clone_repo_already_cloned(self, fake_mod_log):
+    @patch('sap.rest.gcts.simple.RepositoryTask')
+    def test_simple_schedule_clone_repo_already_cloned(self, mock_repository_task, fake_mod_log):
+        """Test that RepositoryTask methods are NOT called when repository is already cloned"""
         repo_data = dict(self.repo_server_data)
         repo_data['status'] = 'READY'
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
-        with patch.object(repo, 'async_clone', wraps=repo.async_clone) as spy_async_clone:
-            sap.rest.gcts.simple.schedule_clone(repo)
-            spy_async_clone.assert_not_called()
-            fake_mod_log.return_value.info.assert_called_once_with('Repository "%s" cloning not scheduled: already performed or repository is not created.')
+
+        mock_task_instance = Mock()
+        mock_repository_task.return_value = mock_task_instance
+
+        result = sap.rest.gcts.simple.schedule_clone(repo, self.conn)
+
+        mock_repository_task.assert_not_called()
+        mock_task_instance.create.assert_not_called()
+        mock_task_instance.schedule_task.assert_not_called()
+        self.assertIsNone(result)
+        fake_mod_log.return_value.info.assert_called_once_with('Repository "%s" cloning not scheduled: already performed or repository is not created.')
 
     @patch('sap.rest.gcts.simple._mod_log')
     def test_simple_schedule_clone_repo_not_created(self, fake_mod_log):
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data={})
-        with patch.object(repo, 'async_clone', wraps=repo.async_clone) as spy_async_clone:
-            sap.rest.gcts.simple.schedule_clone(repo)
-            spy_async_clone.assert_not_called()
+        with patch.object(repo, 'clone', wraps=repo.clone) as spy_clone:
+            sap.rest.gcts.simple.schedule_clone(repo, self.conn)
+            spy_clone.assert_not_called()
             fake_mod_log.return_value.info.assert_called_once_with('Repository "%s" cloning not scheduled: already performed or repository is not created.')
 
     def test_simple_clone_success(self):
