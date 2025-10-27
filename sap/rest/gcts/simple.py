@@ -88,7 +88,7 @@ def get_task_timeout_error_message(task: RepositoryTask):
     """Get the error message for a task timeout"""
     if task.tid is None or task.rid is None:
         raise SAPCliError('Task "tid" and repository "rid" are required to get the task timeout error message')
-    return f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}. You can check the task status manually with the command "gcts task_info --tid {task.tid} {task.rid} "'
+    return f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}. You can check the task status manually with the command "./sapcli gcts_task info --tid {task.tid} {task.rid} "'
 
 
 def clone(repo: Repository):
