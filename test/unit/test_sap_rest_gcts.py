@@ -1650,6 +1650,7 @@ class TestRepoActivitiesQueryParams(unittest.TestCase):
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
     def test_get_task_timeout_error_message(self):
+        """Test error message generation when task tid and rid are not None"""
         task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={
             'tid': '123',
             'rid': self.repo_rid,
@@ -1659,16 +1660,17 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         expected_message = f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}. You can check the task status manually with the command "gcts task_info --tid {task.tid} {task.rid} "'
         self.assertEqual(get_task_timeout_error_message(task), expected_message)
 
-    def test_get_task_timeout_error_message_with_none_tid(self):
-        """Test error message generation when task tid is None"""
+    def test_get_task_timeout_error_message_with_none_tid_and_rid(self):
+        """Test error message generation when task tid and rid are None"""
         task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={
             'tid': None,
-            'rid': self.repo_rid,
+            'rid': None,
             'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
             'status': RepositoryTask.TaskStatus.RUNNING.value
         })
-        expected_message = f'Waiting for the task execution timed out: task None for repository {task.rid}. You can check the task status manually with the command "gcts task_info --tid None {task.rid} "'
-        self.assertEqual(get_task_timeout_error_message(task), expected_message)
+        with self.assertRaises(sap.rest.errors.SAPCliError) as caught:
+            get_task_timeout_error_message(task)
+        self.assertEqual(str(caught.exception), 'Task "tid" and repository "rid" are required to get the task timeout error message')
 
     def test_simple_schedule_clone_success(self):
         repo_data = dict(self.repo_server_data)
