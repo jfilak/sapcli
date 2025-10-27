@@ -41,6 +41,14 @@ class GCTSRepoCloneError(GCTSRequestError):
         self.messages['exception'] = 'Repository unable to clone. Already cloned or in use'
 
 
+class GCTSRepoCloneTaskDeleteError(GCTSRequestError):
+    """A repository clone task delete error"""
+
+    def __init__(self, messages):
+        super().__init__(messages)
+        self.messages['exception'] = 'Task unable to delete. Already performed clone operation.'
+
+
 def exception_from_http_error(http_error):
     """Converts HTTPRequestError to proper instance"""
 

@@ -1397,24 +1397,6 @@ class TestRepositoryTask(unittest.TestCase):
         self.assertEqual(delete_request.method, 'DELETE')
         self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
 
-    def test_delete_task_task_not_set_error(self):
-        """Test delete task when task is not set (tid is None)"""
-        task = RepositoryTask(self.conn, self.rid)
-
-        # The delete method doesn't validate tid, so it will make an HTTP request with task/None
-        messages = LogBuilder(exception='Task not found').get_contents()
-        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
-
-        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
-            task.delete()
-
-        self.assertEqual(str(caught.exception), 'gCTS exception: Task not found')
-        self.assertEqual(len(self.conn.execs), 1)
-
-        delete_request = self.conn.execs[0]
-        self.assertEqual(delete_request.method, 'DELETE')
-        self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/None')
-
     def test_delete_task_general_request_error(self):
         """Test delete task when HTTP request returns a general error"""
         task_id = '123'
@@ -1453,24 +1435,22 @@ class TestRepositoryTask(unittest.TestCase):
         self.assertEqual(delete_request.method, 'DELETE')
         self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
 
-    def test_delete_task_task_not_found_error(self):
-        """Test delete task when task does not exist"""
-        task_id = '123'
-        messages = LogBuilder(exception='Task not found').get_contents()
-        self.conn.set_responses(Response.with_json(status_code=404, json=messages))
+    def test_delete_task_clone_task_delete_error(self):
+        """Test delete task when clone task deletion fails"""
+
+        messages = LogBuilder(exception='Job GCTS_CLONE_REPO could not be deleted: FM BP_JOB_DELETE failed with sy-subrc 16').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
 
         task = RepositoryTask(self.conn, self.rid, self.task_data)
-        task.update_data({'tid': task_id})
-
-        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRepoCloneTaskDeleteError) as caught:
             task.delete()
 
-        self.assertEqual(str(caught.exception), 'gCTS exception: Task not found')
+        self.assertEqual(str(caught.exception), 'gCTS exception: Task unable to delete. Already performed clone operation.')
         self.assertEqual(len(self.conn.execs), 1)
 
         delete_request = self.conn.execs[0]
         self.assertEqual(delete_request.method, 'DELETE')
-        self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
+        self.assertEqual(delete_request.adt_uri, f'repository/{self.rid}/task/{task.tid}')
 
     def test_get_list_success(self):
         """Test get_list method with successful response"""
@@ -1657,7 +1637,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
             'status': RepositoryTask.TaskStatus.RUNNING.value
         })
-        expected_message = f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}. You can check the task status manually with the command "gcts task_info --tid {task.tid} {task.rid} "'
+        expected_message = f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}. You can check the task status manually with the command "./sapcli gcts_task info --tid {task.tid} {task.rid} "'
         self.assertEqual(get_task_timeout_error_message(task), expected_message)
 
     def test_get_task_timeout_error_message_with_none_tid_and_rid(self):

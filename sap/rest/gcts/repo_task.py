@@ -4,7 +4,13 @@ from sap import get_logger
 
 from sap.rest.errors import HTTPRequestError
 
-from sap.rest.gcts.errors import SAPCliError, GCTSRequestError, GCTSRepoCloneError, GCTSRepoNotExistsError
+from sap.rest.gcts.errors import (
+    SAPCliError,
+    GCTSRequestError,
+    GCTSRepoCloneError,
+    GCTSRepoNotExistsError,
+    GCTSRepoCloneTaskDeleteError,
+)
 
 
 def mod_log():
@@ -39,6 +45,9 @@ def exception_from_http_error_for_task(http_error):
 
     if exception == 'Cannot clone repository. Status is not CREATED':
         return GCTSRepoCloneError(messages)
+
+    if exception == 'Job GCTS_CLONE_REPO could not be deleted: FM BP_JOB_DELETE failed with sy-subrc 16':
+        return GCTSRepoCloneTaskDeleteError(messages)
 
     return GCTSRequestError(messages)
 
@@ -308,6 +317,7 @@ class RepositoryTask:
         Raises:
             GCTSRequestError: If task deletion fails
             GCTSRepoNotExistsError: If repository does not exist
+            GCTSRepoCloneTaskDeleteError: If clone task deletion fails due to performing clone operation is not completed.
         """
 
         self._http.delete(f'task/{self.tid}')
