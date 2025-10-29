@@ -56,31 +56,23 @@ def wait_for_operation(repo, condition_fn, wait_for_ready, http_exc):
     raise SAPCliError(f'Waiting for the operation timed out\n{http_exc}')
 
 
-def wait_for_task_execution(task: RepositoryTask, wait_for_ready, pull_period, heartbeat=0):
+def wait_for_task_execution(task: RepositoryTask, wait_for_ready, pull_period=30, pull_cb=None):
     """Wait for task execution to finish"""
-    console = get_console()
     start_time = time.time()
 
     while time.time() - start_time < wait_for_ready:
-        with ConsoleHeartBeat(console, heartbeat):
-            try:
-                task.get_by_id(task.tid)
-                columns = (
-                    TableWriter.Columns()
-                    ('tid', 'Task ID')
-                    ('status', 'Status')
-                    ('type', 'Type')
-                    ('rid', 'Repository ID')
-                    .done()
-                )
-                TableWriter([task.to_dict()], columns).printout(console)
-                if task.status == RepositoryTask.TaskStatus.FINISHED.value:
-                    return task
-                if task.status == RepositoryTask.TaskStatus.ABORTED.value:
-                    raise SAPCliError(f'Task execution aborted: task {task.tid} for repository {task.rid}.')
-            except HTTPRequestError:
-                _mod_log().debug(f'Failed to get status of the task {task.tid} for repository {task.rid}.')
-            time.sleep(pull_period)
+        try:
+            task.get_by_id(task.tid)
+            if callable(pull_cb):
+                pull_cb(None, task.to_dict())
+            if task.status == RepositoryTask.TaskStatus.FINISHED.value:
+                return task
+            if task.status == RepositoryTask.TaskStatus.ABORTED.value:
+                raise SAPCliError(f'Task execution aborted: task {task.tid} for repository {task.rid}.')
+        except HTTPRequestError as ex:
+            if callable(pull_cb):
+                pull_cb(f'Failed to get status of the task {task.tid}: {str(ex)}', None)
+        time.sleep(pull_period)
     raise SAPCliError(get_task_timeout_error_message(task))
 
 

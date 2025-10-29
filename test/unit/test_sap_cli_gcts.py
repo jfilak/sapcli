@@ -449,7 +449,12 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_simple_schedule_clone = self.patch('sap.rest.gcts.simple.schedule_clone')
         self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
         self.fake_simple_wait_for_task_execution = self.patch('sap.rest.gcts.simple.wait_for_task_execution')
-
+        self.fake_simple_wait_for_task_execution.side_effect = (
+            lambda task, wait_for_ready, pull_period, pull_cb:
+            pull_cb(None, task) if callable(pull_cb) else None
+        )
+        self.fake_print_gcts_task_info = self.patch('sap.cli.helpers.print_gcts_task_info')
+        self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
         self.conn = Mock()
 
         self.defaults = {
@@ -589,8 +594,9 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             self.fake_task,
             self.command_arguments['wait_for_ready'],
             self.command_arguments['pull_period'],
-            self.command_arguments['heartbeat']
+            self.fake_print_gcts_task_info
         )
+        self.fake_print_gcts_task_info.assert_called_once_with(None, self.fake_task)
         self.assertConsoleContents(console=self.console, stdout=self.expected_console_output())
 
     def test_async_clone_existing(self):
@@ -621,18 +627,13 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             self.conn,
         )
 
-        self.fake_simple_schedule_clone.assert_called_once_with(
-            self.fake_repo,
-            self.conn,
-        )
-
         self.fake_simple_wait_for_task_execution.assert_called_once_with(
             self.fake_task,
             self.command_arguments['wait_for_ready'],
             self.command_arguments['pull_period'],
-            self.command_arguments['heartbeat']
+            self.fake_print_gcts_task_info
         )
-
+        self.fake_print_gcts_task_info.assert_called_once_with(None, self.fake_task)
         self.assertConsoleContents(console=self.console, stdout=self.expected_console_output())
 
     def test_async_clone_create_error(self):

@@ -682,9 +682,11 @@ def clone(connection, args):
             task = sap.rest.gcts.simple.schedule_clone(repo, connection)
 
             if isinstance(task, RepositoryTask) and task.tid:
-                if args.wait_for_ready > 0:
-                    sap.rest.gcts.simple.wait_for_task_execution(task, args.wait_for_ready,
-                                                                 args.pull_period, args.heartbeat)
+                if args.wait_for_ready > 0:    
+                    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                        sap.rest.gcts.simple.wait_for_task_execution(
+                            task, args.wait_for_ready,
+                            args.pull_period, sap.cli.helpers.print_gcts_task_info)
                 else:
                     console.printout(get_task_timeout_error_message(task))
                     return 0

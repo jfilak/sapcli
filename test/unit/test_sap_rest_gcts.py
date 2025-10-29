@@ -1971,78 +1971,134 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(str(cm.exception), 'Waiting for the operation timed out\n'
                                             '500\nTest HTTP Request Exception')
 
-    @patch('sap.rest.gcts.simple._mod_log')
-    @patch('sap.rest.gcts.simple.get_console')
-    def test_simple_wait_for_task_execution_success(self, fake_get_console, fake_mod_log):
+    def test_simple_wait_for_task_execution_success(self):
         """Test wait_for_task_execution when task finishes successfully"""
-        fake_console = Mock()
-        fake_get_console.return_value = fake_console
+        fake_print_gcts_task_info = Mock()
 
         task_id = 'test-task-123'
+
+        task_data_running = {
+            'tid': task_id,
+            'rid': self.repo_rid,
+            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+            'status': RepositoryTask.TaskStatus.RUNNING.value,
+        }
         task_data = {
             'tid': task_id,
             'rid': self.repo_rid,
             'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
             'status': RepositoryTask.TaskStatus.FINISHED.value
         }
+        arguments_stub = [
+            [None, task_data_running],
+            [None, task_data_running],
+            ['Test HTTP Request Exception', None], 
+            [None, task_data_running],
+            [None, task_data],
+        ]
+        wrong_stats_code = 500
+        responses = []
+        for arguments in arguments_stub:
+            if arguments[0] is None:
+                responses.append(Response.with_json(status_code=200, json={'task': arguments[1]}))
+            else:
+                responses.append(Response(status_code=wrong_stats_code, text=arguments[0]))
 
-        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data=task_data)
-        task.get_by_id = Mock(side_effect=task.get_by_id)
+        self.conn.set_responses(responses)
 
-        self.conn.set_responses([
-            Response.with_json(status_code=200, json={'task': task_data})
-        ])
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
 
-        result_task = sap.rest.gcts.simple.wait_for_task_execution(task, 10, 1)
+        with patch.object(task, 'get_by_id', wraps=task.get_by_id) as spy_get_by_id:
 
-        task.get_by_id.assert_called_once_with(task_id)
-        self.assertEqual(fake_console.printout.call_count, 3)  # TableWriter prints header, separator, and data
-        fake_mod_log.return_value.debug.assert_not_called()
-        self.assertEqual(result_task.status, RepositoryTask.TaskStatus.FINISHED.value)
+            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=10, pull_period=1, pull_cb=fake_print_gcts_task_info)
+            self.assertEqual(spy_get_by_id.call_count, 5)
+            for i, call_args in enumerate(spy_get_by_id.call_args_list):
+                args, _kwargs = call_args
+                self.assertEqual(args[0], task_id)
 
-    @patch('sap.rest.gcts.simple._mod_log')
-    @patch('sap.rest.gcts.simple.get_console')
-    def test_simple_wait_for_task_execution_with_retries(self, fake_get_console, fake_mod_log):
-        """Test wait_for_task_execution with HTTP retries"""
-        fake_console = Mock()
-        fake_get_console.return_value = fake_console
+            call_count = fake_print_gcts_task_info.call_count
+            self.assertEqual(call_count, 5)
+
+            call_args_list = fake_print_gcts_task_info.call_args_list
+            self.assertEqual(len(call_args_list), call_count)
+
+            for i, call_args in enumerate(call_args_list):
+                args, _kwargs = call_args
+                self.assertEqual(len(args), 2,)
+                if arguments_stub[i][0] is not None:
+                    expected_error_msg = f'{wrong_stats_code}\n{arguments_stub[i][0]}'
+                    self.assertEqual(f'Failed to get status of the task {task_id}: {expected_error_msg}', args[0])
+                else:
+                    self.assertEqual(arguments_stub[i][0], args[0])
+
+                if arguments_stub[i][1] is not None:
+                    self.assertEqual(arguments_stub[i][1]['status'], args[1]['status'])
+                else:
+                    self.assertIsNone(args[1])
+
+    def test_simple_wait_for_task_execution_while_task_is_running(self):
+        """Test wait_for_task_execution while task is running.When the task is finished, wait_for_task_execution exit from the loop."""
+        fake_print_gcts_task_info = Mock()
 
         task_id = 'test-task-123'
+
         task_data_running = {
             'tid': task_id,
             'rid': self.repo_rid,
             'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-            'status': RepositoryTask.TaskStatus.RUNNING.value
+            'status': RepositoryTask.TaskStatus.RUNNING.value,
         }
-        task_data_finished = {
+        task_data = {
             'tid': task_id,
             'rid': self.repo_rid,
             'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
             'status': RepositoryTask.TaskStatus.FINISHED.value
         }
+        expected_calls = 3
+        arguments_stub = [
+            [None, task_data_running],  # 1
+            [None, task_data_running],  # 2
+            [None, task_data],  # 3 last call  returns finished status
+            ['Test HTTP Request Exception', None],  # 4 This should not be called
+            [None, task_data_running],  # 5 This should not be called
+        ]
+        responses = []
+        for arguments in arguments_stub:
+            if arguments[0] is None:
+                responses.append(Response.with_json(status_code=200, json={'task': arguments[1]}))
+            else:
+                responses.append(Response(status_code=500, text=arguments[0]))
 
-        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data=task_data_running)
-        task.get_by_id = Mock(side_effect=task.get_by_id)
+        self.conn.set_responses(responses)
 
-        self.conn.set_responses([
-            Response(status_code=500, text='Test HTTP Request Exception'),
-            Response.with_json(status_code=200, json={'task': task_data_running}),
-            Response.with_json(status_code=200, json={'task': task_data_finished})
-        ])
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
 
-        result_task = sap.rest.gcts.simple.wait_for_task_execution(task, 10, 1)
+        with patch.object(task, 'get_by_id', wraps=task.get_by_id) as spy_get_by_id:
 
-        self.assertEqual(task.get_by_id.mock_calls, [call(task_id), call(task_id), call(task_id)])
-        fake_mod_log.return_value.debug.assert_called_once_with(f'Failed to get status of the task {task_id} for repository {task.rid}.')
-        self.assertEqual(result_task.status, RepositoryTask.TaskStatus.FINISHED.value)
+            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=10, pull_period=1, pull_cb=fake_print_gcts_task_info)
+            self.assertEqual(spy_get_by_id.call_count, expected_calls)
+            for i, call_args in enumerate(spy_get_by_id.call_args_list):
+                args, _kwargs = call_args
+                self.assertEqual(args[0], task_id)
 
-    @patch('sap.rest.gcts.simple._mod_log')
-    @patch('sap.rest.gcts.simple.get_console')
-    @patch('sap.rest.gcts.simple.time.time')
-    def test_simple_wait_for_task_execution_timeout(self, fake_time, fake_get_console, fake_mod_log):
+            call_count = fake_print_gcts_task_info.call_count
+            self.assertEqual(call_count, expected_calls)
+
+            call_args_list = fake_print_gcts_task_info.call_args_list
+            self.assertEqual(len(call_args_list), call_count)
+
+            for i, call_args in enumerate(call_args_list):
+                args, _kwargs = call_args
+                self.assertEqual(len(args), 2,)
+                self.assertEqual(args[0], arguments_stub[i][0])
+                self.assertIsNone(args[0])
+
+                self.assertEqual(args[1]['status'], arguments_stub[i][1]['status'])
+                if i == len(arguments_stub) - 1:
+                    self.assertEqual(args[1]['status'], RepositoryTask.TaskStatus.FINISHED.value)
+
+    def test_simple_wait_for_task_execution_timeout(self):
         """Test wait_for_task_execution timeout scenario"""
-        fake_console = Mock()
-        fake_get_console.return_value = fake_console
 
         task_id = 'test-task-123'
         task_data_running = {
@@ -2052,26 +2108,23 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             'status': RepositoryTask.TaskStatus.RUNNING.value
         }
 
-        fake_time.side_effect = [0, 1, 2]
-
         task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data=task_data_running)
-        task.get_by_id = Mock(side_effect=task.get_by_id)
 
         self.conn.set_responses([
+            Response.with_json(status_code=200, json={'task': task_data_running}),
+            Response.with_json(status_code=200, json={'task': task_data_running}),
             Response.with_json(status_code=200, json={'task': task_data_running}),
         ])
 
         with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
-            sap.rest.gcts.simple.wait_for_task_execution(task, 2, 1)
+            # don't have enough time to wait for the task to finish
+            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=2, pull_period=1)
 
         expected_message = get_task_timeout_error_message(task)
         self.assertEqual(str(cm.exception), expected_message)
 
-    @patch('sap.rest.gcts.simple.get_console')
-    def test_simple_wait_for_task_execution_aborted(self, fake_get_console):
+    def test_simple_wait_for_task_execution_aborted(self):
         """Test wait_for_task_execution when task is aborted"""
-        fake_console = Mock()
-        fake_get_console.return_value = fake_console
 
         task_id = 'test-task-123'
         task_data = {
@@ -2082,7 +2135,6 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         }
 
         task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data=task_data)
-        task.get_by_id = Mock(side_effect=task.get_by_id)
 
         self.conn.set_responses([
             Response.with_json(status_code=200, json={'task': task_data})
