@@ -12,7 +12,7 @@ from sap.rest.gcts.errors import (
     GCTSRequestError,
     GCTSRepoNotExistsError,
 )
-from sap.cli.gcts import gcts_exception_handler
+from sap.cli.gcts_utils import gcts_exception_handler
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -22,12 +22,12 @@ class CommandGroup(sap.cli.core.CommandGroup):
     commands_wrapper = gcts_exception_handler
 
     def __init__(self):
-        super().__init__('gcts_task')
+        super().__init__('task')
 
 
 @CommandGroup.argument('--tid', type=str)
 @CommandGroup.argument('package')
-@CommandGroup.command()
+@CommandGroup.command('info')
 def info(connection, args):
     """Get task information"""
     console = sap.cli.core.get_console()
@@ -49,7 +49,7 @@ def info(connection, args):
 
 
 @CommandGroup.argument('package')  # rid
-@CommandGroup.command()
+@CommandGroup.command('print-list')
 def print_list(connection, args):
     """Get task information"""
 
@@ -81,7 +81,7 @@ def print_list(connection, args):
 
 @CommandGroup.argument('--tid', type=str)
 @CommandGroup.argument('package')
-@CommandGroup.command()
+@CommandGroup.command('delete')
 def delete(connection, args):
     """Delete a task"""
 

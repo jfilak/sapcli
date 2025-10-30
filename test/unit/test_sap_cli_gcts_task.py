@@ -31,7 +31,7 @@ class TestgCTSTaskCLI(PatcherTestCase, ConsoleOutputTestCase):
         return generate_parse_args(gcts_task.CommandGroup())('info', package, '--tid', tid)
 
     def print_list(self, package):
-        return generate_parse_args(gcts_task.CommandGroup())('print_list', package)
+        return generate_parse_args(gcts_task.CommandGroup())('print-list', package)
 
     def delete(self, package, tid):
         return generate_parse_args(gcts_task.CommandGroup())('delete', package, '--tid', tid)

@@ -28,7 +28,8 @@ from sap.rest.gcts.errors import (
     SAPCliError,
 )
 from sap.rest.errors import HTTPRequestError
-
+from sap.cli.gcts_task import CommandGroup as TaskCommandGroup
+from sap.cli.gcts_utils import gcts_exception_handler
 
 def print_gcts_message(console, log, prefix=' '):
     """Print out the message with its protocol if it exists."""
@@ -84,20 +85,6 @@ def dump_gcts_messages(console, messages):
         console.printerr(str(messages))
 
 
-def gcts_exception_handler(func):
-    """Exception handler for gcts commands"""
-
-    def _handler(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except GCTSRequestError as ex:
-            dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-            return 1
-        except SAPCliError as ex:
-            sap.cli.core.get_console().printerr(str(ex))
-            return 1
-
-    return _handler
 
 
 def print_gcts_commit(console, commit_data):
@@ -570,6 +557,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
         self.user_grp = UserCommandGroup()
         self.repo_grp = RepoCommandGroup()
         self.system_grp = SystemCommandGroup()
+        self.task_grp = TaskCommandGroup()
 
     def install_parser(self, arg_parser):
         gcts_group = super().install_parser(arg_parser)
@@ -582,6 +570,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
         system_parser = gcts_group.add_parser(self.system_grp.name)
         self.system_grp.install_parser(system_parser)
+
+        task_parser = gcts_group.add_parser('task')
+        self.task_grp.install_parser(task_parser)
 
 
 @CommandGroup.command()
