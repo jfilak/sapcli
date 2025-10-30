@@ -49,7 +49,7 @@ def info(connection, args):
 
 
 @CommandGroup.argument('package')  # rid
-@CommandGroup.command('print-list')
+@CommandGroup.command('list')
 def print_list(connection, args):
     """Get task information"""
 
