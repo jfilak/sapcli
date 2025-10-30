@@ -64,7 +64,7 @@ class TestgCTSTaskCLI(PatcherTestCase, ConsoleOutputTestCase):
         args = self.info('', '')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stderr='Invalid command line options\nRun: sapcli gcts_task info --help\n')
+        self.assertConsoleContents(self.console, stderr='Invalid command line options\nRun: sapcli gcts task info --help\n')
 
     def test_print_list_success(self):
         conn = Mock()
@@ -100,6 +100,7 @@ class TestgCTSTaskCLI(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
         self.assertIn('Invalid command line options', self.console.caperr)
+        self.assertIn('sapcli gcts task list --help', self.console.caperr)
 
     def test_delete_success(self):
         conn = Mock()

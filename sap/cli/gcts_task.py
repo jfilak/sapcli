@@ -33,7 +33,7 @@ def info(connection, args):
     console = sap.cli.core.get_console()
 
     if not args.tid or not args.tid.strip() or not args.package or not args.package.strip():
-        console.printerr('Invalid command line options\nRun: sapcli gcts_task info --help')
+        console.printerr('Invalid command line options\nRun: sapcli gcts task info --help')
         return 1
 
     try:
@@ -56,7 +56,7 @@ def print_list(connection, args):
     console = sap.cli.core.get_console()
 
     if not args.package or not args.package.strip():
-        console.printerr('Invalid command line options\nRun: sapcli gcts_task print_list --help')
+        console.printerr('Invalid command line options\nRun: sapcli gcts task list --help')
         return 1
 
     try:
