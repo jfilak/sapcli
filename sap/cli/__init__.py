@@ -36,7 +36,6 @@ class CommandsCache:
         import sap.cli.package
         import sap.cli.cts
         import sap.cli.gcts
-        import sap.cli.gcts_task
         import sap.cli.checkout
         import sap.cli.checkin
         import sap.cli.activation
@@ -79,7 +78,6 @@ class CommandsCache:
         if CommandsCache.rest is None:
             CommandsCache.rest = [
                 (gcts_connection_from_args, sap.cli.gcts.CommandGroup()),
-                (gcts_connection_from_args, sap.cli.gcts_task.CommandGroup())
             ]
 
         if CommandsCache.rfc is None:
