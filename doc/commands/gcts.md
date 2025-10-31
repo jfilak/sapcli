@@ -24,6 +24,10 @@ sapcli's implementation forces use of packages as git repositories.
 20. [system config list](#system-config-list)
 21. [system config set](#system-config-set)
 22. [system config unset](#system-config-unset)
+23. [task info](#task-info)
+24. [task list](#task-list)
+25. [task delete](#task-delete)
+
 
 ## repolist
 
@@ -39,13 +43,17 @@ Creates and pulls a new repository. If the argument package is
 not given, the name is taken from repository name.
 
 ```bash
-sapcli gcts clone [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type TYPE] [--vcs-token TOKEN] URL [package]
+sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-exists] \
+                  [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type TYPE] \
+                  [--vcs-token TOKEN] [--sync-clone] [--pull-period SECONDS] URL [package]
 ```
 
 **Parameters**:
 - `--wait-for-ready SECONDS`: Wait for the repository to be in status `READY` for the given number of seconds 
 - `--heartbeat SECONDS`: Console heart beat printing dots
 - `--no-fail-exists`: If repository exists do not fail but try to clone
+- `--sync-clone`: Perform a synchronous clone (legacy behavior). By default, clone is scheduled as a background task.
+- `--pull-period SECONDS`: When clone is scheduled as a task, poll the task status every given seconds. Default: 30
 - `--vsid VSID`: Virtual System ID of the repository; default is **6IT**
 - `--starting-folder FOLDER`: The directory inside the repository where to store ABAP files; default is **src/**.
 - `--role ROLE`: Either SOURCE (Development) or TARGET (Provided); default is **SOURCE**
@@ -53,6 +61,8 @@ sapcli gcts clone [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type
 - `--vcs-token TOKEN`: Authentication token
 - `URL`: Repository HTTP URL
 - `package`: gCTS repository name; if no provided, deduced from URL
+
+When run without `--sync-clone`, the clone is scheduled as a gCTS task. Use `--wait-for-ready` to wait until the repository is ready. If you omit `--wait-for-ready`, the command prints a hint containing the Task ID; you can monitor or manage it with the `gcts task` commands below.
 
 ## checkout
 
@@ -317,6 +327,47 @@ sapcli gcts system config unset KEY [-f|--format] {HUMAN|JSON}
 - `KEY`: The identifier of configuration property
 - `--format`: The format of the command's output
 
+
+## task info
+
+Get information about a specific gCTS task.
+
+```bash
+sapcli gcts task info PACKAGE --tid TID
+```
+
+**Parameters**:
+- `PACKAGE`: Repository name
+- `--tid TID`: Task ID
+
+Prints Task ID, Status, and Type.
+
+## task list
+
+List tasks for a repository.
+
+```bash
+sapcli gcts task list PACKAGE
+```
+
+**Parameters**:
+- `PACKAGE`: Repository name
+
+Shows Task ID, Status, and Type in a table. Prints a message when no tasks are found.
+
+## task delete
+
+Delete a specific gCTS task.
+
+```bash
+sapcli gcts task delete PACKAGE --tid TID
+```
+
+**Parameters**:
+- `PACKAGE`: Repository name
+- `--tid TID`: Task ID
+
+Deletes the task. If the repository does not exist or the request fails, an error is printed.
 
 # Deprecated
 - command [repo set-url](#repo-set-url) is replaced by [repo property set](#TODO) with property
