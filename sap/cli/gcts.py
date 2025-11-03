@@ -23,12 +23,12 @@ from sap.rest.gcts.repo_task import (
 )
 from sap.rest.gcts.errors import (
     GCTSRequestError,
-    GCTSRepoAlreadyExistsError,
     SAPCliError,
 )
 from sap.rest.errors import HTTPRequestError
 from sap.cli.gcts_task import CommandGroup as TaskCommandGroup
 from sap.cli.gcts_utils import gcts_exception_handler
+
 
 def print_gcts_message(console, log, prefix=' '):
     """Print out the message with its protocol if it exists."""
@@ -82,8 +82,6 @@ def dump_gcts_messages(console, messages):
 
     if not output:
         console.printerr(str(messages))
-
-
 
 
 def print_gcts_commit(console, commit_data):
@@ -623,72 +621,53 @@ def clone(connection, args):
         package = sap.rest.gcts.package_name_from_url(args.url)
 
     console = sap.cli.core.get_console()
+    sync_clone = getattr(args, 'sync_clone', False)
 
     try:
-        repo = sap.rest.gcts.simple.create(connection, args.url, package,
-                                           start_dir=args.starting_folder,
-                                           vcs_token=args.vcs_token,
-                                           vsid=args.vsid,
-                                           error_exists=not args.no_fail_exists,
-                                           role=args.role,
-                                           typ=args.type)
-    except GCTSRepoAlreadyExistsError as exc:
-        console.printout('Repository already exists.')
-        console.printerr(str(exc))
-        return 1
-    except GCTSRequestError as exc:
-        console.printout('Repository creation request responded with an error.')
-        console.printerr(str(exc))
-        return 1
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            repo, task = sap.rest.gcts.simple.clone(
+                connection,
+                args.url,
+                package,
+                vsid=args.vsid,
+                start_dir=args.starting_folder,
+                vcs_token=args.vcs_token,
+                error_exists=not args.no_fail_exists,
+                role=args.role,
+                typ=args.type,
+                sync=sync_clone)
 
-    if getattr(args, 'sync_clone', False):
-        try:
-            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                sap.rest.gcts.simple.clone(repo)
-        except HTTPRequestError as exc:
-            if args.wait_for_ready > 0:
-                repo = get_repository(connection, args.url)
-
-                console.printout('Clone request responded with an error. Checking clone process ...')
-                clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
-                if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
-                    console.printerr(f'Clone process failed with return code: {clone_rc}!')
-                    console.printerr(str(exc))
-                    return 1
-
-                console.printout('Clone process finished successfully. Waiting for repository to be ready ...')
-                with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                    def is_clone_done(repo: Repository):
-                        return repo.is_cloned
-
-                    sap.rest.gcts.simple.wait_for_operation(repo, is_clone_done, args.wait_for_ready, exc)
-
-            else:
-                console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
-                console.printerr(str(exc))
-                return 1
-    else:
-        try:
-            task = sap.rest.gcts.simple.schedule_clone(repo, connection)
-
-            if isinstance(task, RepositoryTask) and task.tid:
+            if not sync_clone and task and isinstance(task, RepositoryTask) and task.tid:
                 if args.wait_for_ready > 0:
-                    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                        sap.rest.gcts.simple.wait_for_task_execution(
-                            task, args.wait_for_ready,
-                            args.pull_period, sap.cli.helpers.print_gcts_task_info)
+                    sap.rest.gcts.simple.wait_for_task_execution(
+                        task, args.wait_for_ready,
+                        args.pull_period, sap.cli.helpers.print_gcts_task_info)
                 else:
                     console.printout(get_task_timeout_error_message(task))
                     return 0
-            else:
-                console.printout('Clone request responded with an error. No task found!')
+            elif not sync_clone:
+                console.printerr('Scheduling clone request responded with an error. No task found!')
                 return 1
-
-            # update data after cloning
+    except HTTPRequestError as exc:
+        if sync_clone and args.wait_for_ready > 0:
             repo = get_repository(connection, args.url)
 
-        except HTTPRequestError as exc:
-            console.printout('Clone request responded with an error.')
+            console.printout('Clone request responded with an error. Checking clone process ...')
+            clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
+            if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
+                console.printerr(f'Clone process failed with return code: {clone_rc}!')
+                console.printerr(str(exc))
+                return 1
+
+            console.printout('Clone process finished successfully. Waiting for repository to be ready ...')
+            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                def is_clone_done(repo: Repository):
+                    return repo.is_cloned
+
+                sap.rest.gcts.simple.wait_for_operation(repo, is_clone_done, args.wait_for_ready, exc)
+
+        else:
+            console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
             console.printerr(str(exc))
             return 1
 

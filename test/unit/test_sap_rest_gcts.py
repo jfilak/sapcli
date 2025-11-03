@@ -70,6 +70,8 @@ class GCTSTestSetUp:
         self.repo_rid = 'repo-id'
         self.repo_name = 'the repo name'
         self.repo_vsid = '6IT'
+        self.repo_start_dir = 'src/'
+        self.repo_vcs_token = '12345'
         self.repo_data = {
             'rid': self.repo_rid,
             'name': self.repo_rid,
@@ -1637,7 +1639,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
             'status': RepositoryTask.TaskStatus.RUNNING.value
         })
-        expected_message = f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}. You can check the task status manually with the command "./sapcli gcts_task info --tid {task.tid} {task.rid} "'
+        expected_message = f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}.'
         self.assertEqual(get_task_timeout_error_message(task), expected_message)
 
     def test_get_task_timeout_error_message_with_none_tid_and_rid(self):
@@ -1721,40 +1723,148 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             spy_clone.assert_not_called()
             fake_mod_log.return_value.info.assert_called_once_with('Repository "%s" cloning not scheduled: already performed or repository is not created.')
 
-    def test_simple_clone_success(self):
+    @patch('sap.rest.gcts.simple.create')
+    def test_simple_clone_success_sync(self, fake_create):
         repo_data = dict(self.repo_server_data)
         repo_data['status'] = 'CREATED'
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
-
+        fake_create.return_value = repo
         with patch.object(repo, 'clone', wraps=repo.clone) as spy_clone:
             self.conn.set_responses(
                 Response.ok()
             )
 
-            sap.rest.gcts.simple.clone(repo)
+            returned_repo, returned_task = sap.rest.gcts.simple.clone(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                sync=True
+            )
+
+            fake_create.assert_called_once_with(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB'
+            )
 
             spy_clone.assert_called_once()
 
             self.assertEqual(len(self.conn.execs), 1)
             self.conn.execs[0].assertEqual(Request.post(uri=f'repository/{self.repo_rid}/clone'), self)
+            self.assertIsNone(returned_task)
+            self.assertEqual(returned_repo, repo)
 
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    def test_simple_clone_success_async(self, fake_create, fake_schedule_clone):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        fake_repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = fake_repo
+        repo_task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={
+            'tid': '123',
+            'rid': self.repo_rid,
+            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
+            'status': RepositoryTask.TaskStatus.RUNNING.value
+        })
+        fake_schedule_clone.return_value = repo_task
+
+        sap.rest.gcts.simple.clone(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            vsid=self.repo_vsid,
+            start_dir=self.repo_start_dir,
+            vcs_token=self.repo_vcs_token,
+            error_exists=True,
+            role='SOURCE',
+            typ='GITHUB',
+            sync=False
+        )
+
+        fake_create.assert_called_once_with(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            vsid=self.repo_vsid,
+            start_dir=self.repo_start_dir,
+            vcs_token=self.repo_vcs_token,
+            error_exists=True,
+            role='SOURCE',
+            typ='GITHUB'
+        )
+
+        fake_schedule_clone.assert_called_once_with(fake_repo, self.conn)
+
+    @patch('sap.rest.gcts.simple.create')
+    def test_simple_clone_default_parameters(self, fake_create):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = repo
+        with patch.object(repo, 'clone', wraps=repo.clone) as spy_clone:
+            self.conn.set_responses(
+                Response.ok()
+            )
+
+            returned_repo, returned_task = sap.rest.gcts.simple.clone(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+            )
+
+            fake_create.assert_called_once_with(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid='6IT',  # default vsid
+                start_dir='src/',  # default start dir
+                vcs_token=None,  # default vcs token
+                error_exists=True,  # default error exists
+                role='SOURCE',  # default role
+                typ='GITHUB'  # default type
+            )
+
+            # default sync way
+
+            spy_clone.assert_called_once()
+
+            self.assertEqual(len(self.conn.execs), 1)
+            self.conn.execs[0].assertEqual(Request.post(uri=f'repository/{self.repo_rid}/clone'), self)
+            self.assertIsNone(returned_task)
+            self.assertEqual(returned_repo, repo)
+
+    @patch('sap.rest.gcts.simple.create')
     @patch('sap.rest.gcts.simple._mod_log')
-    def test_simple_clone_repo_already_cloned(self, fake_mod_log):
+    def test_simple_clone_repo_already_cloned(self, fake_mod_log, fake_create):
         repo_data = dict(self.repo_server_data)
         repo_data['status'] = 'READY'
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = repo
         with patch.object(repo, 'clone', wraps=repo.clone) as spy_clone:
-            sap.rest.gcts.simple.clone(repo)
-            spy_clone.assert_not_called()
-            fake_mod_log.return_value.info.assert_called_once_with('Not cloning the repository "%s": already performed or repository is not created.')
+            returned_repo, returned_task = sap.rest.gcts.simple.clone(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                error_exists=True,
+            )
 
-    @patch('sap.rest.gcts.simple._mod_log')
-    def test_simple_clone_repo_not_created(self, fake_mod_log):
-        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data={})
-        with patch.object(repo, 'clone', wraps=repo.clone) as spy_clone:
-            sap.rest.gcts.simple.clone(repo)
             spy_clone.assert_not_called()
-            fake_mod_log.return_value.info.assert_called_once_with('Not cloning the repository "%s": already performed or repository is not created.')
+            fake_mod_log.return_value.info.assert_called_once_with('Not cloning the repository "%s": already performed')
+            self.assertEqual(returned_repo, repo)
+            self.assertIsNone(returned_task)
 
     def test_simple_create_success_with_http(self):
         CALL_ID_CREATE = 0
@@ -1992,7 +2102,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         arguments_stub = [
             [None, task_data_running],
             [None, task_data_running],
-            ['Test HTTP Request Exception', None], 
+            ['Test HTTP Request Exception', None],
             [None, task_data_running],
             [None, task_data],
         ]

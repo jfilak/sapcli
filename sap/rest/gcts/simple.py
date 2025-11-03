@@ -83,18 +83,34 @@ def get_task_timeout_error_message(task: RepositoryTask):
     return f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}.'
 
 
-def clone(repo: Repository):
-    """Clones the repository in the target systems"""
+def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
+          role='SOURCE', typ='GITHUB', sync=True) -> tuple[Repository, RepositoryTask | None]:
+    """Creates and clones the repository in the target systems"""
+    repo = create(
+        connection=connection,
+        url=url,
+        rid=rid,
+        vsid=vsid,
+        start_dir=start_dir,
+        vcs_token=vcs_token,
+        error_exists=error_exists,
+        role=role,
+        typ=typ,
+    )
+    task = None
+    if repo.is_cloned:
+        _mod_log().info('Not cloning the repository "%s": already performed')
+        return repo, None
 
-    if not repo.is_cloned:
+    if sync:
         repo.clone()
     else:
-        _mod_log().info('Not cloning the repository "%s": already performed or repository is not created.')
+        task = schedule_clone(repo, connection)
 
-    return repo
+    return repo, task
 
 
-def schedule_clone(repo, connection, branch=None):
+def schedule_clone(repo, connection, branch=None) -> RepositoryTask:
     """Schedule a repository cloning task on the target systems"""
     task = None
     if not repo.is_cloned:
