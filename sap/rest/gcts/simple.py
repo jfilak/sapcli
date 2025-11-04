@@ -144,8 +144,6 @@ def create(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, e
         _mod_log().info(str(ex))
 
         repo.wipe_data()
-        # Fetch repository data to ensure it exists
-        _ = repo.status
 
     return repo
 
