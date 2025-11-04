@@ -4,8 +4,11 @@ from io import StringIO
 import unittest
 import json
 from unittest.mock import MagicMock, patch, Mock, PropertyMock, mock_open, call
+from sap.rest.gcts import package_name_from_url
+from sap.rest.gcts.simple import get_task_timeout_error_message
 
 import sap.cli.gcts
+import sap.cli.gcts_utils
 import sap.cli.core
 from sap.rest.errors import HTTPRequestError
 
@@ -26,24 +29,25 @@ from fixtures_sap_rest_gcts import (
 )
 
 from infra import generate_parse_args
+from sap.rest.gcts.repo_task import RepositoryTask
 
 
 parse_args = generate_parse_args(sap.cli.gcts.CommandGroup())
 
 
 def dummy_gcts_error_log():
-        log_builder = GCTSLogBuilder()
+    log_builder = GCTSLogBuilder()
 
-        log_builder.log_error(
-            make_gcts_log_error(
-                'Line 1',
-                protocol=GCTSLogProtocol('Program',
-                                         GCTSLogMessages('protocol 1',
-                                                         'protocol 2'))))
+    log_builder.log_error(
+        make_gcts_log_error(
+            'Line 1',
+            protocol=GCTSLogProtocol('Program',
+                                     GCTSLogMessages('protocol 1',
+                                                     'protocol 2'))))
 
-        log_builder.log_error(make_gcts_log_error('Line 2'))
-        log_builder.log_exception('Message', 'ERROR')
-        return log_builder.get_contents()
+    log_builder.log_error(make_gcts_log_error('Line 2'))
+    log_builder.log_exception('Message', 'ERROR')
+    return log_builder.get_contents()
 
 
 def mock_repository(fake_fetch_repos, **kwargs):
@@ -62,7 +66,7 @@ class TestgCTSDumpError(ConsoleOutputTestCase, unittest.TestCase):
 
     def test_dump_first_level(self):
         messages = dummy_gcts_error_log()
-        sap.cli.gcts.dump_gcts_messages(self.console, messages)
+        sap.cli.gcts_utils.dump_gcts_messages(self.console, messages)
         self.assertConsoleContents(self.console, stderr='''Error Log:
   Line 1
     protocol 1
@@ -77,27 +81,27 @@ Log:
 Exception:
   Message
 '''
-)
+                                   )
 
     def test_dump_uknown_messages(self):
-        sap.cli.gcts.dump_gcts_messages(self.console, {'random': 'error'})
+        sap.cli.gcts_utils.dump_gcts_messages(self.console, {'random': 'error'})
         self.assertConsoleContents(self.console, stderr='''{'random': 'error'}
 ''')
 
     def test_dump_only_error_log(self):
-        sap.cli.gcts.dump_gcts_messages(self.console, {'errorLog': ['error']})
+        sap.cli.gcts_utils.dump_gcts_messages(self.console, {'errorLog': ['error']})
         self.assertConsoleContents(self.console, stderr='''Error Log:
   error
 ''')
 
     def test_dump_only_log(self):
-        sap.cli.gcts.dump_gcts_messages(self.console, {'log': ['error']})
+        sap.cli.gcts_utils.dump_gcts_messages(self.console, {'log': ['error']})
         self.assertConsoleContents(self.console, stderr='''Log:
   error
 ''')
 
     def test_dump_only_exception(self):
-        sap.cli.gcts.dump_gcts_messages(self.console, {'exception': 'error'})
+        sap.cli.gcts_utils.dump_gcts_messages(self.console, {'exception': 'error'})
         self.assertConsoleContents(self.console, stderr='''Exception:
   error
 ''')
@@ -167,7 +171,7 @@ class TestgCTSGetRepository(PatcherTestCase, unittest.TestCase):
         self.fake_fetch_repos.assert_called_once_with(self.connection)
 
 
-class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
+class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
 
     def setUp(self):
         super().setUp()
@@ -188,7 +192,6 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         })
         self.fake_repo.activities = Mock()
         self.fake_repo.activities.return_value = [{'rc': '004'}]
-
         self.fake_simple_clone.return_value = self.fake_repo
         self.fake_get_repository.return_value = self.fake_repo
 
@@ -196,7 +199,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         return parse_args('clone', *args, **kwargs)
 
     def test_clone_with_url_only(self):
-        args = self.clone('https://example.org/repo/git/sample.git')
+        args = self.clone('https://example.org/repo/git/sample.git', '--sync-clone')
 
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
@@ -210,7 +213,8 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token=None,
             error_exists=True,
             typ='GITHUB',
-            role='SOURCE'
+            role='SOURCE',
+            sync=True
         )
 
         self.assertConsoleContents(console=self.console, stdout='''Cloned repository:
@@ -228,7 +232,8 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             '--no-fail-exists',
             '--role', 'TARGET',
             '--type', 'GIT',
-            '--wait-for-ready', '10'
+            '--wait-for-ready', '10',
+            '--sync-clone'
         )
 
         exit_code = args.execute(self.conn, args)
@@ -243,12 +248,13 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token='12345',
             error_exists=False,
             typ='GIT',
-            role='TARGET'
+            role='TARGET',
+            sync=True
         )
 
     def test_clone_existing(self):
         repo_url = 'https://example.org/repo/git/sample.git'
-        args = self.clone(repo_url, '--no-fail-exists')
+        args = self.clone(repo_url, '--no-fail-exists', '--sync-clone')
 
         args.execute(self.conn, args)
 
@@ -261,16 +267,17 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token=None,
             error_exists=False,
             typ='GITHUB',
-            role='SOURCE'
+            role='SOURCE',
+            sync=True
         )
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_clone_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_simple_clone.return_value = None
         self.fake_simple_clone.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
-        args = self.clone('url')
+        args = self.clone('url', '--sync-clone')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
@@ -283,7 +290,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
 
-        args = self.clone('url')
+        args = self.clone('url', '--sync-clone')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
@@ -300,7 +307,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
 
-        args = self.clone('url', '--wait-for-ready', '10')
+        args = self.clone('url', '--wait-for-ready', '10', '--sync-clone')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 0)
 
@@ -308,8 +315,7 @@ class TestgCTSClone(PatcherTestCase, ConsoleOutputTestCase):
         clone_test = self.fake_simple_wait_for_operation.mock_calls[0].args[1]
         self.assertTrue(clone_test(repo))
         self.assertEqual(self.fake_repo.activities.mock_calls[0].args[0].get_params()['type'], 'CLONE')
-        self.assertConsoleContents(self.console, stdout=
-'''Clone request responded with an error. Checking clone process ...
+        self.assertConsoleContents(self.console, stdout='''Clone request responded with an error. Checking clone process ...
 Clone process finished successfully. Waiting for repository to be ready ...
 Cloned repository:
  URL   : https://example.org/repo/git/sample.git
@@ -327,7 +333,7 @@ Cloned repository:
         self.fake_simple_clone.side_effect = clone_exception
         self.fake_repo.activities.side_effect = HTTPRequestError(None, fake_response)
 
-        args = self.clone('url', '--wait-for-ready', '10')
+        args = self.clone('url', '--wait-for-ready', '10', '--sync-clone')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
@@ -344,7 +350,7 @@ Cloned repository:
         self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
         self.fake_repo.activities.return_value = []
 
-        args = self.clone('url', '--wait-for-ready', '10')
+        args = self.clone('url', '--wait-for-ready', '10', '--sync-clone')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
@@ -361,7 +367,7 @@ Cloned repository:
         self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
         self.fake_repo.activities.return_value = [{'rc': '8'}]
 
-        args = self.clone('url', '--wait-for-ready', '10')
+        args = self.clone('url', '--wait-for-ready', '10', '--sync-clone')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
@@ -381,7 +387,7 @@ Cloned repository:
         self.fake_simple_clone.side_effect = clone_exception
         self.fake_simple_wait_for_operation.side_effect = sap.rest.errors.SAPCliError('Waiting for clone process timed out')
 
-        args = self.clone('url', '--wait-for-ready', '10')
+        args = self.clone('url', '--wait-for-ready', '10', '--sync-clone')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
@@ -391,6 +397,384 @@ Cloned repository:
                    'Clone process finished successfully. Waiting for repository to be ready ...\n',
             stderr='Waiting for clone process timed out\n'
         )
+
+
+class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_simple_clone = self.patch('sap.rest.gcts.simple.clone')
+        self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
+        self.fake_simple_wait_for_task_execution = self.patch('sap.rest.gcts.simple.wait_for_task_execution')
+        self.fake_simple_wait_for_task_execution.side_effect = (
+            lambda task, wait_for_ready, pull_period, pull_cb:
+            pull_cb(None, task) if callable(pull_cb) else None
+        )
+        self.fake_print_gcts_task_info = self.patch('sap.cli.helpers.print_gcts_task_info')
+        self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
+        self.conn = Mock()
+
+        self.defaults = {
+            'wait_for_ready': 0,
+            'heartbeat': 0,
+            'vsid': '6IT',
+            'starting_folder': 'src/',
+            'pull_period': 30,
+            'type': 'GITHUB',
+            'role': 'SOURCE',
+        }
+
+        self.command_arguments = {
+            'wait_for_ready': 600,
+            'heartbeat': 1,
+            'vsid': '7IT',
+            'starting_folder': 'backend/src/',
+            'pull_period': 50,
+            'type': 'GIT',
+            'role': 'TARGET',
+            'vcs-token': '12345',
+            'url': 'https://example.org/repo/git/sample.git',
+            'package': 'sample',
+        }
+        self.default_repo_branch = 'main'
+        self.default_repo_head = 'FEDBCA9876543210'
+
+        self.fake_repo = sap.rest.gcts.remote_repo.Repository(self.conn, 'sample', data={
+            'url': self.command_arguments['url'],
+            'branch': self.default_repo_branch,
+            'currentCommit': self.default_repo_head
+        })
+
+        self.fake_task = RepositoryTask(connection=self.conn, rid='sample', data={
+            'tid': '7F400188C0E5EDBFB31F768EE842D19D',
+            'rid': 'sample',
+            'jobId': '12313100',
+            'log': '3C5433B201A798E003574FD319D42AA6',
+            'variant': 'CLONE_123131',
+            'name': 'GCTS_CLONE_REPO',
+            'type': 'CLONE_REPOSITORY',
+            'status': 'RUNNING',
+            'createdBy': 'DEVELOPER',
+            'createdAt': '20251017123131',
+            'changedBy': 'DEVELOPER',
+            'changedAt': '20251017123132',
+            'startAt': '20251017123132',
+            'scheduledAt': '20251017123132'
+        })
+
+        self.fake_simple_clone.return_value = self.fake_repo, self.fake_task
+        self.fake_get_repository.return_value = self.fake_repo
+        self.fake_simple_wait_for_task_execution.return_value = None
+
+    def clone(self, *args, **kwargs):
+        return parse_args('clone', *args, **kwargs)
+
+    def expected_console_output(self, url=None, branch=None, head=None):
+        if url is None:
+            url = self.fake_repo.url
+        if branch is None:
+            branch = self.default_repo_branch
+        if head is None:
+            head = self.default_repo_head
+
+        return f'''Cloned repository:
+ URL   : {url}
+ branch: {branch}
+ HEAD  : {head}
+'''
+
+    def test_async_clone_with_url(self):
+        args = self.clone(self.command_arguments['url'])
+
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn,
+            self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None,
+            vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+        # self.fake_simple_schedule_clone.assert_called_once_with(
+        #     self.fake_repo,
+        #     self.conn,
+        # )
+
+        self.fake_simple_wait_for_task_execution.assert_not_called()
+
+        self.assertConsoleContents(
+            console=self.console,
+            stdout=get_task_timeout_error_message(self.fake_task) + '\n'
+        )
+
+    def test_async_clone_with_all_params(self):
+        args = self.clone(
+            self.command_arguments['url'],
+            '--vsid', self.command_arguments['vsid'],
+            '--vcs-token', self.command_arguments['vcs-token'],
+            '--starting-folder', self.command_arguments['starting_folder'],
+            '--no-fail-exists',
+            '--role', self.command_arguments['role'],
+            '--type', self.command_arguments['type'],
+            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
+            '--pull-period', f"{self.command_arguments['pull_period']}",
+            '--heartbeat', f"{self.command_arguments['heartbeat']}",
+        )
+
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn,
+            self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.command_arguments['starting_folder'],
+            vcs_token=self.command_arguments['vcs-token'],
+            vsid=self.command_arguments['vsid'],
+            error_exists=False,
+            role=self.command_arguments['role'],
+            typ=self.command_arguments['type'],
+            sync=False
+        )
+
+        self.fake_heartbeat.assert_called_once_with(self.console, self.command_arguments['heartbeat'])
+
+        self.fake_simple_wait_for_task_execution.assert_called_once_with(
+            self.fake_task,
+            self.command_arguments['wait_for_ready'],
+            self.command_arguments['pull_period'],
+            self.fake_print_gcts_task_info
+        )
+        self.fake_print_gcts_task_info.assert_called_once_with(None, self.fake_task)
+        self.assertConsoleContents(console=self.console, stdout=self.expected_console_output())
+
+    def test_async_clone_existing(self):
+        args = self.clone(
+            self.command_arguments['url'],
+            '--no-fail-exists',
+            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
+            '--pull-period', f"{self.command_arguments['pull_period']}",
+            '--heartbeat', f"{self.command_arguments['heartbeat']}",
+        )
+
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn,
+            self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None,
+            vsid=self.defaults['vsid'],
+            error_exists=False,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+        self.fake_heartbeat.assert_called_once_with(self.console, self.command_arguments['heartbeat'])
+        self.fake_simple_wait_for_task_execution.assert_called_once_with(
+            self.fake_task,
+            self.command_arguments['wait_for_ready'],
+            self.command_arguments['pull_period'],
+            self.fake_print_gcts_task_info
+        )
+        self.fake_print_gcts_task_info.assert_called_once_with(None, self.fake_task)
+        self.assertConsoleContents(console=self.console, stdout=self.expected_console_output())
+
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
+    def test_async_simple_clone_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_clone.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        args = self.clone(self.command_arguments['url'])
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn,
+            self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None, vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_simple_wait_for_task_execution.assert_not_called()
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
+    def test_async_clone_existing_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_clone.side_effect = sap.rest.gcts.errors.GCTSRepoAlreadyExistsError(messages)
+
+        args = self.clone(self.command_arguments['url'])
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn,
+            self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None, vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+        self.fake_simple_wait_for_task_execution.assert_not_called()
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+    def test_async_clone_internal_error_no_wait(self):
+        fake_response = Mock()
+        fake_response.text = 'Test Exception'
+        fake_response.status_code = 500
+
+        self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
+
+        args = self.clone(self.command_arguments['url'])
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn, self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None,
+            vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+        self.fake_simple_wait_for_task_execution.assert_not_called()
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(
+            self.console,
+            stdout='Clone request responded with an error. Checkout "--wait-for-ready" parameter!\n',
+            stderr='500\nTest Exception\n'
+        )
+
+    def test_async_clone_internal_error_with_wait(self):
+        fake_response = Mock()
+        fake_response.text = 'Test Exception'
+        fake_response.status_code = 500
+
+        self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
+
+        args = self.clone(
+            self.command_arguments['url'],
+            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
+            '--pull-period', f"{self.command_arguments['pull_period']}"
+        )
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 1)
+
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn, self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None,
+            vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+
+        self.fake_simple_wait_for_task_execution.assert_not_called()
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(
+            self.console,
+            stdout='Clone request responded with an error. Checkout "--wait-for-ready" parameter!\n',
+            stderr='500\nTest Exception\n'
+        )
+
+    def test_async_clone_no_return_task(self):
+        self.fake_simple_clone.return_value = self.fake_repo, None
+        args = self.clone(
+            self.command_arguments['url'],
+            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
+            '--pull-period', f"{self.command_arguments['pull_period']}"
+        )
+        exit_code = args.execute(self.conn, args)
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn, self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None,
+            vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+
+        self.fake_simple_wait_for_task_execution.assert_not_called()
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='Scheduling clone request responded with an error. No task found!\n')
+
+    def test_async_clone_return_task_without_tid(self):
+        self.fake_simple_clone.return_value = self.fake_repo, RepositoryTask(self.conn, 'sample')
+        args = self.clone(
+            self.command_arguments['url'],
+            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
+            '--pull-period', f"{self.command_arguments['pull_period']}"
+        )
+        exit_code = args.execute(self.conn, args)
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn, self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None,
+            vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+
+        self.fake_simple_wait_for_task_execution.assert_not_called()
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(self.console, stderr='Scheduling clone request responded with an error. No task found!\n')
+
+    def test_async_clone_return_task_without_wait(self):
+        args = self.clone(
+            self.command_arguments['url'],
+            '--wait-for-ready', '0',
+        )
+
+        exit_code = args.execute(self.conn, args)
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn, self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None,
+            vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            sync=False
+        )
+
+        self.fake_simple_wait_for_task_execution.assert_not_called()
+        self.assertEqual(exit_code, 0)
+        self.assertConsoleContents(self.console, stdout=get_task_timeout_error_message(self.fake_task) + '\n')
 
 
 class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
@@ -442,15 +826,14 @@ class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_fetch_repos.assert_called_once_with(conn)
         self.maxDiff = None
-        self.assertConsoleContents(self.console, stdout=
-'''Name  | RID       | Branch       | Commit | Status  | vSID | URL      
+        self.assertConsoleContents(self.console, stdout='''Name  | RID       | Branch       | Commit | Status  | vSID | URL      
 ----------------------------------------------------------------------
 one   | one_rid   | one_branch   | 123    | CREATED | vS1D | one_url  
 two   | two_rid   | two_branch   | 456    | READY   | vS2D | two_url  
 three | third_rid | third_branch | 7890   | CLONED  | vS3D | third_url
 ''')
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_repolist_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_simple_fetch_repos.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
@@ -487,8 +870,7 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(repo.rid, repo_rid)
 
         self.fake_simple_delete.assert_called_once_with(conn, repo=repo)
-        self.assertConsoleContents(self.console, stdout=
-'''The repository "repo_id" has been deleted
+        self.assertConsoleContents(self.console, stdout='''The repository "repo_id" has been deleted
 ''')
 
     @patch('sap.rest.gcts.simple.fetch_repos')
@@ -504,11 +886,10 @@ class TestgCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
         args.execute(conn, args)
 
         self.fake_simple_delete.assert_called_once_with(conn, repo=fake_repo)
-        self.assertConsoleContents(self.console, stdout=
-f'''The repository "{repo_rid}" has been deleted
+        self.assertConsoleContents(self.console, stdout=f'''The repository "{repo_rid}" has been deleted
 ''')
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_delete_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_simple_delete.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
@@ -566,8 +947,7 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         args.execute(conn, args)
 
         self.fake_simple_checkout.assert_called_once_with(conn, 'the_branch', repo=self.repo)
-        self.assertConsoleContents(self.console, stdout=
-f'''The repository "{self.repo.rid}" has been set to the branch "the_branch"
+        self.assertConsoleContents(self.console, stdout=f'''The repository "{self.repo.rid}" has been set to the branch "the_branch"
 (old_branch:{repo_from_commit}) -> (the_branch:{repo_to_commit})
 ''')
 
@@ -599,8 +979,7 @@ f'''The repository "{self.repo.rid}" has been set to the branch "the_branch"
         args.execute(conn, args)
 
         self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
-        self.assertConsoleContents(self.console, stdout=
-f'''The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
+        self.assertConsoleContents(self.console, stdout=f'''The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
 ({repo_branch}:123) -> ({checkout_branch}:456)
 ''')
 
@@ -627,7 +1006,7 @@ f'''The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
 ''')
 
     @patch('sap.cli.gcts.Repository')
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_checkout_error(self, fake_dumper, fake_repo_class):
         fake_repo_class.return_value = self.repo
         messages = {'exception': 'test'}
@@ -750,18 +1129,18 @@ class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
         conn = Mock()
         repo_rid = 'repo-id'
         self.fake_simple_log.return_value = [
-            { 'id': '456',
-              'author': 'Billy Lander',
-              'authorMail': 'billy.lander@example.com',
-              'date': '2020-10-09',
-              'message': 'Finall commit'
-            },
-            { 'id': '123',
-              'author': 'Hugh Star',
-              'authorMail': 'hugh.star@example.com',
-              'date': '2020-10-02',
-              'message': 'Popping commit'
-            },
+            {'id': '456',
+             'author': 'Billy Lander',
+             'authorMail': 'billy.lander@example.com',
+             'date': '2020-10-09',
+             'message': 'Finall commit'
+             },
+            {'id': '123',
+             'author': 'Hugh Star',
+             'authorMail': 'hugh.star@example.com',
+             'date': '2020-10-02',
+             'message': 'Popping commit'
+             },
         ]
 
         args = self.log(repo_rid)
@@ -771,8 +1150,7 @@ class TestgCTSLog(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(repo.rid, repo_rid)
 
         self.fake_simple_log.assert_called_once_with(conn, repo=repo)
-        self.assertConsoleContents(self.console, stdout=
-'''commit 456
+        self.assertConsoleContents(self.console, stdout='''commit 456
 Author: Billy Lander <billy.lander@example.com>
 Date:   2020-10-09
 
@@ -814,7 +1192,7 @@ Date:   2020-10-02
 
         self.fake_simple_log.assert_called_once_with(conn, repo=fake_repo)
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_log_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_simple_log.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
@@ -865,8 +1243,7 @@ class TestgCTSPull(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(repo.rid, repo_rid)
 
         self.fake_simple_pull.assert_called_once_with(conn, repo=repo)
-        self.assertConsoleContents(self.console, stdout=
-f'''The repository "{repo_rid}" has been pulled
+        self.assertConsoleContents(self.console, stdout=f'''The repository "{repo_rid}" has been pulled
 123 -> 456
 ''')
 
@@ -880,8 +1257,7 @@ f'''The repository "{repo_rid}" has been pulled
         args = self.pull(repo_name)
         args.execute(conn, args)
 
-        self.assertConsoleContents(self.console, stdout=
-'''The repository "the_repo" has been pulled
+        self.assertConsoleContents(self.console, stdout='''The repository "the_repo" has been pulled
 New HEAD is 456
 ''')
 
@@ -893,8 +1269,7 @@ New HEAD is 456
         args = self.pull(repo_name)
         args.execute(conn, args)
 
-        self.assertConsoleContents(self.console, stdout=
-'''The repository "the_repo" has been pulled
+        self.assertConsoleContents(self.console, stdout='''The repository "the_repo" has been pulled
 ''')
 
     @patch('sap.rest.gcts.simple.fetch_repos')
@@ -915,7 +1290,7 @@ New HEAD is 456
 
         self.fake_simple_pull.assert_called_once_with(conn, repo=fake_repo)
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_pull_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_simple_pull.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
@@ -944,8 +1319,7 @@ New HEAD is 456
 
         self.assertEqual(exit_code, 0)
 
-        self.assertConsoleContents(self.console, stdout=
-'''{
+        self.assertConsoleContents(self.console, stdout='''{
   "fromCommit": "123",
   "toCommit": "456",
   "history": {
@@ -978,8 +1352,7 @@ class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
         args = self.config('the_repo')
         args.execute(None, args)
 
-        self.assertConsoleContents(self.console, stderr=
-'''Invalid command line options
+        self.assertConsoleContents(self.console, stderr='''Invalid command line options
 Run: sapcli gcts config --help
 ''')
 
@@ -994,8 +1367,7 @@ Run: sapcli gcts config --help
         args.execute(conn, args)
 
         self.fake_repository.assert_called_once_with(conn, 'the_repo')
-        self.assertConsoleContents(self.console, stdout=
-'''the_key_one=one
+        self.assertConsoleContents(self.console, stdout='''the_key_one=one
 the_key_two=two
 ''')
 
@@ -1016,12 +1388,11 @@ the_key_two=two
         args = self.config('-l', repo_url)
         args.execute(conn, args)
 
-        self.assertConsoleContents(self.console, stdout=
-'''the_key_one=one
+        self.assertConsoleContents(self.console, stdout='''the_key_one=one
 the_key_two=two
 ''')
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_config_list_error(self, fake_dumper):
         messages = {'exception': 'test'}
         type(self.fake_instance).configuration = PropertyMock(side_effect=sap.rest.gcts.errors.GCTSRequestError(messages))
@@ -1033,7 +1404,7 @@ the_key_two=two
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
     @patch('sap.cli.gcts.get_repository')
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_config_request_error(self, fake_dumper, fake_get_repository):
         messages = {'exception': 'test'}
         fake_get_repository.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
@@ -1084,7 +1455,7 @@ the_key_two=two
         args = self.config('the_repo', 'the_key')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
-        
+
         self.fake_instance.set_config.assert_not_called()
         self.assertConsoleContents(self.console, stderr='Cannot execute the set operation: "VALUE" was not provided.\n')
 
@@ -1097,7 +1468,7 @@ the_key_two=two
         self.assertConsoleContents(self.console,
                                    stderr='Invalid command line options\nRun: sapcli gcts config --help\n')
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_config_set_request_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_instance.set_config.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
@@ -1141,7 +1512,7 @@ the_key_two=two
         self.assertConsoleContents(self.console,
                                    stderr='Invalid command line options\nRun: sapcli gcts config --help\n')
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_config_unset_request_error(self, fake_dumper):
         key = 'THE_KEY'
         messages = {'exception': 'test'}
@@ -1374,8 +1745,7 @@ class TestgCTSRepoGetProperty(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 0)
-        self.assertConsoleContents(self.console, stdout=
-f'''Name: {self.repo_name}
+        self.assertConsoleContents(self.console, stdout=f'''Name: {self.repo_name}
 RID: {self.repo_rid}
 Branch: branch
 Commit: head
@@ -1427,8 +1797,7 @@ URL: {self.repo_url}
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 0)
-        self.assertConsoleContents(self.console, stdout=
-f'''Name: {self.repo_name}
+        self.assertConsoleContents(self.console, stdout=f'''Name: {self.repo_name}
 RID: {self.repo_rid}
 Branch: branch
 Commit: head
@@ -1556,8 +1925,7 @@ class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
         expected_params = {'limit': '10', 'offset': '0'}
         self.assert_query_params(expected_params)
 
-        self.assertConsoleContents(self.console, stdout=
-'''Date                | Caller | Operation | Transport | From Commit | To Commit | State | Code
+        self.assertConsoleContents(self.console, stdout='''Date                | Caller | Operation | Transport | From Commit | To Commit | State | Code
 ---------------------------------------------------------------------------------------------
 2022-09-27 09:17:00 | caller | CLONE     | request   | 123         | 456       | READY | 1   
 ''')
@@ -1573,8 +1941,7 @@ class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
         expected_params = {'limit': '10', 'offset': '0'}
         self.assert_query_params(expected_params)
 
-        self.assertConsoleContents(self.console, stdout=
-                                   "[{'checkoutTime': 20220927091700, 'caller': 'caller', 'type': 'CLONE',"
+        self.assertConsoleContents(self.console, stdout="[{'checkoutTime': 20220927091700, 'caller': 'caller', 'type': 'CLONE',"
                                    " 'request': 'request', 'fromCommit': '123', 'toCommit': '456', 'state': 'READY',"
                                    " 'rc': 1}]\n")
 
@@ -1616,8 +1983,7 @@ class TestgCTSRepoActivities(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stderr=
-'''Exception:
+        self.assertConsoleContents(self.console, stderr='''Exception:
   Request failed.
 ''')
 
@@ -1635,7 +2001,7 @@ class TestgCTSRepoCreateBranch(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_connection = Mock()
         self.fake_repo = Mock()
         self.expected_branch = {'name': self.branch_name, 'type': 'active', 'isSymbolic': False, 'isPeeled': False,
-                           'ref': f'refs/heads/{self.branch_name}'}
+                                'ref': f'refs/heads/{self.branch_name}'}
         self.fake_repo.create_branch.return_value = self.expected_branch
 
     def create_branch_cmd(self, *args, **kwargs):
@@ -1688,8 +2054,7 @@ class TestgCTSRepoCreateBranch(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(exit_code, 1)
         self.fake_repo.create_branch.assert_called_once_with(self.branch_name, symbolic=False, peeled=False,
                                                              local_only=False)
-        self.assertConsoleContents(self.console, stderr=
-'''Exception:
+        self.assertConsoleContents(self.console, stderr='''Exception:
   Request failed.
 ''')
 
@@ -1753,8 +2118,7 @@ class TestgCTSRepoDeleteBranch(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 1)
         self.fake_repo.delete_branch.assert_called_once_with(self.branch_name)
-        self.assertConsoleContents(self.console, stderr=
-'''Exception:
+        self.assertConsoleContents(self.console, stderr='''Exception:
   Request failed.
 ''')
 
@@ -1780,9 +2144,9 @@ class TestgCTSRepoListBranches(PatcherTestCase, ConsoleOutputTestCase):
 
         self.branches = [{'name': 'branch1', 'type': 'active', 'isSymbolic': False, 'isPeeled': False,
                          'ref': 'refs/heads/branch1'},
-                        {'name': 'branch1', 'type': 'local', 'isSymbolic': False, 'isPeeled': False,
+                         {'name': 'branch1', 'type': 'local', 'isSymbolic': False, 'isPeeled': False,
                          'ref': 'refs/heads/branch1'},
-                        {'name': 'branch1', 'type': 'remote', 'isSymbolic': False, 'isPeeled': False,
+                         {'name': 'branch1', 'type': 'remote', 'isSymbolic': False, 'isPeeled': False,
                          'ref': 'refs/remotes/origin/branch1'}]
         self.fake_connection = Mock()
         self.fake_repo = Mock()
@@ -1800,8 +2164,7 @@ class TestgCTSRepoListBranches(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 0)
         self.fake_repo.list_branches.assert_called_once()
-        self.assertConsoleContents(self.console, stdout=
-'''Name     | Type  | Symbolic | Peeled | Reference         
+        self.assertConsoleContents(self.console, stdout='''Name     | Type  | Symbolic | Peeled | Reference         
 ---------------------------------------------------------
 branch1* | local | False    | False  | refs/heads/branch1
 ''')
@@ -1815,8 +2178,7 @@ branch1* | local | False    | False  | refs/heads/branch1
 
         self.assertEqual(exit_code, 0)
         self.fake_repo.list_branches.assert_called_once()
-        self.assertConsoleContents(self.console, stdout=
-'''Name    | Type   | Symbolic | Peeled | Reference                  
+        self.assertConsoleContents(self.console, stdout='''Name    | Type   | Symbolic | Peeled | Reference                  
 ------------------------------------------------------------------
 branch1 | remote | False    | False  | refs/remotes/origin/branch1
 ''')
@@ -1830,8 +2192,7 @@ branch1 | remote | False    | False  | refs/remotes/origin/branch1
 
         self.assertEqual(exit_code, 0)
         self.fake_repo.list_branches.assert_called_once()
-        self.assertConsoleContents(self.console, stdout=
-'''Name     | Type   | Symbolic | Peeled | Reference                  
+        self.assertConsoleContents(self.console, stdout='''Name     | Type   | Symbolic | Peeled | Reference                  
 -------------------------------------------------------------------
 branch1* | local  | False    | False  | refs/heads/branch1         
 branch1  | remote | False    | False  | refs/remotes/origin/branch1
@@ -1891,8 +2252,7 @@ branch1  | remote | False    | False  | refs/remotes/origin/branch1
 
         self.assertEqual(exit_code, 1)
         self.fake_repo.list_branches.assert_called_once()
-        self.assertConsoleContents(self.console, stderr=
-'''Exception:
+        self.assertConsoleContents(self.console, stderr='''Exception:
   Request failed.
 ''')
 
@@ -1948,7 +2308,7 @@ class TestqCTSUserGetCredentials(PatcherTestCase, ConsoleOutputTestCase):
             )
         )
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_get_user_credentials_request_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_get_credentials.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
@@ -1984,7 +2344,7 @@ class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
         fake_set_credentials.assert_called_once_with(self.fake_connection, api_url, token)
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     @patch('sap.rest.gcts.simple.set_user_api_token')
     def test_set_user_credentials_request_error(self, fake_set_credentials, fake_dumper):
         messages = {'exception': 'test'}
@@ -2020,7 +2380,7 @@ class TestgCTSUserDeleteCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
         fake_delete_credentials.asser_called_once_with(self.fake_connection, api_url)
 
-    @patch('sap.cli.gcts.dump_gcts_messages')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
     @patch('sap.rest.gcts.simple.delete_user_credentials')
     def test_delete_user_credentials_request_error(self, fake_delete_credentials, fake_dumper):
         messages = {'exception': 'test'}
@@ -2060,8 +2420,7 @@ class TestgCTSGetSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 0)
         self.fake_get_config_property.assert_called_once_with(self.fake_connection, self.config_key)
-        self.assertConsoleContents(self.console, stdout=
-f'''Key: {self.config_key}
+        self.assertConsoleContents(self.console, stdout=f'''Key: {self.config_key}
 Value: {self.config_value}
 ''')
 
@@ -2112,8 +2471,7 @@ class TestgCTSListSystemConfig(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 0)
         self.fake_list_system_config.assert_called_once_with(self.fake_connection)
-        self.assertConsoleContents(self.console, stdout=
-'''Key      | Value      | Category | Changed At | Changed By
+        self.assertConsoleContents(self.console, stdout='''Key      | Value      | Category | Changed At | Changed By
 ----------------------------------------------------------
 THE_KEY1 | the_value1 | SYSTEM   | 2022       | Test      
 THE_KEY2 | the_value2 | SYSTEM   | 2022       | Test      
@@ -2166,8 +2524,7 @@ class TestgCTSSetSystemConfigProperty(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 0)
         self.fake_set_config_property.assert_called_once_with(self.fake_connection, self.config_key, self.config_value)
-        self.assertConsoleContents(self.console, stdout=
-f'''Key: {self.config_key}
+        self.assertConsoleContents(self.console, stdout=f'''Key: {self.config_key}
 Value: {self.config_value}
 ''')
 
@@ -2299,7 +2656,7 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
         self.assertConsoleContents(
             self.console,
             stdout=f'Updating the currently active branch {branch} ...\n'
-                   f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
+            f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
         )
         fake_abap_mod_disabled.assert_called_once()
         fake_temp_switched_branch.assert_called_once()
@@ -2319,9 +2676,9 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
         self.assertConsoleContents(
             self.console,
             stdout=f'Updating the currently active branch {branch} ...\n'
-                   f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
-                   f'Writing gCTS JSON response to {output_file} ...\n'
-                   f'Successfully wrote gCTS JSON response to {output_file}\n'
+            f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
+            f'Writing gCTS JSON response to {output_file} ...\n'
+            f'Successfully wrote gCTS JSON response to {output_file}\n'
         )
 
     def test_update_filesystem_output_to_existing_file(self):
@@ -2350,7 +2707,7 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
         self.assertConsoleContents(
             self.console,
             stdout=f'Updating the currently active branch {branch} ...\n'
-                   f'The branch "{branch}" has been updated: () -> ()\n'
+            f'The branch "{branch}" has been updated: () -> ()\n'
         )
 
     def test_update_filesystem_abap_mod_disabled_error(self):
@@ -2366,7 +2723,7 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
         self.assertConsoleContents(
             self.console,
             stdout=f'Updating the currently active branch {branch} ...\n'
-                   f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n',
+            f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n',
             stderr='Delete config error.\n'
                    'Please delete the configuration option VCS_NO_IMPORT manually\n'
         )
@@ -2392,7 +2749,8 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
     def test_update_filesystem_repo_pull_error(self, fake_dump_msgs):
         old_branch = 'old_branch'
         self.fake_repo.branch = old_branch
-        self.fake_repo.pull.side_effect = sap.cli.gcts.GCTSRequestError('Pull error.')
+        gcts_messages = {'log': 'Pull error.'}
+        self.fake_repo.pull.side_effect = sap.cli.gcts.GCTSRequestError(gcts_messages)
         self.fake_repo.get_config.return_value = None
         repo_name = 'the_repo'
         branch = 'the_branch'
@@ -2402,7 +2760,7 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 1)
         self.fake_repo.pull.assert_called_once()
-        fake_dump_msgs.assert_called_once_with(self.console, 'Pull error.')
+        fake_dump_msgs.assert_called_once_with(self.console, gcts_messages)
         self.fake_repo.checkout.assert_has_calls([call(branch), call(old_branch)])
         self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', 'X')
         self.fake_repo.delete_config.assert_called_once_with('VCS_NO_IMPORT')
@@ -2428,7 +2786,7 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
         self.assertConsoleContents(
             self.console,
             stdout=f'Updating the currently active branch {branch} ...\n'
-                   f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
+            f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n'
         )
 
     def test_update_filesystem_repo_not_found(self):

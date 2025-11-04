@@ -3,7 +3,7 @@
 from enum import Enum, auto
 import time
 import threading
-
+import sap.cli.core
 from sap.rest.gcts.errors import SAPCliError
 
 
@@ -204,3 +204,20 @@ def abapstamp_to_isodate(abapstamp: 'int') -> 'str':
     second = abapstamp_str[12:14]
 
     return f'{year}-{month}-{day} {hour}:{minute}:{second}'
+
+
+def print_gcts_task_info(err_msg: str, task: dict):
+    """Print out the task information"""
+    console = sap.cli.core.get_console()
+    if err_msg:
+        console.printerr(err_msg)
+    else:
+        columns = (
+            TableWriter.Columns()
+            ('tid', 'Task ID')
+            ('status', 'Status')
+            ('type', 'Type')
+            ('rid', 'Repository ID')
+            .done()
+        )
+        TableWriter([task], columns).printout(console)

@@ -6,6 +6,9 @@ import warnings
 import sap.cli.core
 import sap.cli.helpers
 import sap.rest.gcts.simple
+from sap.rest.gcts.simple import (
+    get_task_timeout_error_message,
+)
 from sap.rest.gcts.sugar import (
     abap_modifications_disabled,
     SugarOperationProgress,
@@ -15,81 +18,19 @@ from sap.rest.gcts.remote_repo import (
     Repository,
     RepoActivitiesQueryParams,
 )
+from sap.rest.gcts.repo_task import (
+    RepositoryTask,
+)
 from sap.rest.gcts.errors import (
     GCTSRequestError,
     SAPCliError,
 )
 from sap.rest.errors import HTTPRequestError
-
-
-def print_gcts_message(console, log, prefix=' '):
-    """Print out the message with its protocol if it exists."""
-
-    if isinstance(log, str):
-        message = log
-    else:
-        message = log.get('message', None)
-
-    if message:
-        console.printerr(prefix, message)
-        prefix = prefix + '  '
-
-    if not isinstance(log, dict):
-        return
-
-    try:
-        protocol = log['protocol']
-    except KeyError:
-        return
-
-    if isinstance(protocol, dict):
-        protocol = [protocol]
-
-    for protocol_item in protocol:
-        print_gcts_message(console, protocol_item, prefix=prefix)
-
-
-def dump_gcts_messages(console, messages):
-    """Dumps gCTS exception to console"""
-
-    output = False
-    errlog = messages.get('errorLog', None)
-    if errlog:
-        output = True
-        console.printerr('Error Log:')
-        for errmsg in errlog:
-            print_gcts_message(console, errmsg)
-
-    msglog = messages.get('log', None)
-    if msglog:
-        output = True
-        console.printerr('Log:')
-        for logmsg in msglog:
-            print_gcts_message(console, logmsg)
-
-    exception = messages.get('exception', None)
-    if exception:
-        output = True
-        console.printerr('Exception:\n ', messages['exception'])
-
-    if not output:
-        console.printerr(str(messages))
-
-
-def gcts_exception_handler(func):
-    """Exception handler for gcts commands"""
-
-    def _handler(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except GCTSRequestError as ex:
-            dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-            return 1
-        except SAPCliError as ex:
-            sap.cli.core.get_console().printerr(str(ex))
-            return 1
-
-    return _handler
+from sap.cli.gcts_task import CommandGroup as TaskCommandGroup
+from sap.cli.gcts_utils import (
+    dump_gcts_messages,
+    gcts_exception_handler
+)
 
 
 def print_gcts_commit(console, commit_data):
@@ -562,6 +503,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
         self.user_grp = UserCommandGroup()
         self.repo_grp = RepoCommandGroup()
         self.system_grp = SystemCommandGroup()
+        self.task_grp = TaskCommandGroup()
 
     def install_parser(self, arg_parser):
         gcts_group = super().install_parser(arg_parser)
@@ -574,6 +516,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
         system_parser = gcts_group.add_parser(self.system_grp.name)
         self.system_grp.install_parser(system_parser)
+
+        task_parser = gcts_group.add_parser('task')
+        self.task_grp.install_parser(task_parser)
 
 
 @CommandGroup.command()
@@ -607,6 +552,8 @@ def repolist(connection, args):
 @CommandGroup.argument('--vsid', type=str, nargs='?', default='6IT')
 @CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
 @CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
+@CommandGroup.argument('--sync-clone', default=False, action='store_true')
+@CommandGroup.argument('--pull-period', type=int, nargs='?', default=30, help='Period in seconds to pull the repository  clone task status')
 @CommandGroup.argument('--vcs-token', type=str, nargs='?')
 @CommandGroup.argument('-t', '--type', choices=['GITHUB', 'GIT'], default='GITHUB')
 @CommandGroup.argument('-r', '--role', choices=['SOURCE', 'TARGET'], default='SOURCE',
@@ -623,18 +570,42 @@ def clone(connection, args):
         package = sap.rest.gcts.package_name_from_url(args.url)
 
     console = sap.cli.core.get_console()
+    sync_clone = getattr(args, 'sync_clone', False)
+    task = None
+    repo = None
 
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            repo = sap.rest.gcts.simple.clone(connection, args.url, package,
-                                              start_dir=args.starting_folder,
-                                              vcs_token=args.vcs_token,
-                                              vsid=args.vsid,
-                                              error_exists=not args.no_fail_exists,
-                                              role=args.role,
-                                              typ=args.type)
+            result = sap.rest.gcts.simple.clone(
+                connection,
+                args.url,
+                package,
+                vsid=args.vsid,
+                start_dir=args.starting_folder,
+                vcs_token=args.vcs_token,
+                error_exists=not args.no_fail_exists,
+                role=args.role,
+                typ=args.type,
+                sync=sync_clone)
+
+            if sync_clone:
+                repo = result
+            else:
+                repo, task = result
+
+            if not sync_clone and task and isinstance(task, RepositoryTask) and task.tid:
+                if args.wait_for_ready > 0:
+                    sap.rest.gcts.simple.wait_for_task_execution(
+                        task, args.wait_for_ready,
+                        args.pull_period, sap.cli.helpers.print_gcts_task_info)
+                else:
+                    console.printout(get_task_timeout_error_message(task))
+                    return 0
+            elif not sync_clone:
+                console.printerr('Scheduling clone request responded with an error. No task found!')
+                return 1
     except HTTPRequestError as exc:
-        if args.wait_for_ready > 0:
+        if sync_clone and args.wait_for_ready > 0:
             repo = get_repository(connection, args.url)
 
             console.printout('Clone request responded with an error. Checking clone process ...')
