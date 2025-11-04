@@ -191,7 +191,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
         })
         self.fake_repo.activities = Mock()
         self.fake_repo.activities.return_value = [{'rc': '004'}]
-        self.fake_simple_clone.return_value = self.fake_repo, None
+        self.fake_simple_clone.return_value = self.fake_repo
         self.fake_get_repository.return_value = self.fake_repo
 
     def clone(self, *args, **kwargs):

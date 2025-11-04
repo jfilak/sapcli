@@ -622,10 +622,12 @@ def clone(connection, args):
 
     console = sap.cli.core.get_console()
     sync_clone = getattr(args, 'sync_clone', False)
+    task = None
+    repo = None
 
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            repo, task = sap.rest.gcts.simple.clone(
+            result = sap.rest.gcts.simple.clone(
                 connection,
                 args.url,
                 package,
@@ -636,6 +638,11 @@ def clone(connection, args):
                 role=args.role,
                 typ=args.type,
                 sync=sync_clone)
+
+            if sync_clone:
+                repo = result
+            else:
+                repo, task = result
 
             if not sync_clone and task and isinstance(task, RepositoryTask) and task.tid:
                 if args.wait_for_ready > 0:
