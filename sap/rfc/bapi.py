@@ -26,6 +26,9 @@ def bapi_message_to_str(bapiret: RFCResponse):
     msg_message = bapiret['MESSAGE']
 
     msg_code = BAPI_MTYPE.get(msg_type, msg_type)
+    if msg_code is None:
+        msg_code = ''
+
     if msg_id or (msg_number and msg_number != '000'):
         msg_code += f'({msg_id}|{msg_number})'
 

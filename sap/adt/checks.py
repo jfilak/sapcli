@@ -101,6 +101,7 @@ class CheckReport(metaclass=OrderedClassMembers):
     status_text = XmlNodeAttributeProperty('chkrun:statusText')
     messages = XmlNodeProperty('chkrun:checkMessageList')
 
+    # pylint: disable=no-value-for-parameter
     def __init__(self):
         self.messages = CheckMessageList()
 
@@ -118,6 +119,7 @@ CheckReportList.objtype = ADTObjectType(None,
 def fetch_reporters(connection):
     """Returns the list of supported ADT reporters"""
 
+    # pylint: disable=no-value-for-parameter
     reporters = ReportersContainer()
 
     resp = connection.execute('GET', reporters.objtype.basepath, accept=reporters.objtype.mimetype)
@@ -138,6 +140,7 @@ def run(connection, reporter, object_list):
                               params={'reporters': reporter.name},
                               body=xml)
 
+    # pylint: disable=no-value-for-parameter
     report_list = CheckReportList()
     Marshal.deserialize(resp.text, report_list)
 

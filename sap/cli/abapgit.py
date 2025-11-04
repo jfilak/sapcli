@@ -43,12 +43,12 @@ def link(connection, args):
         console.printerr(f'Failed to link repository: {args.package}', resp)
 
 
-@ CommandGroup.argument('--corrnr', type=str, nargs='?')
-@ CommandGroup.argument('--branch', type=str, nargs='?', default=None)
-@ CommandGroup.argument('--remote-user', type=str, nargs='?')
-@ CommandGroup.argument('--remote-password', type=str, nargs='?')
-@ CommandGroup.argument('package')
-@ CommandGroup.command()
+@CommandGroup.argument('--corrnr', type=str, nargs='?')
+@CommandGroup.argument('--branch', type=str, nargs='?', default=None)
+@CommandGroup.argument('--remote-user', type=str, nargs='?')
+@CommandGroup.argument('--remote-password', type=str, nargs='?')
+@CommandGroup.argument('package')
+@CommandGroup.command()
 def pull(connection, args):
     """ pull git repository branch to linked ABAP package
     """

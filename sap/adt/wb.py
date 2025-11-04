@@ -324,6 +324,7 @@ def try_mass_activate(connection, references):
     results, resp = mass_activate(connection, references)
 
     if results.has_warnings or results.has_errors:
+        # pylint: disable=no-value-for-parameter
         messages = CheckMessageList()
         Marshal.deserialize(resp.text, messages)
 

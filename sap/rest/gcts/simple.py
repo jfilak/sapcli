@@ -76,7 +76,7 @@ def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, er
     if not repo.is_cloned:
         repo.clone()
     else:
-        _mod_log().info('Not cloning the repository "%s": already performed')
+        _mod_log().info('Not cloning the repository "%s": already performed', repo.rid)
 
     return repo
 
