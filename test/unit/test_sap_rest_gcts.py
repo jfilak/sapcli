@@ -1747,6 +1747,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 sync=True
             )
 
+            self.assertFalse(isinstance(returned_repo, tuple))
+
             fake_create.assert_called_once_with(
                 connection=self.conn,
                 url=self.repo_url,
@@ -1758,7 +1760,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 role='SOURCE',
                 typ='GITHUB'
             )
-
+            
             spy_clone.assert_called_once()
 
             self.assertEqual(len(self.conn.execs), 1)
@@ -1780,7 +1782,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         })
         fake_schedule_clone.return_value = repo_task
 
-        sap.rest.gcts.simple.clone(
+        result = sap.rest.gcts.simple.clone(
             connection=self.conn,
             url=self.repo_url,
             rid=self.repo_rid,
@@ -1792,6 +1794,12 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             typ='GITHUB',
             sync=False
         )
+
+        self.assertTrue(isinstance(result, tuple))
+
+        returned_repo, returned_task = result
+        self.assertTrue(isinstance(returned_repo, sap.rest.gcts.remote_repo.Repository))
+        self.assertTrue(isinstance(returned_task, sap.rest.gcts.repo_task.RepositoryTask))
 
         fake_create.assert_called_once_with(
             connection=self.conn,
