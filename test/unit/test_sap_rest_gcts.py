@@ -1734,7 +1734,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 Response.ok()
             )
 
-            returned_repo, returned_task = sap.rest.gcts.simple.clone(
+            returned_repo = sap.rest.gcts.simple.clone(
                 connection=self.conn,
                 url=self.repo_url,
                 rid=self.repo_rid,
@@ -1763,7 +1763,6 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
             self.assertEqual(len(self.conn.execs), 1)
             self.conn.execs[0].assertEqual(Request.post(uri=f'repository/{self.repo_rid}/clone'), self)
-            self.assertIsNone(returned_task)
             self.assertEqual(returned_repo, repo)
 
     @patch('sap.rest.gcts.simple.schedule_clone')
@@ -1819,7 +1818,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 Response.ok()
             )
 
-            returned_repo, returned_task = sap.rest.gcts.simple.clone(
+            returned_repo = sap.rest.gcts.simple.clone(
                 connection=self.conn,
                 url=self.repo_url,
                 rid=self.repo_rid,
@@ -1838,12 +1837,10 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             )
 
             # default sync way
-
             spy_clone.assert_called_once()
 
             self.assertEqual(len(self.conn.execs), 1)
             self.conn.execs[0].assertEqual(Request.post(uri=f'repository/{self.repo_rid}/clone'), self)
-            self.assertIsNone(returned_task)
             self.assertEqual(returned_repo, repo)
 
     @patch('sap.rest.gcts.simple.create')
@@ -1854,7 +1851,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
         fake_create.return_value = repo
         with patch.object(repo, 'clone', wraps=repo.clone) as spy_clone:
-            returned_repo, returned_task = sap.rest.gcts.simple.clone(
+            returned_repo = sap.rest.gcts.simple.clone(
                 connection=self.conn,
                 url=self.repo_url,
                 rid=self.repo_rid,
@@ -1864,7 +1861,6 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             spy_clone.assert_not_called()
             fake_mod_log.return_value.info.assert_called_once_with('Not cloning the repository "%s": already performed')
             self.assertEqual(returned_repo, repo)
-            self.assertIsNone(returned_task)
 
     def test_simple_create_success_with_http(self):
         CALL_ID_CREATE = 0
@@ -1986,8 +1982,6 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(str(caught.exception), 'gCTS exception: Cannot create')
 
     def test_simple_create_exists_continue(self):
-        CALL_ID_FETCH_REPO_DATA = 1
-
         log_builder = LogBuilder()
         log_builder.log_error(make_gcts_log_error('20200923111743: Error action CREATE_REPOSITORY Repository already exists'))
         log_builder.log_exception('Cannot create', 'EEXIST').get_contents()
@@ -1998,17 +1992,13 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         self.conn.set_responses([
             Response.with_json(status_code=500, json=messages),
-            Response.with_json(status_code=200, json={'result': new_repo_data})
         ])
 
         repo = sap.rest.gcts.simple.create(self.conn, self.repo_url, self.repo_rid, error_exists=False)
         self.assertIsNotNone(repo)
-        self.assertEqual(len(self.conn.execs), 2)
-        self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+        self.assertEqual(len(self.conn.execs), 1)
 
     def test_simple_create_exists_continue_cloned(self):
-        CALL_ID_FETCH_REPO_DATA = 1
-
         log_builder = LogBuilder()
         log_builder.log_error(make_gcts_log_error('20200923111743: Error action CREATE_REPOSITORY Repository already exists'))
         log_builder.log_exception('Cannot create', 'EEXIST').get_contents()
@@ -2018,14 +2008,12 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         self.conn.set_responses([
             Response.with_json(status_code=500, json=messages),
-            Response.with_json(status_code=200, json={'result': self.repo_server_data})
         ])
 
         repo = sap.rest.gcts.simple.create(self.conn, self.repo_url, self.repo_rid, error_exists=False)
         self.assertIsNotNone(repo)
 
-        self.assertEqual(len(self.conn.execs), 2)
-        self.conn.execs[CALL_ID_FETCH_REPO_DATA].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+        self.assertEqual(len(self.conn.execs), 1)
 
     @patch('sap.rest.gcts.simple._mod_log')
     def test_simple_wait_for_clone(self, fake_mod_log):
