@@ -28,6 +28,13 @@ class ResourceAlreadyExistsError(SAPCliError):
         return repr(self)
 
 
+class OperationTimeoutError(SAPCliError):
+    """Common base exception type for timeout errors"""
+
+    # pylint: disable=unnecessary-pass
+    pass
+
+
 class InputError(FatalError):
     """Common base exception type for runtime input errors
     usually caused by users.

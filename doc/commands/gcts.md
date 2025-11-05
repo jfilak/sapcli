@@ -45,7 +45,7 @@ not given, the name is taken from repository name.
 ```bash
 sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-exists] \
                   [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type TYPE] \
-                  [--vcs-token TOKEN] [--sync-clone] [--pull-period SECONDS] URL [package]
+                  [--vcs-token TOKEN] [--sync-clone] [--poll-period SECONDS] URL [package]
 ```
 
 **Parameters**:
@@ -53,7 +53,7 @@ sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-ex
 - `--heartbeat SECONDS`: Console heart beat printing dots
 - `--no-fail-exists`: If repository exists do not fail but try to clone
 - `--sync-clone`: Perform a synchronous clone (legacy behavior). By default, clone is scheduled as a background task.
-- `--pull-period SECONDS`: When clone is scheduled as a task, poll the task status every given seconds. Default: 30
+- `--poll-period SECONDS`: When clone is scheduled as a task, poll the task status every given seconds. Default: 30
 - `--vsid VSID`: Virtual System ID of the repository; default is **6IT**
 - `--starting-folder FOLDER`: The directory inside the repository where to store ABAP files; default is **src/**.
 - `--role ROLE`: Either SOURCE (Development) or TARGET (Provided); default is **SOURCE**

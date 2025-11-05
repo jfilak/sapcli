@@ -5,6 +5,7 @@ import time
 from typing import Optional
 
 from sap import get_logger
+from sap.errors import OperationTimeoutError
 from sap.rest.errors import HTTPRequestError
 from sap.rest.gcts.remote_repo import Repository
 from sap.rest.gcts.repo_task import RepositoryTask
@@ -49,36 +50,31 @@ def wait_for_operation(repo, condition_fn, wait_for_ready, http_exc):
     raise SAPCliError(f'Waiting for the operation timed out\n{http_exc}')
 
 
-def wait_for_task_execution(task: RepositoryTask, wait_for_ready, pull_period=30, pull_cb=None):
+def wait_for_task_execution(task: RepositoryTask, wait_for_ready, poll_period=30, poll_cb=None):
     """Wait for task execution to finish"""
     start_time = time.time()
 
     while time.time() - start_time < wait_for_ready:
         try:
             task.get_by_id(task.tid)
-            if callable(pull_cb):
-                pull_cb(None, task.to_dict())
+            if callable(poll_cb):
+                poll_cb(None, task.to_dict())
             if task.status == RepositoryTask.TaskStatus.FINISHED.value:
                 return task
             if task.status == RepositoryTask.TaskStatus.ABORTED.value:
                 raise SAPCliError(f'Task execution aborted: task {task.tid} for repository {task.rid}.')
         except HTTPRequestError as ex:
-            if callable(pull_cb):
-                pull_cb(f'Failed to get status of the task {task.tid}: {str(ex)}', None)
-        time.sleep(pull_period)
-    raise SAPCliError(get_task_timeout_error_message(task))
+            if callable(poll_cb):
+                poll_cb(f'Failed to get status of the task {task.tid}: {str(ex)}', None)
+        time.sleep(poll_period)
 
-
-def get_task_timeout_error_message(task: RepositoryTask):
-    """Get the error message for a task timeout"""
-    if task.tid is None or task.rid is None:
-        raise SAPCliError('Task "tid" and repository "rid" are required to get the task timeout error message')
-    return f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}.'
+    raise OperationTimeoutError(f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}.')
 
 
 def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
-          role='SOURCE', typ='GITHUB', sync=True) -> Repository | tuple[Repository, RepositoryTask | None]:
+          role='SOURCE', typ='GITHUB') -> Repository:
     """Creates and clones the repository in the target systems"""
+
     repo = create(
         connection=connection,
         url=url,
@@ -90,31 +86,27 @@ def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, er
         role=role,
         typ=typ,
     )
+
     if repo.is_cloned:
         _mod_log().info('Not cloning the repository "%s": already performed', repo.rid)
-        return repo if sync else (repo, None)
-
-    if sync:
-        repo.clone()
         return repo
 
-    task = schedule_clone(repo, connection)
-    return repo, task
+    repo.clone()
+    return repo
 
 
-def schedule_clone(repo, connection, branch=None) -> Optional[RepositoryTask]:
+def schedule_clone(connection, repo, branch=None) -> Optional[RepositoryTask]:
     """Schedule a repository cloning task on the target systems"""
-    task = None
-    if not repo.is_cloned:
-        task_parameters = RepositoryTask.TaskParameters(branch=branch)
-        task = RepositoryTask(connection, repo.rid)
-        task = task.create(
-            RepositoryTask.TaskDefinition.CLONE_REPOSITORY,
-            parameters=task_parameters)
-        task.schedule_task()
-    else:
+    if repo.is_cloned:
         _mod_log().info('Repository "%s" cloning not scheduled: already performed or repository is not created.', repo.rid)
+        return None
 
+    task_parameters = RepositoryTask.TaskParameters(branch=branch)
+    task = RepositoryTask(connection, repo.rid)
+    task = task.create(
+        RepositoryTask.TaskDefinition.CLONE_REPOSITORY,
+        parameters=task_parameters)
+    task.schedule_task()
     return task
 
 
