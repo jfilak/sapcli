@@ -1656,7 +1656,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             })
         )
 
-        result = sap.rest.gcts.simple.schedule_clone(repo, self.conn)
+        result = sap.rest.gcts.simple.schedule_clone(self.conn, repo)
 
         self.assertIsNotNone(result)
         self.assertTrue(isinstance(result, RepositoryTask))
@@ -1683,7 +1683,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         mock_task_instance = Mock()
         mock_repository_task.return_value = mock_task_instance
 
-        result = sap.rest.gcts.simple.schedule_clone(repo, self.conn)
+        result = sap.rest.gcts.simple.schedule_clone(self.conn, repo)
 
         mock_repository_task.assert_not_called()
         mock_task_instance.create.assert_not_called()
@@ -1695,7 +1695,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
     def test_simple_schedule_clone_repo_not_created(self, fake_mod_log):
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data={})
         with patch.object(repo, 'clone', wraps=repo.clone) as spy_clone:
-            sap.rest.gcts.simple.schedule_clone(repo, self.conn)
+            sap.rest.gcts.simple.schedule_clone(self.conn, repo)
             spy_clone.assert_not_called()
             fake_mod_log.return_value.info.assert_called_once_with('Repository "%s" cloning not scheduled: already performed or repository is not created.', self.repo_rid)
 
@@ -1719,8 +1719,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 vcs_token=self.repo_vcs_token,
                 error_exists=True,
                 role='SOURCE',
-                typ='GITHUB',
-                sync=True
+                typ='GITHUB'
             )
 
             self.assertFalse(isinstance(returned_repo, tuple))
@@ -1742,54 +1741,6 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             self.assertEqual(len(self.conn.execs), 1)
             self.conn.execs[0].assertEqual(Request.post(uri=f'repository/{self.repo_rid}/clone'), self)
             self.assertEqual(returned_repo, repo)
-
-    @patch('sap.rest.gcts.simple.schedule_clone')
-    @patch('sap.rest.gcts.simple.create')
-    def test_simple_clone_success_async(self, fake_create, fake_schedule_clone):
-        repo_data = dict(self.repo_server_data)
-        repo_data['status'] = 'CREATED'
-        fake_repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
-        fake_create.return_value = fake_repo
-        repo_task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={
-            'tid': '123',
-            'rid': self.repo_rid,
-            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-            'status': RepositoryTask.TaskStatus.RUNNING.value
-        })
-        fake_schedule_clone.return_value = repo_task
-
-        result = sap.rest.gcts.simple.clone(
-            connection=self.conn,
-            url=self.repo_url,
-            rid=self.repo_rid,
-            vsid=self.repo_vsid,
-            start_dir=self.repo_start_dir,
-            vcs_token=self.repo_vcs_token,
-            error_exists=True,
-            role='SOURCE',
-            typ='GITHUB',
-            sync=False
-        )
-
-        self.assertTrue(isinstance(result, tuple))
-
-        returned_repo, returned_task = result
-        self.assertTrue(isinstance(returned_repo, sap.rest.gcts.remote_repo.Repository))
-        self.assertTrue(isinstance(returned_task, sap.rest.gcts.repo_task.RepositoryTask))
-
-        fake_create.assert_called_once_with(
-            connection=self.conn,
-            url=self.repo_url,
-            rid=self.repo_rid,
-            vsid=self.repo_vsid,
-            start_dir=self.repo_start_dir,
-            vcs_token=self.repo_vcs_token,
-            error_exists=True,
-            role='SOURCE',
-            typ='GITHUB'
-        )
-
-        fake_schedule_clone.assert_called_once_with(fake_repo, self.conn)
 
     @patch('sap.rest.gcts.simple.create')
     def test_simple_clone_default_parameters(self, fake_create):
@@ -2092,7 +2043,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         with patch.object(task, 'get_by_id', wraps=task.get_by_id) as spy_get_by_id:
 
-            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=10, pull_period=1, pull_cb=fake_print_gcts_task_info)
+            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=10, poll_period=1, poll_cb=fake_print_gcts_task_info)
             self.assertEqual(spy_get_by_id.call_count, 5)
             for i, call_args in enumerate(spy_get_by_id.call_args_list):
                 args, _kwargs = call_args
@@ -2157,7 +2108,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         with patch.object(task, 'get_by_id', wraps=task.get_by_id) as spy_get_by_id:
 
-            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=10, pull_period=1, pull_cb=fake_print_gcts_task_info)
+            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=10, poll_period=1, poll_cb=fake_print_gcts_task_info)
             self.assertEqual(spy_get_by_id.call_count, expected_calls)
             for i, call_args in enumerate(spy_get_by_id.call_args_list):
                 args, _kwargs = call_args
@@ -2198,9 +2149,9 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json={'task': task_data_running}),
         ])
 
-        with self.assertRaises(sap.rest.errors.OperationTimeoutError) as cm:
+        with self.assertRaises(sap.errors.OperationTimeoutError) as cm:
             # don't have enough time to wait for the task to finish
-            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=2, pull_period=1)
+            sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=2, poll_period=1)
 
         expected_message = f'Waiting for the task execution timed out: task {task_id} for repository {self.repo_rid}.'
         self.assertEqual(str(cm.exception), expected_message)
