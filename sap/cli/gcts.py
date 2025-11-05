@@ -604,21 +604,32 @@ def clone(connection, args):
                 console.printerr(str(exc))
                 return 1
     else:
-        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            repo = sap.rest.gcts.simple.create(connection, args.url, package,
-                                               vsid=args.vsid,
-                                               start_dir=args.starting_folder,
-                                               vcs_token=args.vcs_token,
-                                               error_exists=not args.no_fail_exists,
-                                               role=args.role,
-                                               typ=args.type)
+        try:
+            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                repo = sap.rest.gcts.simple.create(connection, args.url, package,
+                                                   vsid=args.vsid,
+                                                   start_dir=args.starting_folder,
+                                                   vcs_token=args.vcs_token,
+                                                   error_exists=not args.no_fail_exists,
+                                                   role=args.role,
+                                                   typ=args.type)
+        except HTTPRequestError as exc:
+            if args.wait_for_ready > 0:
+                console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
+            console.printerr(str(exc))
+            return 1
 
         console.printout(f'Repository "{repo.rid}" has been created.')
-        task = sap.rest.gcts.simple.schedule_clone(repo, connection)
+        task = sap.rest.gcts.simple.schedule_clone(connection, repo)
 
         # If the task is None, the repository is already cloned
         if task is not None:
-            console.printout(f'CLONE task "{repo.tid}" has been scheduled.')
+            # Check if task has a tid
+            if not task.tid:
+                console.printerr('Scheduling clone request responded with an error. No task found!')
+                return 1
+
+            console.printout(f'CLONE task "{task.tid}" has been scheduled.')
             # If the wait_for_ready is 0, do not wait for the task execution
             if args.wait_for_ready > 0:
                 try:
@@ -627,6 +638,8 @@ def clone(connection, args):
                                                                  args.poll_period,
                                                                  sap.cli.helpers.print_gcts_task_info)
                     console.printout(f'CLONE task "{task.tid}" has finished.')
+
+                    repo.wipe_data()
 
                     clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
                     if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
@@ -638,14 +651,18 @@ def clone(connection, args):
                 except OperationTimeoutError as ex:
                     console.printerr(f'CLONE task did not finish in the period specified by the "--wait-for-ready" parameter')
                     console.printout('You can check the task status using the following command:')
-                    console.printout(f'  sapcli gcts task list {args.package}')
+                    console.printout(f'  sapcli gcts task list {package}')
                     return 1
             else:
                 console.printout('Performed asynchronous cloning without "--wait-for-ready" parameter!')
                 console.printout('If you do not wait for the task, the repository may not be ready to use.')
                 console.printout('You can check the task status using the following command:')
-                console.printout(f'  sapcli gcts task list {args.package}')
+                console.printout(f'  sapcli gcts task list {package}')
                 console.printout('')
+        else:
+            # Repository was already cloned, refresh data
+            console.printout('Repository was already cloned.')
+            repo.wipe_data()
 
     console.printout('Cloned repository:')
     console.printout(' URL   :', repo.url)

@@ -5,7 +5,6 @@ import unittest
 import json
 from unittest.mock import MagicMock, patch, Mock, PropertyMock, mock_open, call
 from sap.rest.gcts import package_name_from_url
-from sap.rest.gcts.simple import get_task_timeout_error_message
 
 import sap.cli.gcts
 import sap.cli.gcts_utils
@@ -213,8 +212,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token=None,
             error_exists=True,
             typ='GITHUB',
-            role='SOURCE',
-            sync=True
+            role='SOURCE'
         )
 
         self.assertConsoleContents(console=self.console, stdout='''Cloned repository:
@@ -248,8 +246,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token='12345',
             error_exists=False,
             typ='GIT',
-            role='TARGET',
-            sync=True
+            role='TARGET'
         )
 
     def test_clone_existing(self):
@@ -267,8 +264,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token=None,
             error_exists=False,
             typ='GITHUB',
-            role='SOURCE',
-            sync=True
+            role='SOURCE'
         )
 
     @patch('sap.cli.gcts_utils.dump_gcts_messages')
@@ -290,7 +286,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
 
-        args = self.clone('url', '--sync-clone')
+        args = self.clone('url', '--sync-clone', '--wait-for-ready', '0')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
@@ -408,23 +404,33 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_simple_clone = self.patch('sap.rest.gcts.simple.clone')
+        self.fake_simple_create = self.patch('sap.rest.gcts.simple.create')
+        self.fake_simple_schedule_clone = self.patch('sap.rest.gcts.simple.schedule_clone')
         self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
         self.fake_simple_wait_for_task_execution = self.patch('sap.rest.gcts.simple.wait_for_task_execution')
-        self.fake_simple_wait_for_task_execution.side_effect = (
-            lambda task, wait_for_ready, pull_period, pull_cb:
-            pull_cb(None, task) if callable(pull_cb) else None
-        )
+        def wait_side_effect(task, wait_for_ready, poll_period, poll_cb):
+            if callable(poll_cb):
+                poll_cb(None, task)
+            return task
+        self.fake_simple_wait_for_task_execution.side_effect = wait_side_effect
         self.fake_print_gcts_task_info = self.patch('sap.cli.helpers.print_gcts_task_info')
         self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
+        self.fake_get_activity_rc = self.patch('sap.cli.gcts.get_activity_rc')
         self.conn = Mock()
+        self.conn.get_json.return_value = {
+            'result': {
+                'url': 'https://example.org/repo/git/sample.git',
+                'branch': 'main',
+                'currentCommit': 'FEDBCA9876543210'
+            }
+        }
 
         self.defaults = {
             'wait_for_ready': 0,
             'heartbeat': 0,
             'vsid': '6IT',
             'starting_folder': 'src/',
-            'pull_period': 30,
+            'poll_period': 30,
             'type': 'GITHUB',
             'role': 'SOURCE',
         }
@@ -434,7 +440,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             'heartbeat': 1,
             'vsid': '7IT',
             'starting_folder': 'backend/src/',
-            'pull_period': 50,
+            'poll_period': 50,
             'type': 'GIT',
             'role': 'TARGET',
             'vcs-token': '12345',
@@ -467,9 +473,10 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             'scheduledAt': '20251017123132'
         })
 
-        self.fake_simple_clone.return_value = self.fake_repo, self.fake_task
+        self.fake_simple_create.return_value = self.fake_repo
+        self.fake_simple_schedule_clone.return_value = self.fake_task
         self.fake_get_repository.return_value = self.fake_repo
-        self.fake_simple_wait_for_task_execution.return_value = None
+        self.fake_get_activity_rc.return_value = 4  # Repository.ActivityReturnCode.CLONE_SUCCESS
 
     def clone(self, *args, **kwargs):
         return parse_args('clone', *args, **kwargs)
@@ -489,12 +496,12 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
 '''
 
     def test_async_clone_with_url(self):
-        args = self.clone(self.command_arguments['url'])
+        args = self.clone(self.command_arguments['url'], '--wait-for-ready', '0')
 
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
 
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
@@ -504,18 +511,29 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
         )
-        # self.fake_simple_schedule_clone.assert_called_once_with(
-        #     self.fake_repo,
-        #     self.conn,
-        # )
+        self.fake_simple_schedule_clone.assert_called_once_with(
+            self.conn,
+            self.fake_repo,
+        )
 
         self.fake_simple_wait_for_task_execution.assert_not_called()
 
+        expected_output = f'''Repository "sample" has been created.
+CLONE task "{self.fake_task.tid}" has been scheduled.
+Performed asynchronous cloning without "--wait-for-ready" parameter!
+If you do not wait for the task, the repository may not be ready to use.
+You can check the task status using the following command:
+  sapcli gcts task list sample
+
+Cloned repository:
+ URL   : {self.command_arguments['url']}
+ branch: {self.default_repo_branch}
+ HEAD  : {self.default_repo_head}
+'''
         self.assertConsoleContents(
             console=self.console,
-            stdout=get_task_timeout_error_message(self.fake_task) + '\n'
+            stdout=expected_output
         )
 
     def test_async_clone_with_all_params(self):
@@ -528,14 +546,14 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             '--role', self.command_arguments['role'],
             '--type', self.command_arguments['type'],
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['pull_period']}",
+            '--poll-period', f"{self.command_arguments['poll_period']}",
             '--heartbeat', f"{self.command_arguments['heartbeat']}",
         )
 
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
 
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
@@ -545,7 +563,11 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=False,
             role=self.command_arguments['role'],
             typ=self.command_arguments['type'],
-            sync=False
+        )
+
+        self.fake_simple_schedule_clone.assert_called_once_with(
+            self.conn,
+            self.fake_repo,
         )
 
         self.fake_heartbeat.assert_called_once_with(self.console, self.command_arguments['heartbeat'])
@@ -553,25 +575,35 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_simple_wait_for_task_execution.assert_called_once_with(
             self.fake_task,
             self.command_arguments['wait_for_ready'],
-            self.command_arguments['pull_period'],
+            self.command_arguments['poll_period'],
             self.fake_print_gcts_task_info
         )
         self.fake_print_gcts_task_info.assert_called_once_with(None, self.fake_task)
-        self.assertConsoleContents(console=self.console, stdout=self.expected_console_output())
+        
+        expected_output = f'''Repository "sample" has been created.
+CLONE task "{self.fake_task.tid}" has been scheduled.
+CLONE task "{self.fake_task.tid}" has finished.
+Clone process has finished successfully ...
+Cloned repository:
+ URL   : {self.command_arguments['url']}
+ branch: {self.default_repo_branch}
+ HEAD  : {self.default_repo_head}
+'''
+        self.assertConsoleContents(console=self.console, stdout=expected_output)
 
     def test_async_clone_existing(self):
         args = self.clone(
             self.command_arguments['url'],
             '--no-fail-exists',
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['pull_period']}",
+            '--poll-period', f"{self.command_arguments['poll_period']}",
             '--heartbeat', f"{self.command_arguments['heartbeat']}",
         )
 
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
 
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
@@ -581,27 +613,42 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=False,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
         )
+        
+        self.fake_simple_schedule_clone.assert_called_once_with(
+            self.conn,
+            self.fake_repo,
+        )
+        
         self.fake_heartbeat.assert_called_once_with(self.console, self.command_arguments['heartbeat'])
         self.fake_simple_wait_for_task_execution.assert_called_once_with(
             self.fake_task,
             self.command_arguments['wait_for_ready'],
-            self.command_arguments['pull_period'],
+            self.command_arguments['poll_period'],
             self.fake_print_gcts_task_info
         )
         self.fake_print_gcts_task_info.assert_called_once_with(None, self.fake_task)
-        self.assertConsoleContents(console=self.console, stdout=self.expected_console_output())
+        
+        expected_output = f'''Repository "sample" has been created.
+CLONE task "{self.fake_task.tid}" has been scheduled.
+CLONE task "{self.fake_task.tid}" has finished.
+Clone process has finished successfully ...
+Cloned repository:
+ URL   : {self.command_arguments['url']}
+ branch: {self.default_repo_branch}
+ HEAD  : {self.default_repo_head}
+'''
+        self.assertConsoleContents(console=self.console, stdout=expected_output)
 
     @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_async_simple_clone_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        self.fake_simple_clone.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+        self.fake_simple_create.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
-        args = self.clone(self.command_arguments['url'])
+        args = self.clone(self.command_arguments['url'], '--wait-for-ready', '0')
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 1)
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
@@ -610,21 +657,21 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
         )
         self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_simple_schedule_clone.assert_not_called()
         self.fake_simple_wait_for_task_execution.assert_not_called()
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
     @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_async_clone_existing_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        self.fake_simple_clone.side_effect = sap.rest.gcts.errors.GCTSRepoAlreadyExistsError(messages)
+        self.fake_simple_create.side_effect = sap.rest.gcts.errors.GCTSRepoAlreadyExistsError(messages)
 
-        args = self.clone(self.command_arguments['url'])
+        args = self.clone(self.command_arguments['url'], '--wait-for-ready', '0')
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 1)
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
@@ -633,8 +680,8 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
         )
+        self.fake_simple_schedule_clone.assert_not_called()
         self.fake_simple_wait_for_task_execution.assert_not_called()
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
@@ -643,13 +690,13 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         fake_response.text = 'Test Exception'
         fake_response.status_code = 500
 
-        self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
+        self.fake_simple_create.side_effect = HTTPRequestError(None, fake_response)
 
-        args = self.clone(self.command_arguments['url'])
+        args = self.clone(self.command_arguments['url'], '--wait-for-ready', '0')
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 1)
 
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn, self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
@@ -658,14 +705,13 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
         )
+        self.fake_simple_schedule_clone.assert_not_called()
         self.fake_simple_wait_for_task_execution.assert_not_called()
-        self.assertEqual(exit_code, 1)
 
         self.assertConsoleContents(
             self.console,
-            stdout='Clone request responded with an error. Checkout "--wait-for-ready" parameter!\n',
+            stdout='',
             stderr='500\nTest Exception\n'
         )
 
@@ -674,17 +720,17 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         fake_response.text = 'Test Exception'
         fake_response.status_code = 500
 
-        self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
+        self.fake_simple_create.side_effect = HTTPRequestError(None, fake_response)
 
         args = self.clone(
             self.command_arguments['url'],
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['pull_period']}"
+            '--poll-period', f"{self.command_arguments['poll_period']}"
         )
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 1)
 
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn, self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
@@ -693,11 +739,10 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
         )
 
+        self.fake_simple_schedule_clone.assert_not_called()
         self.fake_simple_wait_for_task_execution.assert_not_called()
-        self.assertEqual(exit_code, 1)
 
         self.assertConsoleContents(
             self.console,
@@ -706,14 +751,14 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         )
 
     def test_async_clone_no_return_task(self):
-        self.fake_simple_clone.return_value = self.fake_repo, None
+        self.fake_simple_schedule_clone.return_value = None
         args = self.clone(
             self.command_arguments['url'],
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['pull_period']}"
+            '--poll-period', f"{self.command_arguments['poll_period']}"
         )
         exit_code = args.execute(self.conn, args)
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn, self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
@@ -722,22 +767,33 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
+        )
+
+        self.fake_simple_schedule_clone.assert_called_once_with(
+            self.conn,
+            self.fake_repo,
         )
 
         self.fake_simple_wait_for_task_execution.assert_not_called()
-        self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stderr='Scheduling clone request responded with an error. No task found!\n')
+        self.assertEqual(exit_code, 0)
+        expected_output = f'''Repository "sample" has been created.
+Repository was already cloned.
+Cloned repository:
+ URL   : {self.command_arguments['url']}
+ branch: {self.default_repo_branch}
+ HEAD  : {self.default_repo_head}
+'''
+        self.assertConsoleContents(self.console, stdout=expected_output)
 
     def test_async_clone_return_task_without_tid(self):
-        self.fake_simple_clone.return_value = self.fake_repo, RepositoryTask(self.conn, 'sample')
+        self.fake_simple_schedule_clone.return_value = RepositoryTask(self.conn, 'sample')
         args = self.clone(
             self.command_arguments['url'],
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['pull_period']}"
+            '--poll-period', f"{self.command_arguments['poll_period']}"
         )
         exit_code = args.execute(self.conn, args)
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn, self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
@@ -746,12 +802,20 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
+        )
+
+        self.fake_simple_schedule_clone.assert_called_once_with(
+            self.conn,
+            self.fake_repo,
         )
 
         self.fake_simple_wait_for_task_execution.assert_not_called()
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stderr='Scheduling clone request responded with an error. No task found!\n')
+        self.assertConsoleContents(
+            self.console,
+            stdout='Repository "sample" has been created.\n',
+            stderr='Scheduling clone request responded with an error. No task found!\n'
+        )
 
     def test_async_clone_return_task_without_wait(self):
         args = self.clone(
@@ -760,7 +824,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         )
 
         exit_code = args.execute(self.conn, args)
-        self.fake_simple_clone.assert_called_once_with(
+        self.fake_simple_create.assert_called_once_with(
             self.conn, self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
@@ -769,12 +833,29 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
-            sync=False
+        )
+
+        self.fake_simple_schedule_clone.assert_called_once_with(
+            self.conn,
+            self.fake_repo,
         )
 
         self.fake_simple_wait_for_task_execution.assert_not_called()
         self.assertEqual(exit_code, 0)
-        self.assertConsoleContents(self.console, stdout=get_task_timeout_error_message(self.fake_task) + '\n')
+        
+        expected_output = f'''Repository "sample" has been created.
+CLONE task "{self.fake_task.tid}" has been scheduled.
+Performed asynchronous cloning without "--wait-for-ready" parameter!
+If you do not wait for the task, the repository may not be ready to use.
+You can check the task status using the following command:
+  sapcli gcts task list {package_name_from_url(self.command_arguments['url'])}
+
+Cloned repository:
+ URL   : {self.command_arguments['url']}
+ branch: {self.default_repo_branch}
+ HEAD  : {self.default_repo_head}
+'''
+        self.assertConsoleContents(self.console, stdout=expected_output)
 
 
 class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
