@@ -11,7 +11,6 @@ import sap.rest.gcts
 import sap.rest.gcts.remote_repo
 import sap.rest.gcts.simple
 import sap.rest.gcts.sugar
-from sap.rest.gcts.simple import get_task_timeout_error_message
 
 from mock import Request, Response, RESTConnection, make_gcts_log_error
 from mock import GCTSLogBuilder as LogBuilder
@@ -1631,29 +1630,6 @@ class TestRepoActivitiesQueryParams(unittest.TestCase):
 
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
-    def test_get_task_timeout_error_message(self):
-        """Test error message generation when task tid and rid are not None"""
-        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={
-            'tid': '123',
-            'rid': self.repo_rid,
-            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-            'status': RepositoryTask.TaskStatus.RUNNING.value
-        })
-        expected_message = f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}.'
-        self.assertEqual(get_task_timeout_error_message(task), expected_message)
-
-    def test_get_task_timeout_error_message_with_none_tid_and_rid(self):
-        """Test error message generation when task tid and rid are None"""
-        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={
-            'tid': None,
-            'rid': None,
-            'type': RepositoryTask.TaskDefinition.CLONE_REPOSITORY.value,
-            'status': RepositoryTask.TaskStatus.RUNNING.value
-        })
-        with self.assertRaises(sap.rest.errors.SAPCliError) as caught:
-            get_task_timeout_error_message(task)
-        self.assertEqual(str(caught.exception), 'Task "tid" and repository "rid" are required to get the task timeout error message')
-
     def test_simple_schedule_clone_success(self):
         repo_data = dict(self.repo_server_data)
         repo_data['status'] = 'CREATED'
@@ -2222,11 +2198,11 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             Response.with_json(status_code=200, json={'task': task_data_running}),
         ])
 
-        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+        with self.assertRaises(sap.rest.errors.OperationTimeoutError) as cm:
             # don't have enough time to wait for the task to finish
             sap.rest.gcts.simple.wait_for_task_execution(task, wait_for_ready=2, pull_period=1)
 
-        expected_message = get_task_timeout_error_message(task)
+        expected_message = f'Waiting for the task execution timed out: task {task_id} for repository {self.repo_rid}.'
         self.assertEqual(str(cm.exception), expected_message)
 
     def test_simple_wait_for_task_execution_aborted(self):

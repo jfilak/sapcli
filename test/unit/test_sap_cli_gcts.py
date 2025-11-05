@@ -528,7 +528,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             '--role', self.command_arguments['role'],
             '--type', self.command_arguments['type'],
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--pull-period', f"{self.command_arguments['pull_period']}",
+            '--poll-period', f"{self.command_arguments['pull_period']}",
             '--heartbeat', f"{self.command_arguments['heartbeat']}",
         )
 
@@ -564,7 +564,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             self.command_arguments['url'],
             '--no-fail-exists',
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--pull-period', f"{self.command_arguments['pull_period']}",
+            '--poll-period', f"{self.command_arguments['pull_period']}",
             '--heartbeat', f"{self.command_arguments['heartbeat']}",
         )
 
@@ -679,7 +679,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         args = self.clone(
             self.command_arguments['url'],
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--pull-period', f"{self.command_arguments['pull_period']}"
+            '--poll-period', f"{self.command_arguments['pull_period']}"
         )
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 1)
@@ -710,7 +710,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         args = self.clone(
             self.command_arguments['url'],
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--pull-period', f"{self.command_arguments['pull_period']}"
+            '--poll-period', f"{self.command_arguments['pull_period']}"
         )
         exit_code = args.execute(self.conn, args)
         self.fake_simple_clone.assert_called_once_with(
@@ -734,7 +734,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         args = self.clone(
             self.command_arguments['url'],
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--pull-period', f"{self.command_arguments['pull_period']}"
+            '--poll-period', f"{self.command_arguments['pull_period']}"
         )
         exit_code = args.execute(self.conn, args)
         self.fake_simple_clone.assert_called_once_with(

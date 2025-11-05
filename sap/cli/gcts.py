@@ -6,9 +6,6 @@ import warnings
 import sap.cli.core
 import sap.cli.helpers
 import sap.rest.gcts.simple
-from sap.rest.gcts.simple import (
-    get_task_timeout_error_message,
-)
 from sap.rest.gcts.sugar import (
     abap_modifications_disabled,
     SugarOperationProgress,
@@ -25,6 +22,7 @@ from sap.rest.gcts.errors import (
     GCTSRequestError,
     SAPCliError,
 )
+from sap.errors import OperationTimeoutError
 from sap.rest.errors import HTTPRequestError
 from sap.cli.gcts_task import CommandGroup as TaskCommandGroup
 from sap.cli.gcts_utils import (
@@ -547,13 +545,14 @@ def repolist(connection, args):
     return 0
 
 
-@CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=0)
+@CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=600)
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--vsid', type=str, nargs='?', default='6IT')
 @CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
 @CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
 @CommandGroup.argument('--sync-clone', default=False, action='store_true')
-@CommandGroup.argument('--pull-period', type=int, nargs='?', default=30, help='Period in seconds to pull the repository  clone task status')
+@CommandGroup.argument('--poll-period', type=int, nargs='?', default=30,
+                       help='Period in seconds to poll the repository clone task status when cloning asynchronously.')
 @CommandGroup.argument('--vcs-token', type=str, nargs='?')
 @CommandGroup.argument('-t', '--type', choices=['GITHUB', 'GIT'], default='GITHUB')
 @CommandGroup.argument('-r', '--role', choices=['SOURCE', 'TARGET'], default='SOURCE',
@@ -570,62 +569,83 @@ def clone(connection, args):
         package = sap.rest.gcts.package_name_from_url(args.url)
 
     console = sap.cli.core.get_console()
-    sync_clone = getattr(args, 'sync_clone', False)
-    task = None
     repo = None
 
-    try:
-        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            result = sap.rest.gcts.simple.clone(
-                connection,
-                args.url,
-                package,
-                vsid=args.vsid,
-                start_dir=args.starting_folder,
-                vcs_token=args.vcs_token,
-                error_exists=not args.no_fail_exists,
-                role=args.role,
-                typ=args.type,
-                sync=sync_clone)
+    if args.sync_clone:
+        try:
+            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                repo = sap.rest.gcts.simple.clone(connection, args.url, package,
+                                                  vsid=args.vsid,
+                                                  start_dir=args.starting_folder,
+                                                  vcs_token=args.vcs_token,
+                                                  error_exists=not args.no_fail_exists,
+                                                  role=args.role,
+                                                  typ=args.type)
+        except HTTPRequestError as exc:
+            if args.wait_for_ready > 0:
+                repo = get_repository(connection, args.url)
 
-            if sync_clone:
-                repo = result
+                console.printout('Clone request responded with an error. Checking clone process ...')
+                clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
+                if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
+                    console.printerr(f'Clone process failed with return code: {clone_rc}!')
+                    console.printerr(str(exc))
+                    return 1
+
+                console.printout('Clone process finished successfully. Waiting for repository to be ready ...')
+                with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                    def is_clone_done(repo: Repository):
+                        return repo.is_cloned
+
+                    sap.rest.gcts.simple.wait_for_operation(repo, is_clone_done, args.wait_for_ready, exc)
+
             else:
-                repo, task = result
-
-            if not sync_clone and task and isinstance(task, RepositoryTask) and task.tid:
-                if args.wait_for_ready > 0:
-                    sap.rest.gcts.simple.wait_for_task_execution(
-                        task, args.wait_for_ready,
-                        args.pull_period, sap.cli.helpers.print_gcts_task_info)
-                else:
-                    console.printout(get_task_timeout_error_message(task))
-                    return 0
-            elif not sync_clone:
-                console.printerr('Scheduling clone request responded with an error. No task found!')
-                return 1
-    except HTTPRequestError as exc:
-        if sync_clone and args.wait_for_ready > 0:
-            repo = get_repository(connection, args.url)
-
-            console.printout('Clone request responded with an error. Checking clone process ...')
-            clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
-            if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
-                console.printerr(f'Clone process failed with return code: {clone_rc}!')
+                console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
                 console.printerr(str(exc))
                 return 1
+    else:
+        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+            repo = sap.rest.gcts.simple.create(connection, args.url, package,
+                                               vsid=args.vsid,
+                                               start_dir=args.starting_folder,
+                                               vcs_token=args.vcs_token,
+                                               error_exists=not args.no_fail_exists,
+                                               role=args.role,
+                                               typ=args.type)
 
-            console.printout('Clone process finished successfully. Waiting for repository to be ready ...')
-            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                def is_clone_done(repo: Repository):
-                    return repo.is_cloned
+        console.printout(f'Repository "{repo.rid}" has been created.')
+        task = sap.rest.gcts.simple.schedule_clone(repo, connection)
 
-                sap.rest.gcts.simple.wait_for_operation(repo, is_clone_done, args.wait_for_ready, exc)
+        # If the task is None, the repository is already cloned
+        if task is not None:
+            console.printout(f'CLONE task "{repo.tid}" has been scheduled.')
+            # If the wait_for_ready is 0, do not wait for the task execution
+            if args.wait_for_ready > 0:
+                try:
+                    task = sap.rest.gcts.simple.wait_for_task_execution(task,
+                                                                 args.wait_for_ready,
+                                                                 args.poll_period,
+                                                                 sap.cli.helpers.print_gcts_task_info)
+                    console.printout(f'CLONE task "{task.tid}" has finished.')
 
-        else:
-            console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
-            console.printerr(str(exc))
-            return 1
+                    clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
+                    if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
+                        console.printerr(f'Clone process has failed with return code: {clone_rc}!')
+                        # TODO: Fetch and print out transport logs
+                        return 1
+
+                    console.printout('Clone process has finished successfully ...')
+                except OperationTimeoutError as ex:
+                    console.printerr(f'CLONE task did not finish in the period specified by the "--wait-for-ready" parameter')
+                    console.printout('You can check the task status using the following command:')
+                    console.printout(f'  sapcli gcts task list {args.package}')
+                    return 1
+            else:
+                console.printout('Performed asynchronous cloning without "--wait-for-ready" parameter!')
+                console.printout('If you do not wait for the task, the repository may not be ready to use.')
+                console.printout('You can check the task status using the following command:')
+                console.printout(f'  sapcli gcts task list {args.package}')
+                console.printout('')
 
     console.printout('Cloned repository:')
     console.printout(' URL   :', repo.url)
