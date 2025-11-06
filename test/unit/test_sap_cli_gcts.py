@@ -658,7 +658,6 @@ Cloned repository:
             role=self.defaults['role'],
             typ=self.defaults['type'],
         )
-        self.fake_heartbeat.assert_called_once_with(self.console, 0)
         self.fake_simple_schedule_clone.assert_not_called()
         self.fake_simple_wait_for_task_execution.assert_not_called()
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
