@@ -617,11 +617,6 @@ def clone(connection, args):
 
         # If the task is None, the repository is already cloned
         if task is not None:
-            # Check if task has a tid
-            if not task.tid:
-                console.printerr('Scheduling clone request responded with an error. No task found!')
-                return 1
-
             console.printout(f'CLONE task "{task.tid}" has been scheduled.')
             # If the wait_for_ready is 0, do not wait for the task execution
             if args.wait_for_ready > 0:
@@ -660,7 +655,6 @@ def clone(connection, args):
         else:
             # Repository was already cloned, refresh data
             console.printout('Repository was already cloned.')
-            repo.wipe_data()
 
     console.printout('Cloned repository:')
     console.printout(' URL   :', repo.url)

@@ -779,38 +779,6 @@ Cloned repository:
 '''
         self.assertConsoleContents(self.console, stdout=expected_output)
 
-    def test_async_clone_return_task_without_tid(self):
-        self.fake_simple_schedule_clone.return_value = RepositoryTask(self.conn, 'sample')
-        args = self.clone(
-            self.command_arguments['url'],
-            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['poll_period']}"
-        )
-        exit_code = args.execute(self.conn, args)
-        self.fake_simple_create.assert_called_once_with(
-            self.conn, self.command_arguments['url'],
-            package_name_from_url(self.command_arguments['url']),
-            start_dir=self.defaults['starting_folder'],
-            vcs_token=None,
-            vsid=self.defaults['vsid'],
-            error_exists=True,
-            role=self.defaults['role'],
-            typ=self.defaults['type'],
-        )
-
-        self.fake_simple_schedule_clone.assert_called_once_with(
-            self.conn,
-            self.fake_repo,
-        )
-
-        self.fake_simple_wait_for_task_execution.assert_not_called()
-        self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(
-            self.console,
-            stdout='Repository "sample" has been created.\n',
-            stderr='Scheduling clone request responded with an error. No task found!\n'
-        )
-
     def test_async_clone_return_task_without_wait(self):
         args = self.clone(
             self.command_arguments['url'],
