@@ -648,8 +648,8 @@ def clone(connection, args):
                         return 1
 
                     console.printout('Clone process has finished successfully ...')
-                except OperationTimeoutError as ex:
-                    console.printerr(f'CLONE task did not finish in the period specified by the "--wait-for-ready" parameter')
+                except OperationTimeoutError:
+                    console.printerr('CLONE task did not finish in the period specified by the "--wait-for-ready" parameter')
                     console.printout('You can check the task status using the following command:')
                     console.printout(f'  sapcli gcts task list {package}')
                     return 1
