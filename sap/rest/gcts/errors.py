@@ -61,6 +61,9 @@ def exception_from_http_error(http_error):
     if log and log[0].get('message', '').endswith('Error action CREATE_REPOSITORY Repository already exists'):
         return GCTSRepoAlreadyExistsError(messages)
 
+    if log and log[0].get('message', '').endswith('CREATE_REPOSITORY: Error action Repository already exists'):
+        return GCTSRepoAlreadyExistsError(messages)
+
     exception = messages.get('exception', None)
     if exception == 'No relation between system and repository':
         return GCTSRepoNotExistsError(messages)
