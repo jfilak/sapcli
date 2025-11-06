@@ -604,21 +604,14 @@ def clone(connection, args):
                 console.printerr(str(exc))
                 return 1
     else:
-        try:
-            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                repo = sap.rest.gcts.simple.create(connection, args.url, package,
-                                                   vsid=args.vsid,
-                                                   start_dir=args.starting_folder,
-                                                   vcs_token=args.vcs_token,
-                                                   error_exists=not args.no_fail_exists,
-                                                   role=args.role,
-                                                   typ=args.type)
-        except HTTPRequestError as exc:
-            if args.wait_for_ready > 0:
-                console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
-            console.printerr(str(exc))
-            return 1
-
+        repo = sap.rest.gcts.simple.create(connection, args.url, package,
+                                            vsid=args.vsid,
+                                            start_dir=args.starting_folder,
+                                            vcs_token=args.vcs_token,
+                                            error_exists=not args.no_fail_exists,
+                                            role=args.role,
+                                            typ=args.type)
+        
         console.printout(f'Repository "{repo.rid}" has been created.')
         task = sap.rest.gcts.simple.schedule_clone(connection, repo)
 
@@ -633,15 +626,20 @@ def clone(connection, args):
             # If the wait_for_ready is 0, do not wait for the task execution
             if args.wait_for_ready > 0:
                 try:
-                    task = sap.rest.gcts.simple.wait_for_task_execution(task,
+                    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                        task = sap.rest.gcts.simple.wait_for_task_execution(task,
                                                                  args.wait_for_ready,
                                                                  args.poll_period,
                                                                  sap.cli.helpers.print_gcts_task_info)
                     console.printout(f'CLONE task "{task.tid}" has finished.')
 
                     repo.wipe_data()
+                    clone_rc = None
+                    try:
+                        clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
+                    except SAPCliError as exc:
+                        console.printerr(str(exc))
 
-                    clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
                     if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
                         console.printerr(f'Clone process has failed with return code: {clone_rc}!')
                         # TODO: Fetch and print out transport logs

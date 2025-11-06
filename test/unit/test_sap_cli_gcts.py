@@ -744,11 +744,6 @@ Cloned repository:
         self.fake_simple_schedule_clone.assert_not_called()
         self.fake_simple_wait_for_task_execution.assert_not_called()
 
-        self.assertConsoleContents(
-            self.console,
-            stdout='Clone request responded with an error. Checkout "--wait-for-ready" parameter!\n',
-            stderr='500\nTest Exception\n'
-        )
 
     def test_async_clone_no_return_task(self):
         self.fake_simple_schedule_clone.return_value = None
