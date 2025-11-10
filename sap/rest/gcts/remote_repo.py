@@ -472,6 +472,18 @@ class Repository:
 
         return result
 
+    def objects(self):
+        """Fetches the list of objects of the repository"""
+        response = self._http.get_json('getObjects')
+        if not response:
+            return []
+
+        objects = response.get('objects', None)
+        if objects is None:
+            raise SAPCliError('A successful gcts getObjects request did not return the objects member')
+
+        return objects
+
     def commit(self, message, objects, description=None, autopush=False):
         """Creates a commit for the given objects"""
 
