@@ -8,6 +8,8 @@ import sap.cli.helpers
 import sap.rest.gcts.simple
 from sap.rest.gcts.sugar import (
     abap_modifications_disabled,
+    buffer_only_enabled,
+    context_stub,
     SugarOperationProgress,
     temporary_switched_branch
 )
@@ -24,7 +26,10 @@ from sap.rest.errors import HTTPRequestError
 from sap.cli.gcts_task import CommandGroup as TaskCommandGroup
 from sap.cli.gcts_utils import (
     dump_gcts_messages,
-    gcts_exception_handler
+    gcts_exception_handler,
+    is_repo_cloned,
+    get_activity_rc,
+    is_checkout_done,
 )
 
 
@@ -57,21 +62,6 @@ def get_repository(connection, package):
     return Repository(connection, package)
 
 
-def get_activity_rc(repo, operation: RepoActivitiesQueryParams.Operation):
-    """Get the return code of the operation"""
-
-    activities_params = RepoActivitiesQueryParams().set_operation(operation.value)
-    try:
-        activities_list = repo.activities(activities_params)
-    except HTTPRequestError as exc:
-        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
-
-    if not activities_list:
-        raise SAPCliError(f'Expected {operation.value} activity not found! Repository: "{repo.rid}"')
-
-    return int(activities_list[0]['rc'])
-
-
 def _wait_for_clone_task(console, repo, task, args):
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
@@ -82,14 +72,9 @@ def _wait_for_clone_task(console, repo, task, args):
         console.printout(f'CLONE task "{task.tid}" has finished.')
 
         repo.wipe_data()
-        clone_rc = None
-        try:
-            clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
-        except SAPCliError as exc:
-            console.printerr(str(exc))
 
-        if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
-            console.printerr(f'Clone process has failed with return code: {clone_rc}!')
+        if not is_repo_cloned(console, repo):
+            # clone process failed
             # TODO: Fetch and print out transport logs
             return 1
 
@@ -412,7 +397,6 @@ def activities(connection, args):
     return 0
 
 
-
 @RepoCommandGroup.argument('--columns', type=str, default=None, help='Visible columns in CSV')
 @RepoCommandGroup.argument('--noheadings', action='store_true', default=False)
 @RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON', 'TRANSPORT'], default='HUMAN')
@@ -616,6 +600,8 @@ def repolist(connection, args):
     return 0
 
 
+@CommandGroup.argument('--no-import', default=False, action='store_true')
+@CommandGroup.argument('--buffer-only', default=False, action='store_true')
 @CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=600)
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--vsid', type=str, nargs='?', default='6IT')
@@ -640,54 +626,50 @@ def clone(connection, args):
         package = sap.rest.gcts.package_name_from_url(args.url)
 
     console = sap.cli.core.get_console()
-    repo = None
+    repo = sap.rest.gcts.simple.create(connection, args.url, package,
+                                       vsid=args.vsid,
+                                       start_dir=args.starting_folder,
+                                       vcs_token=args.vcs_token,
+                                       error_exists=not args.no_fail_exists,
+                                       role=args.role,
+                                       typ=args.type)
+    console.printout(f'Repository "{repo.rid}" has been created.')
+    if repo.is_cloned:
+        console.printout(f'Repository "{repo.rid}" has already been cloned.')
+    elif args.sync_clone:
+        with (
+            buffer_only_enabled(repo) if args.buffer_only else context_stub(),
+            abap_modifications_disabled(repo) if args.no_import else context_stub(),
+        ):
+            try:
+                with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                    repo.clone()
+                console.printout(f'Repository "{repo.rid}" has been cloned.')
+            except HTTPRequestError as exc:
+                if args.wait_for_ready > 0:
+                    console.printout('Clone request responded with an error. Checking clone process ...')
+                    if not is_repo_cloned(console, repo):
+                        console.printerr(str(exc))
+                        return 1
+                    console.printout('Clone process finished successfully. Waiting for repository to be ready ...')
 
-    if args.sync_clone:
-        try:
-            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                repo = sap.rest.gcts.simple.clone(connection, args.url, package,
-                                                  vsid=args.vsid,
-                                                  start_dir=args.starting_folder,
-                                                  vcs_token=args.vcs_token,
-                                                  error_exists=not args.no_fail_exists,
-                                                  role=args.role,
-                                                  typ=args.type)
-        except HTTPRequestError as exc:
-            if args.wait_for_ready > 0:
-                repo = get_repository(connection, args.url)
+                    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                        def is_clone_done(repo: Repository):
+                            return repo.is_cloned
 
-                console.printout('Clone request responded with an error. Checking clone process ...')
-                clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
-                if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
-                    console.printerr(f'Clone process failed with return code: {clone_rc}!')
+                        sap.rest.gcts.simple.wait_for_operation(repo, is_clone_done, args.wait_for_ready, exc)
+
+                else:
+                    console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
                     console.printerr(str(exc))
                     return 1
-
-                console.printout('Clone process finished successfully. Waiting for repository to be ready ...')
-                with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                    def is_clone_done(repo: Repository):
-                        return repo.is_cloned
-
-                    sap.rest.gcts.simple.wait_for_operation(repo, is_clone_done, args.wait_for_ready, exc)
-
-            else:
-                console.printout('Clone request responded with an error. Checkout "--wait-for-ready" parameter!')
-                console.printerr(str(exc))
-                return 1
     else:
-        repo = sap.rest.gcts.simple.create(connection, args.url, package,
-                                           vsid=args.vsid,
-                                           start_dir=args.starting_folder,
-                                           vcs_token=args.vcs_token,
-                                           error_exists=not args.no_fail_exists,
-                                           role=args.role,
-                                           typ=args.type)
+        with (
+            buffer_only_enabled(repo) if args.buffer_only else context_stub(),
+            abap_modifications_disabled(repo) if args.no_import else context_stub(),
+        ):
+            task = sap.rest.gcts.simple.schedule_clone(connection, repo)
 
-        console.printout(f'Repository "{repo.rid}" has been created.')
-        task = sap.rest.gcts.simple.schedule_clone(connection, repo)
-
-        # If the task is None, the repository is already cloned
-        if task is not None:
             console.printout(f'CLONE task "{task.tid}" has been scheduled.')
             # If the wait_for_ready is 0, do not wait for the task execution
             if args.wait_for_ready > 0:
@@ -700,9 +682,6 @@ def clone(connection, args):
                 console.printout('You can check the task status using the following command:')
                 console.printout(f'  sapcli gcts task list {package}')
                 console.printout('')
-        else:
-            # Repository was already cloned, refresh data
-            console.printout('Repository was already cloned.')
 
     console.printout('Cloned repository:')
     console.printout(' URL   :', repo.url)
@@ -777,6 +756,8 @@ def delete(connection, args):
     return 0
 
 
+@CommandGroup.argument('--no-import', default=False, action='store_true')
+@CommandGroup.argument('--buffer-only', default=False, action='store_true')
 @CommandGroup.argument('-f', '--format', choices=['HUMAN', 'JSON'], default='HUMAN')
 @CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=0)
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
@@ -791,34 +772,34 @@ def checkout(connection, args):
     repo = get_repository(connection, args.package)
     old_branch = repo.branch
     from_commit = repo.head
-    try:
-        with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
+    with (
+        buffer_only_enabled(repo) if args.buffer_only else context_stub(),
+        abap_modifications_disabled(repo) if args.no_import else context_stub(),
+    ):
+        try:
+            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
 
-    except HTTPRequestError as exc:
-        if args.wait_for_ready > 0:
-            repo = get_repository(connection, args.package)
+        except HTTPRequestError as exc:
+            if args.wait_for_ready > 0:
+                console.printout('Checkout request responded with an error. Checking checkout process ...')
+                if not is_checkout_done(console, repo, args.branch):
+                    console.printerr(str(exc))
+                    return 1
 
-            console.printout('Checkout request responded with an error. Checking checkout process ...')
-            checkout_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.BRANCH_SW)
-            if checkout_rc != Repository.ActivityReturnCode.BRANCH_SW_SUCCES.value:
-                console.printerr(f'Checkout process failed with return code: {checkout_rc}!')
+                console.printout('Checkout process finished successfully. Waiting for repository to be ready ...')
+                with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+                    def is_checkout_done_cb(repo: Repository):
+                        return repo.branch == args.branch
+
+                    sap.rest.gcts.simple.wait_for_operation(repo, is_checkout_done_cb, args.wait_for_ready, exc)
+
+            else:
+                console.printout('Checkout request responded with an error. Checkout "--wait-for-ready" parameter!')
                 console.printerr(str(exc))
                 return 1
-
-            console.printout('Checkout process finished successfully. Waiting for repository to be ready ...')
-            with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-                def is_checkout_done(repo: Repository):
-                    return repo.branch == args.branch
-
-                sap.rest.gcts.simple.wait_for_operation(repo, is_checkout_done, args.wait_for_ready, exc)
-
         else:
-            console.printout('Checkout request responded with an error. Checkout "--wait-for-ready" parameter!')
-            console.printerr(str(exc))
-            return 1
-    else:
-        repo.wipe_data()
+            repo.wipe_data()
 
     to_commit = repo.head
     if args.format.upper() == 'JSON':
