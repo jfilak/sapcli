@@ -13,7 +13,7 @@ def get_activity_rc(repo: Repository, operation: RepoActivitiesQueryParams.Opera
     activities_params = RepoActivitiesQueryParams().set_operation(operation.value)
     try:
         activities_list = repo.activities(activities_params)
-
+   
     except HTTPRequestError as exc:
         raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
 

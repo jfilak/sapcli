@@ -28,6 +28,7 @@ from sap.cli.gcts_utils import (
     dump_gcts_messages,
     gcts_exception_handler,
     is_repo_cloned,
+    get_activity_rc,
     is_checkout_done,
 )
 
