@@ -5,7 +5,6 @@ from sap.rest.gcts.remote_repo import Repository, RepoActivitiesQueryParams
 from sap.rest.errors import HTTPRequestError
 from sap.rest.gcts.sugar import LogTaskOperationProgress
 from sap.cli.helpers import TableWriter
-from sap.rest.gcts.repo_task import RepositoryTask
 from sap import get_logger
 from sap.cli.core import PrintConsole
 

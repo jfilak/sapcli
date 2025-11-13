@@ -137,9 +137,9 @@ def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_toke
     ):
 
         task = schedule_clone(connection, repo)
-        
-        # if not task:
-        #     return repo
+
+        if not task:
+            return repo
         if progress_consumer:
             progress_consumer.progress_message(f'CLONE task "{task.tid}" has been scheduled.')
         # wait for task to finish to avoid errors like:

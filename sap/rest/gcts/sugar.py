@@ -3,7 +3,6 @@
 import abc
 from contextlib import contextmanager, nullcontext as nc
 from typing import Optional
-from sap.rest.gcts.repo_task import RepositoryTask
 
 from sap import get_logger
 
@@ -40,7 +39,7 @@ class LogTaskOperationProgress(SugarOperationProgress, metaclass=abc.ABCMeta):
     """Recording progress of task operations as logs."""
 
     @abc.abstractmethod
-    def update_task(self, error_msg: Optional[str], task: Optional[RepositoryTask]):
+    def update_task(self, error_msg: Optional[str], task: Optional[dict]):
         """Update progress of task operation."""
         raise NotImplementedError()
 
