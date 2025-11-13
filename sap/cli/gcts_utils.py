@@ -1,5 +1,4 @@
 """gCTS CLI utilities"""
-from typing import Optional
 import sap.cli.core
 from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
 from sap.rest.gcts.remote_repo import Repository, RepoActivitiesQueryParams
@@ -116,12 +115,12 @@ def is_checkout_activity_success(console, repo: Repository) -> bool:
     return True
 
 
-def print_gcts_task_info(err_msg: str, task: dict):
+def print_gcts_task_info(err_msg: str | None = None, task: dict | None = None):
     """Print out the task information"""
     console = sap.cli.core.get_console()
     if err_msg:
         console.printerr(err_msg)
-    else:
+    elif task:
         columns = (
             TableWriter.Columns()
             ('tid', 'Task ID')
@@ -141,7 +140,7 @@ class TaskOperationProgress(LogTaskOperationProgress):
         self._console = console
 
     # for printing task info to console
-    def update_task(self, error_msg: Optional[str], task: Optional[RepositoryTask]):
+    def update_task(self, error_msg: str | None, task: dict | None):
         print_gcts_task_info(error_msg, task)
 
     # for context logging
