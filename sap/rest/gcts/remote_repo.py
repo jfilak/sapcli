@@ -243,6 +243,11 @@ class Repository:
 
         return response
 
+    def refresh(self):
+        """Refreshes repository data"""
+
+        self._data = self._fetch_data()
+
     def wipe_data(self):
         """Clears cached data"""
 
