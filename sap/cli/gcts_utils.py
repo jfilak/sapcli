@@ -1,7 +1,16 @@
 """gCTS CLI utilities"""
-
 import sap.cli.core
 from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
+from sap.rest.gcts.remote_repo import Repository, RepoActivitiesQueryParams
+from sap.rest.errors import HTTPRequestError
+from sap.rest.gcts.sugar import LogTaskOperationProgress
+from sap.cli.helpers import TableWriter
+from sap import get_logger
+from sap.cli.core import PrintConsole
+
+
+def _mod_log():
+    return get_logger()
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -70,3 +79,76 @@ def gcts_exception_handler(func):
             sap.cli.core.get_console().printerr(str(ex))
             return 1
     return _handler
+
+
+def get_activity_rc(repo, operation: RepoActivitiesQueryParams.Operation):
+    """Get the return code of the operation"""
+
+    activities_params = RepoActivitiesQueryParams().set_operation(operation.value)
+    try:
+        activities_list = repo.activities(activities_params)
+    except HTTPRequestError as exc:
+        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
+
+    if not activities_list:
+        raise SAPCliError(f'Expected {operation.value} activity not found! Repository: "{repo.rid}"')
+
+    return int(activities_list[0]['rc'])
+
+
+def is_cloned_activity_success(console, repo: Repository) -> bool:
+    """Check if the cloned activity is successful"""
+    clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
+    if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
+        console.printerr(f'Clone process failed with return code: {clone_rc}!')
+        return False
+    return True
+
+
+def is_checkout_activity_success(console, repo: Repository) -> bool:
+    """Check if the checkout activity is successful"""
+    checkout_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.BRANCH_SW)
+    if checkout_rc != Repository.ActivityReturnCode.BRANCH_SW_SUCCES.value:
+        console.printerr(f'Checkout process failed with return code: {checkout_rc}!')
+        return False
+    return True
+
+
+def print_gcts_task_info(err_msg: str | None = None, task: dict | None = None):
+    """Print out the task information"""
+    console = sap.cli.core.get_console()
+    if err_msg:
+        console.printerr(err_msg)
+    elif task:
+        columns = (
+            TableWriter.Columns()
+            ('tid', 'Task ID')
+            ('status', 'Status')
+            ('type', 'Type')
+            ('rid', 'Repository ID')
+            .done()
+        )
+        TableWriter([task], columns).printout(console)
+
+
+class TaskOperationProgress(LogTaskOperationProgress):
+    """Progress of task operations"""
+
+    def __init__(self, console: PrintConsole):
+        super().__init__()
+        self._console = console
+
+    # for printing task info to console
+    def update_task(self, error_msg: str | None, task: dict | None):
+        print_gcts_task_info(error_msg, task)
+
+    # for context logging
+    def _handle_updated(self, message, recover_message):
+        _mod_log().info(message)
+
+    # for task progress logging
+    def progress_message(self, message: str):
+        self._console.printout(message)
+
+    def progress_error(self, message: str):
+        self._console.printerr(message)
