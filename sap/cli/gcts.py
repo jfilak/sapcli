@@ -412,6 +412,48 @@ def activities(connection, args):
     return 0
 
 
+@RepoCommandGroup.argument('--columns', type=str, default=None, help='Visible columns in CSV')
+@RepoCommandGroup.argument('--noheadings', action='store_true', default=False)
+@RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON', 'TRANSPORT'], default='HUMAN')
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command()
+def objects(connection, args):
+    """gCTS Repository Objects
+    """
+
+    console = sap.cli.core.get_console()
+
+    repo = get_repository(connection, args.package)
+    repo_objects = repo.objects()
+
+    if args.format == 'JSON':
+        console.printout(sap.cli.core.json_dumps(repo_objects))
+    elif args.format == 'HUMAN':
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('pgmid', 'Program',)
+            ('type', 'Type')
+            ('object', 'Name')
+            .done()
+        )
+
+        tw = sap.cli.helpers.TableWriter(
+            repo_objects,
+            columns,
+            display_header=not args.noheadings,
+            visible_columns=None if not args.columns else args.columns.split(',')
+        )
+        tw.printout(console)
+    elif args.format == 'TRANSPORT':
+        for obj in repo_objects:
+            console.printout(f"{obj['pgmid']}\t{obj['type']}\t{obj['object']}")
+    else:
+        console.printerr('Invalid format:', args.format)
+        return 1
+
+    return 0
+
+
 class ConfigCommandGroup(sap.cli.core.CommandGroup):
     """Container for config commands."""
     commands_wrapper = gcts_exception_handler
