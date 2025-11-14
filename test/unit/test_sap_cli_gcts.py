@@ -2877,3 +2877,147 @@ class TestgCTSSetRole(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = self.set_role_source(self.repo_rid)
         self.fake_repository.set_role.assert_called_once_with('SOURCE')
         self.assertEqual(exit_code, 0)
+
+
+class TestgCTSRepoObjects(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = None
+        self.fake_repo = Mock()
+        self.fake_repo.objects.return_value = [
+            {'pgmid': 'R3TR', 'type': 'FUGR', 'object': 'OBJECT1', 'description': 'DESCRIPTION1'},
+            {'pgmid': 'R3TR', 'type': 'DEVC', 'object': 'OBJECT2', 'description': 'DESCRIPTION2'},
+            {'pgmid': 'R3TR', 'type': 'SUSH', 'object': 'OBJECT3', 'description': 'DESCRIPTION3'},
+        ]
+
+    def repo_objects_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'objects', *args, **kwargs)
+
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.helpers.TableWriter')
+    def test_repo_objects_with_default_format_human(self, fake_table_writer, fake_get_repository):
+        package = 'test_package'
+        fake_get_repository.return_value = self.fake_repo
+        mock_columns_instance = Mock()
+        mock_columns_class = Mock(return_value=mock_columns_instance)
+        fake_table_writer.Columns = mock_columns_class
+        mock_columns_instance.return_value = mock_columns_instance
+        mock_columns_instance.done.return_value = [
+            ('pgmid', 'Program'),
+            ('type', 'Type'),
+            ('object', 'Name')
+        ]
+        mock_table_writer_instance = Mock()
+        fake_table_writer.return_value = mock_table_writer_instance
+
+        objects_list_cmd = self.repo_objects_cmd(package)
+        objects_list_exit_code = objects_list_cmd.execute(self.fake_connection, objects_list_cmd)
+
+        self.assertEqual(objects_list_exit_code, 0)
+        fake_get_repository.assert_called_once_with(self.fake_connection, package)
+        self.fake_repo.objects.assert_called_once()
+        mock_columns_class.assert_called_once()
+        # TW columns setup check
+        self.assertEqual(mock_columns_instance.call_count, 3)
+        expected_calls = [
+            call('pgmid', 'Program'),
+            call('type', 'Type'),
+            call('object', 'Name')
+        ]
+        mock_columns_instance.assert_has_calls(expected_calls)
+        mock_columns_instance.done.assert_called_once()
+        # TW instance setup check
+        fake_table_writer.assert_called_once_with(
+            self.fake_repo.objects.return_value, 
+            mock_columns_instance.done.return_value, 
+            display_header=True, 
+            visible_columns=None
+        )
+        mock_table_writer_instance.printout.assert_called_once_with(self.console)
+
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.helpers.TableWriter')
+    def test_repo_objects_with_human_format_columsns_noheadings(self, fake_table_writer, fake_get_repository):
+        package = 'test_package'
+        fake_get_repository.return_value = self.fake_repo
+        mock_columns_instance = Mock()
+        mock_columns_class = Mock(return_value=mock_columns_instance)
+        fake_table_writer.Columns = mock_columns_class
+        mock_columns_instance.return_value = mock_columns_instance
+        mock_columns_instance.done.return_value = [
+            ('pgmid', 'Program'),
+            ('type', 'Type'),
+            ('object', 'Name')
+        ]
+        mock_table_writer_instance = Mock()
+        fake_table_writer.return_value = mock_table_writer_instance
+
+        objects_list_cmd = self.repo_objects_cmd(package, '-f', 'HUMAN', '--noheadings', '--columns', 'pgmid,type')
+        objects_list_exit_code = objects_list_cmd.execute(self.fake_connection, objects_list_cmd)
+
+        self.assertEqual(objects_list_exit_code, 0)
+        fake_get_repository.assert_called_once_with(self.fake_connection, package)
+        self.fake_repo.objects.assert_called_once()
+        mock_columns_class.assert_called_once()
+        self.assertEqual(mock_columns_instance.call_count, 3)
+        expected_calls = [
+            call('pgmid', 'Program'),
+            call('type', 'Type'),
+            call('object', 'Name')
+        ]
+        mock_columns_instance.assert_has_calls(expected_calls)
+        mock_columns_instance.done.assert_called_once()
+        fake_table_writer.assert_called_once_with(
+            self.fake_repo.objects.return_value,
+            mock_columns_instance.done.return_value,
+            display_header=False,
+            visible_columns=['pgmid', 'type']
+        )
+        mock_table_writer_instance.printout.assert_called_once_with(self.console)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_repo_objects_with_json_format(self, fake_get_repository):
+        package = 'test_package'
+        fake_get_repository.return_value = self.fake_repo
+
+        objects_list_cmd = self.repo_objects_cmd(package, '-f', 'JSON')
+        objects_list_exit_code = objects_list_cmd.execute(self.fake_connection, objects_list_cmd)
+
+        self.assertEqual(objects_list_exit_code, 0)
+        fake_get_repository.assert_called_once_with(self.fake_connection, package)
+        self.fake_repo.objects.assert_called_once()
+        self.assertConsoleContents(self.console, stdout=sap.cli.core.json_dumps(self.fake_repo.objects.return_value) + '\n')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_repo_objects_with_transport_format(self, fake_get_repository):
+        package = 'test_package'
+        fake_get_repository.return_value = self.fake_repo
+
+        objects_list_cmd = self.repo_objects_cmd(package, '-f', 'TRANSPORT')
+        objects_list_exit_code = objects_list_cmd.execute(self.fake_connection, objects_list_cmd)
+
+        self.assertEqual(objects_list_exit_code, 0)
+        fake_get_repository.assert_called_once_with(self.fake_connection, package)
+        self.fake_repo.objects.assert_called_once()
+        self.assertConsoleContents(self.console, stdout='R3TR\tFUGR\tOBJECT1\nR3TR\tDEVC\tOBJECT2\nR3TR\tSUSH\tOBJECT3\n')
+
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
+    def test_repo_objects_request_error(self, fake_dump_msgs, fake_get_repository):
+        package = 'test_package'
+        messages = {'exception': 'Request error.'}
+        fake_get_repository.return_value = self.fake_repo
+        self.fake_repo.objects.side_effect = sap.cli.gcts.GCTSRequestError(messages)
+        objects_list_cmd = self.repo_objects_cmd(package)
+        objects_list_exit_code = objects_list_cmd.execute(self.fake_connection, objects_list_cmd)
+
+        self.assertEqual(objects_list_exit_code, 1)
+        fake_get_repository.assert_called_once_with(self.fake_connection, package)
+        fake_dump_msgs.assert_called_once_with(self.console, messages)
+        
