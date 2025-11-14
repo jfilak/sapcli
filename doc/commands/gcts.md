@@ -20,13 +20,14 @@ sapcli's implementation forces use of packages as git repositories.
 16. [repo branch delete](#repo-branch-delete)
 17. [repo branch list](#repo-branch-list)
 18. [repo activities](#repo-activities)
-19. [system config get](#system-config-get)
-20. [system config list](#system-config-list)
-21. [system config set](#system-config-set)
-22. [system config unset](#system-config-unset)
-23. [task info](#task-info)
-24. [task list](#task-list)
-25. [task delete](#task-delete)
+19. [repo objects](#repo-objects)
+20. [system config get](#system-config-get)
+21. [system config list](#system-config-list)
+22. [system config set](#system-config-set)
+23. [system config unset](#system-config-unset)
+24. [task info](#task-info)
+25. [task list](#task-list)
+26. [task delete](#task-delete)
 
 
 ## repolist
@@ -276,6 +277,20 @@ sapcli gcts repo activities PACKAGE [--limit LIMIT] [--offset OFFSET] [--fromcom
 - `--operation {COMMIT,PULL,CLONE,BRANCH_SW}`: The type of activities to return. Possible values follow domain of `SCTS_ABAP_VCS_COMMIT_TYPE`.
 - `--noheadings`: Do not display a header line
 - `--columns`: Specify the columns to display
+
+## repo objects
+
+List objects in a repository. Objects are displayed with their  ID (pgmid), Type, and Name.
+
+```bash
+sapcli gcts repo objects PACKAGE [--columns COLUMNS] [--noheadings] [-f|--format] {HUMAN|JSON|TRANSPORT}
+```
+
+**Parameters**:
+- `PACKAGE`: The repository name
+- `--columns COLUMNS`: Comma-separated list of visible columns (e.g., `pgmid,type,object`)
+- `--noheadings`: Do not display a header line
+- `--format`: The format of the command's output. `HUMAN` displays a formatted table, `JSON` outputs JSON format, and `TRANSPORT` outputs tab-separated values suitable for transport files.
 
 ## system config get
 

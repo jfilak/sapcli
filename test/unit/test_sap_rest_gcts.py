@@ -866,6 +866,36 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(cm.exception), "gCTS response does not contain 'branches'")
 
+    def test_list_of_repository_objects(self):
+        objects = [
+            {'pgmid': 'R3TR', 'type': 'FUGR', 'object': 'OBJECT1', 'description': 'DESCRIPTION1'},
+            {'pgmid': 'R3TR', 'type': 'DEVC', 'object': 'OBJECT2', 'description': 'DESCRIPTION2'},
+            {'pgmid': 'R3TR', 'type': 'SUSH', 'object': 'OBJECT3', 'description': 'DESCRIPTION3'},
+        ]
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'objects': objects})
+        )
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+        response = repo.objects()
+        self.assertEqual(response, objects)
+
+    def test_list_of_repository_objects_wrong_response(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'something': 'else'})
+        )
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            repo.objects()
+        self.assertEqual(str(cm.exception), "A successful gcts getObjects request did not return the objects member")
+
+    def test_list_of_repository_objects_empty_response(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+
+        responce = repo.objects()
+        self.assertEqual(responce, [])
 
 class TestRepositoryTask(unittest.TestCase):
 
