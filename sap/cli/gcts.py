@@ -88,7 +88,7 @@ def _wait_for_clone_task(console, repo, task, args):
         except SAPCliError as exc:
             console.printerr(str(exc))
 
-        if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
+        if clone_rc > Repository.ActivityReturnCode.CLONE_SUCCESS.value:
             console.printerr(f'Clone process has failed with return code: {clone_rc}!')
             # TODO: Fetch and print out transport logs
             return 1
@@ -657,7 +657,7 @@ def clone(connection, args):
 
                 console.printout('Clone request responded with an error. Checking clone process ...')
                 clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
-                if clone_rc != Repository.ActivityReturnCode.CLONE_SUCCESS.value:
+                if clone_rc > Repository.ActivityReturnCode.CLONE_SUCCESS.value:
                     console.printerr(f'Clone process failed with return code: {clone_rc}!')
                     console.printerr(str(exc))
                     return 1
@@ -800,7 +800,7 @@ def checkout(connection, args):
 
             console.printout('Checkout request responded with an error. Checking checkout process ...')
             checkout_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.BRANCH_SW)
-            if checkout_rc != Repository.ActivityReturnCode.BRANCH_SW_SUCCES.value:
+            if checkout_rc > Repository.ActivityReturnCode.BRANCH_SW_SUCCES.value:
                 console.printerr(f'Checkout process failed with return code: {checkout_rc}!')
                 console.printerr(str(exc))
                 return 1

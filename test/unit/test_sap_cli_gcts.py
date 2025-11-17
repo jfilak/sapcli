@@ -1137,7 +1137,7 @@ The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
         repo_branch = 'old_branch'
         repo_url = 'http://github.com/the_repo.git'
         fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-        fake_get_activity_rc.return_value = 1
+        fake_get_activity_rc.return_value = 8
         repo_from_commit = '123'
         repo_to_commit = '456'
         self.set_fake_wipe(fake_repo, repo_from_commit, repo_to_commit)
@@ -1148,7 +1148,7 @@ The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
 
         self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
         self.assertConsoleContents(self.console, stdout='Checkout request responded with an error. Checking checkout process ...\n',
-                                   stderr='''Checkout process failed with return code: 1!
+                                   stderr='''Checkout process failed with return code: 8!
 500
 Checkout exception
 ''')
