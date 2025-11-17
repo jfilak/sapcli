@@ -87,6 +87,7 @@ def _wait_for_clone_task(console, repo, task, args):
             clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
         except SAPCliError as exc:
             console.printerr(str(exc))
+            return 2
 
         if clone_rc > Repository.ActivityReturnCode.CLONE_SUCCESS.value:
             console.printerr(f'Clone process has failed with return code: {clone_rc}!')

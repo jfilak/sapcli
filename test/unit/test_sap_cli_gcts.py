@@ -819,6 +819,26 @@ Cloned repository:
 '''
         self.assertConsoleContents(self.console, stdout=expected_output)
 
+    def test_async_clone_no_activity_found(self):
+        self.fake_get_activity_rc.return_value = None
+        self.fake_get_activity_rc.side_effect = sap.cli.gcts.SAPCliError('Expected CLONE activity not found!')
+
+        args = self.clone(
+            self.command_arguments['url'],
+            '--wait-for-ready', '10',
+        )
+
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 2)
+
+        expected_output = f'''Repository "sample" has been created.
+CLONE task "{self.fake_task.tid}" has been scheduled.
+CLONE task "{self.fake_task.tid}" has finished.
+'''
+        self.assertConsoleContents(self.console,
+                                   stdout=expected_output,
+                                   stderr='Expected CLONE activity not found!\n')
+
 
 class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
 
