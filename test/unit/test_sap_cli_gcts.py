@@ -3,15 +3,16 @@
 from io import StringIO
 import unittest
 import json
-from unittest.mock import MagicMock, patch, Mock, PropertyMock, mock_open, call
+from unittest.mock import MagicMock, patch, Mock, PropertyMock, mock_open, call, ANY
 from sap.rest.gcts import package_name_from_url
-
+from sap.rest.gcts.sugar import (LogSugarOperationProgress, LogTaskOperationProgress)
 import sap.cli.gcts
 import sap.cli.gcts_utils
 import sap.cli.core
 from sap.rest.errors import HTTPRequestError
+from sap.errors import OperationTimeoutError
 
-from mock import (
+from test.unit.mock import (
     RESTConnection,
     Request,
     ConsoleOutputTestCase,
@@ -182,6 +183,9 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_simple_clone = self.patch('sap.rest.gcts.simple.clone')
         self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
         self.fake_simple_wait_for_operation = self.patch('sap.rest.gcts.simple.wait_for_operation')
+        self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
+
+        self.spy_is_cloned_activity_success = self.patch('sap.cli.gcts.is_cloned_activity_success', wraps=sap.cli.gcts_utils.is_cloned_activity_success)
 
         self.conn = Mock()
         self.fake_repo = sap.rest.gcts.remote_repo.Repository(self.conn, 'sample', data={
@@ -212,7 +216,10 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token=None,
             error_exists=True,
             typ='GITHUB',
-            role='SOURCE'
+            role='SOURCE',
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=None,
         )
 
         self.assertConsoleContents(console=self.console, stdout='''Cloned repository:
@@ -231,7 +238,10 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
             '--role', 'TARGET',
             '--type', 'GIT',
             '--wait-for-ready', '10',
-            '--sync-clone'
+            '--sync-clone',
+            '--no-import',
+            '--buffer-only',
+            '--heartbeat', '1',
         )
 
         exit_code = args.execute(self.conn, args)
@@ -246,15 +256,98 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token='12345',
             error_exists=False,
             typ='GIT',
-            role='TARGET'
+            role='TARGET',
+            no_import=True,
+            buffer_only=True,
+            progress_consumer=ANY,
         )
+        call_args = self.fake_simple_clone.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+        self.spy_is_cloned_activity_success.assert_not_called()
+
+        self.fake_heartbeat.assert_called_once_with(self.console, 1)
+
+    def test_clone_with_no_import(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vsid', 'GIT',
+            '--vcs-token', '12345',
+            '--starting-folder', 'backend/src/',
+            '--no-fail-exists',
+            '--role', 'TARGET',
+            '--type', 'GIT',
+            '--wait-for-ready', '10',
+            '--sync-clone',
+            '--no-import',
+            '--heartbeat', '1',
+        )
+
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn,
+            'https://example.org/repo/git/sample.git',
+            'sample',
+            start_dir='backend/src/',
+            vsid='GIT',
+            vcs_token='12345',
+            error_exists=False,
+            typ='GIT',
+            role='TARGET',
+            no_import=True,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+
+        call_args = self.fake_simple_clone.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+        self.spy_is_cloned_activity_success.assert_not_called()
+
+    def test_clone_with_buffer_only(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vsid', 'GIT',
+            '--vcs-token', '12345',
+            '--starting-folder', 'backend/src/',
+            '--no-fail-exists',
+            '--role', 'TARGET',
+            '--type', 'GIT',
+            '--wait-for-ready', '10',
+            '--sync-clone',
+            '--buffer-only',
+            '--heartbeat', '1',
+        )
+
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_simple_clone.assert_called_once_with(
+            self.conn,
+            'https://example.org/repo/git/sample.git',
+            'sample',
+            start_dir='backend/src/',
+            vsid='GIT',
+            vcs_token='12345',
+            error_exists=False,
+            typ='GIT',
+            role='TARGET',
+            no_import=False,
+            buffer_only=True,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_clone.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+        self.spy_is_cloned_activity_success.assert_called_once_with(self.console, self.fake_repo)
 
     def test_clone_existing(self):
         repo_url = 'https://example.org/repo/git/sample.git'
         args = self.clone(repo_url, '--no-fail-exists', '--sync-clone')
 
         args.execute(self.conn, args)
-
         self.fake_simple_clone.assert_called_once_with(
             self.conn,
             'https://example.org/repo/git/sample.git',
@@ -264,8 +357,12 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
             vcs_token=None,
             error_exists=False,
             typ='GITHUB',
-            role='SOURCE'
+            role='SOURCE',
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=None,
         )
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
 
     @patch('sap.cli.gcts_utils.dump_gcts_messages')
     def test_clone_error(self, fake_dumper):
@@ -275,8 +372,10 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
 
         args = self.clone('url', '--sync-clone')
         exit_code = args.execute(None, args)
-        self.assertEqual(exit_code, 1)
 
+        self.assertEqual(exit_code, 1)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.spy_is_cloned_activity_success.assert_not_called()
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
     def test_clone_internal_error_no_wait(self):
@@ -292,7 +391,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertConsoleContents(
             self.console,
-            stdout='Clone request responded with an error. Checkout "--wait-for-ready" parameter!\n',
+            stdout='Clone request responded with an error.\nCheckout "--wait-for-ready" parameter!\n',
             stderr='500\nTest Exception\n'
         )
 
@@ -303,7 +402,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
 
         self.fake_simple_clone.side_effect = HTTPRequestError(None, fake_response)
 
-        args = self.clone('url', '--wait-for-ready', '10', '--sync-clone')
+        args = self.clone('url', '--wait-for-ready', '10', '--sync-clone', '--heartbeat', '2')
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 0)
 
@@ -311,8 +410,10 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
         clone_test = self.fake_simple_wait_for_operation.mock_calls[0].args[1]
         self.assertTrue(clone_test(repo))
         self.assertEqual(self.fake_repo.activities.mock_calls[0].args[0].get_params()['type'], 'CLONE')
+        self.fake_heartbeat.assert_has_calls([call(self.console, 2), call(self.console, 2)])
         self.assertConsoleContents(self.console, stdout='''Clone request responded with an error. Checking clone process ...
-Clone process finished successfully. Waiting for repository to be ready ...
+Clone process finished successfully.
+Waiting for repository to be ready ...
 Cloned repository:
  URL   : https://example.org/repo/git/sample.git
  branch: main
@@ -334,6 +435,7 @@ Cloned repository:
         self.assertEqual(exit_code, 1)
 
         self.fake_repo.activities.assert_called_once()
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
         self.assertConsoleContents(self.console,
                                    stdout='Clone request responded with an error. Checking clone process ...\n',
                                    stderr='Unable to obtain activities of repository: "sample"\n500\nTest Exception\n')
@@ -347,10 +449,12 @@ Cloned repository:
         self.fake_repo.activities.return_value = []
 
         args = self.clone('url', '--wait-for-ready', '10', '--sync-clone')
+
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
         self.fake_repo.activities.assert_called_once()
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
         self.assertConsoleContents(self.console,
                                    stdout='Clone request responded with an error. Checking clone process ...\n',
                                    stderr='Expected CLONE activity not found! Repository: "sample"\n')
@@ -368,6 +472,7 @@ Cloned repository:
         self.assertEqual(exit_code, 1)
 
         self.fake_repo.activities.assert_called_once()
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
         self.assertConsoleContents(self.console,
                                    stdout='Clone request responded with an error. Checking clone process ...\n',
                                    stderr='Clone process failed with return code: 8!\n'
@@ -387,10 +492,13 @@ Cloned repository:
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
+        self.fake_heartbeat.assert_has_calls([call(self.console, 0), call(self.console, 0)])
+
         self.assertConsoleContents(
             self.console,
             stdout='Clone request responded with an error. Checking clone process ...\n'
-                   'Clone process finished successfully. Waiting for repository to be ready ...\n',
+                   'Clone process finished successfully.\n'
+                   'Waiting for repository to be ready ...\n',
             stderr='Waiting for clone process timed out\n'
         )
 
@@ -404,18 +512,11 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         assert self.console is not None
 
         self.patch_console(console=self.console)
-        self.fake_simple_create = self.patch('sap.rest.gcts.simple.create')
-        self.fake_simple_schedule_clone = self.patch('sap.rest.gcts.simple.schedule_clone')
+        self.fake_simple_clone_with_task = self.patch('sap.rest.gcts.simple.clone_with_task')
         self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
-        self.fake_simple_wait_for_task_execution = self.patch('sap.rest.gcts.simple.wait_for_task_execution')
-        def wait_side_effect(task, wait_for_ready, poll_period, poll_cb):
-            if callable(poll_cb):
-                poll_cb(None, task)
-            return task
-        self.fake_simple_wait_for_task_execution.side_effect = wait_side_effect
-        self.fake_print_gcts_task_info = self.patch('sap.cli.helpers.print_gcts_task_info')
+        self.fake_print_gcts_task_info = self.patch('sap.cli.gcts_utils.print_gcts_task_info')
         self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
-        self.fake_get_activity_rc = self.patch('sap.cli.gcts.get_activity_rc')
+        self.fake_is_cloned_activity_success = self.patch('sap.cli.gcts.is_cloned_activity_success')
         self.conn = Mock()
         self.conn.get_json.return_value = {
             'result': {
@@ -426,7 +527,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         }
 
         self.defaults = {
-            'wait_for_ready': 0,
+            'wait_for_ready': 600,
             'heartbeat': 0,
             'vsid': '6IT',
             'starting_folder': 'src/',
@@ -436,7 +537,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         }
 
         self.command_arguments = {
-            'wait_for_ready': 600,
+            'wait_for_ready': 10,
             'heartbeat': 1,
             'vsid': '7IT',
             'starting_folder': 'backend/src/',
@@ -453,30 +554,12 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_repo = sap.rest.gcts.remote_repo.Repository(self.conn, 'sample', data={
             'url': self.command_arguments['url'],
             'branch': self.default_repo_branch,
-            'currentCommit': self.default_repo_head
+            'currentCommit': self.default_repo_head,
+            'status': 'CLONED'
         })
 
-        self.fake_task = RepositoryTask(connection=self.conn, rid='sample', data={
-            'tid': '7F400188C0E5EDBFB31F768EE842D19D',
-            'rid': 'sample',
-            'jobId': '12313100',
-            'log': '3C5433B201A798E003574FD319D42AA6',
-            'variant': 'CLONE_123131',
-            'name': 'GCTS_CLONE_REPO',
-            'type': 'CLONE_REPOSITORY',
-            'status': 'RUNNING',
-            'createdBy': 'DEVELOPER',
-            'createdAt': '20251017123131',
-            'changedBy': 'DEVELOPER',
-            'changedAt': '20251017123132',
-            'startAt': '20251017123132',
-            'scheduledAt': '20251017123132'
-        })
-
-        self.fake_simple_create.return_value = self.fake_repo
-        self.fake_simple_schedule_clone.return_value = self.fake_task
-        self.fake_get_repository.return_value = self.fake_repo
-        self.fake_get_activity_rc.return_value = 4  # Repository.ActivityReturnCode.CLONE_SUCCESS
+        self.fake_simple_clone_with_task.return_value = self.fake_repo
+        self.fake_is_cloned_activity_success.return_value = True
 
     def clone(self, *args, **kwargs):
         return parse_args('clone', *args, **kwargs)
@@ -496,12 +579,11 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
 '''
 
     def test_async_clone_with_url(self):
-        args = self.clone(self.command_arguments['url'], '--wait-for-ready', '0')
-
+        args = self.clone(self.command_arguments['url'])
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
 
-        self.fake_simple_create.assert_called_once_with(
+        self.fake_simple_clone_with_task.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
@@ -511,22 +593,19 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
+            wait_for_ready=self.defaults['wait_for_ready'],
+            poll_period=self.defaults['poll_period'],
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
         )
-        self.fake_simple_schedule_clone.assert_called_once_with(
-            self.conn,
-            self.fake_repo,
-        )
+        call_args = self.fake_simple_clone_with_task.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogTaskOperationProgress)
+        self.fake_is_cloned_activity_success.assert_called_once_with(self.console, self.fake_repo)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
 
-        self.fake_simple_wait_for_task_execution.assert_not_called()
-
-        expected_output = f'''Repository "sample" has been created.
-CLONE task "{self.fake_task.tid}" has been scheduled.
-Performed asynchronous cloning without "--wait-for-ready" parameter!
-If you do not wait for the task, the repository may not be ready to use.
-You can check the task status using the following command:
-  sapcli gcts task list sample
-
-Cloned repository:
+        expected_output = f'''Cloned repository:
  URL   : {self.command_arguments['url']}
  branch: {self.default_repo_branch}
  HEAD  : {self.default_repo_head}
@@ -548,12 +627,14 @@ Cloned repository:
             '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
             '--poll-period', f"{self.command_arguments['poll_period']}",
             '--heartbeat', f"{self.command_arguments['heartbeat']}",
+            '--no-import',
+            '--buffer-only',
         )
 
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
 
-        self.fake_simple_create.assert_called_once_with(
+        self.fake_simple_clone_with_task.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
@@ -563,77 +644,86 @@ Cloned repository:
             error_exists=False,
             role=self.command_arguments['role'],
             typ=self.command_arguments['type'],
-        )
-
-        self.fake_simple_schedule_clone.assert_called_once_with(
-            self.conn,
-            self.fake_repo,
+            wait_for_ready=self.command_arguments['wait_for_ready'],
+            poll_period=self.command_arguments['poll_period'],
+            no_import=True,
+            buffer_only=True,
+            progress_consumer=ANY,
         )
 
         self.fake_heartbeat.assert_called_once_with(self.console, self.command_arguments['heartbeat'])
-
-        self.fake_simple_wait_for_task_execution.assert_called_once_with(
-            self.fake_task,
-            self.command_arguments['wait_for_ready'],
-            self.command_arguments['poll_period'],
-            self.fake_print_gcts_task_info
-        )
-        self.fake_print_gcts_task_info.assert_called_once_with(None, self.fake_task)
-
-        expected_output = f'''Repository "sample" has been created.
-CLONE task "{self.fake_task.tid}" has been scheduled.
-CLONE task "{self.fake_task.tid}" has finished.
-Clone process has finished successfully ...
-Cloned repository:
+        self.fake_is_cloned_activity_success.assert_not_called()
+        expected_output = f'''Cloned repository:
  URL   : {self.command_arguments['url']}
  branch: {self.default_repo_branch}
  HEAD  : {self.default_repo_head}
 '''
         self.assertConsoleContents(console=self.console, stdout=expected_output)
 
-    def test_async_clone_existing(self):
+    def test_async_clone_with_no_import(self):
         args = self.clone(
             self.command_arguments['url'],
-            '--no-fail-exists',
-            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['poll_period']}",
-            '--heartbeat', f"{self.command_arguments['heartbeat']}",
+            '--no-import',
         )
 
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 0)
 
-        self.fake_simple_create.assert_called_once_with(
+        self.fake_simple_clone_with_task.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
             vcs_token=None,
             vsid=self.defaults['vsid'],
-            error_exists=False,
+            error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
+            wait_for_ready=self.defaults['wait_for_ready'],
+            poll_period=self.defaults['poll_period'],
+            no_import=True,
+            buffer_only=False,
+            progress_consumer=ANY,
         )
 
-        self.fake_simple_schedule_clone.assert_called_once_with(
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_is_cloned_activity_success.assert_not_called()
+        expected_output = f'''Cloned repository:
+ URL   : {self.command_arguments['url']}
+ branch: {self.default_repo_branch}
+ HEAD  : {self.default_repo_head}
+'''
+        self.assertConsoleContents(console=self.console, stdout=expected_output)
+
+    def test_async_clone_with_buffer_only(self):
+        args = self.clone(
+            self.command_arguments['url'],
+            '--buffer-only',
+        )
+
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_simple_clone_with_task.assert_called_once_with(
             self.conn,
-            self.fake_repo,
+            self.command_arguments['url'],
+            package_name_from_url(self.command_arguments['url']),
+            start_dir=self.defaults['starting_folder'],
+            vcs_token=None,
+            vsid=self.defaults['vsid'],
+            error_exists=True,
+            role=self.defaults['role'],
+            typ=self.defaults['type'],
+            wait_for_ready=self.defaults['wait_for_ready'],
+            poll_period=self.defaults['poll_period'],
+            no_import=False,
+            buffer_only=True,
+            progress_consumer=ANY,
         )
 
-        self.fake_heartbeat.assert_called_once_with(self.console, self.command_arguments['heartbeat'])
-        self.fake_simple_wait_for_task_execution.assert_called_once_with(
-            self.fake_task,
-            self.command_arguments['wait_for_ready'],
-            self.command_arguments['poll_period'],
-            self.fake_print_gcts_task_info
-        )
-        self.fake_print_gcts_task_info.assert_called_once_with(None, self.fake_task)
-
-        expected_output = f'''Repository "sample" has been created.
-CLONE task "{self.fake_task.tid}" has been scheduled.
-CLONE task "{self.fake_task.tid}" has finished.
-Clone process has finished successfully ...
-Cloned repository:
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_is_cloned_activity_success.assert_called_once_with(self.console, self.fake_repo)
+        expected_output = f'''Cloned repository:
  URL   : {self.command_arguments['url']}
  branch: {self.default_repo_branch}
  HEAD  : {self.default_repo_head}
@@ -641,14 +731,14 @@ Cloned repository:
         self.assertConsoleContents(console=self.console, stdout=expected_output)
 
     @patch('sap.cli.gcts_utils.dump_gcts_messages')
-    def test_async_simple_clone_error(self, fake_dumper):
+    def test_async_simple_clone_unexpected_error(self, fake_dumper):
         messages = {'exception': 'test'}
-        self.fake_simple_create.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+        self.fake_simple_clone_with_task.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         args = self.clone(self.command_arguments['url'], '--wait-for-ready', '0')
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 1)
-        self.fake_simple_create.assert_called_once_with(
+        self.fake_simple_clone_with_task.assert_called_once_with(
             self.conn,
             self.command_arguments['url'],
             package_name_from_url(self.command_arguments['url']),
@@ -657,188 +747,51 @@ Cloned repository:
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],
+            wait_for_ready=0,
+            poll_period=self.defaults['poll_period'],
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
         )
-        self.fake_simple_schedule_clone.assert_not_called()
-        self.fake_simple_wait_for_task_execution.assert_not_called()
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
-    @patch('sap.cli.gcts_utils.dump_gcts_messages')
-    def test_async_clone_existing_error(self, fake_dumper):
-        messages = {'exception': 'test'}
-        self.fake_simple_create.side_effect = sap.rest.gcts.errors.GCTSRepoAlreadyExistsError(messages)
-
-        args = self.clone(self.command_arguments['url'], '--wait-for-ready', '0')
-        exit_code = args.execute(self.conn, args)
-        self.assertEqual(exit_code, 1)
-        self.fake_simple_create.assert_called_once_with(
-            self.conn,
-            self.command_arguments['url'],
-            package_name_from_url(self.command_arguments['url']),
-            start_dir=self.defaults['starting_folder'],
-            vcs_token=None, vsid=self.defaults['vsid'],
-            error_exists=True,
-            role=self.defaults['role'],
-            typ=self.defaults['type'],
-        )
-        self.fake_simple_schedule_clone.assert_not_called()
-        self.fake_simple_wait_for_task_execution.assert_not_called()
-        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
-
-    def test_async_clone_internal_error_no_wait(self):
+    def test_async_clone_http_request_error(self):
         fake_response = Mock()
         fake_response.text = 'Test Exception'
         fake_response.status_code = 500
 
-        self.fake_simple_create.side_effect = HTTPRequestError(None, fake_response)
+        self.fake_simple_clone_with_task.side_effect = HTTPRequestError(None, fake_response)
 
-        args = self.clone(self.command_arguments['url'], '--wait-for-ready', '0')
+        args = self.clone(self.command_arguments['url'])
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 1)
 
-        self.fake_simple_create.assert_called_once_with(
-            self.conn, self.command_arguments['url'],
-            package_name_from_url(self.command_arguments['url']),
-            start_dir=self.defaults['starting_folder'],
-            vcs_token=None,
-            vsid=self.defaults['vsid'],
-            error_exists=True,
-            role=self.defaults['role'],
-            typ=self.defaults['type'],
-        )
-        self.fake_simple_schedule_clone.assert_not_called()
-        self.fake_simple_wait_for_task_execution.assert_not_called()
-
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_is_cloned_activity_success.assert_not_called()
         self.assertConsoleContents(
             self.console,
-            stdout='',
+            stdout='Clone request responded with an error.\n',
             stderr='500\nTest Exception\n'
         )
 
-    def test_async_clone_internal_error_with_wait(self):
+    def test_async_clone_timeout_error(self):
         fake_response = Mock()
         fake_response.text = 'Test Exception'
         fake_response.status_code = 500
 
-        self.fake_simple_create.side_effect = HTTPRequestError(None, fake_response)
+        self.fake_simple_clone_with_task.side_effect = OperationTimeoutError(None, fake_response)
 
-        args = self.clone(
-            self.command_arguments['url'],
-            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['poll_period']}"
-        )
+        args = self.clone(self.command_arguments['url'])
         exit_code = args.execute(self.conn, args)
         self.assertEqual(exit_code, 1)
 
-        self.fake_simple_create.assert_called_once_with(
-            self.conn, self.command_arguments['url'],
-            package_name_from_url(self.command_arguments['url']),
-            start_dir=self.defaults['starting_folder'],
-            vcs_token=None,
-            vsid=self.defaults['vsid'],
-            error_exists=True,
-            role=self.defaults['role'],
-            typ=self.defaults['type'],
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_is_cloned_activity_success.assert_not_called()
+        self.assertConsoleContents(
+            self.console,
+            stdout=f'You can check the task status using the following command:\n  sapcli gcts task list {package_name_from_url(self.command_arguments['url'])}\n',
+            stderr='Clone task did not finish in the period specified by the "--wait-for-ready" parameter.\n'
         )
-
-        self.fake_simple_schedule_clone.assert_not_called()
-        self.fake_simple_wait_for_task_execution.assert_not_called()
-
-
-    def test_async_clone_no_return_task(self):
-        self.fake_simple_schedule_clone.return_value = None
-        args = self.clone(
-            self.command_arguments['url'],
-            '--wait-for-ready', f"{self.command_arguments['wait_for_ready']}",
-            '--poll-period', f"{self.command_arguments['poll_period']}"
-        )
-        exit_code = args.execute(self.conn, args)
-        self.fake_simple_create.assert_called_once_with(
-            self.conn, self.command_arguments['url'],
-            package_name_from_url(self.command_arguments['url']),
-            start_dir=self.defaults['starting_folder'],
-            vcs_token=None,
-            vsid=self.defaults['vsid'],
-            error_exists=True,
-            role=self.defaults['role'],
-            typ=self.defaults['type'],
-        )
-
-        self.fake_simple_schedule_clone.assert_called_once_with(
-            self.conn,
-            self.fake_repo,
-        )
-
-        self.fake_simple_wait_for_task_execution.assert_not_called()
-        self.assertEqual(exit_code, 0)
-        expected_output = f'''Repository "sample" has been created.
-Repository was already cloned.
-Cloned repository:
- URL   : {self.command_arguments['url']}
- branch: {self.default_repo_branch}
- HEAD  : {self.default_repo_head}
-'''
-        self.assertConsoleContents(self.console, stdout=expected_output)
-
-    def test_async_clone_return_task_without_wait(self):
-        args = self.clone(
-            self.command_arguments['url'],
-            '--wait-for-ready', '0',
-        )
-
-        exit_code = args.execute(self.conn, args)
-        self.fake_simple_create.assert_called_once_with(
-            self.conn, self.command_arguments['url'],
-            package_name_from_url(self.command_arguments['url']),
-            start_dir=self.defaults['starting_folder'],
-            vcs_token=None,
-            vsid=self.defaults['vsid'],
-            error_exists=True,
-            role=self.defaults['role'],
-            typ=self.defaults['type'],
-        )
-
-        self.fake_simple_schedule_clone.assert_called_once_with(
-            self.conn,
-            self.fake_repo,
-        )
-
-        self.fake_simple_wait_for_task_execution.assert_not_called()
-        self.assertEqual(exit_code, 0)
-
-        expected_output = f'''Repository "sample" has been created.
-CLONE task "{self.fake_task.tid}" has been scheduled.
-Performed asynchronous cloning without "--wait-for-ready" parameter!
-If you do not wait for the task, the repository may not be ready to use.
-You can check the task status using the following command:
-  sapcli gcts task list {package_name_from_url(self.command_arguments['url'])}
-
-Cloned repository:
- URL   : {self.command_arguments['url']}
- branch: {self.default_repo_branch}
- HEAD  : {self.default_repo_head}
-'''
-        self.assertConsoleContents(self.console, stdout=expected_output)
-
-    def test_async_clone_no_activity_found(self):
-        self.fake_get_activity_rc.return_value = None
-        self.fake_get_activity_rc.side_effect = sap.cli.gcts.SAPCliError('Expected CLONE activity not found!')
-
-        args = self.clone(
-            self.command_arguments['url'],
-            '--wait-for-ready', '10',
-        )
-
-        exit_code = args.execute(self.conn, args)
-        self.assertEqual(exit_code, 2)
-
-        expected_output = f'''Repository "sample" has been created.
-CLONE task "{self.fake_task.tid}" has been scheduled.
-CLONE task "{self.fake_task.tid}" has finished.
-'''
-        self.assertConsoleContents(self.console,
-                                   stdout=expected_output,
-                                   stderr='Expected CLONE activity not found!\n')
-
 
 class TestgCTSRepoList(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -981,38 +934,73 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         ConsoleOutputTestCase.setUp(self)
 
         assert self.console is not None
+        self.conn = Mock()
 
         self.patch_console(console=self.console)
         self.fake_simple_checkout = self.patch('sap.rest.gcts.simple.checkout')
-        self.repo = Mock()
-        self.repo.rid = 'repo-id'
-        self.repo.name = 'the_repo'
-        self.repo.branch = 'old_branch'
+        self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
+        self.fake_is_checkout_activity_success = self.patch('sap.cli.gcts.is_checkout_activity_success')
+        self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
+        self.repo_url = 'http://github.com/the_repo.git'
+        self.rid = 'the_repo'
+        self.repo_from_branch = 'old_branch'
+        self.repo_from_commit = '123'
+        self.repo_to_commit = '456'
+        self.repo_to_branch = 'new_branch'
+        self.response_request = 'YGCTS987654321'
+        self.repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.rid, data={
+            'branch': self.repo_from_branch,
+            'currentCommit': self.repo_from_commit,
+            'status': 'READY'
+        })
+        self.repo._fetch_data = Mock(return_value=self.repo._data)
+
+        self.raised_http_error_in_checkout = None
+
+        def fake_checkout(connection, branch, repo=None, **_):
+            if repo is None:
+                repo = self.repo
+
+            repo._data['branch'] = branch
+            repo._data['currentCommit'] = self.repo_to_commit
+            repo._data['fromCommit'] = self.repo_from_commit
+            repo._data['toCommit'] = self.repo_to_commit
+
+            if self.raised_http_error_in_checkout:
+                raise self.raised_http_error_in_checkout
+
+            return {
+                'fromCommit': self.repo_from_commit,
+                'toCommit': self.repo_to_commit,
+                'request': self.response_request
+            }
+
+        self.fake_simple_checkout.side_effect = fake_checkout
+        self.fake_get_repository.return_value = self.repo
+        self.expected_output = [f'The repository "{self.repo.rid}" has been set to the branch "{self.repo_to_branch}"',
+                                f'({self.repo_from_branch}:{self.repo_from_commit}) -> ({self.repo_to_branch}:{self.repo_to_commit})']
 
     def checkout(self, *args, **kwargs):
         return parse_args('checkout', *args, **kwargs)
 
-    @patch('sap.cli.gcts.Repository')
-    def test_checkout_no_params(self, fake_repo_class):
-        fake_repo_class.return_value = self.repo
-        conn = Mock()
+    def test_checkout_no_params(self):
+        args = self.checkout(self.repo_url, self.repo_to_branch)
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
 
-        repo_from_commit = '123'
-        repo_to_commit = '456'
-
-        def fake_wipe():
-            self.repo.head = repo_to_commit
-
-        self.repo.wipe_data = fake_wipe
-        self.repo.head = repo_from_commit
-
-        args = self.checkout('the_repo', 'the_branch')
-        args.execute(conn, args)
-
-        self.fake_simple_checkout.assert_called_once_with(conn, 'the_branch', repo=self.repo)
-        self.assertConsoleContents(self.console, stdout=f'''The repository "{self.repo.rid}" has been set to the branch "the_branch"
-(old_branch:{repo_from_commit}) -> (the_branch:{repo_to_commit})
-''')
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn,
+            self.repo_to_branch,
+            repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.assertConsoleContents(self.console, stdout='\n'.join(self.expected_output) + '\n')
 
     @staticmethod
     def set_fake_wipe(repo, from_commit, to_commit):
@@ -1023,154 +1011,194 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
 
         repo.wipe_data = fake_wipe
 
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_with_url(self, fake_fetch_repos):
-        conn = Mock()
-        checkout_branch = 'the_branch'
+    def test_checkout_with_url(self):
+        args = self.checkout(self.repo_url, self.repo_to_branch)
+        args.execute(self.conn, args)
 
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        repo_from_commit = '123'
-        repo_to_commit = '456'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-        self.set_fake_wipe(fake_repo, repo_from_commit, repo_to_commit)
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn,
+            self.repo_to_branch,
+            repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_is_checkout_activity_success.assert_not_called()
+        self.assertConsoleContents(self.console, stdout='\n'.join(self.expected_output) + '\n')
 
-        self.fake_simple_checkout.return_value = {'fromCommit': repo_from_commit, 'toCommit': repo_to_commit}
-        args = self.checkout(repo_url, checkout_branch)
-        args.execute(conn, args)
+    def test_checkout_json_output(self):
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--format', 'JSON')
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
 
-        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
-        self.assertConsoleContents(self.console, stdout=f'''The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
-({repo_branch}:123) -> ({checkout_branch}:456)
-''')
+        expected_output = ['{',
+                           '  "fromCommit": "123",',
+                           '  "toCommit": "456",',
+                           '  "request": "YGCTS987654321"',
+                           '}']
+        self.assertConsoleContents(self.console, stdout='\n'.join(expected_output) + '\n')
 
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_json_output(self, fake_fetch_repos):
-        conn = Mock()
-        checkout_branch = 'the_branch'
-
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-
-        self.fake_simple_checkout.return_value = {'fromCommit': '123', 'toCommit': '456', 'request': 'YGCTS987654321'}
-        args = self.checkout(repo_url, checkout_branch, '--format', 'JSON')
-        args.execute(conn, args)
-
-        self.assertConsoleContents(self.console, stdout='''{
-  "fromCommit": "123",
-  "toCommit": "456",
-  "request": "YGCTS987654321"
-}
-''')
-
-    @patch('sap.cli.gcts.Repository')
     @patch('sap.cli.gcts_utils.dump_gcts_messages')
-    def test_checkout_error(self, fake_dumper, fake_repo_class):
-        fake_repo_class.return_value = self.repo
+    def test_checkout_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_simple_checkout.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
-        args = self.checkout('a_repo', 'a_branch')
+        args = self.checkout(self.repo_url, self.repo_to_branch)
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_url_error(self, _):
-        repo_url = 'http://github.com/the_repo.git'
-
-        args = self.checkout(repo_url, 'a_branch')
+    def test_checkout_url_error(self):
+        self.fake_get_repository.side_effect = sap.rest.errors.SAPCliError(f'No repository found with the URL "{self.repo_url}".')
+        args = self.checkout(self.repo_url, self.repo_to_branch)
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{self.repo_url}".\n')
 
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_with_http_error(self, fake_fetch_repos):
-        conn = Mock()
-        checkout_branch = 'the_branch'
-
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-
+    def test_checkout_with_http_error(self):
         self.fake_simple_checkout.side_effect = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
-        args = self.checkout(repo_url, checkout_branch)
-        args.execute(conn, args)
+        args = self.checkout(self.repo_url, self.repo_to_branch)
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 1)
 
-        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
+        self.fake_get_repository.assert_called_once_with(self.conn, self.repo_url)
+
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
         self.assertConsoleContents(self.console, stdout='Checkout request responded with an error. Checkout "--wait-for-ready" parameter!\n',
                                    stderr='500\nCheckout exception\n')
 
     @patch('sap.rest.gcts.simple.wait_for_operation')
-    @patch('sap.cli.gcts.get_activity_rc')
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_with_http_error_wait(self, fake_fetch_repos, fake_get_activity_rc, fake_wait_for_operation):
-        conn = Mock()
-        checkout_branch = 'the_branch'
-
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-        repo_from_commit = '123'
-        repo_to_commit = '456'
-        self.set_fake_wipe(fake_repo, repo_from_commit, repo_to_commit)
-
-        def get_activity_side_effect(repo, _):
-            repo.branch = checkout_branch
-            return 0
-
-        fake_get_activity_rc.side_effect = get_activity_side_effect
-
-        self.fake_simple_checkout.side_effect = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
-        args = self.checkout(repo_url, checkout_branch, '--wait-for-ready', '10')
-        args.execute(conn, args)
-
+    def test_checkout_with_http_error_wait_success(self, fake_wait_for_operation):
+        self.fake_is_checkout_activity_success.return_value = True
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '10')
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
         checkout_test = fake_wait_for_operation.mock_calls[0].args[1]
-        self.assertTrue(checkout_test(fake_repo))
-        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
-        self.assertConsoleContents(self.console, stdout=f'''Checkout request responded with an error. Checking checkout process ...
-Checkout process finished successfully. Waiting for repository to be ready ...
-The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
-({repo_branch}:{repo_from_commit}) -> ({checkout_branch}:{repo_to_commit})
-''')
+        self.assertTrue(checkout_test(self.repo))
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        expected_output = ['Checkout request responded with an error. Checking checkout process ...',
+                           'Checkout process finished successfully. Waiting for repository to be ready ...',
+                           f'The repository "{self.repo.rid}" has been set to the branch "{self.repo_to_branch}"',
+                           f'({self.repo_from_branch}:{self.repo_from_commit}) -> ({self.repo_to_branch}:{self.repo_to_commit})']
+        self.assertConsoleContents(self.console, stdout='\n'.join(expected_output) + '\n')
 
-    @patch('sap.rest.gcts.simple.wait_for_operation')
-    @patch('sap.cli.gcts.get_activity_rc')
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_with_http_error_wait_error(self, fake_fetch_repos, fake_get_activity_rc, fake_wait_for_operation):
-        conn = Mock()
-        checkout_branch = 'the_branch'
+    def test_checkout_with_http_error_activity_error(self):
 
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-        fake_get_activity_rc.return_value = 8
-        repo_from_commit = '123'
-        repo_to_commit = '456'
-        self.set_fake_wipe(fake_repo, repo_from_commit, repo_to_commit)
+        def fake_is_checkout_activity_success_side_effect(console, repo):
+            console.printerr('Checkout process failed with return code: 1!')
+            return False
+        self.fake_is_checkout_activity_success.side_effect = fake_is_checkout_activity_success_side_effect
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '10')
+        exit_code = args.execute(self.conn, args)
 
-        self.fake_simple_checkout.side_effect = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
-        args = self.checkout(repo_url, checkout_branch, '--wait-for-ready', '10')
-        args.execute(conn, args)
-
-        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
-        self.assertConsoleContents(self.console, stdout='Checkout request responded with an error. Checking checkout process ...\n',
-                                   stderr='''Checkout process failed with return code: 8!
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_is_checkout_activity_success.assert_called_once_with(self.console, self.repo)
+        expected_output = ['Checkout request responded with an error. Checking checkout process ...']
+        self.assertConsoleContents(self.console, stdout='\n'.join(expected_output) + '\n',
+                                   stderr='''Checkout process failed with return code: 1!
 500
 Checkout exception
+''')
+
+    def test_checkout_with_http_error_no_import_flag(self):
+        '''Not checking activities because of --no-import flag'''
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '10', '--no-import')
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=True,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+        self.fake_heartbeat.assert_has_calls([call(self.console, 0), call(self.console, 0)])
+        self.fake_is_checkout_activity_success.assert_not_called()
+        self.assertConsoleContents(self.console, stdout='\n'.join(self.expected_output) + '\n')
+    
+    @patch('sap.rest.gcts.simple.wait_for_operation')
+    def test_checkout_with_http_error_buffer_only_flag(self, _):
+        '''Checking activities because of --buffer-only flag dont change the behavior of the checkout command'''
+        self.fake_is_checkout_activity_success.return_value = True
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '10', '--buffer-only')
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
+       
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=True,
+            progress_consumer=ANY,
+        )
+        expected_output = ['Checkout request responded with an error. Checking checkout process ...',
+                           'Checkout process finished successfully. Waiting for repository to be ready ...',
+                           f'The repository "{self.repo.rid}" has been set to the branch "{self.repo_to_branch}"',
+                           f'({self.repo_from_branch}:{self.repo_from_commit}) -> ({self.repo_to_branch}:{self.repo_to_commit})']
+        self.assertConsoleContents(self.console, stdout='\n'.join(expected_output) + '\n')
+    
+    @patch('sap.rest.gcts.simple.wait_for_operation')
+    def test_checkout_with_http_error_wait_error(self, fake_wait_for_operation):
+        self.fake_is_checkout_activity_success.return_value = True
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        wait_for_operation_error_msg = 'Checkout process failed with return code: 1!'
+        fake_wait_for_operation.side_effect = sap.cli.gcts.SAPCliError(wait_for_operation_error_msg)
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '1')
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, LogSugarOperationProgress)
+
+        fake_wait_for_operation.assert_called_once()
+        self.assertEqual(self.fake_heartbeat.call_count, 2)
+        self.fake_heartbeat.assert_any_call(self.console, 0)
+        self.assertConsoleContents(self.console, stdout='Checkout request responded with an error. Checking checkout process ...\nCheckout process finished successfully. Waiting for repository to be ready ...\n',
+                                   stderr='''Checkout process failed with return code: 1!
 ''')
 
 
