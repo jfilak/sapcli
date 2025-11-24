@@ -921,8 +921,13 @@ class ConsoleSugarOperationProgress(SugarOperationProgress):
         super().__init__()
         self._console = console
 
-    def _handle_updated(self, message, recover_message):
+    def _handle_updated(self, message, recover_message, pid):
         self._console.printout(message)
+
+    def _handle_recover(self, pid):
+        recover_message = self.get_recover_message(pid)
+        if recover_message:
+            self._console.printerr(recover_message)
 
 
 @BranchCommandGroup.argument('-o', '--output', default=None,
@@ -940,36 +945,32 @@ def update_filesystem(connection, args):
         return 1
 
     repo = get_repository(connection, args.package)
-    checkout_progress = ConsoleSugarOperationProgress(console)
-    noimports_progress = ConsoleSugarOperationProgress(console)
+    shared_progress = ConsoleSugarOperationProgress(console)
     pull_response = None
-    errored = True
     try:
-        with abap_modifications_disabled(repo, progress=noimports_progress):
-            with temporary_switched_branch(repo, args.branch, progress=checkout_progress):
-                console.printout(f'Updating the currently active branch {args.branch} ...')
-                pull_response = repo.pull()
-                from_commit = pull_response.get('fromCommit') or '()'
-                to_commit = pull_response.get('toCommit') or '()'
-                console.printout(f'The branch "{args.branch}" has been updated: {from_commit} -> {to_commit}')
+        with (
+            abap_modifications_disabled(repo, progress=shared_progress),
+            temporary_switched_branch(repo, args.branch, progress=shared_progress),
+        ):
+            console.printout(f'Updating the currently active branch {args.branch} ...')
+            pull_response = repo.pull()
+            from_commit = pull_response.get('fromCommit') or '()'
+            to_commit = pull_response.get('toCommit') or '()'
+            console.printout(f'The branch "{args.branch}" has been updated: {from_commit} -> {to_commit}')
     except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+
+        return 1
+
     except SAPCliError as ex:
         console.printerr(str(ex))
-    else:
-        errored = False
+
+        return 1
 
     if pull_response and args.output:
         console.printout(f'Writing gCTS JSON response to {args.output} ...')
         with open(args.output, 'x', encoding='utf-8') as output_file:
             output_file.write(sap.cli.core.json_dumps(pull_response))
         console.printout(f'Successfully wrote gCTS JSON response to {args.output}')
-
-    if errored:
-        if checkout_progress.recover_message:
-            console.printerr(checkout_progress.recover_message)
-        if noimports_progress.recover_message:
-            console.printerr(noimports_progress.recover_message)
-        return 1
 
     return 0
