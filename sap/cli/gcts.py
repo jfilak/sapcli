@@ -947,6 +947,7 @@ def update_filesystem(connection, args):
     repo = get_repository(connection, args.package)
     shared_progress = ConsoleSugarOperationProgress(console)
     pull_response = None
+    errored = True
     try:
         with abap_modifications_disabled(repo, progress=shared_progress):
             with temporary_switched_branch(repo, args.branch, progress=shared_progress):
@@ -957,13 +958,10 @@ def update_filesystem(connection, args):
                 console.printout(f'The branch "{args.branch}" has been updated: {from_commit} -> {to_commit}')
     except GCTSRequestError as ex:
         dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
-
-        return 1
-
     except SAPCliError as ex:
         console.printerr(str(ex))
-
-        return 1
+    else:
+        errored = False
 
     if pull_response and args.output:
         console.printout(f'Writing gCTS JSON response to {args.output} ...')
@@ -971,4 +969,6 @@ def update_filesystem(connection, args):
             output_file.write(sap.cli.core.json_dumps(pull_response))
         console.printout(f'Successfully wrote gCTS JSON response to {args.output}')
 
-    return 0
+    shared_progress.process_recover_notification()
+
+    return 1 if errored else 0
