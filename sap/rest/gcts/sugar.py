@@ -2,8 +2,8 @@
 
 import abc
 import uuid
+import functools
 from contextlib import contextmanager
-from sap.rest.gcts.errors import GCTSRequestError
 from sap import get_logger
 
 
@@ -39,26 +39,27 @@ class SugarOperationProgress(metaclass=abc.ABCMeta):
         happens.
         """
         if self._recover_messages:
-            self._handle_recover(self.recover_messages.values())
+            for recover_message in self._recover_messages.values():
+                if recover_message is not None:
+                    self._handle_recover(recover_message)
 
     @abc.abstractmethod
     def _handle_updated(self, message, recover_message, pid):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _handle_recover(self, pid):
+    def _handle_recover(self, message: str):
         raise NotImplementedError()
 
 
 class LogSugarOperationProgress(SugarOperationProgress):
     """Recording progress of sugar operations as logs."""
 
-    def _handle_updated(self, message, recover_message):
+    def _handle_updated(self, message, recover_message, pid):
         _mod_log().info(message)
 
-    def _handle_recover(self, recover_messages):
-        for msg in recover_messages:
-            _mod_log().error(msg)
+    def _handle_recover(self, message):
+        _mod_log().error(message)
 
 
 @contextmanager
@@ -131,45 +132,38 @@ def temporary_switched_branch(repo, branch, progress=None):
         progress = LogSugarOperationProgress()
 
     context_id = uuid.uuid4().hex
+    _do_progress_update = functools.partial(progress.update, pid=context_id)
 
     def _checkout(revert_branch):
-        progress.update(
+        _do_progress_update(
             f'Restoring the previously active branch {revert_branch} ...',
             recover_message=f'Please double check if the original branch {revert_branch} is active',
-            pid=context_id
         )
         repo.checkout(revert_branch)
-        progress.update(f'Successfully restored the previously active branch {revert_branch}')
+        _do_progress_update(f'Successfully restored the previously active branch {revert_branch}')
 
     def _donothing(revert_branch):
-        progress.update(f'The updated branch {revert_branch} remains active')
+        _do_progress_update(f'The updated branch {revert_branch} remains active')
 
     old_branch = repo.branch
 
     if old_branch != branch:
         revert_action = _checkout
-        progress.update(f'Temporary switching to the updated branch {branch} ...',
-                        recover_message=f'Please double check if the original branch {old_branch} is active',
-                        pid=context_id)
-        try:
-            repo.checkout(branch)
-        except GCTSRequestError as ex:
-            progress.recover_notification(context_id)
-            raise ex
-        progress.update(f'Successfully switched to the updated branch {branch}',
-                        recover_message=f'Please switch to the branch {old_branch} manually',
-                        pid=context_id)
+        _do_progress_update(
+            f'Temporary switching to the updated branch {branch} ...',
+            recover_message=f'Please double check if the original branch {old_branch} is active',
+        )
+        repo.checkout(branch)
+
+        _do_progress_update(
+            f'Successfully switched to the updated branch {branch}',
+            recover_message=f'Please switch to the branch {old_branch} manually',
+        )
     else:
         revert_action = _donothing
-        progress.update(f'The updated branch {branch} is already active')
+        _do_progress_update(f'The updated branch {branch} is already active')
 
     try:
         yield
     finally:
-        try:
-            revert_action(old_branch)
-        except GCTSRequestError as ex:
-            progress.recover_notification(context_id)
-            raise ex
-        finally:
-            progress.clear_recover_message(context_id)
+        revert_action(old_branch)

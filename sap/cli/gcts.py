@@ -924,10 +924,8 @@ class ConsoleSugarOperationProgress(SugarOperationProgress):
     def _handle_updated(self, message, recover_message, pid):
         self._console.printout(message)
 
-    def _handle_recover(self, pid):
-        recover_message = self.get_recover_message(pid)
-        if recover_message:
-            self._console.printerr(recover_message)
+    def _handle_recover(self, message):
+        self._console.printerr(message)
 
 
 @BranchCommandGroup.argument('-o', '--output', default=None,
@@ -945,12 +943,12 @@ def update_filesystem(connection, args):
         return 1
 
     repo = get_repository(connection, args.package)
-    shared_progress = ConsoleSugarOperationProgress(console)
+    progress_consumer = ConsoleSugarOperationProgress(console)
     pull_response = None
     errored = True
     try:
-        with abap_modifications_disabled(repo, progress=shared_progress):
-            with temporary_switched_branch(repo, args.branch, progress=shared_progress):
+        with abap_modifications_disabled(repo, progress=progress_consumer):
+            with temporary_switched_branch(repo, args.branch, progress=progress_consumer):
                 console.printout(f'Updating the currently active branch {args.branch} ...')
                 pull_response = repo.pull()
                 from_commit = pull_response.get('fromCommit') or '()'
@@ -969,6 +967,6 @@ def update_filesystem(connection, args):
             output_file.write(sap.cli.core.json_dumps(pull_response))
         console.printout(f'Successfully wrote gCTS JSON response to {args.output}')
 
-    shared_progress.process_recover_notification()
+    progress_consumer.process_recover_notification()
 
     return 1 if errored else 0
