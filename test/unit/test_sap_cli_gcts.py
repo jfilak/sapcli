@@ -2677,25 +2677,25 @@ class TestgCTSConsoleSugarOperationProgress(PatcherTestCase, ConsoleOutputTestCa
         progress.update('My message', recover_message='Recover message', pid='test-pid-123')
 
         self.assertConsoleContents(self.console, stdout='My message\n')
-        self.assertEqual(progress.get_recover_message('test-pid-123'), 'Recover message')
+        self.assertEqual(progress._recover_messages.get('test-pid-123'), 'Recover message')
 
     def test_progress_recover_notification(self):
         progress = sap.cli.gcts.ConsoleSugarOperationProgress(self.console)
         progress.update('My message', recover_message='Recover message', pid='test-pid-123')
-        progress.recover_notification('test-pid-123')
+        progress.process_recover_notification()
 
         self.assertConsoleContents(self.console, stdout='My message\n', stderr='Recover message\n')
-        self.assertIsNone(progress.get_recover_message('test-pid-123'))
+        self.assertEqual(progress._recover_messages.get('test-pid-123'), 'Recover message')
 
     def test_progress_clear_recover_message(self):
         progress = sap.cli.gcts.ConsoleSugarOperationProgress(self.console)
         progress.update('My message', recover_message='Recover message', pid='test-pid-123')
 
-        self.assertEqual(progress.get_recover_message('test-pid-123'), 'Recover message')
+        self.assertEqual(progress._recover_messages.get('test-pid-123'), 'Recover message')
 
-        progress.clear_recover_message('test-pid-123')
+        del progress._recover_messages['test-pid-123']
 
-        self.assertIsNone(progress.get_recover_message('test-pid-123'))
+        self.assertIsNone(progress._recover_messages.get('test-pid-123'))
 
 
 class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
@@ -2813,8 +2813,8 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
             self.console,
             stdout=f'Updating the currently active branch {branch} ...\n'
             f'The branch "{branch}" has been updated: {self.from_commit} -> {self.to_commit}\n',
-            stderr='Please delete the configuration option VCS_NO_IMPORT manually\n'
-                   'Exception:\n  Delete config error.\n'
+            stderr='Exception:\n  Delete config error.\n'
+                   'Please delete the configuration option VCS_NO_IMPORT manually\n'
         )
 
     def test_update_filesystem_temp_switched_branch_error(self):
@@ -2831,8 +2831,8 @@ class TestgCTSUpdateFilesystem(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_repo.pull.assert_not_called()
         self.assertConsoleContents(
             self.console,
-            stderr='Please double check if the original branch old_branch is active\n'
-                   'Exception:\n  Checkout error.\n'
+            stderr='Exception:\n  Checkout error.\n'
+                   'Please double check if the original branch old_branch is active\n'
         )
 
     @patch('sap.cli.gcts.dump_gcts_messages')
