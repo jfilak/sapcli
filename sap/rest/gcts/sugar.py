@@ -62,10 +62,24 @@ class LogSugarOperationProgress(SugarOperationProgress):
         _mod_log().error(message)
 
 
-@contextmanager
-def abap_modifications_disabled(repo, progress=None):
+def abap_modifications_disabled(repo, progress=None) -> contextmanager:
     """Temporarily disable ABAP modifications upon gCTS operations (perform
        operations only in filesystem git repository).
+    """
+    return temporary_config(repo, config_name='VCS_NO_IMPORT', tmp_config_value='X', progress=progress)
+
+
+def abap_modifications_added_only_to_buffer(repo, progress=None) -> contextmanager:
+    """Temporarily disable ABAP modifications upon gCTS operations (perform
+       operations in filesystem git repository and a transport request 
+       is generated and added to the buffer).
+    """
+    return temporary_config(repo, config_name='VCS_BUFFER_ONLY', tmp_config_value='X', progress=progress)
+
+
+@contextmanager
+def temporary_config(repo, config_name, tmp_config_value, progress=None):
+    """Temporarily disable a configuration option.
     """
 
     if progress is None:
@@ -76,51 +90,50 @@ def abap_modifications_disabled(repo, progress=None):
 
     def _reset(previous):
         _do_progress_update(
-            f'Resetting the config VCS_NO_IMPORT = "{previous}" ...',
-            recover_message=f'Please set the configuration option VCS_NO_IMPORT = "{old_vcs_no_import}" manually'
+            f'Resetting the config {config_name} = "{previous}" ...',
+            recover_message=f'Please set the configuration option {config_name} = "{previous}" manually'
         )
-        repo.set_config('VCS_NO_IMPORT', previous)
-        _do_progress_update(f'Successfully reset the config VCS_NO_IMPORT = "{previous}"')
+        repo.set_config(config_name, previous)
+        _do_progress_update(f'Successfully reset the config {config_name} = "{previous}"')
 
     def _delete(_):
         _do_progress_update(
-            'Removing the config VCS_NO_IMPORT ...',
-            recover_message="Please delete the configuration option VCS_NO_IMPORT manually"
+            f'Removing the config {config_name} ...',
+            recover_message=f"Please delete the configuration option {config_name} manually"
         )
-        repo.delete_config('VCS_NO_IMPORT')
-        _do_progress_update('Successfully removed the config VCS_NO_IMPORT')
+        repo.delete_config(config_name)
+        _do_progress_update(f'Successfully removed the config {config_name}')
 
     def _donothing(_):
-        _do_progress_update('The config VCS_NO_IMPORT has not been changed')
-
-    tmp_vcs_no_import = 'X'
+        _do_progress_update(f'The config {config_name} has not been changed')
 
     # Let's pray for no raceconditions.
-    _do_progress_update('Retrieving the config VCS_NO_IMPORT ...')
-    old_vcs_no_import = repo.get_config('VCS_NO_IMPORT')
-    _do_progress_update(f'Disabling imports by setting the config VCS_NO_IMPORT = "{tmp_vcs_no_import}" ...')
-    repo.set_config('VCS_NO_IMPORT', tmp_vcs_no_import)
+    _do_progress_update(f'Retrieving the config {config_name} ...')
+    old_config_value = repo.get_config(config_name)
+    _do_progress_update(f'Setting the config {config_name} = "{tmp_config_value}" ...')
+    repo.set_config(config_name, tmp_config_value)
 
-    if old_vcs_no_import is None:
+    if old_config_value is None:
         revert_action = _delete
         _do_progress_update(
-            f'Successfully added the config VCS_NO_IMPORT = "{tmp_vcs_no_import}"',
-            recover_message='Please delete the configuration option VCS_NO_IMPORT manually',
+            f'Successfully added the config {config_name} = "{tmp_config_value}"',
+            recover_message=f'Please delete the configuration option {config_name} manually',
         )
-    elif old_vcs_no_import != tmp_vcs_no_import:
+    elif old_config_value != tmp_config_value:
         revert_action = _reset
         _do_progress_update(
-            f'Successfully changed the config VCS_NO_IMPORT = "{old_vcs_no_import}" -> "{tmp_vcs_no_import}"',
-            recover_message=f'Please set the configuration option VCS_NO_IMPORT = "{old_vcs_no_import}" manually',
+            f'Successfully changed the config {config_name} = "{old_config_value}" -> "{tmp_config_value}"',
+            recover_message=f'Please set the configuration option {config_name} = "{old_config_value}" manually',
         )
     else:
         revert_action = _donothing
-        _do_progress_update(f'The config VCS_NO_IMPORT was already set to "{tmp_vcs_no_import}"')
+        _do_progress_update(f'The config {config_name} was already set to "{tmp_config_value}"')
 
     try:
         yield
     finally:
-        revert_action(old_vcs_no_import)
+        revert_action(old_config_value)
+
 
 
 @contextmanager
