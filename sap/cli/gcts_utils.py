@@ -1,7 +1,7 @@
 """gCTS CLI utilities"""
 import sap.cli.core
 from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
-from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
+from sap.rest.gcts.remote_repo import Repository, RepoActivitiesQueryParams
 from sap.rest.errors import HTTPRequestError
 
 
@@ -86,6 +86,23 @@ def get_activity_rc(repo, operation: RepoActivitiesQueryParams.Operation):
         raise SAPCliError(f'Expected {operation.value} activity not found! Repository: "{repo.rid}"')
 
     return int(activities_list[0]['rc'])
+
+def is_cloned_activity_success(console, repo: Repository) -> bool:
+    """Check if the cloned activity is successful"""
+    clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
+    if clone_rc > Repository.ActivityReturnCode.CLONE_SUCCESS.value:
+        console.printerr(f'Clone process failed with return code: {clone_rc}!')
+        return False
+    return True
+
+
+def is_checkout_activity_success(console, repo: Repository) -> bool:
+    """Check if the checkout activity is successful"""
+    checkout_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.BRANCH_SW)
+    if checkout_rc > Repository.ActivityReturnCode.BRANCH_SW_SUCCES.value:
+        console.printerr(f'Checkout process failed with return code: {checkout_rc}!')
+        return False
+    return True
 
 
 def print_gcts_task_info(err_msg: str | None = None, task: dict | None = None):
