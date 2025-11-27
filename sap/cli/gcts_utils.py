@@ -1,7 +1,8 @@
 """gCTS CLI utilities"""
-
 import sap.cli.core
 from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
+from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
+from sap.rest.errors import HTTPRequestError
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -70,3 +71,27 @@ def gcts_exception_handler(func):
             sap.cli.core.get_console().printerr(str(ex))
             return 1
     return _handler
+
+
+def get_activity_rc(repo, operation: RepoActivitiesQueryParams.Operation):
+    """Get the return code of the operation"""
+
+    activities_params = RepoActivitiesQueryParams().set_operation(operation.value)
+    try:
+        activities_list = repo.activities(activities_params)
+    except HTTPRequestError as exc:
+        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
+
+    if not activities_list or activities_list[0]['rc'] is None:
+        raise SAPCliError(f'Expected {operation.value} activity not found! Repository: "{repo.rid}"')
+
+    return int(activities_list[0]['rc'])
+
+
+def print_gcts_task_info(err_msg: str | None = None, task: dict | None = None):
+    """Print out the task information"""
+    console = sap.cli.core.get_console()
+    if err_msg:
+        console.printerr(err_msg)
+    elif task:
+        console.printout(f'\nTask Status: {task["status"]}')

@@ -57,21 +57,6 @@ def get_repository(connection, package):
     return Repository(connection, package)
 
 
-def get_activity_rc(repo, operation: RepoActivitiesQueryParams.Operation):
-    """Get the return code of the operation"""
-
-    activities_params = RepoActivitiesQueryParams().set_operation(operation.value)
-    try:
-        activities_list = repo.activities(activities_params)
-    except HTTPRequestError as exc:
-        raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
-
-    if not activities_list:
-        raise SAPCliError(f'Expected {operation.value} activity not found! Repository: "{repo.rid}"')
-
-    return int(activities_list[0]['rc'])
-
-
 def _wait_for_clone_task(console, repo, task, args):
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
