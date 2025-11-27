@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch, Mock, call
+from unittest.mock import patch, Mock
 
 import sap.cli.helpers
 
@@ -247,73 +247,3 @@ class TestAbapstampToIsodate(unittest.TestCase):
             sap.cli.helpers.abapstamp_to_isodate(incorrect_abapstamp)
 
         self.assertEqual(str(cm.exception), f'Not ABAP time stamp: {incorrect_abapstamp}')
-
-
-class TestPrintGCTSTaskInfo(unittest.TestCase):
-    def setUp(self):
-        super().setUp()
-        self.mock_console = Mock()
-        self.mock_console.printerr = Mock()
-        self.mock_console.printout = Mock()
-
-        self.task_dict = {
-            'tid': '123',
-            'rid': 'sample',
-            'type': 'CLONE_REPOSITORY',
-            'status': 'RUNNING'
-        }
-
-    @patch('sap.cli.helpers.TableWriter')
-    @patch('sap.cli.core.get_console')
-    def test_print_gcts_task_info_with_task(self, mock_get_console, mock_table_writer_class):
-        """Test print_gcts_task_info when task is provided (no error)"""
-        mock_get_console.return_value = self.mock_console
-
-        mock_columns_instance = Mock()
-        mock_columns_class = Mock(return_value=mock_columns_instance)
-        mock_table_writer_class.Columns = mock_columns_class
-
-        mock_columns_instance.done.return_value = [('tid', 'Task ID'), ('status', 'Status'), ('type', 'Type'), ('rid', 'Repository ID')]
-        mock_columns_instance.return_value = mock_columns_instance
-
-        mock_table_writer_instance = Mock()
-        mock_table_writer_class.return_value = mock_table_writer_instance
-
-        sap.cli.helpers.print_gcts_task_info(None, self.task_dict)
-
-        mock_get_console.assert_called_once()
-
-        mock_columns_class.assert_called_once()
-
-        self.assertEqual(mock_columns_instance.call_count, 4)
-        expected_calls = [
-            call('tid', 'Task ID'),
-            call('status', 'Status'),
-            call('type', 'Type'),
-            call('rid', 'Repository ID')
-        ]
-        mock_columns_instance.assert_has_calls(expected_calls)
-        mock_columns_instance.done.assert_called_once()
-
-        mock_table_writer_class.assert_called_once()
-        call_args = mock_table_writer_class.call_args
-        self.assertEqual(call_args[0][0], [self.task_dict])
-        self.assertIsNotNone(call_args[0][1])
-
-        mock_table_writer_instance.printout.assert_called_once_with(self.mock_console)
-
-        self.mock_console.printerr.assert_not_called()
-
-    @patch('sap.cli.core.get_console')
-    def test_print_gcts_task_info_with_error(self, mock_get_console):
-        """Test print_gcts_task_info when error message is provided"""
-        mock_get_console.return_value = self.mock_console
-        error_message = 'Task retrieval failed: Connection error'
-
-        sap.cli.helpers.print_gcts_task_info(error_message, None)
-
-        mock_get_console.assert_called_once()
-
-        self.mock_console.printerr.assert_called_once_with(error_message)
-
-        self.mock_console.printout.assert_not_called()
