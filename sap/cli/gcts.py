@@ -24,7 +24,7 @@ from sap.cli.gcts_task import CommandGroup as TaskCommandGroup
 from sap.cli.gcts_utils import (
     dump_gcts_messages,
     gcts_exception_handler,
-    get_activity_rc,
+    is_checkout_activity_success,
     TaskOperationProgress,
     ConsoleSugarOperationProgress,
     is_cloned_activity_success,
@@ -733,6 +733,8 @@ def delete(connection, args):
     return 0
 
 
+@CommandGroup.argument('--no-import', default=False, action='store_true')
+@CommandGroup.argument('--buffer-only', default=False, action='store_true')
 @CommandGroup.argument('-f', '--format', choices=['HUMAN', 'JSON'], default='HUMAN')
 @CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=0)
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
@@ -747,22 +749,25 @@ def checkout(connection, args):
     repo = get_repository(connection, args.package)
     old_branch = repo.branch
     from_commit = repo.head
+    need_to_check_activities = not args.no_import
     try:
         with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
-            response = sap.rest.gcts.simple.checkout(connection, args.branch, repo=repo)
+            response = sap.rest.gcts.simple.checkout(
+                connection, args.branch, repo=repo,
+                no_import=args.no_import, buffer_only=args.buffer_only,
+                progress_consumer=ConsoleSugarOperationProgress(console))
 
     except HTTPRequestError as exc:
         if args.wait_for_ready > 0:
             repo = get_repository(connection, args.package)
 
-            console.printout('Checkout request responded with an error. Checking checkout process ...')
-            checkout_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.BRANCH_SW)
-            if checkout_rc > Repository.ActivityReturnCode.BRANCH_SW_SUCCES.value:
-                console.printerr(f'Checkout process failed with return code: {checkout_rc}!')
-                console.printerr(str(exc))
-                return 1
+            if need_to_check_activities:
+                console.printout('Checkout request responded with an error. Checking checkout process ...')
+                if not is_checkout_activity_success(console, repo):
+                    console.printerr(str(exc))
+                    return 1
 
-            console.printout('Checkout process finished successfully. Waiting for repository to be ready ...')
+                console.printout('Checkout process finished successfully. Waiting for repository to be ready ...')
             with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
                 def is_checkout_done(repo: Repository):
                     return repo.branch == args.branch

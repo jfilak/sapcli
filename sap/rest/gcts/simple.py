@@ -203,13 +203,18 @@ def create(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, e
     return repo
 
 
-def checkout(connection, branch, rid=None, repo=None):
+def checkout(connection, branch, rid=None, repo=None, no_import=False,
+             buffer_only=False, progress_consumer: Optional[SugarOperationProgress] = None) -> Repository:
     """Checks out the given branch in the given repository on the give system"""
 
     if repo is None:
         repo = Repository(connection, rid)
 
-    return repo.checkout(branch)
+    with (
+        abap_modifications_disabled(repo, progress_consumer) if no_import else context_stub(),
+        abap_modifications_added_only_to_buffer(repo, progress_consumer) if buffer_only else context_stub()
+    ):
+        return repo.checkout(branch)
 
 
 def log(connection, rid=None, repo=None):

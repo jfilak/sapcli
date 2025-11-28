@@ -935,196 +935,262 @@ class TestgCTSCheckout(PatcherTestCase, ConsoleOutputTestCase):
         ConsoleOutputTestCase.setUp(self)
 
         assert self.console is not None
+        self.conn = Mock()
 
         self.patch_console(console=self.console)
         self.fake_simple_checkout = self.patch('sap.rest.gcts.simple.checkout')
-        self.repo = Mock()
-        self.repo.rid = 'repo-id'
-        self.repo.name = 'the_repo'
-        self.repo.branch = 'old_branch'
+        self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
+        self.fake_is_checkout_activity_success = self.patch('sap.cli.gcts.is_checkout_activity_success')
+        self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
+        self.repo_url = 'http://github.com/the_repo.git'
+        self.rid = 'the_repo'
+        self.repo_from_branch = 'old_branch'
+        self.repo_from_commit = '123'
+        self.repo_to_commit = '456'
+        self.repo_to_branch = 'new_branch'
+        self.response_request = 'YGCTS987654321'
+        self.repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.rid, data={
+            'branch': self.repo_from_branch,
+            'currentCommit': self.repo_from_commit,
+            'status': 'READY'
+        })
+        self.repo._fetch_data = Mock(return_value=self.repo._data)
+
+        self.raised_http_error_in_checkout = None
+
+        def fake_checkout(connection, branch, repo=None, **_):
+            if repo is None:
+                repo = self.repo
+
+            repo._data['branch'] = branch
+            repo._data['currentCommit'] = self.repo_to_commit
+            repo._data['fromCommit'] = self.repo_from_commit
+            repo._data['toCommit'] = self.repo_to_commit
+
+            if self.raised_http_error_in_checkout:
+                raise self.raised_http_error_in_checkout
+
+            return {
+                'fromCommit': self.repo_from_commit,
+                'toCommit': self.repo_to_commit,
+                'request': self.response_request
+            }
+
+        self.fake_simple_checkout.side_effect = fake_checkout
+        self.fake_get_repository.return_value = self.repo
+        self.expected_output = [f'The repository "{self.repo.rid}" has been set to the branch "{self.repo_to_branch}"',
+                                f'({self.repo_from_branch}:{self.repo_from_commit}) -> ({self.repo_to_branch}:{self.repo_to_commit})']
 
     def checkout(self, *args, **kwargs):
         return parse_args('checkout', *args, **kwargs)
 
-    @patch('sap.cli.gcts.Repository')
-    def test_checkout_no_params(self, fake_repo_class):
-        fake_repo_class.return_value = self.repo
-        conn = Mock()
+    def test_checkout_no_params(self):
+        args = self.checkout(self.repo_url, self.repo_to_branch)
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
 
-        repo_from_commit = '123'
-        repo_to_commit = '456'
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn,
+            self.repo_to_branch,
+            repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.assertConsoleContents(self.console, stdout='\n'.join(self.expected_output) + '\n')
 
-        def fake_wipe():
-            self.repo.head = repo_to_commit
+    def test_checkout_with_url(self):
+        args = self.checkout(self.repo_url, self.repo_to_branch)
+        args.execute(self.conn, args)
 
-        self.repo.wipe_data = fake_wipe
-        self.repo.head = repo_from_commit
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn,
+            self.repo_to_branch,
+            repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_is_checkout_activity_success.assert_not_called()
+        self.assertConsoleContents(self.console, stdout='\n'.join(self.expected_output) + '\n')
 
-        args = self.checkout('the_repo', 'the_branch')
-        args.execute(conn, args)
+    def test_checkout_json_output(self):
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--format', 'JSON')
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
 
-        self.fake_simple_checkout.assert_called_once_with(conn, 'the_branch', repo=self.repo)
-        self.assertConsoleContents(self.console, stdout=f'''The repository "{self.repo.rid}" has been set to the branch "the_branch"
-(old_branch:{repo_from_commit}) -> (the_branch:{repo_to_commit})
-''')
+        expected_output = ['{',
+                           '  "fromCommit": "123",',
+                           '  "toCommit": "456",',
+                           '  "request": "YGCTS987654321"',
+                           '}']
+        self.assertConsoleContents(self.console, stdout='\n'.join(expected_output) + '\n')
 
-    @staticmethod
-    def set_fake_wipe(repo, from_commit, to_commit):
-        get_head = Mock(side_effect=[from_commit, to_commit])
-
-        def fake_wipe():
-            repo.head = get_head()
-
-        repo.wipe_data = fake_wipe
-
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_with_url(self, fake_fetch_repos):
-        conn = Mock()
-        checkout_branch = 'the_branch'
-
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        repo_from_commit = '123'
-        repo_to_commit = '456'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-        self.set_fake_wipe(fake_repo, repo_from_commit, repo_to_commit)
-
-        self.fake_simple_checkout.return_value = {'fromCommit': repo_from_commit, 'toCommit': repo_to_commit}
-        args = self.checkout(repo_url, checkout_branch)
-        args.execute(conn, args)
-
-        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
-        self.assertConsoleContents(self.console, stdout=f'''The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
-({repo_branch}:123) -> ({checkout_branch}:456)
-''')
-
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_json_output(self, fake_fetch_repos):
-        conn = Mock()
-        checkout_branch = 'the_branch'
-
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-
-        self.fake_simple_checkout.return_value = {'fromCommit': '123', 'toCommit': '456', 'request': 'YGCTS987654321'}
-        args = self.checkout(repo_url, checkout_branch, '--format', 'JSON')
-        args.execute(conn, args)
-
-        self.assertConsoleContents(self.console, stdout='''{
-  "fromCommit": "123",
-  "toCommit": "456",
-  "request": "YGCTS987654321"
-}
-''')
-
-    @patch('sap.cli.gcts.Repository')
     @patch('sap.cli.gcts_utils.dump_gcts_messages')
-    def test_checkout_error(self, fake_dumper, fake_repo_class):
-        fake_repo_class.return_value = self.repo
+    def test_checkout_error(self, fake_dumper):
         messages = {'exception': 'test'}
         self.fake_simple_checkout.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
-        args = self.checkout('a_repo', 'a_branch')
+        args = self.checkout(self.repo_url, self.repo_to_branch)
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_url_error(self, _):
-        repo_url = 'http://github.com/the_repo.git'
-
-        args = self.checkout(repo_url, 'a_branch')
+    def test_checkout_url_error(self):
+        self.fake_get_repository.side_effect = sap.rest.errors.SAPCliError(f'No repository found with the URL "{self.repo_url}".')
+        args = self.checkout(self.repo_url, self.repo_to_branch)
         exit_code = args.execute(None, args)
         self.assertEqual(exit_code, 1)
 
-        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{self.repo_url}".\n')
 
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_with_http_error(self, fake_fetch_repos):
-        conn = Mock()
-        checkout_branch = 'the_branch'
-
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-
+    def test_checkout_with_http_error(self):
         self.fake_simple_checkout.side_effect = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
-        args = self.checkout(repo_url, checkout_branch)
-        args.execute(conn, args)
+        args = self.checkout(self.repo_url, self.repo_to_branch)
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 1)
 
-        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
+        self.fake_get_repository.assert_called_once_with(self.conn, self.repo_url)
+
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
         self.assertConsoleContents(self.console, stdout='Checkout request responded with an error. Checkout "--wait-for-ready" parameter!\n',
                                    stderr='500\nCheckout exception\n')
 
     @patch('sap.rest.gcts.simple.wait_for_operation')
-    @patch('sap.cli.gcts.get_activity_rc')
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_with_http_error_wait(self, fake_fetch_repos, fake_get_activity_rc, fake_wait_for_operation):
-        conn = Mock()
-        checkout_branch = 'the_branch'
-
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-        repo_from_commit = '123'
-        repo_to_commit = '456'
-        self.set_fake_wipe(fake_repo, repo_from_commit, repo_to_commit)
-
-        def get_activity_side_effect(repo, _):
-            repo.branch = checkout_branch
-            return 0
-
-        fake_get_activity_rc.side_effect = get_activity_side_effect
-
-        self.fake_simple_checkout.side_effect = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
-        args = self.checkout(repo_url, checkout_branch, '--wait-for-ready', '10')
-        args.execute(conn, args)
-
+    def test_checkout_with_http_error_wait_success(self, fake_wait_for_operation):
+        self.fake_is_checkout_activity_success.return_value = True
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '10')
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
         checkout_test = fake_wait_for_operation.mock_calls[0].args[1]
-        self.assertTrue(checkout_test(fake_repo))
-        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
-        self.assertConsoleContents(self.console, stdout=f'''Checkout request responded with an error. Checking checkout process ...
-Checkout process finished successfully. Waiting for repository to be ready ...
-The repository "{repo_rid}" has been set to the branch "{checkout_branch}"
-({repo_branch}:{repo_from_commit}) -> ({checkout_branch}:{repo_to_commit})
-''')
+        self.assertTrue(checkout_test(self.repo))
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        expected_output = ['Checkout request responded with an error. Checking checkout process ...',
+                           'Checkout process finished successfully. Waiting for repository to be ready ...',
+                           f'The repository "{self.repo.rid}" has been set to the branch "{self.repo_to_branch}"',
+                           f'({self.repo_from_branch}:{self.repo_from_commit}) -> ({self.repo_to_branch}:{self.repo_to_commit})']
+        self.assertConsoleContents(self.console, stdout='\n'.join(expected_output) + '\n')
 
-    @patch('sap.rest.gcts.simple.wait_for_operation')
-    @patch('sap.cli.gcts.get_activity_rc')
-    @patch('sap.rest.gcts.simple.fetch_repos')
-    def test_checkout_with_http_error_wait_error(self, fake_fetch_repos, fake_get_activity_rc, fake_wait_for_operation):
-        conn = Mock()
-        checkout_branch = 'the_branch'
+    def test_checkout_with_http_error_activity_error(self):
 
-        repo_rid = 'repo-id'
-        repo_name = 'the_repo'
-        repo_branch = 'old_branch'
-        repo_url = 'http://github.com/the_repo.git'
-        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, branch=repo_branch, url=repo_url)
-        fake_get_activity_rc.return_value = 8
-        repo_from_commit = '123'
-        repo_to_commit = '456'
-        self.set_fake_wipe(fake_repo, repo_from_commit, repo_to_commit)
+        def fake_is_checkout_activity_success_side_effect(console, repo):
+            console.printerr('Checkout process failed with return code: 1!')
+            return False
+        self.fake_is_checkout_activity_success.side_effect = fake_is_checkout_activity_success_side_effect
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '10')
+        exit_code = args.execute(self.conn, args)
 
-        self.fake_simple_checkout.side_effect = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
-        args = self.checkout(repo_url, checkout_branch, '--wait-for-ready', '10')
-        args.execute(conn, args)
-
-        self.fake_simple_checkout.assert_called_once_with(conn, checkout_branch, repo=fake_repo)
-        self.assertConsoleContents(self.console, stdout='Checkout request responded with an error. Checking checkout process ...\n',
-                                   stderr='''Checkout process failed with return code: 8!
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
+        self.fake_heartbeat.assert_called_once_with(self.console, 0)
+        self.fake_is_checkout_activity_success.assert_called_once_with(self.console, self.repo)
+        expected_output = ['Checkout request responded with an error. Checking checkout process ...']
+        self.assertConsoleContents(self.console, stdout='\n'.join(expected_output) + '\n',
+                                   stderr='''Checkout process failed with return code: 1!
 500
 Checkout exception
+''')
+
+    def test_checkout_with_http_error_no_import_flag(self):
+        '''Not checking activities because of --no-import flag'''
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '10', '--no-import')
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=True,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
+        self.fake_heartbeat.assert_has_calls([call(self.console, 0), call(self.console, 0)])
+        self.fake_is_checkout_activity_success.assert_not_called()
+        self.assertConsoleContents(self.console, stdout='\n'.join(self.expected_output) + '\n')
+    
+    @patch('sap.rest.gcts.simple.wait_for_operation')
+    def test_checkout_with_http_error_buffer_only_flag(self, _):
+        '''Checking activities because of --buffer-only flag dont change the behavior of the checkout command'''
+        self.fake_is_checkout_activity_success.return_value = True
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '10', '--buffer-only')
+        exit_code = args.execute(self.conn, args)
+        self.assertEqual(exit_code, 0)
+       
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=True,
+            progress_consumer=ANY,
+        )
+        expected_output = ['Checkout request responded with an error. Checking checkout process ...',
+                           'Checkout process finished successfully. Waiting for repository to be ready ...',
+                           f'The repository "{self.repo.rid}" has been set to the branch "{self.repo_to_branch}"',
+                           f'({self.repo_from_branch}:{self.repo_from_commit}) -> ({self.repo_to_branch}:{self.repo_to_commit})']
+        self.assertConsoleContents(self.console, stdout='\n'.join(expected_output) + '\n')
+    
+    @patch('sap.rest.gcts.simple.wait_for_operation')
+    def test_checkout_with_http_error_wait_error(self, fake_wait_for_operation):
+        self.fake_is_checkout_activity_success.return_value = True
+        self.raised_http_error_in_checkout = HTTPRequestError(None, Mock(text='Checkout exception', status_code=500))
+        wait_for_operation_error_msg = 'Checkout process failed with return code: 1!'
+        fake_wait_for_operation.side_effect = sap.cli.gcts.SAPCliError(wait_for_operation_error_msg)
+        args = self.checkout(self.repo_url, self.repo_to_branch, '--wait-for-ready', '1')
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_checkout.assert_called_once_with(
+            self.conn, self.repo_to_branch, repo=self.repo,
+            no_import=False,
+            buffer_only=False,
+            progress_consumer=ANY,
+        )
+        call_args = self.fake_simple_checkout.call_args
+        progress_consumer = call_args.kwargs['progress_consumer']
+        self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
+
+        fake_wait_for_operation.assert_called_once()
+        self.assertEqual(self.fake_heartbeat.call_count, 2)
+        self.fake_heartbeat.assert_any_call(self.console, 0)
+        self.assertConsoleContents(self.console, stdout='Checkout request responded with an error. Checking checkout process ...\nCheckout process finished successfully. Waiting for repository to be ready ...\n',
+                                   stderr='''Checkout process failed with return code: 1!
 ''')
 
 
