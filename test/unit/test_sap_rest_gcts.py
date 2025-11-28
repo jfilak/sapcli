@@ -866,6 +866,35 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(cm.exception), "gCTS response does not contain 'branches'")
 
+    def test_refresh_repository_data(self):
+        """Test refresh when repository has existing data - should replace with fresh data from server"""
+        updated_data = dict(self.repo_server_data)
+        updated_data['status'] = 'UPDATED'
+        updated_data['branch'] = 'new_branch'
+        response = {'result': updated_data}
+
+        self.conn.set_responses([Response.with_json(json=response, status_code=200)])
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        repo.refresh()
+
+        self.assertEqual(repo._data, updated_data)
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+
+    def test_refresh_repository_data_none(self):
+        """Test refresh when repository has no data - should fetch data from server"""
+        response = {'result': {}}
+
+        self.conn.set_responses([Response.with_json(json=response, status_code=200)])
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=None)
+        repo.refresh()
+
+        self.assertEqual(repo._data, {})
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+
     def test_list_of_repository_objects(self):
         objects = [
             {'pgmid': 'R3TR', 'type': 'FUGR', 'object': 'OBJECT1', 'description': 'DESCRIPTION1'},
@@ -1693,6 +1722,299 @@ class TestRepoActivitiesQueryParams(unittest.TestCase):
 
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_success(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        refresh_response = {'result': repo_data}
+        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+            mock_create.assert_called_once_with(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB'
+            )
+            mock_schedule_clone.assert_called_once_with(self.conn, repo)
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_called_once()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_success_with_progress_consumer(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        progress_consumer = Mock()
+        progress_consumer.progress_message = Mock()
+        progress_consumer.update_task = Mock()
+
+        refresh_response = {'result': repo_data}
+        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30,
+                progress_consumer=progress_consumer
+            )
+
+            progress_consumer.progress_message.assert_any_call(f'Repository "{repo.rid}" has been created.')
+            progress_consumer.progress_message.assert_any_call(f'CLONE task "{task_id}" has been scheduled.')
+            progress_consumer.progress_message.assert_any_call(f'CLONE task "{task_id}" has finished successfully.')
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_called_once()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.abap_modifications_added_only_to_buffer')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_with_buffer_only(self, mock_context_stub, mock_abap_modifications_added_only_to_buffer, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+        mock_abap_modifications_added_only_to_buffer.return_value = MagicMock()
+        refresh_response = {'result': repo_data}
+        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=True,
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+            mock_abap_modifications_added_only_to_buffer.assert_called_once_with(repo, None)
+            mock_context_stub.assert_called_once()
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_called_once()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.abap_modifications_disabled')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_with_no_import(self, mock_context_stub, mock_abap_modifications_disabled, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+        mock_abap_modifications_disabled.return_value = MagicMock()
+        refresh_response = {'result': repo_data}
+        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=True,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+            mock_abap_modifications_disabled.assert_called_once_with(repo, None)
+            mock_context_stub.assert_called_once()
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_called_once()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_schedule_clone_returns_none(self, mock_context_stub, mock_create, mock_schedule_clone):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        mock_schedule_clone.return_value = None
+
+        mock_context_stub.return_value = MagicMock()
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+            mock_schedule_clone.assert_called_once_with(self.conn, repo)
+            spy_refresh.assert_not_called()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_wait_for_task_execution_timeout(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        mock_wait_for_task_execution.side_effect = sap.errors.OperationTimeoutError('Timeout error')
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            with self.assertRaises(sap.errors.OperationTimeoutError):
+                sap.rest.gcts.simple.clone_with_task(
+                    connection=self.conn,
+                    url=self.repo_url,
+                    rid=self.repo_rid,
+                    vsid=self.repo_vsid,
+                    start_dir=self.repo_start_dir,
+                    vcs_token=self.repo_vcs_token,
+                    error_exists=True,
+                    role='SOURCE',
+                    typ='GITHUB',
+                    no_import=False,
+                    buffer_only=False,
+                    wait_for_ready=600,
+                    poll_period=30
+                )
+
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_not_called()
+
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_wait_for_ready_zero(self, mock_context_stub, mock_create, mock_schedule_clone):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            with self.assertRaises(sap.errors.OperationTimeoutError):
+                sap.rest.gcts.simple.clone_with_task(
+                    connection=self.conn,
+                    url=self.repo_url,
+                    rid=self.repo_rid,
+                    vsid=self.repo_vsid,
+                    start_dir=self.repo_start_dir,
+                    vcs_token=self.repo_vcs_token,
+                    error_exists=True,
+                    role='SOURCE',
+                    typ='GITHUB',
+                    no_import=False,
+                    buffer_only=False,
+                    wait_for_ready=0,
+                    poll_period=30
+                )
+
+            mock_schedule_clone.assert_called_once_with(self.conn, repo)
+            spy_refresh.assert_not_called()
+
     def test_simple_schedule_clone_success(self):
         repo_data = dict(self.repo_server_data)
         repo_data['status'] = 'CREATED'
@@ -2284,14 +2606,82 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(str(caught.exception), 'gCTS exception: Fetch Error')
 
     @patch('sap.rest.gcts.simple.Repository')
-    def test_simple_checkout_ok(self, fake_repository):
+    @patch('sap.rest.gcts.simple.abap_modifications_disabled')
+    @patch('sap.rest.gcts.simple.abap_modifications_added_only_to_buffer')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_simple_checkout_ok(self, mock_context_stub, mock_abap_modifications_added_only_to_buffer, mock_abap_modifications_disabled, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
         fake_instance.checkout = Mock()
         fake_instance.checkout.return_value = 'probe'
 
+        mock_context_stub.return_value = MagicMock()
+
         response = sap.rest.gcts.simple.checkout(self.conn, 'the_new_branch', rid=self.repo_rid)
         fake_repository.assert_called_once_with(self.conn, self.repo_rid)
+        mock_abap_modifications_disabled.assert_not_called()
+        mock_abap_modifications_added_only_to_buffer.assert_not_called()
+        self.assertEqual(mock_context_stub.call_count, 2)
+        fake_instance.checkout.assert_called_once_with('the_new_branch')
+        self.assertEqual(response, 'probe')
+
+    @patch('sap.rest.gcts.simple.Repository')
+    @patch('sap.rest.gcts.simple.abap_modifications_disabled')
+    @patch('sap.rest.gcts.simple.abap_modifications_added_only_to_buffer')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_simple_checkout_with_no_import(self, mock_context_stub, mock_abap_modifications_added_only_to_buffer, mock_abap_modifications_disabled, fake_repository):
+        fake_instance = Mock()
+        fake_repository.return_value = fake_instance
+        fake_instance.checkout = Mock()
+        fake_instance.checkout.return_value = 'probe'
+
+        mock_context_stub.return_value = MagicMock()
+        mock_abap_modifications_disabled.return_value = MagicMock()
+        mock_progress_consumer = Mock()
+
+        response = sap.rest.gcts.simple.checkout(
+            self.conn,
+            'the_new_branch',
+            rid=self.repo_rid,
+            no_import=True,
+            buffer_only=False,
+            progress_consumer=mock_progress_consumer
+        )
+
+        fake_repository.assert_called_once_with(self.conn, self.repo_rid)
+        mock_abap_modifications_disabled.assert_called_once_with(fake_instance, mock_progress_consumer)
+        mock_abap_modifications_added_only_to_buffer.assert_not_called()
+        mock_context_stub.assert_called_once()
+        fake_instance.checkout.assert_called_once_with('the_new_branch')
+        self.assertEqual(response, 'probe')
+
+    @patch('sap.rest.gcts.simple.Repository')
+    @patch('sap.rest.gcts.simple.abap_modifications_disabled')
+    @patch('sap.rest.gcts.simple.abap_modifications_added_only_to_buffer')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_simple_checkout_with_buffer_only(self, mock_context_stub, mock_abap_modifications_added_only_to_buffer, mock_abap_modifications_disabled, fake_repository):
+        fake_instance = Mock()
+        fake_repository.return_value = fake_instance
+        fake_instance.checkout = Mock()
+        fake_instance.checkout.return_value = 'probe'
+
+        mock_context_stub.return_value = MagicMock()
+        mock_abap_modifications_added_only_to_buffer.return_value = MagicMock()
+        mock_progress_consumer = Mock()
+
+        response = sap.rest.gcts.simple.checkout(
+            self.conn,
+            'the_new_branch',
+            rid=self.repo_rid,
+            no_import=False,
+            buffer_only=True,
+            progress_consumer=mock_progress_consumer
+        )
+
+        fake_repository.assert_called_once_with(self.conn, self.repo_rid)
+        mock_abap_modifications_disabled.assert_not_called()
+        mock_abap_modifications_added_only_to_buffer.assert_called_once_with(fake_instance, mock_progress_consumer)
+        mock_context_stub.assert_called_once()
         fake_instance.checkout.assert_called_once_with('the_new_branch')
         self.assertEqual(response, 'probe')
 
