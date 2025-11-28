@@ -46,15 +46,18 @@ not given, the name is taken from repository name.
 ```bash
 sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-exists] \
                   [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type TYPE] \
-                  [--vcs-token TOKEN] [--sync-clone] [--poll-period SECONDS] URL [package]
+                  [--vcs-token TOKEN] [--sync-clone] [--poll-period SECONDS] \
+                  [--no-import] [--buffer-only] URL [package]
 ```
 
 **Parameters**:
-- `--wait-for-ready SECONDS`: Wait for the repository to be in status `READY` for the given number of seconds 
+- `--wait-for-ready SECONDS`: Wait for the repository to be in status `READY` for the given number of seconds. Default: 600
 - `--heartbeat SECONDS`: Console heart beat printing dots
 - `--no-fail-exists`: If repository exists do not fail but try to clone
 - `--sync-clone`: Perform a synchronous clone (legacy behavior). By default, clone is scheduled as a background task.
 - `--poll-period SECONDS`: When clone is scheduled as a task, poll the task status every given seconds. Default: 30
+- `--no-import`: Skip importing objects after clone
+- `--buffer-only`: Only buffer objects without importing them
 - `--vsid VSID`: Virtual System ID of the repository; default is **6IT**
 - `--starting-folder FOLDER`: The directory inside the repository where to store ABAP files; default is **src/**.
 - `--role ROLE`: Either SOURCE (Development) or TARGET (Provided); default is **SOURCE**
@@ -63,18 +66,22 @@ sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-ex
 - `URL`: Repository HTTP URL
 - `package`: gCTS repository name; if no provided, deduced from URL
 
-When run without `--sync-clone`, the clone is scheduled as a gCTS task. Use `--wait-for-ready` to wait until the repository is ready. If you omit `--wait-for-ready`, the command prints a hint containing the Task ID; you can monitor or manage it with the `gcts task` commands below.
+When run without `--sync-clone`, the clone is scheduled as a gCTS task. Use `--wait-for-ready` to wait until the repository is ready. If the task doesn't finish within the wait period or if `--wait-for-ready` is set to 0, the command prints a hint; you can check the task status using `gcts task list` to see all tasks for the repository.
 
 ## checkout
 
 Checkout branch
 
 ```bash
-sapcli gcts checkout [--format HUMAN|JSON] [--wait-for-ready SECONDS] PACKAGE BRANCH
+sapcli gcts checkout [--format HUMAN|JSON] [--wait-for-ready SECONDS] [--heartbeat SECONDS] \
+                     [--no-import] [--buffer-only] PACKAGE BRANCH
 ```
 
 **Parameters:**:
-- `--wait-for-ready SECONDS`: Wait for the checkout to finish (repository has switched branch)
+- `--wait-for-ready SECONDS`: Wait for the checkout to finish (repository has switched branch). Default: 0
+- `--heartbeat SECONDS`: Console heart beat printing dots
+- `--no-import`: Skip importing objects after checkout
+- `--buffer-only`: Only buffer objects without importing them
 - `--format`: Output format. The JSON format is particularly useful for automations because it contains Transport Request number.
 - `PACKAGE`: Repository name or URL
 - `BRANCH`: Name of the branch to checkout

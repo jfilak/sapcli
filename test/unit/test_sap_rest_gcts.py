@@ -3,7 +3,7 @@
 import json
 import unittest
 import time
-from unittest.mock import Mock, ANY, call, patch
+from unittest.mock import Mock, MagicMock, ANY, call, patch
 
 from sap.rest.errors import HTTPRequestError, UnauthorizedError
 from sap.rest.gcts.repo_task import RepositoryTask
@@ -866,6 +866,35 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(cm.exception), "gCTS response does not contain 'branches'")
 
+    def test_refresh_repository_data(self):
+        """Test refresh when repository has existing data - should replace with fresh data from server"""
+        updated_data = dict(self.repo_server_data)
+        updated_data['status'] = 'UPDATED'
+        updated_data['branch'] = 'new_branch'
+        response = {'result': updated_data}
+
+        self.conn.set_responses([Response.with_json(json=response, status_code=200)])
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        repo.refresh()
+
+        self.assertEqual(repo._data, updated_data)
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+
+    def test_refresh_repository_data_none(self):
+        """Test refresh when repository has no data - should fetch data from server"""
+        response = {'result': {}}
+
+        self.conn.set_responses([Response.with_json(json=response, status_code=200)])
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=None)
+        repo.refresh()
+
+        self.assertEqual(repo._data, {})
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+
     def test_list_of_repository_objects(self):
         objects = [
             {'pgmid': 'R3TR', 'type': 'FUGR', 'object': 'OBJECT1', 'description': 'DESCRIPTION1'},
@@ -1693,6 +1722,299 @@ class TestRepoActivitiesQueryParams(unittest.TestCase):
 
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_success(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        refresh_response = {'result': repo_data}
+        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+            mock_create.assert_called_once_with(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB'
+            )
+            mock_schedule_clone.assert_called_once_with(self.conn, repo)
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_called_once()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_success_with_progress_consumer(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        progress_consumer = Mock()
+        progress_consumer.progress_message = Mock()
+        progress_consumer.update_task = Mock()
+
+        refresh_response = {'result': repo_data}
+        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30,
+                progress_consumer=progress_consumer
+            )
+
+            progress_consumer.progress_message.assert_any_call(f'Repository "{repo.rid}" has been created.')
+            progress_consumer.progress_message.assert_any_call(f'CLONE task "{task_id}" has been scheduled.')
+            progress_consumer.progress_message.assert_any_call(f'CLONE task "{task_id}" has finished successfully.')
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_called_once()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.abap_modifications_added_only_to_buffer')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_with_buffer_only(self, mock_context_stub, mock_abap_modifications_added_only_to_buffer, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+        mock_abap_modifications_added_only_to_buffer.return_value = MagicMock()
+        refresh_response = {'result': repo_data}
+        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=True,
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+            mock_abap_modifications_added_only_to_buffer.assert_called_once_with(repo, None)
+            mock_context_stub.assert_called_once()
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_called_once()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.abap_modifications_disabled')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_with_no_import(self, mock_context_stub, mock_abap_modifications_disabled, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+        mock_abap_modifications_disabled.return_value = MagicMock()
+        refresh_response = {'result': repo_data}
+        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=True,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+            mock_abap_modifications_disabled.assert_called_once_with(repo, None)
+            mock_context_stub.assert_called_once()
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_called_once()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_schedule_clone_returns_none(self, mock_context_stub, mock_create, mock_schedule_clone):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        mock_schedule_clone.return_value = None
+
+        mock_context_stub.return_value = MagicMock()
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            result = sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+            mock_schedule_clone.assert_called_once_with(self.conn, repo)
+            spy_refresh.assert_not_called()
+            self.assertEqual(result, repo)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_wait_for_task_execution_timeout(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        mock_wait_for_task_execution.side_effect = sap.errors.OperationTimeoutError('Timeout error')
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            with self.assertRaises(sap.errors.OperationTimeoutError):
+                sap.rest.gcts.simple.clone_with_task(
+                    connection=self.conn,
+                    url=self.repo_url,
+                    rid=self.repo_rid,
+                    vsid=self.repo_vsid,
+                    start_dir=self.repo_start_dir,
+                    vcs_token=self.repo_vcs_token,
+                    error_exists=True,
+                    role='SOURCE',
+                    typ='GITHUB',
+                    no_import=False,
+                    buffer_only=False,
+                    wait_for_ready=600,
+                    poll_period=30
+                )
+
+            mock_wait_for_task_execution.assert_called_once()
+            spy_refresh.assert_not_called()
+
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_wait_for_ready_zero(self, mock_context_stub, mock_create, mock_schedule_clone):
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
+            with self.assertRaises(sap.errors.OperationTimeoutError):
+                sap.rest.gcts.simple.clone_with_task(
+                    connection=self.conn,
+                    url=self.repo_url,
+                    rid=self.repo_rid,
+                    vsid=self.repo_vsid,
+                    start_dir=self.repo_start_dir,
+                    vcs_token=self.repo_vcs_token,
+                    error_exists=True,
+                    role='SOURCE',
+                    typ='GITHUB',
+                    no_import=False,
+                    buffer_only=False,
+                    wait_for_ready=0,
+                    poll_period=30
+                )
+
+            mock_schedule_clone.assert_called_once_with(self.conn, repo)
+            spy_refresh.assert_not_called()
+
     def test_simple_schedule_clone_success(self):
         repo_data = dict(self.repo_server_data)
         repo_data['status'] = 'CREATED'
@@ -2284,14 +2606,82 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(str(caught.exception), 'gCTS exception: Fetch Error')
 
     @patch('sap.rest.gcts.simple.Repository')
-    def test_simple_checkout_ok(self, fake_repository):
+    @patch('sap.rest.gcts.simple.abap_modifications_disabled')
+    @patch('sap.rest.gcts.simple.abap_modifications_added_only_to_buffer')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_simple_checkout_ok(self, mock_context_stub, mock_abap_modifications_added_only_to_buffer, mock_abap_modifications_disabled, fake_repository):
         fake_instance = Mock()
         fake_repository.return_value = fake_instance
         fake_instance.checkout = Mock()
         fake_instance.checkout.return_value = 'probe'
 
+        mock_context_stub.return_value = MagicMock()
+
         response = sap.rest.gcts.simple.checkout(self.conn, 'the_new_branch', rid=self.repo_rid)
         fake_repository.assert_called_once_with(self.conn, self.repo_rid)
+        mock_abap_modifications_disabled.assert_not_called()
+        mock_abap_modifications_added_only_to_buffer.assert_not_called()
+        self.assertEqual(mock_context_stub.call_count, 2)
+        fake_instance.checkout.assert_called_once_with('the_new_branch')
+        self.assertEqual(response, 'probe')
+
+    @patch('sap.rest.gcts.simple.Repository')
+    @patch('sap.rest.gcts.simple.abap_modifications_disabled')
+    @patch('sap.rest.gcts.simple.abap_modifications_added_only_to_buffer')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_simple_checkout_with_no_import(self, mock_context_stub, mock_abap_modifications_added_only_to_buffer, mock_abap_modifications_disabled, fake_repository):
+        fake_instance = Mock()
+        fake_repository.return_value = fake_instance
+        fake_instance.checkout = Mock()
+        fake_instance.checkout.return_value = 'probe'
+
+        mock_context_stub.return_value = MagicMock()
+        mock_abap_modifications_disabled.return_value = MagicMock()
+        mock_progress_consumer = Mock()
+
+        response = sap.rest.gcts.simple.checkout(
+            self.conn,
+            'the_new_branch',
+            rid=self.repo_rid,
+            no_import=True,
+            buffer_only=False,
+            progress_consumer=mock_progress_consumer
+        )
+
+        fake_repository.assert_called_once_with(self.conn, self.repo_rid)
+        mock_abap_modifications_disabled.assert_called_once_with(fake_instance, mock_progress_consumer)
+        mock_abap_modifications_added_only_to_buffer.assert_not_called()
+        mock_context_stub.assert_called_once()
+        fake_instance.checkout.assert_called_once_with('the_new_branch')
+        self.assertEqual(response, 'probe')
+
+    @patch('sap.rest.gcts.simple.Repository')
+    @patch('sap.rest.gcts.simple.abap_modifications_disabled')
+    @patch('sap.rest.gcts.simple.abap_modifications_added_only_to_buffer')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_simple_checkout_with_buffer_only(self, mock_context_stub, mock_abap_modifications_added_only_to_buffer, mock_abap_modifications_disabled, fake_repository):
+        fake_instance = Mock()
+        fake_repository.return_value = fake_instance
+        fake_instance.checkout = Mock()
+        fake_instance.checkout.return_value = 'probe'
+
+        mock_context_stub.return_value = MagicMock()
+        mock_abap_modifications_added_only_to_buffer.return_value = MagicMock()
+        mock_progress_consumer = Mock()
+
+        response = sap.rest.gcts.simple.checkout(
+            self.conn,
+            'the_new_branch',
+            rid=self.repo_rid,
+            no_import=False,
+            buffer_only=True,
+            progress_consumer=mock_progress_consumer
+        )
+
+        fake_repository.assert_called_once_with(self.conn, self.repo_rid)
+        mock_abap_modifications_disabled.assert_not_called()
+        mock_abap_modifications_added_only_to_buffer.assert_called_once_with(fake_instance, mock_progress_consumer)
+        mock_context_stub.assert_called_once()
         fake_instance.checkout.assert_called_once_with('the_new_branch')
         self.assertEqual(response, 'probe')
 
@@ -2626,34 +3016,35 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(self.progress._recover_messages.get(test_pid), None)
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
-    def test_abap_modifications_disabled_reset_success(self, fake_uuid4):
+    def test_temporary_config_reset_success(self, fake_uuid4):
         fake_pid = 'test-pid-123'
+        config_name = 'VCS_NO_IMPORT'
         old_config_value = 'OLD_CONFIG_VALUE'
         tmp_config_value = 'X'
-        recover_message = f'Please set the configuration option VCS_NO_IMPORT = "{old_config_value}" manually'
+        recover_message = f'Please set the configuration option {config_name} = "{old_config_value}" manually'
         fake_uuid4.return_value.hex = fake_pid
         self.fake_repo.get_config.return_value = old_config_value
 
-        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+        with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value, self.progress):
 
             update_calls = self.spy_progress['update'].call_args_list
 
             self.assertEqual(len(update_calls), 3)
             # 1 retrieve config
             self.assertEqual(update_calls[0], call(
-                'Retrieving the config VCS_NO_IMPORT ...',
+                f'Retrieving the config {config_name} ...',
                 pid=fake_pid
             ))
             # 2 set tmp config
             self.assertEqual(update_calls[1], call(
-                f'Disabling imports by setting the config VCS_NO_IMPORT = "{tmp_config_value}" ...',
+                f'Setting the config {config_name} = "{tmp_config_value}" ...',
                 pid=fake_pid
             ))
-            self.fake_repo.get_config.assert_called_once_with('VCS_NO_IMPORT')
-            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', tmp_config_value)
+            self.fake_repo.get_config.assert_called_once_with(config_name)
+            self.fake_repo.set_config.assert_called_once_with(config_name, tmp_config_value)
             #  3 set revert action update
             self.assertEqual(update_calls[2], call(
-                f'Successfully changed the config VCS_NO_IMPORT = "{old_config_value}" -> "{tmp_config_value}"',
+                f'Successfully changed the config {config_name} = "{old_config_value}" -> "{tmp_config_value}"',
                 recover_message=recover_message,
                 pid=fake_pid)
             )
@@ -2668,47 +3059,48 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(update_calls), 5)
         #  4 revert action update
         self.assertEqual(update_calls[3], call(
-            f'Resetting the config VCS_NO_IMPORT = "{old_config_value}" ...',
-            recover_message=f'Please set the configuration option VCS_NO_IMPORT = "{old_config_value}" manually',
+            f'Resetting the config {config_name} = "{old_config_value}" ...',
+            recover_message=f'Please set the configuration option {config_name} = "{old_config_value}" manually',
             pid=fake_pid
         ))
         #  5 revert action update
         self.assertEqual(update_calls[4], call(
-            f'Successfully reset the config VCS_NO_IMPORT = "{old_config_value}"',
+            f'Successfully reset the config {config_name} = "{old_config_value}"',
             pid=fake_pid
         ))
 
         set_config_calls = self.fake_repo.set_config.call_args_list
         self.assertEqual(len(set_config_calls), 2)
-        self.assertEqual(set_config_calls[1], call('VCS_NO_IMPORT', old_config_value))
+        self.assertEqual(set_config_calls[1], call(config_name, old_config_value))
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
-    def test_abap_modifications_disabled_donothing_success(self, fake_uuid4):
+    def test_temporary_config_donothing_success(self, fake_uuid4):
         fake_pid = 'test-pid-123'
+        config_name = 'VCS_NO_IMPORT'
         old_config_value = 'X'
         fake_uuid4.return_value.hex = fake_pid
         self.fake_repo.get_config.return_value = old_config_value
 
-        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
-            tmp_config_value = 'X'
+        tmp_config_value = 'X'
+        with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value, self.progress):
             update_calls = self.spy_progress['update'].call_args_list
 
             self.assertEqual(len(update_calls), 3)
             # 1 retrieve config
             self.assertEqual(update_calls[0], call(
-                'Retrieving the config VCS_NO_IMPORT ...',
+                f'Retrieving the config {config_name} ...',
                 pid=fake_pid
             ))
             # 2 set tmp config
             self.assertEqual(update_calls[1], call(
-                f'Disabling imports by setting the config VCS_NO_IMPORT = "{tmp_config_value}" ...',
+                f'Setting the config {config_name} = "{tmp_config_value}" ...',
                 pid=fake_pid
             ))
-            self.fake_repo.get_config.assert_called_once_with('VCS_NO_IMPORT')
-            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', tmp_config_value)
+            self.fake_repo.get_config.assert_called_once_with(config_name)
+            self.fake_repo.set_config.assert_called_once_with(config_name, tmp_config_value)
             #  3 set revert action update
             self.assertEqual(update_calls[2], call(
-                f'The config VCS_NO_IMPORT was already set to "{tmp_config_value}"',
+                f'The config {config_name} was already set to "{tmp_config_value}"',
                 pid=fake_pid
             ))
 
@@ -2717,7 +3109,7 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(update_calls), 4)
         #  4 revert action update (_donothing)
         self.assertEqual(update_calls[3], call(
-            'The config VCS_NO_IMPORT has not been changed',
+            f'The config {config_name} has not been changed',
             pid=fake_pid
         ))
 
@@ -2726,34 +3118,35 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.fake_repo.delete_config.assert_not_called()
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
-    def test_abap_modifications_disabled_delete_success(self, fake_uuid4):
+    def test_temporary_config_delete_success(self, fake_uuid4):
         fake_pid = 'test-pid-123'
+        config_name = 'VCS_NO_IMPORT'
         old_config_value = None
         tmp_config_value = 'X'
-        recover_message = 'Please delete the configuration option VCS_NO_IMPORT manually'
+        recover_message = f'Please delete the configuration option {config_name} manually'
         fake_uuid4.return_value.hex = fake_pid
         self.fake_repo.get_config.return_value = old_config_value
 
-        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+        with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value, self.progress):
 
             update_calls = self.spy_progress['update'].call_args_list
 
             self.assertEqual(len(update_calls), 3)
             # 1 retrieve config
             self.assertEqual(update_calls[0], call(
-                'Retrieving the config VCS_NO_IMPORT ...',
+                f'Retrieving the config {config_name} ...',
                 pid=fake_pid
             ))
             # 2 set tmp config
             self.assertEqual(update_calls[1], call(
-                f'Disabling imports by setting the config VCS_NO_IMPORT = "{tmp_config_value}" ...',
+                f'Setting the config {config_name} = "{tmp_config_value}" ...',
                 pid=fake_pid
             ))
-            self.fake_repo.get_config.assert_called_once_with('VCS_NO_IMPORT')
-            self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', tmp_config_value)
+            self.fake_repo.get_config.assert_called_once_with(config_name)
+            self.fake_repo.set_config.assert_called_once_with(config_name, tmp_config_value)
             #  3 set revert action update
             self.assertEqual(update_calls[2], call(
-                f'Successfully added the config VCS_NO_IMPORT = "{tmp_config_value}"',
+                f'Successfully added the config {config_name} = "{tmp_config_value}"',
                 recover_message=recover_message,
                 pid=fake_pid)
             )
@@ -2768,44 +3161,47 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(update_calls), 5)
         #  4 revert action
         self.assertEqual(update_calls[3], call(
-            'Removing the config VCS_NO_IMPORT ...',
-            recover_message='Please delete the configuration option VCS_NO_IMPORT manually',
+            f'Removing the config {config_name} ...',
+            recover_message=f'Please delete the configuration option {config_name} manually',
             pid=fake_pid
         ))
         #  5 revert action
         self.assertEqual(update_calls[4], call(
-            'Successfully removed the config VCS_NO_IMPORT',
+            f'Successfully removed the config {config_name}',
             pid=fake_pid
         ))
 
-        self.fake_repo.delete_config.assert_called_once_with('VCS_NO_IMPORT')
+        self.fake_repo.delete_config.assert_called_once_with(config_name)
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
-    def test_abap_modifications_disabled_get_config_error(self, fake_uuid4):
+    def test_temporary_config_get_config_error(self, fake_uuid4):
         fake_pid = 'test-pid-123'
+        config_name = 'VCS_NO_IMPORT'
+        tmp_config_value = 'X'
         fake_uuid4.return_value.hex = fake_pid
         error_message = 'Get of configuration failed.'
         messages = {'exception': error_message}
         self.fake_repo.get_config.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as cm:
-            with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value, self.progress):
                 pass
 
         self.assertEqual(str(cm.exception), f'gCTS exception: {error_message}')
         self.spy_progress['update'].assert_has_calls([
             call(
-                'Retrieving the config VCS_NO_IMPORT ...',
+                f'Retrieving the config {config_name} ...',
                 pid=fake_pid
             ),
         ])
 
-        self.fake_repo.get_config.assert_called_once_with('VCS_NO_IMPORT')
+        self.fake_repo.get_config.assert_called_once_with(config_name)
         self.fake_repo.set_config.assert_not_called()
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
-    def test_abap_modifications_disabled_set_tmp_config_error(self, fake_uuid4):
+    def test_temporary_config_set_tmp_config_error(self, fake_uuid4):
         fake_pid = 'test-pid-123'
+        config_name = 'VCS_NO_IMPORT'
         fake_uuid4.return_value.hex = fake_pid
         previous_config_value = 'PREVIOUS_VALUE'
         tmp_config_value = 'X'
@@ -2816,31 +3212,32 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.fake_repo.set_config.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as cm:
-            with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value, self.progress):
                 pass
 
         self.assertEqual(str(cm.exception), f'gCTS exception: {error_message}')
         self.spy_progress['update'].assert_has_calls([
             call(
-                'Retrieving the config VCS_NO_IMPORT ...',
+                f'Retrieving the config {config_name} ...',
                 pid=fake_pid
             ),
             call(
-                'Disabling imports by setting the config VCS_NO_IMPORT = "X" ...',
+                f'Setting the config {config_name} = \"{tmp_config_value}\" ...',
                 pid=fake_pid
             ),
         ])
 
-        self.fake_repo.get_config.assert_called_once_with('VCS_NO_IMPORT')
-        self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', tmp_config_value)
+        self.fake_repo.get_config.assert_called_once_with(config_name)
+        self.fake_repo.set_config.assert_called_once_with(config_name, tmp_config_value)
         self.fake_repo.delete_config.assert_not_called()
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
-    def test_abap_modifications_disabled_reset_error(self, fake_uuid4):
+    def test_temporary_config_reset_error(self, fake_uuid4):
         fake_pid = 'test-pid-123'
+        config_name = 'VCS_NO_IMPORT'
         old_config_value = 'OLD_CONFIG_VALUE'
         tmp_config_value = 'X'
-        recover_message = f'Please set the configuration option VCS_NO_IMPORT = "{old_config_value}" manually'
+        recover_message = f'Please set the configuration option {config_name} = "{old_config_value}" manually'
         fake_uuid4.return_value.hex = fake_pid
         self.fake_repo.get_config.return_value = old_config_value
         error_message = 'Reset of configuration failed.'
@@ -2848,32 +3245,24 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.fake_repo.set_config.side_effect = [None, sap.rest.gcts.errors.GCTSRequestError(messages)]
 
         with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as cm:
-            with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value, self.progress):
 
                 update_calls = self.spy_progress['update'].call_args_list
 
                 self.assertEqual(len(update_calls), 3)
                 # 1 retrieve config
-                self.assertEqual(update_calls[0], call(
-                    'Retrieving the config VCS_NO_IMPORT ...',
-                    recover_message='Attempt to retrieve the config VCS_NO_IMPORT failed',
-                    pid=fake_pid
-                ))
+                self.assertEqual(update_calls[0], call(f'Retrieving the config {config_name} ...', pid=fake_pid))
                 # 2 set tmp config
-                self.assertEqual(update_calls[1], call(
-                    'Disabling imports by setting the config VCS_NO_IMPORT = "X" ...',
-                    recover_message='Attempt to change the config VCS_NO_IMPORT failed',
-                    pid=fake_pid
-                ))
+                self.assertEqual(update_calls[1], call(f'Setting the config {config_name} = \"{tmp_config_value}\" ...', pid=fake_pid))
                 #  3 set revert action update
                 self.assertEqual(update_calls[2], call(
-                    f'Successfully changed the config VCS_NO_IMPORT = "{old_config_value}" -> "{tmp_config_value}"',
+                    f'Successfully changed the config {config_name} = "{old_config_value}" -> "{tmp_config_value}"',
                     recover_message=recover_message,
                     pid=fake_pid)
                 )
 
-                self.fake_repo.get_config.assert_called_once_with('VCS_NO_IMPORT')
-                self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', tmp_config_value)
+                self.fake_repo.get_config.assert_called_once_with(config_name)
+                self.fake_repo.set_config.assert_called_once_with(config_name, tmp_config_value)
 
                 # check is recover message is set before yeld
                 self.assertEqual(
@@ -2886,29 +3275,30 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
 
         #  4 revert action update (before error)
         self.assertEqual(update_calls[3], call(
-            f'Resetting the config VCS_NO_IMPORT = "{old_config_value}" ...',
-            recover_message=f'Please set the configuration option VCS_NO_IMPORT = "{old_config_value}" manually',
+            f'Resetting the config {config_name} = "{old_config_value}" ...',
+            recover_message=f'Please set the configuration option {config_name} = "{old_config_value}" manually',
             pid=fake_pid
         ))
         self.assertEqual(len(update_calls), 4)
         # Check that "Successfully reset" call was NOT made (because reset failed with error)
         success_reset_call = call(
-            f'Successfully reset the config VCS_NO_IMPORT = "{old_config_value}"'
+            f'Successfully reset the config {config_name} = "{old_config_value}"'
         )
         self.assertNotIn(success_reset_call, update_calls)
 
         set_config_calls = self.fake_repo.set_config.call_args_list
         self.assertEqual(len(set_config_calls), 2)
-        self.assertEqual(set_config_calls[1], call('VCS_NO_IMPORT', old_config_value))
+        self.assertEqual(set_config_calls[1], call(config_name, old_config_value))
 
         self.assertEqual(str(cm.exception), f'gCTS exception: {error_message}')
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
-    def test_abap_modifications_disabled_delete_error(self, fake_uuid4):
+    def test_temporary_config_delete_error(self, fake_uuid4):
         fake_pid = 'test-pid-123'
+        config_name = 'VCS_NO_IMPORT'
         old_config_value = None
         tmp_config_value = 'X'
-        recover_message = 'Please delete the configuration option VCS_NO_IMPORT manually'
+        recover_message = f'Please delete the configuration option {config_name} manually'
         fake_uuid4.return_value.hex = fake_pid
         self.fake_repo.get_config.return_value = old_config_value
         error_message = 'Delete of configuration failed.'
@@ -2916,32 +3306,24 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.fake_repo.delete_config.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as cm:
-            with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value, self.progress):
 
                 update_calls = self.spy_progress['update'].call_args_list
 
                 self.assertEqual(len(update_calls), 3)
                 # 1 retrieve config
-                self.assertEqual(update_calls[0], call(
-                    'Retrieving the config VCS_NO_IMPORT ...',
-                    recover_message='Attempt to retrieve the config VCS_NO_IMPORT failed',
-                    pid=fake_pid
-                ))
+                self.assertEqual(update_calls[0], call(f'Retrieving the config {config_name} ...', pid=fake_pid))
                 # 2 set tmp config
-                self.assertEqual(update_calls[1], call(
-                    'Disabling imports by setting the config VCS_NO_IMPORT = "X" ...',
-                    recover_message='Attempt to change the config VCS_NO_IMPORT failed',
-                    pid=fake_pid
-                ))
+                self.assertEqual(update_calls[1], call(f'Setting the config {config_name} = \"{tmp_config_value}\" ...', pid=fake_pid))
                 #  3 set revert action update
                 self.assertEqual(update_calls[2], call(
-                    f'Successfully added the config VCS_NO_IMPORT = "{tmp_config_value}"',
+                    f'Successfully added the config {config_name} = "{tmp_config_value}"',
                     recover_message=recover_message,
                     pid=fake_pid)
                 )
 
-                self.fake_repo.get_config.assert_called_once_with('VCS_NO_IMPORT')
-                self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', tmp_config_value)
+                self.fake_repo.get_config.assert_called_once_with(config_name)
+                self.fake_repo.set_config.assert_called_once_with(config_name, tmp_config_value)
 
                 # check is recover message is set before yield
                 self.assertEqual(
@@ -2954,57 +3336,50 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
 
         #  4 revert action update (before error)
         self.assertEqual(update_calls[3], call(
-            'Removing the config VCS_NO_IMPORT ...',
-            recover_message='Please delete the configuration option VCS_NO_IMPORT manually',
+            f'Removing the config {config_name} ...',
+            recover_message=f'Please delete the configuration option {config_name} manually',
             pid=fake_pid
         ))
         self.assertEqual(len(update_calls), 4)
         # Check that "Successfully removed" call was NOT made (because delete failed with error)
         success_delete_call = call(
-            'Successfully removed the config VCS_NO_IMPORT'
+            f'Successfully removed the config {config_name}'
         )
         self.assertNotIn(success_delete_call, update_calls)
 
-        self.fake_repo.delete_config.assert_called_once_with('VCS_NO_IMPORT')
+        self.fake_repo.delete_config.assert_called_once_with(config_name)
 
         self.assertEqual(str(cm.exception), f'gCTS exception: {error_message}')
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
-    def test_abap_modifications_disabled_context_manager_error(self, fake_uuid4):
+    def test_temporary_config_context_manager_error(self, fake_uuid4):
         """Test that the context manager raises an error and restores config if the error action fails."""
         fake_pid = 'test-pid-123'
+        config_name = 'VCS_NO_IMPORT'
         old_config_value = 'OLD_CONFIG_VALUE'
         tmp_config_value = 'X'
-        recover_message = f'Please set the configuration option VCS_NO_IMPORT = "{old_config_value}" manually'
+        recover_message = f'Please set the configuration option {config_name} = "{old_config_value}" manually'
         fake_uuid4.return_value.hex = fake_pid
         self.fake_repo.get_config.return_value = old_config_value
         error_action = Mock()
         error_message = 'Error action failed.'
         error_action.side_effect = sap.rest.errors.SAPCliError(error_message)
         with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
-            with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value, self.progress):
                 error_action()
                 update_calls = self.spy_progress['update'].call_args_list
 
                 self.assertEqual(len(update_calls), 3)
                 # 1 retrieve config
-                self.assertEqual(update_calls[0], call(
-                    'Retrieving the config VCS_NO_IMPORT ...',
-                    recover_message='Attempt to retrieve the config VCS_NO_IMPORT failed',
-                    pid=fake_pid
-                ))
+                self.assertEqual(update_calls[0], call(f'Retrieving the config {config_name} ...', pid=fake_pid))
                 # 2 set tmp config
-                self.assertEqual(update_calls[1], call(
-                    f'Disabling imports by setting the config VCS_NO_IMPORT = "{tmp_config_value}" ...',
-                    recover_message='Attempt to change the config VCS_NO_IMPORT failed',
-                    pid=fake_pid
-                ))
+                self.assertEqual(update_calls[1], call(f'Setting the config {config_name} = \"{tmp_config_value}\" ...', pid=fake_pid))
 
-                self.fake_repo.get_config.assert_called_once_with('VCS_NO_IMPORT')
-                self.fake_repo.set_config.assert_called_once_with('VCS_NO_IMPORT', tmp_config_value)
+                self.fake_repo.get_config.assert_called_once_with(config_name)
+                self.fake_repo.set_config.assert_called_once_with(config_name, tmp_config_value)
                 #  3 set revert action update
                 self.assertEqual(update_calls[2], call(
-                    f'Successfully changed the config VCS_NO_IMPORT = "{old_config_value}" -> "{tmp_config_value}"',
+                    f'Successfully changed the config {config_name} = "{old_config_value}" -> "{tmp_config_value}"',
                     recover_message=recover_message,
                     pid=fake_pid)
                 )
@@ -3021,31 +3396,64 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(update_calls), 5)
         #  4 revert action update
         self.assertEqual(update_calls[3], call(
-            f'Resetting the config VCS_NO_IMPORT = "{old_config_value}" ...',
-            recover_message=f'Please set the configuration option VCS_NO_IMPORT = "{old_config_value}" manually',
+            f'Resetting the config {config_name} = "{old_config_value}" ...',
+            recover_message=f'Please set the configuration option {config_name} = "{old_config_value}" manually',
             pid=fake_pid
         ))
         #  5 revert action update
         self.assertEqual(update_calls[4], call(
-            f'Successfully reset the config VCS_NO_IMPORT = "{old_config_value}"',
+            f'Successfully reset the config {config_name} = "{old_config_value}"',
             pid=fake_pid
         ))
 
         set_config_calls = self.fake_repo.set_config.call_args_list
         self.assertEqual(len(set_config_calls), 2)
-        self.assertEqual(set_config_calls[1], call('VCS_NO_IMPORT', old_config_value))
+        self.assertEqual(set_config_calls[1], call(config_name, old_config_value))
 
     @patch('sap.rest.gcts.sugar.LogSugarOperationProgress')
-    def test_abap_modifications_disabled_without_progress(self, fake_log_sugar_operation_progress):
+    def test_temporary_config_without_progress(self, fake_log_sugar_operation_progress):
         """Test that the context manager works without a progress object and uses the default LogSugarOperationProgress"""
+        config_name = 'VCS_NO_IMPORT'
+        tmp_config_value = 'X'
         self.fake_repo.get_config.return_value = 'X'
 
-        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo):
+        with sap.rest.gcts.sugar.temporary_config(self.fake_repo, config_name, tmp_config_value):
             pass
 
         fake_log_sugar_operation_progress.assert_called_once()
 
-    # start here:
+    @patch('sap.rest.gcts.sugar.temporary_config')
+    def test_abap_modifications_disabled_calls_temporary_config(self, mock_temporary_config):
+        """Test that abap_modifications_disabled calls temporary_config with correct arguments"""
+        mock_context_manager = MagicMock()
+        mock_temporary_config.return_value = mock_context_manager
+
+        with sap.rest.gcts.sugar.abap_modifications_disabled(self.fake_repo, self.progress):
+            pass
+
+        mock_temporary_config.assert_called_once_with(
+            self.fake_repo,
+            config_name='VCS_NO_IMPORT',
+            tmp_config_value='X',
+            progress=self.progress
+        )
+
+    @patch('sap.rest.gcts.sugar.temporary_config')
+    def test_abap_modifications_added_only_to_buffer_calls_temporary_config(self, mock_temporary_config):
+        """Test that abap_modifications_added_only_to_buffer calls temporary_config with correct arguments"""
+        mock_context_manager = MagicMock()
+        mock_temporary_config.return_value = mock_context_manager
+
+        with sap.rest.gcts.sugar.abap_modifications_added_only_to_buffer(self.fake_repo, self.progress):
+            pass
+
+        mock_temporary_config.assert_called_once_with(
+            self.fake_repo,
+            config_name='VCS_BUFFER_ONLY',
+            tmp_config_value='X',
+            progress=self.progress
+        )
+
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
     def test_temporary_switched_branch_checkout_success(self, fake_uuid4):
         """Test successful checkout to new branch and restore to old branch."""
@@ -3162,9 +3570,7 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
                 pid=fake_pid
             ),
         ])
-        # Note: The code calls progress.recover_notification(context_id) which doesn't exist
-        # in LogSugarOperationProgress, so this will raise AttributeError
-        # The test doesn't check for this as the code has a bug
+        
 
         self.fake_repo.checkout.assert_called_once_with(new_branch)
 
@@ -3231,10 +3637,7 @@ class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(checkout_calls[1], call(old_branch))
 
         self.assertEqual(str(cm.exception), f'gCTS exception: {error_message}')
-        # Note: The code calls progress.recover_notification(context_id) in _checkout
-        # which doesn't exist in LogSugarOperationProgress, but this is in the finally
-        # block and the error occurs during revert, so process_recover_notification
-        # should be called if the code is fixed. For now, we don't check this.
+       
 
     @patch('sap.rest.gcts.sugar.uuid.uuid4')
     def test_temporary_switched_branch_context_manager_error(self, fake_uuid4):
