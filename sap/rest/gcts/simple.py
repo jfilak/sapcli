@@ -14,6 +14,13 @@ from sap.rest.gcts.errors import (
     GCTSRepoAlreadyExistsError,
     SAPCliError,
 )
+from sap.rest.gcts.sugar import (
+    context_stub,
+    abap_modifications_disabled,
+    abap_modifications_added_only_to_buffer,
+    SugarOperationProgress,
+    LogTaskOperationProgress,
+)
 
 
 def _mod_log():
@@ -71,8 +78,9 @@ def wait_for_task_execution(task: RepositoryTask, wait_for_ready, poll_period=30
     raise OperationTimeoutError(f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}.')
 
 
-def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
-          role='SOURCE', typ='GITHUB') -> Repository:
+def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
+          error_exists=True, role='SOURCE', typ='GITHUB', no_import=False,
+          buffer_only=False, progress_consumer: Optional[SugarOperationProgress] = None) -> Repository:
     """Creates and clones the repository in the target systems"""
 
     repo = create(
@@ -90,8 +98,65 @@ def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, er
     if repo.is_cloned:
         _mod_log().info('Not cloning the repository "%s": already performed', repo.rid)
         return repo
+    with (
+        abap_modifications_disabled(repo, progress_consumer) if no_import else context_stub(),
+        abap_modifications_added_only_to_buffer(repo, progress_consumer) if buffer_only else context_stub()
+    ):
+        repo.clone()
+    return repo
 
-    repo.clone()
+
+# pylint: disable=too-many-locals
+def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
+                    error_exists=True, role='SOURCE', typ='GITHUB', no_import=False,
+                    buffer_only=False, wait_for_ready: int = 600, poll_period: int = 30,
+                    progress_consumer: LogTaskOperationProgress | None = None) -> Repository:
+    """Creates and clones the repository in the target systems and schedules a cloning task"""
+
+    repo = create(
+        connection=connection,
+        url=url,
+        rid=rid,
+        vsid=vsid,
+        start_dir=start_dir,
+        vcs_token=vcs_token,
+        error_exists=error_exists,
+        role=role,
+        typ=typ,
+    )
+    if progress_consumer:
+        progress_consumer.progress_message(f'Repository "{repo.rid}" has been created.')
+
+    if repo.is_cloned:
+        if progress_consumer:
+            progress_consumer.progress_message(f'Not cloning the repository "{repo.rid}": already performed.')
+        return repo
+    with (
+        abap_modifications_disabled(repo, progress_consumer) if no_import else context_stub(),
+        abap_modifications_added_only_to_buffer(repo, progress_consumer) if buffer_only else context_stub()
+    ):
+
+        task = schedule_clone(connection, repo)
+
+        if not task:
+            return repo
+        if progress_consumer:
+            progress_consumer.progress_message(f'CLONE task "{task.tid}" has been scheduled.')
+        if wait_for_ready > 0:
+            def _poll_cb(error_msg, task):
+                if error_msg and progress_consumer:
+                    progress_consumer.update_task(error_msg, None)
+                if task and progress_consumer:
+                    progress_consumer.update_task(None, task)
+
+            wait_for_task_execution(task, wait_for_ready, poll_period, _poll_cb)
+            if progress_consumer:
+                progress_consumer.progress_message(f'CLONE task "{task.tid}" has finished successfully.')
+        else:
+            raise OperationTimeoutError
+
+    repo.refresh()
+
     return repo
 
 

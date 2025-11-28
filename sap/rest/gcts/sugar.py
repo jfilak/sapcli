@@ -3,7 +3,8 @@
 import abc
 import uuid
 import functools
-from contextlib import contextmanager
+from typing import Optional, ContextManager
+from contextlib import contextmanager, nullcontext as nc
 from sap import get_logger
 
 
@@ -62,16 +63,35 @@ class LogSugarOperationProgress(SugarOperationProgress):
         _mod_log().error(message)
 
 
-def abap_modifications_disabled(repo, progress=None) -> contextmanager:
+class LogTaskOperationProgress(SugarOperationProgress, metaclass=abc.ABCMeta):
+    """Recording progress of task operations as logs."""
+
+    @abc.abstractmethod
+    def update_task(self, error_msg: Optional[str], task: Optional[dict]):
+        """Update progress of task operation."""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def progress_message(self, message: str):
+        """Print progress message."""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def progress_error(self, message: str):
+        """Print  message."""
+        raise NotImplementedError()
+
+
+def abap_modifications_disabled(repo, progress=None) -> ContextManager[None]:
     """Temporarily disable ABAP modifications upon gCTS operations (perform
        operations only in filesystem git repository).
     """
     return temporary_config(repo, config_name='VCS_NO_IMPORT', tmp_config_value='X', progress=progress)
 
 
-def abap_modifications_added_only_to_buffer(repo, progress=None) -> contextmanager:
+def abap_modifications_added_only_to_buffer(repo, progress=None) -> ContextManager[None]:
     """Temporarily disable ABAP modifications upon gCTS operations (perform
-       operations in filesystem git repository and a transport request 
+       operations in filesystem git repository and a transport request
        is generated and added to the buffer).
     """
     return temporary_config(repo, config_name='VCS_BUFFER_ONLY', tmp_config_value='X', progress=progress)
@@ -135,7 +155,6 @@ def temporary_config(repo, config_name, tmp_config_value, progress=None):
         revert_action(old_config_value)
 
 
-
 @contextmanager
 def temporary_switched_branch(repo, branch, progress=None):
     """Temporarily checkout the requested branch.
@@ -180,3 +199,8 @@ def temporary_switched_branch(repo, branch, progress=None):
         yield
     finally:
         revert_action(old_branch)
+
+
+def context_stub():
+    '''Stub context manager that does nothing'''
+    return nc()
