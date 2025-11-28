@@ -3,6 +3,8 @@ import sap.cli.core
 from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
 from sap.rest.gcts.remote_repo import Repository, RepoActivitiesQueryParams
 from sap.rest.errors import HTTPRequestError
+from sap.rest.gcts.sugar import LogTaskOperationProgress, SugarOperationProgress
+from sap.cli.core import PrintConsole
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -87,6 +89,7 @@ def get_activity_rc(repo, operation: RepoActivitiesQueryParams.Operation):
 
     return int(activities_list[0]['rc'])
 
+
 def is_cloned_activity_success(console, repo: Repository) -> bool:
     """Check if the cloned activity is successful"""
     clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
@@ -112,3 +115,43 @@ def print_gcts_task_info(err_msg: str | None = None, task: dict | None = None):
         console.printerr(err_msg)
     elif task:
         console.printout(f'\nTask Status: {task["status"]}')
+
+
+class TaskOperationProgress(LogTaskOperationProgress):
+    """Progress of task operations"""
+
+    def __init__(self, console: PrintConsole):
+        super().__init__()
+        self._console = console
+
+    # for printing task info to console
+    def update_task(self, error_msg: str | None, task: dict | None):
+        print_gcts_task_info(error_msg, task)
+
+    # for context logging
+    def _handle_updated(self, message, recover_message, pid):
+        self._console.printout(message)
+
+    def _handle_recover(self, message):
+        self._console.printerr(message)
+
+    # for task progress logging
+    def progress_message(self, message: str):
+        self._console.printout(message)
+
+    def progress_error(self, message: str):
+        self._console.printerr(message)
+
+
+class ConsoleSugarOperationProgress(SugarOperationProgress):
+    """Handler for progress message of sugar operations"""
+
+    def __init__(self, console):
+        super().__init__()
+        self._console = console
+
+    def _handle_updated(self, message, recover_message, pid):
+        self._console.printout(message)
+
+    def _handle_recover(self, message):
+        self._console.printerr(message)
