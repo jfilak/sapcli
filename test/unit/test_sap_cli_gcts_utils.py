@@ -8,7 +8,7 @@ from test.unit.mock import (
 from sap.cli.gcts_utils import (
     print_gcts_task_info,
     is_checkout_activity_success,
-    is_cloned_activity_success,
+    is_clone_activity_success,
     get_activity_rc,
     print_gcts_message,
     dump_gcts_messages,
@@ -106,10 +106,10 @@ class TestIsClonedActivitySuccess(ConsoleOutputTestCase, unittest.TestCase):
         self.mock_repo = Mock()
 
     @patch('sap.cli.gcts_utils.get_activity_rc')
-    def test_is_cloned_activity_success_successful(self, mock_get_activity_rc):
+    def test_is_clone_activity_success_successful(self, mock_get_activity_rc):
         mock_get_activity_rc.return_value = 4
 
-        result = is_cloned_activity_success(self.console, self.mock_repo)
+        result = is_clone_activity_success(self.console, self.mock_repo)
 
         from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
         mock_get_activity_rc.assert_called_once_with(
@@ -122,11 +122,11 @@ class TestIsClonedActivitySuccess(ConsoleOutputTestCase, unittest.TestCase):
         self.assertConsoleContents(console=self.console, stderr='')
 
     @patch('sap.cli.gcts_utils.get_activity_rc')
-    def test_is_cloned_activity_success_unsuccessful(self, mock_get_activity_rc):
+    def test_is_clone_activity_success_unsuccessful(self, mock_get_activity_rc):
         code = 5
         mock_get_activity_rc.return_value = code
 
-        result = is_cloned_activity_success(self.console, self.mock_repo)
+        result = is_clone_activity_success(self.console, self.mock_repo)
 
         from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
         mock_get_activity_rc.assert_called_once_with(

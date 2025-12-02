@@ -27,7 +27,7 @@ from sap.cli.gcts_utils import (
     is_checkout_activity_success,
     TaskOperationProgress,
     ConsoleSugarOperationProgress,
-    is_cloned_activity_success,
+    is_clone_activity_success,
 )
 
 
@@ -641,7 +641,7 @@ def clone(connection, args):
         console.printout(f'  sapcli gcts task list {package}')
         return 1
 
-    if check_activities_flag and not is_cloned_activity_success(console, repo):
+    if check_activities_flag and not is_clone_activity_success(console, repo):
         if delayed_exc:
             console.printerr(str(delayed_exc))
         return 1

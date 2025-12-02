@@ -90,7 +90,7 @@ def get_activity_rc(repo, operation: RepoActivitiesQueryParams.Operation):
     return int(activities_list[0]['rc'])
 
 
-def is_cloned_activity_success(console, repo: Repository) -> bool:
+def is_clone_activity_success(console, repo: Repository) -> bool:
     """Check if the cloned activity is successful"""
     clone_rc = get_activity_rc(repo, RepoActivitiesQueryParams.Operation.CLONE)
     if clone_rc > Repository.ActivityReturnCode.CLONE_SUCCESS.value:

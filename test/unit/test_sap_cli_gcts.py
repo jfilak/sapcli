@@ -185,7 +185,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_simple_wait_for_operation = self.patch('sap.rest.gcts.simple.wait_for_operation')
         self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
 
-        self.spy_is_cloned_activity_success = self.patch('sap.cli.gcts.is_cloned_activity_success', wraps=sap.cli.gcts_utils.is_cloned_activity_success)
+        self.spy_is_clone_activity_success = self.patch('sap.cli.gcts.is_clone_activity_success', wraps=sap.cli.gcts_utils.is_clone_activity_success)
 
         self.conn = Mock()
         self.fake_repo = sap.rest.gcts.remote_repo.Repository(self.conn, 'sample', data={
@@ -264,7 +264,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
         call_args = self.fake_simple_clone.call_args
         progress_consumer = call_args.kwargs['progress_consumer']
         self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
-        self.spy_is_cloned_activity_success.assert_not_called()
+        self.spy_is_clone_activity_success.assert_not_called()
 
         self.fake_heartbeat.assert_called_once_with(self.console, 1)
 
@@ -304,7 +304,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
         call_args = self.fake_simple_clone.call_args
         progress_consumer = call_args.kwargs['progress_consumer']
         self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
-        self.spy_is_cloned_activity_success.assert_not_called()
+        self.spy_is_clone_activity_success.assert_not_called()
 
     def test_clone_with_buffer_only(self):
         args = self.clone(
@@ -341,7 +341,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
         call_args = self.fake_simple_clone.call_args
         progress_consumer = call_args.kwargs['progress_consumer']
         self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
-        self.spy_is_cloned_activity_success.assert_called_once_with(self.console, self.fake_repo)
+        self.spy_is_clone_activity_success.assert_called_once_with(self.console, self.fake_repo)
 
     def test_clone_existing(self):
         repo_url = 'https://example.org/repo/git/sample.git'
@@ -375,7 +375,7 @@ class TestgCTSCloneSync(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(exit_code, 1)
         self.fake_heartbeat.assert_called_once_with(self.console, 0)
-        self.spy_is_cloned_activity_success.assert_not_called()
+        self.spy_is_clone_activity_success.assert_not_called()
         fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
 
     def test_clone_internal_error_no_wait(self):
@@ -516,7 +516,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_get_repository = self.patch('sap.cli.gcts.get_repository')
         self.fake_print_gcts_task_info = self.patch('sap.cli.gcts_utils.print_gcts_task_info')
         self.fake_heartbeat = self.patch('sap.cli.helpers.ConsoleHeartBeat', return_value=MagicMock())
-        self.fake_is_cloned_activity_success = self.patch('sap.cli.gcts.is_cloned_activity_success')
+        self.fake_is_clone_activity_success = self.patch('sap.cli.gcts.is_clone_activity_success')
         self.conn = Mock()
         self.conn.get_json.return_value = {
             'result': {
@@ -559,7 +559,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         })
 
         self.fake_simple_clone_with_task.return_value = self.fake_repo
-        self.fake_is_cloned_activity_success.return_value = True
+        self.fake_is_clone_activity_success.return_value = True
 
     def clone(self, *args, **kwargs):
         return parse_args('clone', *args, **kwargs)
@@ -602,7 +602,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         call_args = self.fake_simple_clone_with_task.call_args
         progress_consumer = call_args.kwargs['progress_consumer']
         self.assertIsInstance(progress_consumer, LogTaskOperationProgress)
-        self.fake_is_cloned_activity_success.assert_called_once_with(self.console, self.fake_repo)
+        self.fake_is_clone_activity_success.assert_called_once_with(self.console, self.fake_repo)
         self.fake_heartbeat.assert_called_once_with(self.console, 0)
 
         expected_output = f'''Cloned repository:
@@ -652,7 +652,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         )
 
         self.fake_heartbeat.assert_called_once_with(self.console, self.command_arguments['heartbeat'])
-        self.fake_is_cloned_activity_success.assert_not_called()
+        self.fake_is_clone_activity_success.assert_not_called()
         expected_output = f'''Cloned repository:
  URL   : {self.command_arguments['url']}
  branch: {self.default_repo_branch}
@@ -687,7 +687,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         )
 
         self.fake_heartbeat.assert_called_once_with(self.console, 0)
-        self.fake_is_cloned_activity_success.assert_not_called()
+        self.fake_is_clone_activity_success.assert_not_called()
         expected_output = f'''Cloned repository:
  URL   : {self.command_arguments['url']}
  branch: {self.default_repo_branch}
@@ -722,7 +722,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         )
 
         self.fake_heartbeat.assert_called_once_with(self.console, 0)
-        self.fake_is_cloned_activity_success.assert_called_once_with(self.console, self.fake_repo)
+        self.fake_is_clone_activity_success.assert_called_once_with(self.console, self.fake_repo)
         expected_output = f'''Cloned repository:
  URL   : {self.command_arguments['url']}
  branch: {self.default_repo_branch}
@@ -767,7 +767,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(exit_code, 1)
 
         self.fake_heartbeat.assert_called_once_with(self.console, 0)
-        self.fake_is_cloned_activity_success.assert_not_called()
+        self.fake_is_clone_activity_success.assert_not_called()
         self.assertConsoleContents(
             self.console,
             stdout='Clone request responded with an error.\n',
@@ -786,7 +786,7 @@ class TestgCTSCloneAsync(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(exit_code, 1)
 
         self.fake_heartbeat.assert_called_once_with(self.console, 0)
-        self.fake_is_cloned_activity_success.assert_not_called()
+        self.fake_is_clone_activity_success.assert_not_called()
         self.assertConsoleContents(
             self.console,
             stdout=f'You can check the task status using the following command:\n  sapcli gcts task list {package_name_from_url(self.command_arguments['url'])}\n',
