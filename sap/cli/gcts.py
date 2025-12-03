@@ -2,6 +2,7 @@
 
 import os
 import warnings
+from functools import partial
 
 import sap.cli.core
 import sap.cli.helpers
@@ -18,16 +19,19 @@ from sap.rest.gcts.errors import (
     GCTSRequestError,
     SAPCliError,
 )
+from sap.rest.gcts.activities import (
+    is_checkout_activity_success,
+    is_clone_activity_success,
+)
 from sap.errors import OperationTimeoutError
 from sap.rest.errors import HTTPRequestError
 from sap.cli.gcts_task import CommandGroup as TaskCommandGroup
 from sap.cli.gcts_utils import (
     dump_gcts_messages,
     gcts_exception_handler,
-    is_checkout_activity_success,
+    gcts_activity_rc_handler,
     TaskOperationProgress,
     ConsoleSugarOperationProgress,
-    is_clone_activity_success,
 )
 
 
@@ -641,7 +645,7 @@ def clone(connection, args):
         console.printout(f'  sapcli gcts task list {package}')
         return 1
 
-    if check_activities_flag and not is_clone_activity_success(console, repo):
+    if check_activities_flag and not is_clone_activity_success(repo, partial(gcts_activity_rc_handler, console, 'Clone')):
         if delayed_exc:
             console.printerr(str(delayed_exc))
         return 1
@@ -763,7 +767,8 @@ def checkout(connection, args):
 
             if need_to_check_activities:
                 console.printout('Checkout request responded with an error. Checking checkout process ...')
-                if not is_checkout_activity_success(console, repo):
+
+                if not is_checkout_activity_success(repo, partial(gcts_activity_rc_handler, console, 'Checkout')):
                     console.printerr(str(exc))
                     return 1
 
