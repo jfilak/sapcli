@@ -268,9 +268,12 @@ class SSLCertStorage:
             return f'SSFR_PUT_CERTIFICATE reported Error 522 - ' \
                 f'probably already exists (check manually): {message}'
 
-        raise PutCertificateError(
-            f'Failed to put the CERT to the {str(self)}: {ret[0]["MESSAGE"]}'
-        )
+        if msgtype != 'S':
+            raise PutCertificateError(
+                f'Failed to put the CERT to the {str(self)}: {ret[0]["MESSAGE"]}'
+            )
+
+        return 'OK'
 
     def get_own_certificate(self) -> bytes:
         """Returns X.509 Base64 certificate"""

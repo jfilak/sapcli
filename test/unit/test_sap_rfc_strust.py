@@ -362,6 +362,21 @@ class TestSSLCertStorage(unittest.TestCase):
                           f'Failed to put the CERT to the SSL Storage {self.pse_context}/{self.pse_applic}: '
                           'Put has failed')
 
+    def test_put_certificate_returns_ok_on_success_message(self):
+        self.connection.set_responses([{
+            'ET_BAPIRET2': [{'TYPE': 'S', 'NUMBER': '003', 'MESSAGE': 'Certificate added to PSE (SSFR_PUT_CERTIFICATE:204:SSLC/DFAULT)'}]}])
+
+        result = self.ssl_storage.put_certificate('plain old data')
+
+        self.assertEqual(result, 'OK')
+
+        expected_call_arguments = {
+            'IV_CERTIFICATE': u'plain old data'
+        }
+        expected_call_arguments.update(**self.expected_storage_identity)
+
+        self.assert_rfc_call('SSFR_PUT_CERTIFICATE', **expected_call_arguments)
+
     def test_put_certificate_fail_and_return_msg(self):
         self.connection.set_responses([{
             'ET_BAPIRET2': [{'TYPE': 'E', 'NUMBER': '522', 'MESSAGE': 'Put has failed'}]}])
