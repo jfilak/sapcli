@@ -1,5 +1,6 @@
 """gCTS Error wrappers"""
 
+import re
 from sap.errors import SAPCliError
 
 
@@ -58,11 +59,13 @@ def exception_from_http_error(http_error):
     messages = http_error.response.json()
 
     log = messages.get('log', None)
-    if log and log[0].get('message', '').endswith('Error action CREATE_REPOSITORY Repository already exists'):
-        return GCTSRepoAlreadyExistsError(messages)
+    if log:
+        first_entry = log[0].get('message', '')
 
-    if log and log[0].get('message', '').endswith('CREATE_REPOSITORY: Error action Repository already exists'):
-        return GCTSRepoAlreadyExistsError(messages)
+        if (first_entry.endswith('Error action CLONE_REPOSITORY Repository already cloned or in use')
+                or first_entry.endswith('Error action CREATE_REPOSITORY Repository already exists')
+                or re.match(first_entry, r'Repository .* was already created by user .*')):
+            return GCTSRepoAlreadyExistsError(messages)
 
     exception = messages.get('exception', None)
     if exception == 'No relation between system and repository':
