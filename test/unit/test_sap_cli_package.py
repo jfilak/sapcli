@@ -99,7 +99,11 @@ class TestPackageCreate(unittest.TestCase):
             sap.cli.package.create(connection, args)
 
 
-class TestPackageList(unittest.TestCase):
+class TestPackageList(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        ConsoleOutputTestCase.setUp(self)
+        self.patch_console(console=self.console)
 
     def configure_mock_walk(self, conn, fake_walk):
         fake_walk.return_value = iter(
@@ -123,14 +127,15 @@ class TestPackageList(unittest.TestCase):
         self.configure_mock_walk(conn, fake_walk)
         args = parse_args('list', '$VICTORY')
 
-        with patch('sap.cli.package.print') as fake_print:
-            args.execute(conn, args)
+        args.execute(conn, args)
 
-        self.assertEqual(fake_print.mock_calls, [call('$VICTORY_TESTS'),
-                                                 call('$VICTORY_DOC'),
-                                                 call('ZIF_HELLO_WORLD'),
-                                                 call('ZCL_HELLO_WORLD'),
-                                                 call('Z_HELLO_WORLD')])
+        self.assertConsoleContents(self.console, stdout='''$VICTORY_TESTS
+$VICTORY_DOC
+ZIF_HELLO_WORLD
+ZCL_HELLO_WORLD
+Z_HELLO_WORLD
+''')
+
     @patch('sap.adt.package.walk')
     def test_with_recursion(self, fake_walk):
         conn = Connection()
@@ -138,14 +143,14 @@ class TestPackageList(unittest.TestCase):
         self.configure_mock_walk(conn, fake_walk)
         args = parse_args('list', '$VICTORY', '-r')
 
-        with patch('sap.cli.package.print') as fake_print:
-            args.execute(conn, args)
+        args.execute(conn, args)
 
-        self.assertEqual(fake_print.mock_calls, [call('ZIF_HELLO_WORLD'),
-                                                 call('ZCL_HELLO_WORLD'),
-                                                 call('Z_HELLO_WORLD'),
-                                                 call('$VICTORY_TESTS/ZCL_TESTS'),
-                                                 call('$VICTORY_DOC/')])
+        self.assertConsoleContents(self.console, stdout='''ZIF_HELLO_WORLD
+ZCL_HELLO_WORLD
+Z_HELLO_WORLD
+$VICTORY_TESTS/ZCL_TESTS
+$VICTORY_DOC/
+''')
 
 class TestPackageStat(PatcherTestCase, ConsoleOutputTestCase):
 

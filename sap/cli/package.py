@@ -74,6 +74,8 @@ def list_package(connection, args):
 
     package = sap.adt.Package(connection, args.name)
 
+    console = sap.cli.core.get_console()
+
     for pkg, subpackages, objects in sap.adt.package.walk(package):
         basedir = '/'.join(pkg)
         if basedir:
@@ -81,16 +83,16 @@ def list_package(connection, args):
 
         if not args.recursive:
             for subpkg in subpackages:
-                print(f'{basedir}{subpkg}')
+                console.printout(f'{basedir}{subpkg}')
 
         for obj in objects:
-            print(f'{basedir}{obj.name}')
+            console.printout(f'{basedir}{obj.name}')
 
         if not args.recursive:
             break
 
         if not subpackages and not objects:
-            print(f'{basedir}')
+            console.printout(f'{basedir}')
 
     return 0
 
