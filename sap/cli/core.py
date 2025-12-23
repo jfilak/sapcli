@@ -2,6 +2,7 @@
 
 import sys
 import json
+import typing
 
 from contextlib import contextmanager
 
@@ -266,7 +267,7 @@ def console_printout_file(console, path):
             yield ConsoleFileDecorator(console, fileout)
 
 
-_CONSOLE = None
+_CONSOLE: typing.Union[PrintConsole, None] = None
 
 
 def get_console():
@@ -279,6 +280,18 @@ def get_console():
         _CONSOLE = PrintConsole()
 
     return _CONSOLE
+
+
+def set_console(new_console: PrintConsole) -> typing.Union[PrintConsole, None]:
+    """Change output destination."""
+
+    # pylint: disable=global-statement
+    global _CONSOLE
+
+    old = _CONSOLE
+    _CONSOLE = new_console
+
+    return old
 
 
 def printout(*objects, sep=' ', end='\n'):
