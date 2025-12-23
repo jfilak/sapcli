@@ -270,7 +270,7 @@ _CONSOLE = None
 
 
 def get_console():
-    """Standard user output. Don't user for logging!"""
+    """Standard user output. Don't use for logging!"""
 
     # pylint: disable=global-statement
     global _CONSOLE
