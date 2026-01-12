@@ -46,6 +46,16 @@ pattern:
 python -m unittest discover -b -v -s test/unit -k test-name-pattern
 ```
 
+Or if you see a test failure and you need to quickly run that one test case,
+you can make use of the wrapper script `test/unit/runtest.sh`:
+
+```bash
+./test/unit/runtest.sh test_sap_cli_gcts.TestgCTSRepoMessages
+```
+
+Where `test_sap_cli_gcts` refers to `test/unit/test_sap_cli_gcts.py`
+and TestgCTSRepoMessages is a test class.
+
 4. Check code coverage - run either `make report-coverage` or
 
 ```bash
