@@ -22,9 +22,10 @@ class InvalidCommandLineError(SAPCliError):
 class CommandDeclaration:
     """Command forward declaration"""
 
-    def __init__(self, handler, name):
+    def __init__(self, handler, name, description=None):
         self.handler = handler
         self.name = name
+        self.description = description
         self.arguments = []
 
     def append_argument(self, *args, **kwargs):
@@ -58,7 +59,7 @@ class CommandsList:
     def __init__(self):
         self.declarations = {}
 
-    def add_command(self, handler, name=None, handler_wrapper=None):
+    def add_command(self, handler, name=None, handler_wrapper=None, description=None):
         """Adds a new command"""
 
         fname = handler.__name__
@@ -67,7 +68,10 @@ class CommandsList:
             raise SAPCliError(f'Handler already registered: {fname}')
 
         handler_wrapper = handler_wrapper if handler_wrapper is not None else lambda func: func
-        cmd = CommandDeclaration(handler_wrapper(handler), name if name is not None else fname)
+        cmd = CommandDeclaration(
+            handler_wrapper(handler),
+            name if name is not None else fname,
+            description=description or handler.__doc__)
         self.declarations[fname] = cmd
 
         return cmd
@@ -94,8 +98,9 @@ class CommandGroup:
        to functional method calls.
     """
 
-    def __init__(self, name):
+    def __init__(self, name, description=None):
         self.name = name
+        self.description = description
 
     def install_parser(self, arg_parser):
         """Add own commands as sub-parser of the given ArgParser.
@@ -104,7 +109,7 @@ class CommandGroup:
         command_args = arg_parser.add_subparsers()
 
         for command in self.__class__.get_commands().values():
-            get_args = command_args.add_parser(command.name)
+            get_args = command_args.add_parser(command.name, help=command.description)
             get_args.set_defaults(execute=command.handler)
             command.install_arguments(get_args)
 

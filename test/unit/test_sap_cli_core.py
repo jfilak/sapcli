@@ -18,6 +18,14 @@ class TestCommandDeclaration(unittest.TestCase):
 
         self.assertEqual(cmd_decl.name, 'printer')
         self.assertEqual(cmd_decl.handler, print)
+        self.assertIsNone(cmd_decl.description)
+
+    def test_init_with_description(self):
+        cmd_decl = sap.cli.core.CommandDeclaration(print, 'printer', description='prints out data')
+
+        self.assertEqual(cmd_decl.name, 'printer')
+        self.assertEqual(cmd_decl.handler, print)
+        self.assertEqual(cmd_decl.description, 'prints out data')
 
     def test_insert_argument(self):
         cmd_decl = sap.cli.core.CommandDeclaration(print, 'printer')
@@ -76,6 +84,8 @@ class TestCommandDeclaration(unittest.TestCase):
 class TestCommandsList(unittest.TestCase):
 
     def handler(self):
+        """test handler"""
+
         pass
 
     def setUp(self):
@@ -89,6 +99,7 @@ class TestCommandsList(unittest.TestCase):
         self.assertEqual(len(commands), 1)
         self.assertEqual(command.name, 'handler')
         self.assertEqual(command.handler, self.handler)
+        self.assertEqual(command.description, 'test handler')
 
     def test_add_command_with_name(self):
         self.cmd_list.add_command(self.handler, name='command')
@@ -98,6 +109,16 @@ class TestCommandsList(unittest.TestCase):
         self.assertEqual(len(commands), 1)
         self.assertEqual(command.name, 'command')
         self.assertEqual(command.handler, self.handler)
+
+    def test_add_command_with_description(self):
+        self.cmd_list.add_command(self.handler, name='command', description='custom help')
+        commands = self.cmd_list.values()
+        command = next(iter(commands))
+
+        self.assertEqual(len(commands), 1)
+        self.assertEqual(command.name, 'command')
+        self.assertEqual(command.handler, self.handler)
+        self.assertEqual(command.description, 'custom help')
 
     def test_add_command_with_wrapper(self):
         def test_wrapper(_):
@@ -157,13 +178,14 @@ class EmptyDummyCommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super(EmptyDummyCommandGroup, self).__init__('empty-pytest')
+        super(EmptyDummyCommandGroup, self).__init__('empty-pytest', description='dummy empty group')
 
 
 @DummyCommandGroup.argument('name')
 @DummyCommandGroup.argument_corrnr()
 @DummyCommandGroup.command()
 def dummy_corrnr(connection, args):
+    """Dummy command help"""
 
     return (args.corrnr, args.name)
 
@@ -229,13 +251,15 @@ class TestCommandGroup(unittest.TestCase):
 
     def test_install_parser_returns_group(self):
         parser = ArgumentParser()
+        mock_command_args = MagicMock()
 
         with patch('argparse.ArgumentParser.add_subparsers') as fake_adder:
-            fake_adder.return_value = 'FakeParser'
+            fake_adder.return_value = mock_command_args
 
-            act_ret = EmptyDummyCommandGroup().install_parser(parser)
+            act_ret = DummyCommandGroup().install_parser(parser)
 
         self.assertEqual(act_ret, fake_adder.return_value)
+        mock_command_args.add_parser.assert_called_once_with('dummy_corrnr', help='Dummy command help')
 
 
 class TestPrintConsole(unittest.TestCase):

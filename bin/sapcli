@@ -90,7 +90,7 @@ def parse_command_line(argv):
     subparsers = arg_parser.add_subparsers()
     # pylint: disable=not-an-iterable
     for connection, cmd in sap.cli.get_commands():
-        cmd_args = subparsers.add_parser(cmd.name)
+        cmd_args = subparsers.add_parser(cmd.name, help=cmd.description)
         cmd_args.set_defaults(command=cmd)
         cmd_args.set_defaults(connection_factory=connection)
 
