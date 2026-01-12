@@ -106,6 +106,33 @@ class _RepositoryHttpProxy:
         return self.connection.execute('DELETE', self._build_url(path))
 
 
+class RepoMessagesQueryParams:
+    """Wrapper for query parameters of repository log (messages) call"""
+
+    def __init__(self):
+        self._process_id = None
+        self._params = {}
+
+    def set_process(self, process_id: 'str') -> 'RepoMessagesQueryParams':
+        """Set the process ID"""
+
+        self._process_id = process_id
+        return self
+
+    def get_path(self, base_path: str) -> str:
+        """Get the path"""
+
+        if self._process_id:
+            return f"{base_path}/{self._process_id}"
+
+        return base_path
+
+    def get_params(self) -> dict:
+        """Get the query parameters"""
+
+        return self._params
+
+
 class RepoActivitiesQueryParams:
     """Wrapper for query parameters of repository activities call"""
 
@@ -463,6 +490,22 @@ class Repository:
 
         self.wipe_data()
         return response
+
+    def messages(self, messages_params: RepoMessagesQueryParams):
+        """Fetches gCTS repository logs (not git commit history but gCTS log messages)
+        """
+
+        path = messages_params.get_path('log')
+        json_body = self._http.get_json(path, params=messages_params.get_params())
+
+        if not json_body:
+            return []
+
+        msglist = json_body.get('list', None)
+        if msglist is None:
+            raise SAPCliError('A successful gCTS {path} request did not return the list member')
+
+        return json_body['list']
 
     def activities(self, history_params: RepoActivitiesQueryParams):
         """Fetches gCTS repository activities (not git logs)"""

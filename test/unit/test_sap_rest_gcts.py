@@ -611,6 +611,57 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(cm.exception), 'A successful gcts getHistory request did not return result')
 
+    def assert_repo_messages(self, query_params, expected_result, expected_path, expected_params):
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+        result = repo.messages(query_params)
+
+        self.assertEqual(result, expected_result)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/{expected_path}',
+                                                        params=expected_params), self)
+
+    def test_messages_default_params(self):
+        expected_params = {}
+        expected_result = [{'message': 'log entry'}]
+        query_params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams()
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'list': expected_result})
+        )
+
+        self.assert_repo_messages(query_params, expected_result, 'log', expected_params)
+
+    def test_messages_with_process(self):
+        expected_params = {}
+        expected_result = [{'message': 'process log entry'}]
+        query_params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams().set_process('12345')
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'list': expected_result})
+        )
+
+        self.assert_repo_messages(query_params, expected_result, 'log/12345', expected_params)
+
+    def test_messages_empty_response(self):
+        expected_params = {}
+        expected_result = []
+
+        query_params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams()
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={})
+        )
+
+        self.assert_repo_messages(query_params, expected_result, 'log', expected_params)
+
+    def test_messages_missing_list(self):
+        query_params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams()
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'other': 'data'})
+        )
+
+        with self.assertRaises(sap.rest.errors.SAPCliError) as cm:
+            repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+            repo.messages(query_params)
+
+        self.assertEqual(str(cm.exception), 'A successful gCTS {path} request did not return the list member')
+
     def test_commit_transports(self):
         corrnr = 'CORRNR'
         message = 'Message'
@@ -1740,6 +1791,30 @@ class TestRepoActivitiesQueryParams(unittest.TestCase):
     def test_set_operation_valid(self):
         for operation in sap.rest.gcts.remote_repo.RepoActivitiesQueryParams.allowed_operations():
             self.params.set_operation(operation)
+
+
+class TestRepoMessagesQueryParams(unittest.TestCase):
+
+    def setUp(self):
+        self.params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams()
+
+    def test_default_params(self):
+        self.assertEqual(self.params.get_params(), {})
+
+    def test_default_path_without_process(self):
+        self.assertEqual(self.params.get_path('log'), 'log')
+
+    def test_set_process_returns_self(self):
+        result = self.params.set_process('12345')
+        self.assertIs(result, self.params)
+
+    def test_get_path_with_process(self):
+        self.params.set_process('12345')
+        self.assertEqual(self.params.get_path('log'), 'log/12345')
+
+    def test_get_path_with_different_base(self):
+        self.params.set_process('process-id')
+        self.assertEqual(self.params.get_path('messages'), 'messages/process-id')
 
 
 class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):

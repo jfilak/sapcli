@@ -13,6 +13,7 @@ from sap.rest.gcts.sugar import (
 )
 from sap.rest.gcts.remote_repo import (
     Repository,
+    RepoMessagesQueryParams,
     RepoActivitiesQueryParams,
 )
 from sap.rest.gcts.errors import (
@@ -368,6 +369,50 @@ def activities(connection, args):
             display_header=not args.noheadings,
             visible_columns=None if not args.columns else args.columns.split(',')
         )
+        tw.printout(console)
+
+    return 0
+
+
+@RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='JSON')
+@RepoCommandGroup.argument('--process', type=str, default=None)
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command()
+def messages(connection, args):
+    """gCTS internal logs
+    """
+
+    console = sap.cli.core.get_console()
+
+    repo = get_repository(connection, args.package)
+    repo_messages = repo.messages(RepoMessagesQueryParams().set_process(args.process))
+
+    if args.format == 'JSON':
+        console.printout(sap.cli.core.json_dumps(repo_messages))
+    elif args.process is not None:
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('time', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate)
+            ('action', 'Action')
+            ('application', 'Application')
+            ('severity', 'Severity')
+            .done()
+        )
+
+        tw = sap.cli.helpers.TableWriter(repo_messages, columns)
+        tw.printout(console, line_callback=sap.cli.gcts_utils.print_process_message_details)
+    else:
+        columns = (
+            sap.cli.helpers.TableWriter.Columns()
+            ('time', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate)
+            ('caller', 'Caller')
+            ('processName', 'Operation')
+            ('status', 'Status')
+            ('process', 'Process')
+            .done()
+        )
+
+        tw = sap.cli.helpers.TableWriter(repo_messages, columns)
         tw.printout(console)
 
     return 0

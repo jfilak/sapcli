@@ -1,8 +1,14 @@
 """gCTS CLI utilities"""
 import sap.cli.core
+from sap.cli.core import PrintConsole
+
 from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
 from sap.rest.gcts.sugar import LogTaskOperationProgress, SugarOperationProgress
-from sap.cli.core import PrintConsole
+from sap.rest.gcts.log_messages import (
+    normalize_process_message,
+    extract_client_sections,
+    extract_transport_tools_lines,
+)
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -57,6 +63,36 @@ def dump_gcts_messages(console, messages):
 
     if not output:
         console.printerr(str(messages))
+
+
+def print_process_message_details(console, message):
+    """Print details of a process message (applInfo content)"""
+
+    normalized = normalize_process_message(message)
+    appl_info = normalized.get('applInfo')
+
+    if appl_info is None:
+        return
+
+    if isinstance(appl_info, list):
+        # Client application format - array of sections
+        sections = extract_client_sections(appl_info)
+        for section_type, content_lines in sections:
+            console.printout(f'  {section_type}:')
+            for line in content_lines:
+                console.printout(f'    {line}')
+            console.printout('')
+    elif isinstance(appl_info, dict):
+        # Transport Tools format - object with stdout
+        stdout_lines = extract_transport_tools_lines(appl_info)
+        if stdout_lines:
+            console.printout('  stdout:')
+            for line in stdout_lines:
+                console.printout(f'    {line}')
+            console.printout('')
+    else:
+        # Plain string
+        console.printout(f'  {appl_info}')
 
 
 def gcts_exception_handler(func):
