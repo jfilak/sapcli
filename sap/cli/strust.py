@@ -116,10 +116,10 @@ def listidentities(connection, args):
 @CommandGroup.argument('-k', '--key-length', type=int, default=2048, help='Of PSE file')
 @CommandGroup.argument('--dn', type=str,
                        help='Distinguished Name (LDAP DN) of PSE file if no other system info provided')
-@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i',
+@CommandGroup.argument('-s', '--storage', default=None, help='Mutually exclusive with the option -i/--identity.',
                        choices=[CLIENT_ANONYMOUS, CLIENT_STANDART, CLIENT_STANDARD, SERVER_STANDARD, ])
 @CommandGroup.argument('-i', '--identity', default=None,
-                       help='Mutually exclusive with the option -s. '
+                       help='Mutually exclusive with the option -s/--storage. '
                        'The identity must match the pattern <PSE_CONTEXT>/<PSE_APPLIC>')
 @CommandGroup.command()
 def createpse(connection, args):
