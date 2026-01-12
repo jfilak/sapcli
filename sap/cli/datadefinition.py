@@ -12,23 +12,23 @@ class CommandGroup(sap.cli.core.CommandGroup):
     """
 
     def __init__(self):
-        super().__init__('ddl')
+        super().__init__('ddl', description='CDS views')
 
 
-@CommandGroup.argument('name')
+@CommandGroup.argument('name', help='CDS view name')
 @CommandGroup.command()
 def read(connection, args):
-    """Prints it out based on command line configuration.
+    """prints source code of the given CDS view name
     """
 
     ddl = sap.adt.DataDefinition(connection, args.name)
     print(ddl.text)
 
 
-@CommandGroup.argument('name', nargs='+')
+@CommandGroup.argument('name', nargs='+', help='CDS view name')
 @CommandGroup.command()
 def activate(connection, args):
-    """Actives the given class.
+    """actives the given cds view
     """
 
     activator = sap.cli.wb.ObjectActivationWorker()
