@@ -149,6 +149,7 @@ class TableWriter:
         else:
             self._widths = [0] * len(self._columns)
 
+        self._data = data
         self._lines = []
 
         for item in data:
@@ -175,16 +176,26 @@ class TableWriter:
 
             self._lines.append(line)
 
-    def printout(self, console, separator=" | "):
-        """Prints out the content"""
+    def printout(self, console, separator=" | ", line_callback=None):
+        """Prints out the content
+
+        Args:
+            console: Console object for output
+            separator: Column separator string
+            line_callback: Optional callback function called after each data line.
+                          Receives (console, data_item) as arguments where data_item
+                          is the original data object for that row.
+        """
 
         fmt = separator.join((f'{{:<{w}}}' for w in self._widths))
         if self._display_header:
             console.printout(fmt.format(*[c[TableWriter.Columns.HEADER] for c in self._columns]))
             console.printout('-' * (sum(self._widths) + len(separator) * (len(self._columns) - 1)))
 
-        for line in self._lines:
+        for i, line in enumerate(self._lines):
             console.printout(fmt.format(*line))
+            if line_callback is not None:
+                line_callback(console, self._data[i])
 
 
 def abapstamp_to_isodate(abapstamp: 'int') -> 'str':
