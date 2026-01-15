@@ -31,6 +31,8 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
             {'rid': 'the_repo', 'process': 'BBB', 'processName': 'PULL_BY_COMMIT', 'caller': 'DEVELOPER', 'time': 20251217133049, 'status': 'WARNING'},
             {'rid': 'the_repo', 'process': 'AAA', 'processName': 'CLONE', 'caller': 'DEVELOPER', 'time': 20260112104031, 'status': 'INFO'},
         ]
+        # TODO: Convert self.messages_data to list of sap.rest.gcts.ActionMessage
+        self.action_data = []
 
         self.expected_json_messages = sap.cli.core.json_dumps(self.messages_data)
         # Note: trailing spaces match column padding from TableWriter
@@ -64,6 +66,8 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
              'time': 20260112134732,
              'severity': 'INFO'}
         ]
+        # TODO: Convert self.messages_data to list of sap.rest.gcts.ActionMessage which has 1 item ActionMessages(None, raw_process_messages=self.process_data)
+        self.process_action_data = []
 
         # The expected JSON process output is the list of json_object values from ProcessMessage.appl_info
         # Each application type processes the raw applInfo differently:
@@ -165,7 +169,7 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
 
     @patch('sap.cli.gcts.get_repository')
     def test_messages_no_params(self, fake_get_repository):
-        self.fake_repo.messages.return_value = self.messages_data
+        self.fake_repo.messages.return_value = self.action_data
         fake_get_repository.return_value = self.fake_repo
 
         the_cmd = self.messages_cmd('the_repo')
@@ -179,7 +183,7 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
 
     @patch('sap.cli.gcts.get_repository')
     def test_messages_human(self, fake_get_repository):
-        self.fake_repo.messages.return_value = self.messages_data
+        self.fake_repo.messages.return_value = self.action_data
         fake_get_repository.return_value = self.fake_repo
 
         the_cmd = self.messages_cmd('the_repo', '--format', 'HUMAN')
@@ -193,7 +197,7 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
 
     @patch('sap.cli.gcts.get_repository')
     def test_messages_with_process(self, fake_get_repository):
-        self.fake_repo.messages.return_value = self.process_data
+        self.fake_repo.messages.return_value = self.process_action_data
         fake_get_repository.return_value = self.fake_repo
 
         the_cmd = self.messages_cmd('the_repo', '--process', 'CCC')
@@ -208,7 +212,7 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
 
     @patch('sap.cli.gcts.get_repository')
     def test_messages_with_process_human(self, fake_get_repository):
-        self.fake_repo.messages.return_value = self.process_data
+        self.fake_repo.messages.return_value = self.process_action_data
         fake_get_repository.return_value = self.fake_repo
 
         the_cmd = self.messages_cmd('the_repo', '--process', 'CCC', '--format', 'HUMAN')

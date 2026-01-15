@@ -11,6 +11,7 @@ import sap.rest.gcts
 import sap.rest.gcts.remote_repo
 import sap.rest.gcts.simple
 import sap.rest.gcts.sugar
+import sap.rest.gcts.log_messages
 
 from mock import Request, Response, RESTConnection, make_gcts_log_error
 from mock import GCTSLogBuilder as LogBuilder
@@ -621,7 +622,8 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
     def test_messages_default_params(self):
         expected_params = {}
-        expected_result = [{'message': 'log entry'}]
+        expected_message  = {'message': 'log entry'}
+        expected_result = [log_messages.ActionMessage(expected_message)]
         query_params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams()
         self.conn.set_responses(
             Response.with_json(status_code=200, json={'list': expected_result})
@@ -631,7 +633,8 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
     def test_messages_with_process(self):
         expected_params = {}
-        expected_result = [{'message': 'process log entry'}]
+        expected_process_mesage = {'message': 'process log entry'}
+        expected_result = [log_messages.ActionMessage(None, raw_process_message=expected_process_mesage)]
         query_params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams().set_process('12345')
         self.conn.set_responses(
             Response.with_json(status_code=200, json={'list': expected_result})

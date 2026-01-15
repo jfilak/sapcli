@@ -7,6 +7,7 @@ from sap import get_logger
 from sap.rest.errors import HTTPRequestError
 
 from sap.rest.gcts.errors import exception_from_http_error, SAPCliError
+from sap.rest.gcts.log_messages import ActionMessage
 
 
 def mod_log():
@@ -119,10 +120,16 @@ class RepoMessagesQueryParams:
         self._process_id = process_id
         return self
 
+    @property
+    def is_process_set(self) -> bool:
+        """Check if process ID is set"""
+
+        return self._process_id is not None
+
     def get_path(self, base_path: str) -> str:
         """Get the path"""
 
-        if self._process_id:
+        if self.is_process_set:
             return f"{base_path}/{self._process_id}"
 
         return base_path
@@ -491,7 +498,7 @@ class Repository:
         self.wipe_data()
         return response
 
-    def messages(self, messages_params: RepoMessagesQueryParams):
+    def messages(self, messages_params: RepoMessagesQueryParams) -> list[ActionMessage]:
         """Fetches gCTS repository logs (not git commit history but gCTS log messages)
         """
 
@@ -505,7 +512,10 @@ class Repository:
         if msglist is None:
             raise SAPCliError('A successful gCTS {path} request did not return the list member')
 
-        return json_body['list']
+        if messages_params.is_process_set:
+            return [ActionMessage(None, msglist)]
+
+        return [ActionMessage(msg) for msg in msglist]
 
     def activities(self, history_params: RepoActivitiesQueryParams):
         """Fetches gCTS repository activities (not git logs)"""

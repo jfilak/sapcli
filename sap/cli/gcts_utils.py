@@ -4,9 +4,6 @@ from sap.cli.core import PrintConsole
 
 from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
 from sap.rest.gcts.sugar import LogTaskOperationProgress, SugarOperationProgress
-from sap.rest.gcts.log_messages import (
-    ProcessMessage,
-)
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -66,8 +63,7 @@ def dump_gcts_messages(console, messages):
 def print_process_message_details(console, message):
     """Print details of a process message (applInfo content)"""
 
-    pm = ProcessMessage(message)
-    console.printout(pm.appl_info.formatted_str(indent=4))
+    console.printout(message.appl_info.formatted_str(indent=4))
 
 
 def gcts_exception_handler(func):

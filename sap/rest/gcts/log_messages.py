@@ -245,27 +245,79 @@ class ProcessMessage:
         self.raw_message = raw_message
         self._application = None
 
+    def __item__(self, key):
+        return self.appl_info.json_object[key]
+
+    @property
+    def json_object(self) -> JsonValue:
+        """Return the JSON representation of the process message"""
+
+        raw_message = self.raw_message.copy()
+        raw_message['applInfo'] = self.appl_info.json_object
+        return raw_message
+
     @property
     def appl_info(self):
         """Get the application info object"""
 
-        if self._application is not None:
-            return self._application
+        if self._application is None:
+            application = self.raw_message['application']
+            appl_info = self.raw_message['applInfo']
 
-        application = self.raw_message['application']
-        appl_info = self.raw_message['applInfo']
-
-        match application:
-            case ClientApplicationInfo.Application_Name:
-                self._application = ClientApplicationInfo(appl_info)
-            case TransportToolsApplicationInfo.Application_Name:
-                self._application = TransportToolsApplicationInfo(appl_info)
-            case GCTSApplicationInfo.Application_Name:
-                self._application = GCTSApplicationInfo(appl_info)
-            case _:
-                raise SAPCliError(f"Unknown application type in process message: {application}")
+            match application:
+                case ClientApplicationInfo.Application_Name:
+                    self._application = ClientApplicationInfo(appl_info)
+                case TransportToolsApplicationInfo.Application_Name:
+                    self._application = TransportToolsApplicationInfo(appl_info)
+                case GCTSApplicationInfo.Application_Name:
+                    self._application = GCTSApplicationInfo(appl_info)
+                case _:
+                    raise SAPCliError(f"Unknown application type in process message: {application}")
 
         return self._application
+
+
+class ActionMessage:
+    """Represents a normalized action message with process messages"""
+
+    def __init__(self, raw_message, raw_process_messages=None):
+        self.raw_message = raw_message
+        if raw_message is not None:
+            if 'processId' in raw_message:
+                raise SAPCliError("Invalid action message format: 'processId' key already exists")
+
+            raw_message['processId'] = raw_message.get('process', '')
+            del raw_message['process']
+
+        self._raw_process_messages = raw_process_messages
+        self._process_messages = None
+
+    def __item__(self, key):
+        if key == 'process':
+            return self.process_messages()
+
+        return self.raw_message[key]
+
+    @property
+    def json_object(self) -> JsonValue:
+        """Return the JSON representation of the action message"""
+
+        allpm = self.process_messages()
+        if allpm is not None:
+            self.raw_message['process'] = [pm.json_object for pm in allpm]
+
+        return self.raw_message
+
+    def process_messages(self) -> list[ProcessMessage] | None:
+        """Get the list of process messages corresponding for this action message"""
+
+        if self._process_messages is None:
+            if self._raw_process_messages is not None:
+                self._process_messages = []
+                for raw_process_message in self._raw_process_messages:
+                    self._process_messages.append(ProcessMessage(raw_process_message))
+
+        return self._process_messages
 
 
 def _is_empty_line(line):
