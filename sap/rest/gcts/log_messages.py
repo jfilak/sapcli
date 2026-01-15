@@ -1,123 +1,271 @@
 """gCTS log messages normalization utilities"""
 
 import json
+from io import StringIO
+from abc import (
+    ABC,
+    abstractmethod
+)
+
+from sap.errors import SAPCliError
 
 
-def _try_parse_json(value):
-    """Try to parse a string as JSON, return original value if not JSON"""
-
-    if not isinstance(value, str):
-        return value
-
-    stripped = value.strip()
-    if not stripped or (not stripped.startswith('{') and not stripped.startswith('[')):
-        return value
-
-    try:
-        return json.loads(value)
-    except (json.JSONDecodeError, ValueError):
-        return value
+type JsonValue = str | int | float | bool | None | list[JsonValue] | dict[str, JsonValue]
 
 
-def _normalize_protocol_item(item):
-    """Normalize a protocol item which may be a nested JSON string"""
+class BaseApplicationInfo(ABC):
+    """Base class for application info in gCTS log messages"""
 
-    return _try_parse_json(item)
+    @property
+    @abstractmethod
+    def json_object(self) -> JsonValue:
+        """Return the JSON representation of the application info"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def application(self) -> str:
+        """Return the application name"""
+        raise NotImplementedError
+
+    @abstractmethod
+    def formatted_str(self, indent: int = 0) -> str:
+        """Return formatted string with essential output lines only"""
+        raise NotImplementedError
+
+    def __str__(self):
+        """Return the full JSON representation of the application info """
+        return json.dumps(self.json_object, indent=2)
 
 
-def _normalize_client_section(section):
-    """Normalize a client section (Parameters, Client Log, etc.)
+class ClientApplicationInfo(BaseApplicationInfo):
+    """Represents Transport Tools application info
 
-    The section has 'type' and optionally 'protocol' keys.
-    Protocol items may contain nested JSON strings.
+       The minimum JSON schema:
+            { "application": "gCTS",
+              "applInfo": [
+                    { "type": "Parameters",
+                      "protocol": [
+                            { "arbitrary-key": "value" },
+                            { "arbitrary-key-2": "another value" }
+                        ]
+                    },
+                    { "type": "Client Log",
+                      "protocol": [
+                            "line-0",
+                            "line-n"
+                        ]
+                    },
+                    { "type": "Client Response",
+                      "protocol": [
+                            { "log": [
+                                    { "code": "...", "type": "...", "message": "...", "step: "..." },
+                                    { "code": "...", "type": "...", "message": "...", "step: "..."}
+                                ]
+                            }
+                        ]
+                    },
+                    { "type": "Client Stack Log",
+                      "protocol": [
+                            [
+                                { "code": "...", "type": "...", "message": "...", "step: "..." },
+                                { "code": "...", "type": "...", "message": "...", "step: "..."}
+                            ]
+                        ]
+                    }
+                ]
+            }
     """
 
-    normalized = {'type': section.get('type', '')}
+    Application_Name = "Client"
 
-    if 'protocol' in section:
-        protocol = section['protocol']
-        if isinstance(protocol, list):
-            normalized['protocol'] = [_normalize_protocol_item(item) for item in protocol]
-        else:
-            normalized['protocol'] = _normalize_protocol_item(protocol)
+    Type_Parameters = "Parameters"
+    Type_Client_Log = "Client Log"
+    Type_Client_Response = "Client Response"
+    Type_Client_Stack_Log = "Client Stack Log"
 
-    return normalized
+    def __init__(self, raw_application_info):
+        # Raw application info is JSON object in String and need to be unquoted and the parsed
+        self.application_info = json.loads(raw_application_info)
+        self.client_response = None
+
+        if not isinstance(self.application_info, list):
+            raise SAPCliError("Invalid Client application info format")
+
+        for section in self.application_info:
+            section_type = section.get('type', '')
+            raw_protocol = section.get('protocol', '')
+
+            match section_type:
+                case self.Type_Parameters:
+                    if not isinstance(raw_protocol, list) or len(raw_protocol) != 1:
+                        raise SAPCliError("Invalid Client Parameters section format")
+
+                    protocol = json.loads(raw_protocol[0])
+
+                case self.Type_Client_Log:
+                    if not isinstance(raw_protocol, list):
+                        raise SAPCliError("Invalid Client Log section format")
+
+                    protocol = raw_protocol
+
+                case self.Type_Client_Response:
+                    if not isinstance(raw_protocol, list) or len(raw_protocol) != 1:
+                        raise SAPCliError("Invalid Client Response section format")
+
+                    protocol = json.loads(raw_protocol[0])
+                    self.client_response = protocol
+
+                case self.Type_Client_Stack_Log:
+                    if not isinstance(raw_protocol, list) or len(raw_protocol) != 1:
+                        raise SAPCliError("Invalid Client Response section format")
+
+                    protocol = json.loads(raw_protocol[0])
+
+                case _:
+                    raise SAPCliError(f"Unknown Client application info section type: {section_type}")
+
+            section['protocol'] = protocol
+
+    @property
+    def application(self) -> str:
+        return self.Application_Name
+
+    @property
+    def json_object(self) -> JsonValue:
+        return self.application_info
+
+    def formatted_str(self, indent=0) -> str:
+        """Return formatted string with essential output lines only.
+
+            Only the 'Client Response' log messages are considered essential.
+        """
+
+        log = self.client_response['log']
+
+        prefix = ' ' * indent
+
+        # No joining list because I don't want to search
+        # the log dict unnecessary many of times
+        buffer = StringIO()
+        for entry in log:
+            msg = entry.get('message', None)
+            if msg is None or _is_empty_line(msg):
+                continue
+
+            msg_type = entry.get('type', '?????')
+
+            buffer.write(prefix + f'{msg_type}: {msg}\n')
+
+        # Remove the last newline
+        return buffer.getvalue()[:-1]
 
 
-def _normalize_appl_info_array(appl_info_list):
-    """Normalize applInfo when it's parsed as a list (Client application format)"""
+class GCTSApplicationInfo(BaseApplicationInfo):
+    """Represents Transport Tools application info
 
-    return [_normalize_client_section(section) for section in appl_info_list]
-
-
-def _normalize_appl_info_object(appl_info_obj):
-    """Normalize applInfo when it's parsed as an object (Transport Tools format)"""
-
-    # The object may contain stdout as array of line objects, etc.
-    # Return as-is since it's already parsed
-    return appl_info_obj
-
-
-def normalize_appl_info(appl_info):
-    """Normalize the applInfo field which can be:
-    - A JSON array string (Client application log)
-    - A JSON object string (Transport Tools log)
-    - A plain string (simple info message)
-
-    Returns the normalized data structure.
+       The minimum JSON schema:
+            { "application: "gCTS",
+              "applInfo": "... raw string ... "
+            }
     """
 
-    if appl_info is None:
-        return None
+    Application_Name = "gCTS"
 
-    parsed = _try_parse_json(appl_info)
+    def __init__(self, raw_application_info):
+        self.message = str(raw_application_info)
 
-    if isinstance(parsed, list):
-        return _normalize_appl_info_array(parsed)
+    @property
+    def application(self) -> str:
+        return self.Application_Name
 
-    if isinstance(parsed, dict):
-        return _normalize_appl_info_object(parsed)
+    @property
+    def json_object(self) -> JsonValue:
+        return self.message
 
-    # Plain string, return as-is
-    return parsed
+    def formatted_str(self, indent=0) -> str:
+        """Return formatted string with essential output lines only"""
+
+        return ' ' * indent + self.message
 
 
-def normalize_process_message(message):
-    """Normalize a single process message entry
+class TransportToolsApplicationInfo(BaseApplicationInfo):
+    """Represents Transport Tools application info
 
-    Args:
-        message: A dict containing process message data with potentially
-                 nested JSON in the 'applInfo' field
+       The minimum JSON schema:
+            { "application": "Transport Tools",
+              "applInfo": {
+                    "stdout": [
+                        { "line": "..." },
+                        { "line": "..." }
+                    ]
+                }
+            }
 
-    Returns:
-        A new dict with normalized applInfo
+        The 'applInfo.stdout' is transformed into a list of strings (the object
+        is replaced by the item line) for easier processing
     """
 
-    if not isinstance(message, dict):
-        return message
+    Application_Name = "Transport Tools"
 
-    result = dict(message)
+    def __init__(self, raw_application_info):
+        self.application_info = json.loads(raw_application_info)
 
-    if 'applInfo' in result:
-        result['applInfo'] = normalize_appl_info(result['applInfo'])
+        raw_stdout = self.application_info.get('stdout', [])
+        if not isinstance(raw_stdout, list):
+            raise SAPCliError("Invalid Transport Tools application info format")
 
-    return result
+        for i, item in enumerate(raw_stdout):
+            self.application_info['stdout'][i] = item.get('line', '')
+
+    @property
+    def application(self) -> str:
+        return self.Application_Name
+
+    @property
+    def json_object(self) -> JsonValue:
+        return self.application_info
+
+    def formatted_str(self, indent=0) -> str:
+        """Return formatted string with essential output lines only.
+
+           Only non-empty stdout lines are considered essential.
+        """
+
+        lines = self.application_info['stdout']
+
+        prefix = ' ' * indent
+        return '\n'.join((prefix + line for line in lines if not _is_empty_line(line)))
 
 
-def normalize_process_messages(messages):
-    """Normalize a list of process messages
+class ProcessMessage:
+    """Represents a normalized process message with applInfo"""
 
-    Args:
-        messages: List of process message dictionaries
+    def __init__(self, raw_message):
+        self.raw_message = raw_message
+        self._application = None
 
-    Returns:
-        List of normalized message dictionaries
-    """
+    @property
+    def appl_info(self):
+        """Get the application info object"""
 
-    if not isinstance(messages, list):
-        return messages
+        if self._application is not None:
+            return self._application
 
-    return [normalize_process_message(msg) for msg in messages]
+        application = self.raw_message['application']
+        appl_info = self.raw_message['applInfo']
+
+        match application:
+            case ClientApplicationInfo.Application_Name:
+                self._application = ClientApplicationInfo(appl_info)
+            case TransportToolsApplicationInfo.Application_Name:
+                self._application = TransportToolsApplicationInfo(appl_info)
+            case GCTSApplicationInfo.Application_Name:
+                self._application = GCTSApplicationInfo(appl_info)
+            case _:
+                raise SAPCliError(f"Unknown application type in process message: {application}")
+
+        return self._application
 
 
 def _is_empty_line(line):
@@ -129,103 +277,4 @@ def _is_empty_line(line):
     if isinstance(line, str):
         return not line.strip()
 
-    if isinstance(line, dict):
-        # Empty dict or dict with only empty 'line' value
-        if not line:
-            return True
-        line_val = line.get('line', '')
-        return not line_val or not str(line_val).strip()
-
-    if isinstance(line, list):
-        return len(line) == 0 or line == ['[]']
-
     return False
-
-
-def _clean_line_text(text):
-    """Clean up line text by removing surrounding quotes"""
-
-    if not text:
-        return text
-
-    # Remove single quotes from the text
-    return text.replace("'", "")
-
-
-def _extract_line_text(line):
-    """Extract text from a line object"""
-
-    if isinstance(line, str):
-        return _clean_line_text(line)
-
-    if isinstance(line, dict):
-        return _clean_line_text(line.get('line', ''))
-
-    return _clean_line_text(str(line)) if line else ''
-
-
-def extract_client_sections(appl_info):
-    """Extract sections from Client application applInfo (array format)
-
-    Args:
-        appl_info: Normalized applInfo (list of section dicts)
-
-    Returns:
-        List of tuples (section_type, content_lines) where content_lines
-        is a list of non-empty strings
-    """
-
-    if not isinstance(appl_info, list):
-        return []
-
-    sections = []
-    for section in appl_info:
-        section_type = section.get('type', '')
-        protocol = section.get('protocol', [])
-
-        content_lines = []
-        if isinstance(protocol, list):
-            for item in protocol:
-                if isinstance(item, dict) and 'line' not in item:
-                    # Nested JSON object (like Parameters) - extract key: value pairs
-                    for key, value in item.items():
-                        content_lines.append(f'{key}: {value}')
-                elif not _is_empty_line(item):
-                    text = _extract_line_text(item)
-                    if text:
-                        content_lines.append(text)
-        elif protocol and not _is_empty_line(protocol):
-            text = _extract_line_text(protocol)
-            if text:
-                content_lines.append(text)
-
-        sections.append((section_type, content_lines))
-
-    return sections
-
-
-def extract_transport_tools_lines(appl_info):
-    """Extract stdout lines from Transport Tools applInfo (object format)
-
-    Args:
-        appl_info: Normalized applInfo (dict with stdout key)
-
-    Returns:
-        List of non-empty stdout line strings
-    """
-
-    if not isinstance(appl_info, dict):
-        return []
-
-    stdout = appl_info.get('stdout', [])
-    if not isinstance(stdout, list):
-        return []
-
-    lines = []
-    for item in stdout:
-        if not _is_empty_line(item):
-            text = _extract_line_text(item)
-            if text:
-                lines.append(text)
-
-    return lines

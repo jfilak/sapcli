@@ -20,6 +20,9 @@ from sap.rest.gcts.errors import (
     GCTSRequestError,
     SAPCliError,
 )
+from sap.rest.gcts.log_messages import (
+    ProcessMessage,
+)
 from sap.rest.gcts.activities import (
     is_checkout_activity_success,
     is_clone_activity_success,
@@ -374,7 +377,7 @@ def activities(connection, args):
     return 0
 
 
-@RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='JSON')
+@RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
 @RepoCommandGroup.argument('--process', type=str, default=None)
 @RepoCommandGroup.argument('package')
 @RepoCommandGroup.command()
@@ -388,7 +391,10 @@ def messages(connection, args):
     repo_messages = repo.messages(RepoMessagesQueryParams().set_process(args.process))
 
     if args.format == 'JSON':
-        console.printout(sap.cli.core.json_dumps(repo_messages))
+        if args.process is None:
+            console.printout(sap.cli.core.json_dumps(repo_messages))
+        else:
+            console.printout(sap.cli.core.json_dumps([ProcessMessage(message).appl_info.json_object for message in repo_messages]))
     elif args.process is not None:
         columns = (
             sap.cli.helpers.TableWriter.Columns()

@@ -20,6 +20,7 @@ sapcli's implementation forces use of packages as git repositories.
 16. [repo branch delete](#repo-branch-delete)
 17. [repo branch list](#repo-branch-list)
 18. [repo activities](#repo-activities)
+18. [repo messages](#repo-messaages)
 19. [repo objects](#repo-objects)
 20. [system config get](#system-config-get)
 21. [system config list](#system-config-list)
@@ -284,6 +285,23 @@ sapcli gcts repo activities PACKAGE [--limit LIMIT] [--offset OFFSET] [--fromcom
 - `--operation {COMMIT,PULL,CLONE,BRANCH_SW}`: The type of activities to return. Possible values follow domain of `SCTS_ABAP_VCS_COMMIT_TYPE`.
 - `--noheadings`: Do not display a header line
 - `--columns`: Specify the columns to display
+
+## repo messages
+
+List gCTS application action log messages for a repository.
+
+By default, the output is a list of actions. Each row includes a `Process`
+column containing an ID that can be used with `--process` to display detailed
+information about that activity.
+
+```bash
+sapcli gcts repo messages PACKAGE [-f|--format {HUMAN|JSON}] [--process {PROCESS_ID}]
+```
+
+**Parameters**:
+- `PACKAGE`: The repository name
+- `--format {HUMAN|JSON}`: Output format. HUMAN displays only essential data in a readable format; JSON outputs all data with nested JSON strings parsed into objects.
+- `--process PROCESS_ID`: Display detailed information about a specific log entry identified by its Process ID.
 
 ## repo objects
 
