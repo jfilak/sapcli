@@ -5,6 +5,7 @@ from unittest.mock import patch, Mock
 
 import sap.cli.gcts
 import sap.cli.core
+from sap.rest.gcts.log_messages import ActionMessage
 
 from infra import generate_parse_args
 
@@ -13,8 +14,16 @@ from test.unit.mock import (
     PatcherTestCase,
 )
 
+from test.unit.fixtures_sap_rest_gcts_log_messages import (
+    GCTS_LOG_MESSAGES_DATA,
+    GCTS_LOG_MESSAGES_JSON_EXP,
+    GCTS_LOG_MESSAGES_PROCESS_CCC_DATA,
+    GCTS_LOG_MESSAGES_PROCESS_CCC_JSON_EXP,
+)
+
 
 parse_args = generate_parse_args(sap.cli.gcts.CommandGroup())
+
 
 class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
 
@@ -26,13 +35,14 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
         self.patch_console(console=self.console)
 
         self.fake_connection = Mock()
-        self.messages_data = [
-            {'rid': 'the_repo', 'process': 'CCC', 'processName': 'SWITCH_BRANCH', 'caller': 'DEVELOPER', 'time': 20260112134732, 'status': 'ERROR'},
-            {'rid': 'the_repo', 'process': 'BBB', 'processName': 'PULL_BY_COMMIT', 'caller': 'DEVELOPER', 'time': 20251217133049, 'status': 'WARNING'},
-            {'rid': 'the_repo', 'process': 'AAA', 'processName': 'CLONE', 'caller': 'DEVELOPER', 'time': 20260112104031, 'status': 'INFO'},
-        ]
+        self.messages_data = GCTS_LOG_MESSAGES_DATA
+        # ActionMessage renames 'process' to 'processId', so copy dicts to avoid modifying original
+        self.action_data = [ActionMessage(dict(msg)) for msg in self.messages_data]
 
-        self.expected_json_messages = sap.cli.core.json_dumps(self.messages_data)
+        # Expected JSON has 'processId' at the end (ActionMessage deletes 'process' and adds 'processId')
+        expected_json_data = GCTS_LOG_MESSAGES_JSON_EXP
+        self.expected_json_messages = sap.cli.core.json_dumps(expected_json_data)
+
         # Note: trailing spaces match column padding from TableWriter
         self.expected_human_messages = 'Date                | Caller    | Operation      | Status  | Process\n' \
             '--------------------------------------------------------------------\n' \
@@ -40,99 +50,15 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
             '2025-12-17 13:30:49 | DEVELOPER | PULL_BY_COMMIT | WARNING | BBB    \n' \
             '2026-01-12 10:40:31 | DEVELOPER | CLONE          | INFO    | AAA    '
 
-        self.process_data = [
-            {'rid': 'the_repo', 'process': 'CCC', 'action': 'COMPARE_BRANCH', 'application': 'Client', 'applId': '20260112_134732_B0A57FE31D1553BC5AA6E78808D3FE08',
-             'applInfo': '[{"type":"Parameters","protocol":["{\\"repodir\\":\\"/usr/sap/A4H/D00/gcts/the_repo/data/\\",\\"logfile\\":\\"/usr/sap/A4H/D00/gcts/the_repo/log/20260112_134732_B0A57FE31D1553BC5AA6E78808D3FE08.log\\",\\"loglevel\\":\\"INFORMATION\\",\\"remoteplatform\\":\\"GITHUB\\",\\"apploglevel\\":\\"INFORMATION\\",\\"command\\":\\"getdifferences\\",\\"tobranch\\":\\"foo\\"}"]},{"type":"Client Log","protocol":["client log line"]},'
-                 + '{"type":"Client Response","protocol":["'
-                 +    '{\\"log\\":['
-                 +        '{\\"code\\":\\"GCTS.CLIENT.500\\",\\"type\\":\\"INFO\\",\\"message\\":\\"Non Empty line 1\\",\\"step\\":\\"LOG.COMMIT.DATA\\"},'
-                 +        '{\\"code\\":\\"GCTS.CLIENT.500\\",\\"type\\":\\"INFO\\",\\"message\\":\\"\\",\\"step\\":\\"LOG.COMMIT.DATA\\"},'
-                 +        '{\\"code\\":\\"GCTS.CLIENT.500\\",\\"type\\":\\"INFO\\",\\"message\\":\\"Non Empty line 2\\",\\"step\\":\\"LOG.COMMIT.DATA\\"}'
-                 +   ']}'
-                 + '"]},'
-                 + '{"type":"Client Stack Log","protocol":["[]"]}]',
-             'time': 20260112134733,
-             'severity': 'ERROR'},
+        self.process_data = GCTS_LOG_MESSAGES_PROCESS_CCC_DATA
 
-            {'rid': 'the_repo', 'process': 'CCC', 'action': 'COMPARE_BRANCH', 'application': 'Transport Tools',
-             'applInfo': '{"returnCode":"0236","cmdLine":"SAPVCSCALL 6IT client100 pf=/usr/sap/trans/bin/TP_DOMAIN_A4H.PFL -DSYSTEM_PF=/usr/sap/A4H/SYS/profile/A4H_D00_saphost -DSAPINSTANCENAME=A4H_ddci SAPVCSPARAMS=-requestid 20260112_134732_B0A57FE31D1553BC5AA6E78808D3FE08 SAPVCSPARAMS=-responsedir /usr/sap/C5","stdout":[{"line":"This is tp version 381.724.83 (release 919) (Patch level:0)"},{},{"line":"standard output from tp and from tools called by tp:"},{},{},{"line":"ABAP to VCS (c) - SAP SE 2025 - Version 1.29.0-20251105155931_5a33982436600ed77b8f1c860670bfcb2cd503be from 2025-11-05 16:06:04"},{},{"line":"Error: \'The specified directory \'/usr/sap/A4H/D00/gcts/the_repo/data/\' is not a working directory of a version control"},{"line":" system\'"},{},{"line":"tp returncode summary:"},{},{"line":"TOOLS: Highest return code of single steps was: 12"},{"line":"ERRORS: Highest tp internal error was: 0236"},{"line":"tp call duration was: 0.352889 sec"}],"system":"6IT","alog":"ALOG2603.6IT","slog":"SLOG2603.6IT"}',
-             'time': 20260112134733,
-             'severity': 'ERROR'},
+        # ActionMessage with process messages (for --process queries)
+        self.process_action_data = [ActionMessage(None, raw_process_messages=self.process_data)]
 
-            {'rid': 'the_repo', 'process': 'CCC', 'action': 'LOG_LEVEL', 'application': 'gCTS',
-             'applInfo': 'Log level is INFO',
-             'time': 20260112134732,
-             'severity': 'INFO'}
-        ]
-
-        # The expected JSON process output is the list of json_object values from ProcessMessage.appl_info
-        # Each application type processes the raw applInfo differently:
-        # - Client: parses the JSON list and decodes protocol strings
-        # - Transport Tools: parses JSON and replaces stdout items with their line values
-        # - gCTS: returns the raw string as-is
-        expected_json_process_data = [
-            # Client application info (processed)
-            [
-                {
-                    "type": "Parameters",
-                    "protocol": {
-                        "repodir": "/usr/sap/A4H/D00/gcts/the_repo/data/",
-                        "logfile": "/usr/sap/A4H/D00/gcts/the_repo/log/20260112_134732_B0A57FE31D1553BC5AA6E78808D3FE08.log",
-                        "loglevel": "INFORMATION",
-                        "remoteplatform": "GITHUB",
-                        "apploglevel": "INFORMATION",
-                        "command": "getdifferences",
-                        "tobranch": "foo"
-                    }
-                },
-                {
-                    "type": "Client Log",
-                    "protocol": ["client log line"]
-                },
-                {
-                    "type": "Client Response",
-                    "protocol": {
-                        "log": [
-                            {"code": "GCTS.CLIENT.500", "type": "INFO", "message": "Non Empty line 1", "step": "LOG.COMMIT.DATA"},
-                            {"code": "GCTS.CLIENT.500", "type": "INFO", "message": "", "step": "LOG.COMMIT.DATA"},
-                            {"code": "GCTS.CLIENT.500", "type": "INFO", "message": "Non Empty line 2", "step": "LOG.COMMIT.DATA"}
-                        ]
-                    }
-                },
-                {
-                    "type": "Client Stack Log",
-                    "protocol": []
-                }
-            ],
-            # Transport Tools application info (processed - stdout items replaced with line values)
-            {
-                "returnCode": "0236",
-                "cmdLine": "SAPVCSCALL 6IT client100 pf=/usr/sap/trans/bin/TP_DOMAIN_A4H.PFL -DSYSTEM_PF=/usr/sap/A4H/SYS/profile/A4H_D00_saphost -DSAPINSTANCENAME=A4H_ddci SAPVCSPARAMS=-requestid 20260112_134732_B0A57FE31D1553BC5AA6E78808D3FE08 SAPVCSPARAMS=-responsedir /usr/sap/C5",
-                "stdout": [
-                    "This is tp version 381.724.83 (release 919) (Patch level:0)",
-                    "",
-                    "standard output from tp and from tools called by tp:",
-                    "",
-                    "",
-                    "ABAP to VCS (c) - SAP SE 2025 - Version 1.29.0-20251105155931_5a33982436600ed77b8f1c860670bfcb2cd503be from 2025-11-05 16:06:04",
-                    "",
-                    "Error: 'The specified directory '/usr/sap/A4H/D00/gcts/the_repo/data/' is not a working directory of a version control",
-                    " system'",
-                    "",
-                    "tp returncode summary:",
-                    "",
-                    "TOOLS: Highest return code of single steps was: 12",
-                    "ERRORS: Highest tp internal error was: 0236",
-                    "tp call duration was: 0.352889 sec"
-                ],
-                "system": "6IT",
-                "alog": "ALOG2603.6IT",
-                "slog": "SLOG2603.6IT"
-            },
-            # gCTS application info (raw string)
-            "Log level is INFO"
-        ]
+        # The expected JSON process output is the list of json_object values from ProcessMessage
+        expected_json_process_data = GCTS_LOG_MESSAGES_PROCESS_CCC_JSON_EXP
         self.expected_json_process = sap.cli.core.json_dumps(expected_json_process_data)
+
         # Note: trailing spaces match column padding from TableWriter
         self.expected_human_process = 'Date                | Action         | Application     | Severity\n' \
             '-----------------------------------------------------------------\n' \
@@ -164,11 +90,11 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(query_params.get_params(), {})
 
     @patch('sap.cli.gcts.get_repository')
-    def test_messages_no_params(self, fake_get_repository):
-        self.fake_repo.messages.return_value = self.messages_data
+    def test_messages_json(self, fake_get_repository):
+        self.fake_repo.messages.return_value = self.action_data
         fake_get_repository.return_value = self.fake_repo
 
-        the_cmd = self.messages_cmd('the_repo')
+        the_cmd = self.messages_cmd('the_repo', '--format', 'JSON')
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
         self.assertEqual(exit_code, 0)
 
@@ -179,7 +105,7 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
 
     @patch('sap.cli.gcts.get_repository')
     def test_messages_human(self, fake_get_repository):
-        self.fake_repo.messages.return_value = self.messages_data
+        self.fake_repo.messages.return_value = self.action_data
         fake_get_repository.return_value = self.fake_repo
 
         the_cmd = self.messages_cmd('the_repo', '--format', 'HUMAN')
@@ -192,11 +118,11 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
         self.assertConsoleContents(self.console, stdout=self.expected_human_messages+'\n')
 
     @patch('sap.cli.gcts.get_repository')
-    def test_messages_with_process(self, fake_get_repository):
-        self.fake_repo.messages.return_value = self.process_data
+    def test_messages_with_process_json(self, fake_get_repository):
+        self.fake_repo.messages.return_value = self.process_action_data
         fake_get_repository.return_value = self.fake_repo
 
-        the_cmd = self.messages_cmd('the_repo', '--process', 'CCC')
+        the_cmd = self.messages_cmd('the_repo', '--process', 'CCC', '--format', 'JSON')
         exit_code = the_cmd.execute(self.fake_connection, the_cmd)
         self.assertEqual(exit_code, 0)
 
@@ -208,7 +134,7 @@ class TestgCTSRepoMessages(PatcherTestCase, ConsoleOutputTestCase):
 
     @patch('sap.cli.gcts.get_repository')
     def test_messages_with_process_human(self, fake_get_repository):
-        self.fake_repo.messages.return_value = self.process_data
+        self.fake_repo.messages.return_value = self.process_action_data
         fake_get_repository.return_value = self.fake_repo
 
         the_cmd = self.messages_cmd('the_repo', '--process', 'CCC', '--format', 'HUMAN')

@@ -42,7 +42,7 @@ class ClientApplicationInfo(BaseApplicationInfo):
     """Represents Transport Tools application info
 
        The minimum JSON schema:
-            { "application": "gCTS",
+            { "application": "Client",
               "applInfo": [
                     { "type": "Parameters",
                       "protocol": [
@@ -246,26 +246,126 @@ class ProcessMessage:
         self._application = None
 
     @property
+    def time(self):
+        """Return the time field"""
+        return self.raw_message.get('time')
+
+    @property
+    def action(self):
+        """Return the action field"""
+        return self.raw_message.get('action')
+
+    @property
+    def application(self):
+        """Return the application field"""
+        return self.raw_message.get('application')
+
+    @property
+    def severity(self):
+        """Return the severity field"""
+        return self.raw_message.get('severity')
+
+    @property
+    def json_object(self) -> JsonValue:
+        """Return the JSON representation of the process message"""
+
+        raw_message = self.raw_message.copy()
+        raw_message['applInfo'] = self.appl_info.json_object
+        return raw_message
+
+    @property
     def appl_info(self):
         """Get the application info object"""
 
-        if self._application is not None:
-            return self._application
+        if self._application is None:
+            application = self.raw_message['application']
+            appl_info = self.raw_message['applInfo']
 
-        application = self.raw_message['application']
-        appl_info = self.raw_message['applInfo']
-
-        match application:
-            case ClientApplicationInfo.Application_Name:
-                self._application = ClientApplicationInfo(appl_info)
-            case TransportToolsApplicationInfo.Application_Name:
-                self._application = TransportToolsApplicationInfo(appl_info)
-            case GCTSApplicationInfo.Application_Name:
-                self._application = GCTSApplicationInfo(appl_info)
-            case _:
-                raise SAPCliError(f"Unknown application type in process message: {application}")
+            match application:
+                case ClientApplicationInfo.Application_Name:
+                    self._application = ClientApplicationInfo(appl_info)
+                case TransportToolsApplicationInfo.Application_Name:
+                    self._application = TransportToolsApplicationInfo(appl_info)
+                case GCTSApplicationInfo.Application_Name:
+                    self._application = GCTSApplicationInfo(appl_info)
+                case _:
+                    raise SAPCliError(f"Unknown application type in process message: {application}")
 
         return self._application
+
+
+class ActionMessage:
+    """Represents a normalized action message with process messages"""
+
+    _process_messages: list[ProcessMessage] | None
+
+    def __init__(self, raw_message: dict[str, JsonValue] | None, raw_process_messages: list[JsonValue] | None = None):
+        """Wrapper for gCTS Action message.
+
+            Args:
+                raw_message - gCTS JSON of a single /log item; can be None
+                raw_process_messages - gCTS JSON list returned by /log/{process_ID}
+
+            Notes: the raw_message key 'process' is renamed to 'processId'
+        """
+
+        if raw_message is not None:
+            self.raw_message = raw_message
+
+            if 'processId' in raw_message:
+                raise SAPCliError("Invalid action message format: 'processId' key already exists")
+
+            self.raw_message['processId'] = raw_message.pop('process', '')
+        else:
+            self.raw_message = {}
+
+        self._raw_process_messages = raw_process_messages
+        self._process_messages = None
+
+    @property
+    def time(self):
+        """Return the time field"""
+        return self.raw_message.get('time')
+
+    @property
+    def caller(self):
+        """Return the caller field"""
+        return self.raw_message.get('caller')
+
+    @property
+    def processName(self):
+        """Return the processName field"""
+        return self.raw_message.get('processName')
+
+    @property
+    def status(self):
+        """Return the status field"""
+        return self.raw_message.get('status')
+
+    @property
+    def processId(self):
+        """Return the processId field"""
+        return self.raw_message.get('processId')
+
+    @property
+    def json_object(self) -> JsonValue:
+        """Return the JSON representation of the action message"""
+
+        allpm = self.process_messages
+        if allpm is not None:
+            self.raw_message['process'] = [pm.json_object for pm in allpm]
+
+        return self.raw_message
+
+    @property
+    def process_messages(self) -> list[ProcessMessage] | None:
+        """Get the list of process messages corresponding for this action message"""
+
+        if self._process_messages is None:
+            if self._raw_process_messages is not None:
+                self._process_messages = [ProcessMessage(rpm) for rpm in self._raw_process_messages]
+
+        return self._process_messages
 
 
 def _is_empty_line(line):

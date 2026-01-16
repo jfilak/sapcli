@@ -20,9 +20,6 @@ from sap.rest.gcts.errors import (
     GCTSRequestError,
     SAPCliError,
 )
-from sap.rest.gcts.log_messages import (
-    ProcessMessage,
-)
 from sap.rest.gcts.activities import (
     is_checkout_activity_success,
     is_clone_activity_success,
@@ -392,9 +389,9 @@ def messages(connection, args):
 
     if args.format == 'JSON':
         if args.process is None:
-            console.printout(sap.cli.core.json_dumps(repo_messages))
+            console.printout(sap.cli.core.json_dumps([msg.json_object for msg in repo_messages]))
         else:
-            console.printout(sap.cli.core.json_dumps([ProcessMessage(message).appl_info.json_object for message in repo_messages]))
+            console.printout(sap.cli.core.json_dumps([pm.json_object for pm in repo_messages[0].process_messages]))
     elif args.process is not None:
         columns = (
             sap.cli.helpers.TableWriter.Columns()
@@ -405,7 +402,7 @@ def messages(connection, args):
             .done()
         )
 
-        tw = sap.cli.helpers.TableWriter(repo_messages, columns)
+        tw = sap.cli.helpers.TableWriter(repo_messages[0].process_messages, columns)
         tw.printout(console, line_callback=sap.cli.gcts_utils.print_process_message_details)
     else:
         columns = (
@@ -414,7 +411,7 @@ def messages(connection, args):
             ('caller', 'Caller')
             ('processName', 'Operation')
             ('status', 'Status')
-            ('process', 'Process')
+            ('processId', 'Process')
             .done()
         )
 

@@ -10,6 +10,14 @@ from sap.rest.gcts.log_messages import (
     TransportToolsApplicationInfo,
     ClientApplicationInfo,
     ProcessMessage,
+    ActionMessage,
+)
+
+from test.unit.fixtures_sap_rest_gcts_log_messages import (
+    GCTS_LOG_MESSAGES_DATA,
+    GCTS_LOG_MESSAGES_JSON_EXP,
+    GCTS_LOG_MESSAGES_PROCESS_CCC_DATA,
+    GCTS_LOG_MESSAGES_PROCESS_CCC_JSON_EXP,
 )
 
 
@@ -445,6 +453,30 @@ class TestClientApplicationInfoJsonErrors(unittest.TestCase):
     def test_raises_on_invalid_json(self):
         with self.assertRaises(json.JSONDecodeError):
             ClientApplicationInfo('not valid json')
+
+
+class TestActionMessage(unittest.TestCase):
+
+    def test_raises_on_processId_key_already_exists(self):
+        raw_message = {
+            'time': '2024-01-01T12:00:00',
+            'caller': 'user',
+            'processName': 'Clone',
+            'status': 'success',
+            'process': '12345',
+            'processId': 'should-not-exist'
+        }
+        with self.assertRaises(SAPCliError) as cm:
+            ActionMessage(raw_message)
+        self.assertEqual(str(cm.exception), "Invalid action message format: 'processId' key already exists")
+
+    def test_embedded_process(self):
+        am = ActionMessage(GCTS_LOG_MESSAGES_DATA[0], raw_process_messages=GCTS_LOG_MESSAGES_PROCESS_CCC_DATA)
+
+        exp_json = dict(GCTS_LOG_MESSAGES_JSON_EXP[0])
+        exp_json['process'] = GCTS_LOG_MESSAGES_PROCESS_CCC_JSON_EXP
+
+        self.assertEqual(am.json_object, exp_json)
 
 
 if __name__ == '__main__':

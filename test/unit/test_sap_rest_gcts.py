@@ -11,6 +11,7 @@ import sap.rest.gcts
 import sap.rest.gcts.remote_repo
 import sap.rest.gcts.simple
 import sap.rest.gcts.sugar
+import sap.rest.gcts.log_messages
 
 from mock import Request, Response, RESTConnection, make_gcts_log_error
 from mock import GCTSLogBuilder as LogBuilder
@@ -621,23 +622,39 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
     def test_messages_default_params(self):
         expected_params = {}
-        expected_result = [{'message': 'log entry'}]
+        raw_message = {'message': 'log entry', 'process': 'ABC'}
         query_params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams()
         self.conn.set_responses(
-            Response.with_json(status_code=200, json={'list': expected_result})
+            Response.with_json(status_code=200, json={'list': [raw_message]})
         )
 
-        self.assert_repo_messages(query_params, expected_result, 'log', expected_params)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+        result = repo.messages(query_params)
+
+        self.assertEqual(len(result), 1)
+        self.assertIsInstance(result[0], sap.rest.gcts.log_messages.ActionMessage)
+        self.assertEqual(result[0].raw_message['message'], 'log entry')
+        self.assertEqual(result[0].raw_message['processId'], 'ABC')
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/log',
+                                                        params=expected_params), self)
 
     def test_messages_with_process(self):
         expected_params = {}
-        expected_result = [{'message': 'process log entry'}]
+        raw_process_messages = [{'message': 'process log entry'}]
         query_params = sap.rest.gcts.remote_repo.RepoMessagesQueryParams().set_process('12345')
         self.conn.set_responses(
-            Response.with_json(status_code=200, json={'list': expected_result})
+            Response.with_json(status_code=200, json={'list': raw_process_messages})
         )
 
-        self.assert_repo_messages(query_params, expected_result, 'log/12345', expected_params)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+        result = repo.messages(query_params)
+
+        self.assertEqual(len(result), 1)
+        self.assertIsInstance(result[0], sap.rest.gcts.log_messages.ActionMessage)
+        self.assertEqual({}, result[0].raw_message)
+        self.assertEqual(len(result[0].process_messages), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/log/12345',
+                                                        params=expected_params), self)
 
     def test_messages_empty_response(self):
         expected_params = {}

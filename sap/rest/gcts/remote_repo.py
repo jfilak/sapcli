@@ -7,6 +7,7 @@ from sap import get_logger
 from sap.rest.errors import HTTPRequestError
 
 from sap.rest.gcts.errors import exception_from_http_error, SAPCliError
+from sap.rest.gcts.log_messages import ActionMessage
 
 
 def mod_log():
@@ -114,15 +115,23 @@ class RepoMessagesQueryParams:
         self._params = {}
 
     def set_process(self, process_id: 'str') -> 'RepoMessagesQueryParams':
-        """Set the process ID"""
+        """Set the process ID so the retuned data will be a list with only 1 ActionMessage
+        with the property process_messages populated with the corresponding data.
+        """
 
         self._process_id = process_id
         return self
 
+    @property
+    def is_process_set(self) -> bool:
+        """Check if process ID is set"""
+
+        return self._process_id is not None
+
     def get_path(self, base_path: str) -> str:
         """Get the path"""
 
-        if self._process_id:
+        if self.is_process_set:
             return f"{base_path}/{self._process_id}"
 
         return base_path
@@ -491,8 +500,13 @@ class Repository:
         self.wipe_data()
         return response
 
-    def messages(self, messages_params: RepoMessagesQueryParams):
+    def messages(self, messages_params: RepoMessagesQueryParams) -> list[ActionMessage]:
         """Fetches gCTS repository logs (not git commit history but gCTS log messages)
+
+           In the case the messages_params contains process, the returned lis will contain
+           single ActionMessage with fully the property process_messages populated with
+           the corresponding data. The ActionMessage is stub no other properties should
+           be access - the returned data are random.
         """
 
         path = messages_params.get_path('log')
@@ -505,7 +519,10 @@ class Repository:
         if msglist is None:
             raise SAPCliError('A successful gCTS {path} request did not return the list member')
 
-        return json_body['list']
+        if messages_params.is_process_set:
+            return [ActionMessage(None, msglist)]
+
+        return [ActionMessage(msg) for msg in msglist]
 
     def activities(self, history_params: RepoActivitiesQueryParams):
         """Fetches gCTS repository activities (not git logs)"""
