@@ -36,7 +36,7 @@ class TestGCSTRequestError(unittest.TestCase):
         ex = sap.rest.gcts.errors.GCTSRequestError(messages)
 
         self.assertEqual(str(ex), 'gCTS exception: Message')
-        self.assertEqual(repr(ex), 'gCTS exception: Message')
+        self.assertEqual(repr(ex), json.dumps(messages, indent=2))
 
 
 class TestGCTSExceptionFactory(unittest.TestCase):
