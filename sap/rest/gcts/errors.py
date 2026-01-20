@@ -1,5 +1,6 @@
 """gCTS Error wrappers"""
 
+import json
 import re
 from sap.errors import SAPCliError
 
@@ -13,10 +14,10 @@ class GCTSRequestError(SAPCliError):
         self.messages = messages
 
     def __repr__(self):
-        return f'gCTS exception: {self.messages["exception"]}'
+        return json.dumps(self.messages, indent=2)
 
     def __str__(self):
-        return repr(self)
+        return f'gCTS exception: {self.messages["exception"]}'
 
 
 class GCTSRepoAlreadyExistsError(GCTSRequestError):
