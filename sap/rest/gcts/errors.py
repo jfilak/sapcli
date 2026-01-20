@@ -62,9 +62,16 @@ def exception_from_http_error(http_error):
     if log:
         first_entry = log[0].get('message', '')
 
-        if (first_entry.endswith('Error action CLONE_REPOSITORY Repository already cloned or in use')
-                or first_entry.endswith('Error action CREATE_REPOSITORY Repository already exists')
-                or re.match(first_entry, r'Repository .* was already created by user .*')):
+        repo_already_exists_suffixes = (
+            'Error action CLONE_REPOSITORY Repository already cloned or in use',
+            'Error action CREATE_REPOSITORY Repository already exists',
+            'Error action Repository already exists',
+        )
+
+        if any(first_entry.endswith(suffix) for suffix in repo_already_exists_suffixes):
+            return GCTSRepoAlreadyExistsError(messages)
+
+        if re.match(r'Repository .* was already created by user .*', first_entry):
             return GCTSRepoAlreadyExistsError(messages)
 
     exception = messages.get('exception', None)

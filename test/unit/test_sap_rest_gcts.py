@@ -116,6 +116,22 @@ class TestGCTSExceptionFactory(unittest.TestCase):
 
         self.assertEqual(str(new_error), str(expected_error))
 
+    def test_repository_already_exists_error_action_format(self):
+        """Test that the error is raised when the repository already exists (format: Error action Repository already exists)"""
+        messages = {
+            'log': [{'message': 'Error action Repository already exists'}],
+            'exception': 'Repository already exists'
+        }
+        req = Request(method='GET', adt_uri='/epic/success', headers=None, body=None, params=None)
+        res = Response.with_json(status_code=400, json=messages)
+
+        orig_error = HTTPRequestError(req, res)
+        new_error = sap.rest.gcts.errors.exception_from_http_error(orig_error)
+
+        expected_error = sap.rest.gcts.errors.GCTSRepoAlreadyExistsError(messages)
+
+        self.assertEqual(str(new_error), str(expected_error))
+
 
 class GCTSTestSetUp:
 
