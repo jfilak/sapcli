@@ -55,3 +55,37 @@ class TestTryPyRFCExceptionType(unittest.TestCase):
             sap.rfc.core.connect(ashost='host', user='user')
 
         self.assertEqual(str(cm.exception), 'RFC Connection Error: [HOST:"host", USER:"user"]: Communication error')
+
+    def test_pyrfc_communication_error_multiline(self):
+        """Test parsing of multi-line ERROR section from RFC exception"""
+        class FakeLogonError(Exception):
+            pass
+
+        class FakeCommunicationError(Exception):
+            def __init__(self, msg):
+                self.message = msg
+
+        fake_saprfc_module = Mock()
+        fake_saprfc_module._exception.LogonError = FakeLogonError
+        fake_saprfc_module._exception.CommunicationError = FakeCommunicationError
+
+        # Simulate a real RFC communication error with multi-line ERROR section
+        multiline_error = """LOCATION    CPIC (TCP/IP) on local host with Unicode
+ERROR       partner
+            'very.long.dns.name.for.testing
+            .com:3301' not reached
+TIME        Tue Jan 20 17:44:07 2026
+RELEASE     753
+COMPONENT   NI (network interface)"""
+
+        fake_saprfc_module.Connection.side_effect = fake_saprfc_module._exception.CommunicationError(multiline_error)
+
+        patch('sap.rfc.core.SAPRFC_MODULE', new=fake_saprfc_module).start()
+
+        with self.assertRaises(RFCCommunicationError) as cm:
+            sap.rfc.core.connect(ashost='host', user='user')
+
+        self.assertEqual(
+            str(cm.exception),
+            "RFC Connection Error: [HOST:\"host\", USER:\"user\"]: partner 'very.long.dns.name.for.testing.com:3301' not reached"
+        )
