@@ -6,10 +6,10 @@ class RFCConnectionError(SAPCliError):
     """Wrapper for RFC connection error"""
 
     def __init__(self, host, user, message):
-        self.message = f'[HOST:"{host}", USER:"{user}"] Error: {message}'
+        self.message = f'[HOST:"{host}", USER:"{user}"]: {message}'
 
     def __str__(self):
-        return f'RFC connection error: {self.message}'
+        return f'RFC Connection Error: {self.message}'
 
 
 class RFCLoginError(RFCConnectionError):
