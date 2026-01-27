@@ -141,7 +141,7 @@ class ClientApplicationInfo(BaseApplicationInfo):
             Only the 'Client Response' log messages are considered essential.
         """
 
-        log = self.client_response['log']
+        log = self.client_response.get('log', [])
 
         prefix = ' ' * indent
 

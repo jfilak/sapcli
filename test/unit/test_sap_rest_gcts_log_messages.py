@@ -254,6 +254,32 @@ class TestClientApplicationInfo(unittest.TestCase):
         expected = 'INFO: First message\nINFO: Last message'
         self.assertEqual(info.formatted_str(), expected)
 
+    def test_formatted_str_no_log_key_in_client_response(self):
+        """Test formatted_str when client_response has no 'log' key"""
+        response_protocol = {'status': 'ok'}
+        raw = json.dumps([
+            {
+                'type': 'Client Response',
+                'protocol': [json.dumps(response_protocol)]
+            }
+        ])
+        info = ClientApplicationInfo(raw)
+        # With no 'log' key, the method should handle it gracefully
+        # and return an empty string (empty buffer minus trailing newline)
+        self.assertEqual(info.formatted_str(), '')
+
+    def test_formatted_str_empty_log_in_client_response(self):
+        """Test formatted_str when client_response has empty 'log' list"""
+        response_protocol = {'log': []}
+        raw = json.dumps([
+            {
+                'type': 'Client Response',
+                'protocol': [json.dumps(response_protocol)]
+            }
+        ])
+        info = ClientApplicationInfo(raw)
+        self.assertEqual(info.formatted_str(), '')
+
     def test_formatted_str_uses_default_type_when_missing(self):
         response_protocol = {
             'log': [
