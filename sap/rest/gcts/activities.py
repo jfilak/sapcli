@@ -17,10 +17,19 @@ def get_activity_rc(repo: Repository, operation: RepoActivitiesQueryParams.Opera
     except HTTPRequestError as exc:
         raise SAPCliError(f'Unable to obtain activities of repository: "{repo.rid}"\n{exc}') from exc
 
-    if not activities_list or activities_list[0]['rc'] is None:
-        raise SAPCliError(f'Expected {operation.value} activity not found! Repository: "{repo.rid}"')
+    if len(activities_list) == 0:
+        raise SAPCliError(f'Expected {operation.value} activity is empty! Repository: "{repo.rid}"')
 
-    return int(activities_list[0]['rc'])
+    if len(activities_list) > 1:
+        raise SAPCliError(f'Multiple {operation.value} activities found! Repository: "{repo.rid}"')
+
+    activity = activities_list[0]
+
+    try:
+        # the value of rc is string but the default is int 0 to avoid unnecessary conversion
+        return int(activity.get('rc', 0))
+    except (ValueError, TypeError) as exc:
+        raise SAPCliError(f'Activity {operation.value} has invalid "rc" = {activity.get("rc")}! Repository: "{repo.rid}"') from exc
 
 
 def is_clone_activity_success(repo: Repository, rc_cb: Union[Callable[[int], None], None] = None) -> bool:

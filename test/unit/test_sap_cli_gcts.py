@@ -461,7 +461,7 @@ Cloned repository:
         self.fake_heartbeat.assert_called_once_with(self.console, 0)
         self.assertConsoleContents(self.console,
                                    stdout='Clone request responded with an error. Checking clone process ...\n',
-                                   stderr='Expected CLONE activity not found! Repository: "sample"\n')
+                                   stderr='Expected CLONE activity is empty! Repository: "sample"\n')
 
     def test_clone_internal_error_with_wait_get_activity_rc_failed(self):
         fake_response = Mock()

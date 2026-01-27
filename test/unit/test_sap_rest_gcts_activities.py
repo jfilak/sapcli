@@ -140,6 +140,72 @@ class TestGetActivityRc(unittest.TestCase):
             get_activity_rc(self.mock_repo, operation)
 
         error_message = str(context.exception)
-        self.assertIn(f'Expected {operation.value} activity not found! Repository: "test_repo"', error_message)
+        self.assertIn(f'Expected {operation.value} activity is empty! Repository: "test_repo"', error_message)
 
         self.mock_repo.activities.assert_called_once()
+
+    def test_get_activity_rc_multiple_activities(self):
+        """Test get_activity_rc when activities returns more than one result"""
+        from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
+
+        self.mock_repo.activities.return_value = [{'rc': '0'}, {'rc': '4'}]
+
+        operation = RepoActivitiesQueryParams.Operation.CLONE
+
+        with self.assertRaises(SAPCliError) as context:
+            get_activity_rc(self.mock_repo, operation)
+
+        error_message = str(context.exception)
+        self.assertIn(f'Multiple {operation.value} activities found! Repository: "test_repo"', error_message)
+
+        self.mock_repo.activities.assert_called_once()
+
+    def test_get_activity_rc_missing_rc_defaults_to_zero(self):
+        """Test get_activity_rc when activity has no 'rc' key - should default to 0"""
+        from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
+
+        self.mock_repo.activities.return_value = [{'state': 'SUCCESS'}]
+
+        operation = RepoActivitiesQueryParams.Operation.CLONE
+        result = get_activity_rc(self.mock_repo, operation)
+
+        self.assertEqual(result, 0)
+
+    def test_get_activity_rc_none_rc(self):
+        """Test get_activity_rc when rc is explicitly None"""
+        from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
+
+        self.mock_repo.activities.return_value = [{'rc': None}]
+
+        operation = RepoActivitiesQueryParams.Operation.CLONE
+
+        with self.assertRaises(SAPCliError) as context:
+            get_activity_rc(self.mock_repo, operation)
+
+        error_message = str(context.exception)
+        self.assertIn(f'Activity {operation.value} has invalid "rc" = None', error_message)
+
+    def test_get_activity_rc_invalid_string_rc(self):
+        """Test get_activity_rc when rc is a non-numeric string"""
+        from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
+
+        self.mock_repo.activities.return_value = [{'rc': 'not-a-number'}]
+
+        operation = RepoActivitiesQueryParams.Operation.CLONE
+
+        with self.assertRaises(SAPCliError) as context:
+            get_activity_rc(self.mock_repo, operation)
+
+        error_message = str(context.exception)
+        self.assertIn(f'Activity {operation.value} has invalid "rc" = not-a-number', error_message)
+
+    def test_get_activity_rc_integer_rc(self):
+        """Test get_activity_rc when rc is already an integer (the default from .get)"""
+        from sap.rest.gcts.remote_repo import RepoActivitiesQueryParams
+
+        self.mock_repo.activities.return_value = [{'rc': 4}]
+
+        operation = RepoActivitiesQueryParams.Operation.CLONE
+        result = get_activity_rc(self.mock_repo, operation)
+
+        self.assertEqual(result, 4)
