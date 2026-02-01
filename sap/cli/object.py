@@ -242,7 +242,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         """
 
         obj = self.instance(connection, args.name, args)
-        print(obj.text)
+        printout(obj.text)
 
     def build_activator(self, args):
         """For children to customize"""

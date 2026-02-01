@@ -7,7 +7,7 @@ from io import StringIO
 
 import sap.cli.abapclass
 
-from mock import Connection, Response
+from mock import Connection, Response, patch_get_print_console_with_buffer
 from fixtures_adt import (EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 from fixtures_adt_clas import GET_CLASS_ADT_XML
@@ -136,14 +136,14 @@ class TestClassIncludes(unittest.TestCase):
         conn = Connection([response])
         args = parse_args(['read', 'ZCL_READER', '--type', typ])
 
-        with patch('sap.cli.object.print') as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             args.execute(conn, args)
 
         self.assertEqual(len(conn.execs), 1)
 
         self.maxDiff = None
         self.assertEqual(conn.execs[0].adt_uri, f'/sap/bc/adt/oo/classes/zcl_reader/includes/{typ}')
-        self.assertEqual(mock_print.call_args_list, [call(response.text)])
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), response.text + '\n')
 
     def test_class_read_definitions(self):
         self.read_test(DEFINITIONS_READ_RESPONSE_OK, 'definitions')

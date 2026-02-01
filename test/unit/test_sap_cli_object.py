@@ -180,11 +180,11 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         self.assertEqual(args.name, 'myname')
         self.assertEqual(args.execute, self.group.read_object_text)
 
-        with patch('sap.cli.object.print') as fake_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             args.execute(connection, args)
 
         self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata=None)
-        fake_print.assert_called_once_with('source code')
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), 'source code\n')
 
     def test_write_object_text_stdin(self):
         connection = MagicMock()

@@ -9,6 +9,7 @@ from mock import (
     Response,
     Request,
     patch,
+    patch_get_print_console_with_buffer,
 )
 from io import StringIO
 
@@ -65,11 +66,11 @@ class TestStructureRead(unittest.TestCase):
         ))], asserter=self)
 
         the_cmd = self.structure_read_cmd(STRUCTURE_NAME)
-        with patch('sys.stdout', StringIO()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             the_cmd.execute(connection, the_cmd)
 
         expected_stdout = READ_STRUCTURE_BODY + '\n'
-        self.assertEqual(mock_print.getvalue(), expected_stdout)
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), expected_stdout)
 
 
 class TestStructureWrite(unittest.TestCase):
