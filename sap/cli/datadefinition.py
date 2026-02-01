@@ -6,7 +6,7 @@ import sap.cli.core
 import sap.cli.object
 
 
-class CommandGroup(sap.cli.core.CommandGroup):
+class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
     """Adapter converting command line parameters to sap.adt.DataDefinition
        methods calls.
     """
@@ -14,23 +14,11 @@ class CommandGroup(sap.cli.core.CommandGroup):
     def __init__(self):
         super().__init__('ddl', description='CDS views')
 
+        self.define()
 
-@CommandGroup.argument('name', help='CDS view name')
-@CommandGroup.command()
-def read(connection, args):
-    """prints source code of the given CDS view name
-    """
+    def instance(self, connection, name, args, metadata=None):
+        package = None
+        if hasattr(args, 'package'):
+            package = args.package
 
-    ddl = sap.adt.DataDefinition(connection, args.name)
-    print(ddl.text)
-
-
-@CommandGroup.argument('name', nargs='+', help='CDS view name')
-@CommandGroup.command()
-def activate(connection, args):
-    """actives the given cds view
-    """
-
-    activator = sap.cli.wb.ObjectActivationWorker()
-    activated_items = ((name, sap.adt.DataDefinition(connection, name)) for name in args.name)
-    sap.cli.object.activate_object_list(activator, activated_items, count=len(args.name))
+        return sap.adt.DataDefinition(connection, name.upper(), package=package, metadata=metadata)

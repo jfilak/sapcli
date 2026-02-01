@@ -30,7 +30,7 @@ class TestDDLActivate(unittest.TestCase):
     def test_cli_ddl_activate_defaults(self, fake_ddl, fake_activate):
         instances = []
 
-        def add_instance(conn, name):
+        def add_instance(conn, name, package=None, metadata=None):
             ddl = Mock()
             ddl.name = name
             ddl.active = 'active'
@@ -47,10 +47,12 @@ class TestDDLActivate(unittest.TestCase):
         with patch_get_print_console_with_buffer() as fake_get_console:
             args.execute(fake_conn, args)
 
-        self.assertEqual(fake_ddl.mock_calls, [call(fake_conn, 'myusers'), call(fake_conn, 'mygroups')])
+        self.assertEqual(fake_ddl.mock_calls, [
+                call(fake_conn, 'MYUSERS', package=None, metadata=None),
+                call(fake_conn, 'MYGROUPS', package=None, metadata=None)])
 
-        self.assertEqual(instances[0].name, 'myusers')
-        self.assertEqual(instances[1].name, 'mygroups')
+        self.assertEqual(instances[0].name, 'MYUSERS')
+        self.assertEqual(instances[1].name, 'MYGROUPS')
 
         self.assertEqual(fake_activate.mock_calls, [call(instances[0]), call(instances[1])])
 
@@ -72,12 +74,12 @@ class TestDDLRead(unittest.TestCase):
         fake_ddl.return_value = Mock()
         fake_ddl.return_value.text = 'source code'
 
-        args = parse_args(['read', 'myusers'])
-        with patch('sap.cli.datadefinition.print') as fake_print:
+        args = parse_args(['read', 'MYUSERS'])
+        with patch_get_print_console_with_buffer() as fake_console:
             args.execute(fake_conn, args)
 
-        fake_ddl.assert_called_once_with(fake_conn, 'myusers')
-        fake_print.assert_called_once_with('source code')
+        fake_ddl.assert_called_once_with(fake_conn, 'MYUSERS', package=None, metadata=None)
+        self.assertEqual(fake_console.return_value.std_output.getvalue(), 'source code\n')
 
 
 if __name__ == '__main__':
