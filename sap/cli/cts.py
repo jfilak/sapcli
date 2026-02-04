@@ -5,7 +5,7 @@ from functools import partial
 
 from sap.errors import SAPCliError
 
-from sap.adt.cts import Workbench, WorkbenchTask, WorkbenchTransport
+from sap.adt.cts import Workbench, WorkbenchTask, WorkbenchTransport, TransportTypes
 import sap.cli.core
 
 
@@ -22,6 +22,10 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('cts')
 
 
+@CommandGroup.argument('--transport-type', type=str,
+                       default=TransportTypes.Workbench,
+                       choices=TransportTypes.list_types(),
+                       help='Type of transport: ' + TransportTypes.list_types_help())
 @CommandGroup.argument('-t', '--target', type=str, default='LOCAL', help='Request description')
 @CommandGroup.argument('-d', '--description', type=str, help='Request description')
 @CommandGroup.argument('type', choices=REQUEST_TYPES)
@@ -30,7 +34,7 @@ def create(connection, args):
     """Create CTS request"""
 
     try:
-        factory = {'transport': partial(WorkbenchTransport, None),
+        factory = {'transport': partial(WorkbenchTransport, None, tmtype=TransportTypes.from_human_readable(args.transport_type)),
                    'task': partial(WorkbenchTask, None, None)}[args.type]
     except KeyError as ex:
         raise SAPCliError(f'Internal error: unknown request type: {args.type}') from ex

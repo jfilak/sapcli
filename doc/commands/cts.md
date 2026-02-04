@@ -19,8 +19,17 @@ sapcli cts list {transport,task} [--recursive|--recursive|...] [--owner login]
 Create a CTS request - either Transport or Transport Task
 
 ```bash
-sapcli cts create [transport,task] [--description DESCRIPTION] [--target TARGET]
+sapcli cts create [transport,task] [--description DESCRIPTION] [--target TARGET] [--transport-type TYPE]
 ```
+
+The parameter *--transport-type* specifies the type of transport to create and is only applicable when creating a transport (not a task). The default value is *workbench*.
+
+Available transport types:
+- *workbench* (K) - Workbench request
+- *customizing* (W) - Customizing request
+- *transport-of-copies* (T) - Transport of Copies
+- *development-correction* (S) - Development/Correction
+- *repair* (R) - Repair
 
 ## release
 

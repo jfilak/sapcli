@@ -8,7 +8,8 @@ import xml.sax
 from xml.sax.saxutils import escape
 
 import sap.adt.cts
-from sap.adt.cts import Element, WorkbenchABAPObject
+from sap.adt.cts import Element, WorkbenchABAPObject, TransportTypes
+from sap.errors import SAPCliError
 
 from mock import Connection, Response, Request
 from fixtures_adt import (
@@ -171,6 +172,87 @@ NW_752_SP2_TRANSPORT_ATTRIBUTES = {
     'tm:uri': f'/sap/bc/adt/vit/wb/object_type/%20%20%20%20rq/object_name/{TRANSPORT_NUMBER}'
 }
 
+class TestTransportTypes(unittest.TestCase):
+
+    def test_workbench_constant(self):
+        self.assertEqual(TransportTypes.Workbench, 'K')
+
+    def test_customizing_constant(self):
+        self.assertEqual(TransportTypes.Customizing, 'W')
+
+    def test_transport_of_copies_constant(self):
+        self.assertEqual(TransportTypes.TransportOfCopies, 'T')
+
+    def test_development_correction_constant(self):
+        self.assertEqual(TransportTypes.DevelopmentCorrection, 'S')
+
+    def test_repair_constant(self):
+        self.assertEqual(TransportTypes.Repair, 'R')
+
+    def test_human_readable_workbench(self):
+        self.assertEqual(TransportTypes.human_readable('K'), 'workbench')
+
+    def test_human_readable_customizing(self):
+        self.assertEqual(TransportTypes.human_readable('W'), 'customizing')
+
+    def test_human_readable_transport_of_copies(self):
+        self.assertEqual(TransportTypes.human_readable('T'), 'transport-of-copies')
+
+    def test_human_readable_development_correction(self):
+        self.assertEqual(TransportTypes.human_readable('S'), 'development-correction')
+
+    def test_human_readable_repair(self):
+        self.assertEqual(TransportTypes.human_readable('R'), 'repair')
+
+    def test_human_readable_already_translated(self):
+        self.assertEqual(TransportTypes.human_readable('workbench'), 'workbench')
+
+    def test_human_readable_unknown_raises_error(self):
+        with self.assertRaises(SAPCliError) as cm:
+            TransportTypes.human_readable('X')
+        self.assertEqual(str(cm.exception), 'Unknown transport type code: X')
+
+    def test_from_human_readable_workbench(self):
+        self.assertEqual(TransportTypes.from_human_readable('workbench'), 'K')
+
+    def test_from_human_readable_customizing(self):
+        self.assertEqual(TransportTypes.from_human_readable('customizing'), 'W')
+
+    def test_from_human_readable_transport_of_copies(self):
+        self.assertEqual(TransportTypes.from_human_readable('transport-of-copies'), 'T')
+
+    def test_from_human_readable_development_correction(self):
+        self.assertEqual(TransportTypes.from_human_readable('development-correction'), 'S')
+
+    def test_from_human_readable_repair(self):
+        self.assertEqual(TransportTypes.from_human_readable('repair'), 'R')
+
+    def test_from_human_readable_already_code(self):
+        self.assertEqual(TransportTypes.from_human_readable('K'), 'K')
+
+    def test_from_human_readable_unknown_raises_error(self):
+        with self.assertRaises(SAPCliError) as cm:
+            TransportTypes.from_human_readable('invalid')
+        self.assertEqual(str(cm.exception), 'Unknown transport type: invalid')
+
+    def test_list_types(self):
+        types = TransportTypes.list_types()
+        self.assertIn('workbench', types)
+        self.assertIn('customizing', types)
+        self.assertIn('transport-of-copies', types)
+        self.assertIn('development-correction', types)
+        self.assertIn('repair', types)
+        self.assertEqual(len(types), 5)
+
+    def test_list_types_help(self):
+        help_str = TransportTypes.list_types_help()
+        self.assertIn('K/workbench', help_str)
+        self.assertIn('W/customizing', help_str)
+        self.assertIn('T/transport-of-copies', help_str)
+        self.assertIn('S/development-correction', help_str)
+        self.assertIn('R/repair', help_str)
+
+
 class TestADTCTS(unittest.TestCase):
 
     def test_workbench_params(self):
@@ -222,6 +304,36 @@ class TestADTCTSWorkbenchRequest(unittest.TestCase):
         self.assertEqual(wbr.number, 'num_wb1')
         self.assertEqual(wbr.owner, 'user_owner')
         self.assertEqual(wbr.description, 'description')
+
+    def test_workbench_transport_get_type_default(self):
+        """Test default transport type is Workbench (K)"""
+        wbr = sap.adt.cts.WorkbenchTransport([], 'connection', 'num_wb1')
+        self.assertEqual(wbr.get_type(), 'K')
+
+    def test_workbench_transport_get_type_with_tmtype(self):
+        """Test transport type can be set via tmtype parameter"""
+        wbr = sap.adt.cts.WorkbenchTransport([], 'connection', 'num_wb1', tmtype='W')
+        self.assertEqual(wbr.get_type(), 'W')
+
+    def test_workbench_transport_get_type_customizing(self):
+        """Test customizing transport type"""
+        wbr = sap.adt.cts.WorkbenchTransport([], 'connection', 'num_wb1', tmtype=TransportTypes.Customizing)
+        self.assertEqual(wbr.get_type(), 'W')
+
+    def test_workbench_transport_get_type_transport_of_copies(self):
+        """Test transport of copies type"""
+        wbr = sap.adt.cts.WorkbenchTransport([], 'connection', 'num_wb1', tmtype=TransportTypes.TransportOfCopies)
+        self.assertEqual(wbr.get_type(), 'T')
+
+    def test_workbench_transport_get_type_development_correction(self):
+        """Test development correction type"""
+        wbr = sap.adt.cts.WorkbenchTransport([], 'connection', 'num_wb1', tmtype=TransportTypes.DevelopmentCorrection)
+        self.assertEqual(wbr.get_type(), 'S')
+
+    def test_workbench_transport_get_type_repair(self):
+        """Test repair type"""
+        wbr = sap.adt.cts.WorkbenchTransport([], 'connection', 'num_wb1', tmtype=TransportTypes.Repair)
+        self.assertEqual(wbr.get_type(), 'R')
 
     def test_workbench_task_init(self):
         wbr = sap.adt.cts.WorkbenchTask('parent', ['1', '2'], 'connection', 'num_wb1', 'user_owner', 'description')
@@ -510,6 +622,74 @@ class TestADTCTSWorkbenchRequestCreate(TestADTCTSWorkbenchRequestSetup):
             ]
         )
         self.assertEqual(self.transport.number, TRANSPORT_NUMBER)
+
+    def test_create_transport_with_customizing_type(self):
+        """Test creating transport with customizing type (W)"""
+        self.connection.set_responses(
+            Response(status_code=201, text=TRANSPORT_CREATE_OK_RESPONSE)
+        )
+
+        transport = sap.adt.cts.WorkbenchTransport(
+            [self.task_1, self.task_2],
+            self.connection,
+            number=None,
+            owner='TESTER',
+            description='Customizing Transport',
+            target='LOCAL',
+            tmtype=TransportTypes.Customizing
+        )
+        transport.create()
+        self.maxDiff = None
+        self.assertEqual(
+            self.connection.execs,
+            [   Request.post_text(
+                    uri='/sap/bc/adt/cts/transportrequests',
+                    accept='application/vnd.sap.adt.transportorganizer.v1+xml',
+                    body='''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
+  <tm:request tm:desc="Customizing Transport" tm:type="W" tm:target="LOCAL" tm:cts_project="">
+    <tm:task tm:owner="TESTER"/>
+  </tm:request>
+</tm:root>
+'''
+                )
+            ]
+        )
+        self.assertEqual(transport.number, TRANSPORT_NUMBER)
+
+    def test_create_transport_with_repair_type(self):
+        """Test creating transport with repair type (R)"""
+        self.connection.set_responses(
+            Response(status_code=201, text=TRANSPORT_CREATE_OK_RESPONSE)
+        )
+
+        transport = sap.adt.cts.WorkbenchTransport(
+            [],
+            self.connection,
+            number=None,
+            owner='TESTER',
+            description='Repair Transport',
+            target='LOCAL',
+            tmtype=TransportTypes.Repair
+        )
+        transport.create()
+        self.maxDiff = None
+        self.assertEqual(
+            self.connection.execs,
+            [   Request.post_text(
+                    uri='/sap/bc/adt/cts/transportrequests',
+                    accept='application/vnd.sap.adt.transportorganizer.v1+xml',
+                    body='''<?xml version="1.0" encoding="UTF-8"?>
+<tm:root xmlns:tm="http://www.sap.com/cts/adt/tm" tm:useraction="newrequest">
+  <tm:request tm:desc="Repair Transport" tm:type="R" tm:target="LOCAL" tm:cts_project="">
+    <tm:task tm:owner="TESTER"/>
+  </tm:request>
+</tm:root>
+'''
+                )
+            ]
+        )
+        self.assertEqual(transport.number, TRANSPORT_NUMBER)
 
 
 class TestADTCTSWorkbenchRequestReassign(TestADTCTSWorkbenchRequestSetup):

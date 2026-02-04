@@ -31,7 +31,7 @@ class TestCTSCreate(unittest.TestCase):
 
     def test_create_invalid_request_type(self):
         with self.assertRaises(SAPCliError) as cm:
-            sap.cli.cts.create(None, SimpleNamespace(type='foo'))
+            sap.cli.cts.create(None, SimpleNamespace(type='foo', transport_type='workbench'))
 
         self.assertEqual(str(cm.exception), 'Internal error: unknown request type: foo')
 
@@ -52,6 +52,93 @@ class TestCTSCreate(unittest.TestCase):
             args.execute(connection, args)
 
         fake_print.assert_called_once_with('NPLK000018')
+
+    @patch('sap.cli.cts.WorkbenchTransport')
+    def test_create_transport_with_transport_type_customizing(self, fake_transport):
+        """Test creating transport with --transport-type customizing"""
+        def mock_transport(*args, **kwargs):
+            ret = Mock()
+            ret.create.return_value = SimpleNamespace(number='NPLK000019', data='...')
+            return ret
+
+        fake_transport.side_effect = mock_transport
+
+        connection = Mock()
+
+        args = parse_args('create', 'transport', '-d', 'my customizing transport', '--transport-type', 'customizing')
+        with patch('sap.cli.core.printout') as fake_print:
+            args.execute(connection, args)
+
+        fake_print.assert_called_once_with('NPLK000019')
+        # Verify the transport was created with tmtype='W' (customizing)
+        fake_transport.assert_called_once()
+        call_kwargs = fake_transport.call_args[1]
+        self.assertEqual(call_kwargs['tmtype'], 'W')
+
+    @patch('sap.cli.cts.WorkbenchTransport')
+    def test_create_transport_with_transport_type_workbench(self, fake_transport):
+        """Test creating transport with --transport-type workbench"""
+        def mock_transport(*args, **kwargs):
+            ret = Mock()
+            ret.create.return_value = SimpleNamespace(number='NPLK000020', data='...')
+            return ret
+
+        fake_transport.side_effect = mock_transport
+
+        connection = Mock()
+
+        args = parse_args('create', 'transport', '-d', 'my workbench transport', '--transport-type', 'workbench')
+        with patch('sap.cli.core.printout') as fake_print:
+            args.execute(connection, args)
+
+        fake_print.assert_called_once_with('NPLK000020')
+        # Verify the transport was created with tmtype='K' (workbench)
+        fake_transport.assert_called_once()
+        call_kwargs = fake_transport.call_args[1]
+        self.assertEqual(call_kwargs['tmtype'], 'K')
+
+    @patch('sap.cli.cts.WorkbenchTransport')
+    def test_create_transport_with_transport_type_transport_of_copies(self, fake_transport):
+        """Test creating transport with --transport-type transport-of-copies"""
+        def mock_transport(*args, **kwargs):
+            ret = Mock()
+            ret.create.return_value = SimpleNamespace(number='NPLK000021', data='...')
+            return ret
+
+        fake_transport.side_effect = mock_transport
+
+        connection = Mock()
+
+        args = parse_args('create', 'transport', '-d', 'my transport of copies', '--transport-type', 'transport-of-copies')
+        with patch('sap.cli.core.printout') as fake_print:
+            args.execute(connection, args)
+
+        fake_print.assert_called_once_with('NPLK000021')
+        # Verify the transport was created with tmtype='T' (transport-of-copies)
+        fake_transport.assert_called_once()
+        call_kwargs = fake_transport.call_args[1]
+        self.assertEqual(call_kwargs['tmtype'], 'T')
+
+    @patch('sap.cli.cts.WorkbenchTransport')
+    def test_create_transport_default_type_is_workbench(self, fake_transport):
+        """Test that default transport type is workbench (K)"""
+        def mock_transport(*args, **kwargs):
+            ret = Mock()
+            ret.create.return_value = SimpleNamespace(number='NPLK000022', data='...')
+            return ret
+
+        fake_transport.side_effect = mock_transport
+
+        connection = Mock()
+
+        # No --transport-type specified
+        args = parse_args('create', 'transport', '-d', 'my transport')
+        with patch('sap.cli.core.printout'):
+            args.execute(connection, args)
+
+        fake_transport.assert_called_once()
+        call_kwargs = fake_transport.call_args[1]
+        self.assertEqual(call_kwargs['tmtype'], 'K')
 
 
 class TestCTSRelease(PatcherTestCase, ConsoleOutputTestCase):

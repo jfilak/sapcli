@@ -12,6 +12,69 @@ from sap.errors import SAPCliError
 from sap.adt.core import mod_log
 
 
+class TransportTypes():
+    """Wrapper for ABAP Domain TRFUNCTION
+    """
+
+    Workbench = 'K'
+    Customizing = 'W'
+    TransportOfCopies = 'T'
+    DevelopmentCorrection = 'S'
+    Repair = 'R'
+    # Internal types not supported by ADT
+    # 'Relocation of Objects Without Package Change': 'C',
+    # 'Relocation of Objects with Package Change': 'O',
+    # 'Relocation of complete package': 'E',
+
+    ValueRange = {
+        'workbench': 'K',
+        'customizing': 'W',
+        'transport-of-copies': 'T',
+        'development-correction': 'S',
+        'repair': 'R',
+    }
+
+    @staticmethod
+    def human_readable(transport_type: str) -> str:
+        """Convert transport type to human readable format"""
+
+        for human, code in TransportTypes.ValueRange.items():
+            if code == transport_type:
+                return human
+
+        # Fall-back if somebody accidentally passed already translated type
+        if transport_type in TransportTypes.ValueRange:
+            return transport_type
+
+        raise SAPCliError(f'Unknown transport type code: {transport_type}')
+
+    @staticmethod
+    def from_human_readable(human_readable_type: str) -> str:
+        """Convert human readable transport type to code"""
+
+        try:
+            return TransportTypes.ValueRange[human_readable_type]
+        except KeyError as exc:
+
+            # Handle the case somebody already passed the code
+            if human_readable_type in TransportTypes.ValueRange.values():
+                return human_readable_type
+
+            raise SAPCliError(f'Unknown transport type: {human_readable_type}') from exc
+
+    @staticmethod
+    def list_types() -> List[str]:
+        """Return list of human readable transport types"""
+
+        return list(TransportTypes.ValueRange.keys())
+
+    @staticmethod
+    def list_types_help() -> str:
+        """Return help string with human readable transport types"""
+
+        return ', '.join([f'{c}/{h}' for h, c in TransportTypes.ValueRange.items()])
+
+
 class CTSReleaseError(SAPCliError):
     """CTS Release Error"""
 
@@ -281,15 +344,16 @@ class AbstractWorkbenchRequest:
 class WorkbenchTransport(AbstractWorkbenchRequest):
     """Transport Manager Request"""
 
-    def __init__(self, tasks, *params, **kwargs):
+    def __init__(self, tasks, *params, tmtype: Optional[str] = None, **kwargs):
         super().__init__(*params, **kwargs)
 
         self._tasks = tasks
+        self._tmtype = tmtype
 
     def get_type(self):
         """Return type of Request"""
 
-        return 'K'
+        return self._tmtype or TransportTypes.Workbench
 
     @property
     def tasks(self):
