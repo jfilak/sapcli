@@ -21,7 +21,7 @@ from fixtures_adt_aunit import (
 from fixtures_adt_program import GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML
 from fixtures_adt_coverage import ACOVERAGE_RESULTS_XML, ACOVERAGE_STATEMENTS_RESULTS_XML
 from infra import generate_parse_args
-from mock import Connection, Response, BufferConsole
+from mock import Connection, Response, BufferConsole, patch_get_print_console_with_buffer
 from sap.cli.aunit import ResultOptions
 from sap.errors import SAPCliError
 
@@ -37,15 +37,15 @@ class TestAUnitWrite(unittest.TestCase):
         cmd_args = parse_args('run', *args, **kwargs)
         return cmd_args.execute(self.connection, cmd_args)
 
-    def assert_print_no_test_classes(self, mock_print):
+    def assert_print_no_test_classes(self, fake_console):
         self.assertEqual(
-            mock_print.return_value.capout,
+            fake_console.capout,
             'Successful: 0\n'
             'Warnings:   0\n'
             'Errors:     0\n')
 
         self.assertEqual(
-            mock_print.return_value.caperr,
+            fake_console.caperr,
             '* [tolerable] [noTestClasses] - The task definition does not refer to any test\n')
 
     def test_aunit_invalid(self):
@@ -57,8 +57,11 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual('2', str(caught.exception))
 
     def test_print_aunit_output_raises(self):
+        def noop():
+            pass
+
         with self.assertRaises(SAPCliError) as cm:
-            sap.cli.aunit.print_aunit_output(SimpleNamespace(output='foo'), Mock(), Mock())
+            sap.cli.aunit.print_aunit_output(SimpleNamespace(output='foo', console_factory=noop), Mock(), Mock())
 
         self.assertEqual(str(cm.exception), 'Unsupported output type: foo')
 
@@ -71,12 +74,12 @@ class TestAUnitWrite(unittest.TestCase):
             Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             self.execute_run('program', '--output', 'human', 'yprogram', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('programs/programs/yprogram', self.connection.execs[0].body)
-        self.assert_print_no_test_classes(mock_print)
+        self.assert_print_no_test_classes(fake_console)
 
     def test_aunit_program_include_fetch(self):
         self.connection.set_responses(
@@ -84,51 +87,51 @@ class TestAUnitWrite(unittest.TestCase):
             Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             self.execute_run('program-include', '--output', 'human', 'ZHELLO_INCLUDE', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 2)
         self.assertIn('programs/includes/zhello_include?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzjakub_is_handsome_genius', self.connection.execs[1].body)
-        self.assert_print_no_test_classes(mock_print)
+        self.assert_print_no_test_classes(fake_console)
 
     def test_aunit_program_include_explicit(self):
         self.connection.set_responses(
             Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={})
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
-            self.execute_run('program-include', '--output', 'human', 'mainprogram\someinclude', '--result', ResultOptions.ONLY_UNIT.value)
+        with patch_get_print_console_with_buffer() as fake_console:
+            self.execute_run('program-include', '--output', 'human', 'mainprogram\\someinclude', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('programs/includes/someinclude?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fmainprogram', self.connection.execs[0].body)
-        self.assert_print_no_test_classes(mock_print)
+        self.assert_print_no_test_classes(fake_console)
 
     def test_aunit_program_include_invalid(self):
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             ret = self.execute_run('program-include', '--output', 'human', 'invali\\mainprogram\\someinclude', '--result', ResultOptions.ONLY_UNIT.value)
 
-        self.assertEqual(mock_print.return_value.caperr, 'Program include name can be: INCLUDE or MAIN\\INCLUDE\n')
+        self.assertEqual(fake_console.caperr, 'Program include name can be: INCLUDE or MAIN\\INCLUDE\n')
         self.assertEqual(ret, 1)
 
     def test_aunit_class_human(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             self.execute_run('class', 'yclass', '--output', 'human', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
-        self.assert_print_no_test_classes(mock_print)
+        self.assert_print_no_test_classes(fake_console)
 
     def test_aunit_class_human_syntax_error(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_SYNTAX_ERROR_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             retval = self.execute_run('class', 'yclass', '--output', 'human', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
-        self.assertEqual(mock_print.return_value.capout,
+        self.assertEqual(fake_console.capout,
 '''CL_FOO
 * [critical] [warning] - CL_FOO has syntax errors and cannot be analyzed for existence of unit tests
 
@@ -141,7 +144,7 @@ Errors:     1
     def test_aunit_package(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             self.execute_run('package', 'ypackage', '--output', 'human', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
@@ -150,12 +153,12 @@ Errors:     1
     def test_aunit_junit4_no_test_methods(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_NO_TEST_METHODS_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_stdout:
+        with patch_get_print_console_with_buffer() as fake_console:
             self.execute_run('package', 'ypackage', '--output', 'junit4', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertEqual(
-            mock_stdout.return_value.capout,
+            fake_console.capout,
             """<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="ypackage">
   <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="0"/>
@@ -166,7 +169,7 @@ Errors:     1
     def test_aunit_package_with_results(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run('package', 'ypackage', '--output', 'human', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
@@ -174,7 +177,7 @@ Errors:     1
         self.assertIn('packages/ypackage', self.connection.execs[0].body)
 
         self.maxDiff = None
-        self.assertEqual(mock_print.return_value.capout,
+        self.assertEqual(fake_console.capout,
 '''ZCL_THEKING_MANUAL_HARDCORE
   LTCL_TEST
     DO_THE_FAIL [ERR]
@@ -204,19 +207,19 @@ Errors:     3
     def test_aunit_package_with_results_raw(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run('package', 'ypackage', '--output', 'raw', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('packages/ypackage', self.connection.execs[0].body)
 
-        self.assertEqual(mock_print.return_value.capout, AUNIT_RESULTS_XML + "\n")
+        self.assertEqual(fake_console.capout, AUNIT_RESULTS_XML + "\n")
 
     def test_aunit_package_with_results_junit4(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_stdout:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run('package', 'ypackage', '--output', 'junit4', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
@@ -224,7 +227,7 @@ Errors:     3
         self.assertIn('packages/ypackage', self.connection.execs[0].body)
 
         self.maxDiff = None
-        self.assertEqual(mock_stdout.return_value.capout,
+        self.assertEqual(fake_console.capout,
 '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="ypackage">
   <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="3">
@@ -264,13 +267,13 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
     def test_aunit_class_junit4_syntax_error(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_SYNTAX_ERROR_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             retval = self.execute_run('class', 'yclass', '--output', 'junit4', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
         self.maxDiff = None
-        self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
+        self.assertEqual(fake_console.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="yclass">
   <testcase name="CL_FOO" classname="CL_FOO" status="ERR">
     <system-err>"ME-&gt;MEMBER" is not type-compatible with formal parameter "BAR".</system-err>
@@ -278,18 +281,18 @@ Include: &lt;ZEXAMPLE_TESTS&gt; Line: &lt;25&gt; (PREPARE_THE_FAIL)</error>
   </testcase>
 </testsuites>
 ''')
-        self.assertEqual(mock_print.return_value.caperr,
+        self.assertEqual(fake_console.caperr,
 '''''')
         self.assertEqual(retval, 1)
 
     def test_aunit_class_junit4_skipped(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_SKIPPED_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             retval = self.execute_run('class', 'yclass', '--output', 'junit4', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.maxDiff = None
-        self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
+        self.assertEqual(fake_console.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="yclass">
   <testsuite name="LTCL_TEST" package="ZCL_THEKING_MANUAL_HARDCORE" tests="1">
     <testcase name="DO_THE_FAIL" classname="ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST" status="SKIP">
@@ -301,7 +304,7 @@ Test 'LTCL_TEST-&gt;DO_THE_FAIL' in Main Program 'ZCL_THEKING_MANUAL_HARDCORE===
   </testsuite>
 </testsuites>
 ''')
-        self.assertEqual(mock_print.return_value.caperr,
+        self.assertEqual(fake_console.caperr,
 '''''')
         self.assertEqual(retval, 0)
 
@@ -347,7 +350,7 @@ call 2</system-out>
     def test_aunit_package_with_results_sonar(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_RESULTS_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_stdout:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run('package', 'ypackage', '--output', 'sonar', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(exit_code, 3)
@@ -355,7 +358,7 @@ call 2</system-out>
         self.assertIn('packages/ypackage', self.connection.execs[0].body)
 
         self.maxDiff = None
-        self.assertEqual(mock_stdout.return_value.capout,
+        self.assertEqual(fake_console.capout,
 '''<?xml version="1.0" encoding="UTF-8" ?>
 <testExecutions version="1">
   <file path="ypackage/ZCL_THEKING_MANUAL_HARDCORE=&gt;LTCL_TEST">
@@ -482,13 +485,13 @@ You can find further informations in document &lt;CHAP&gt; &lt;SAUNIT_TEST_CL_PO
     def test_aunit_class_sonar_syntax_error(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_SYNTAX_ERROR_XML, headers={}))
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             retval = self.execute_run('class', 'yclass', '--output', 'sonar', '--result', ResultOptions.ONLY_UNIT.value)
 
         self.assertEqual(len(self.connection.execs), 1)
         self.assertIn('oo/classes/yclass', self.connection.execs[0].body)
         self.maxDiff = None
-        self.assertEqual(mock_print.return_value.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
+        self.assertEqual(fake_console.capout, '''<?xml version="1.0" encoding="UTF-8" ?>
 <testExecutions version="1">
     <testCase name="CL_FOO" duration="0">
       <error message="CL_FOO has syntax errors and cannot be analyzed for existence of unit tests">
@@ -499,7 +502,7 @@ CL_FOO======CCAU:428
     </testCase>
 </testExecutions>
 ''')
-        self.assertEqual(mock_print.return_value.caperr,
+        self.assertEqual(fake_console.caperr,
 '''''')
         self.assertEqual(retval, 1)
 
@@ -518,7 +521,7 @@ CL_FOO======CCAU:428
             Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run(
                 'package', 'ypackage', '--coverage-output', 'raw', '--result', ResultOptions.ONLY_COVERAGE.value
             )
@@ -526,7 +529,7 @@ CL_FOO======CCAU:428
         self.assertEqual(exit_code, None)
         self.assertEqual(len(self.connection.execs), 2)
 
-        self.assertEqual(mock_print.return_value.capout, ACOVERAGE_RESULTS_XML + "\n")
+        self.assertEqual(fake_console.capout, ACOVERAGE_RESULTS_XML + "\n")
 
     @patch('sap.cli.aunit.get_acoverage_statements')
     def test_acoverage_package_with_results_human(self, get_acoverage_statements):
@@ -537,7 +540,7 @@ CL_FOO======CCAU:428
             Response(status_code=200, text=ACOVERAGE_RESULTS_XML, headers={})
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_stdout:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run(
                 'package', 'ypackage', '--coverage-output', 'human', '--result', ResultOptions.ONLY_COVERAGE.value
             )
@@ -545,7 +548,7 @@ CL_FOO======CCAU:428
         self.assertEqual(exit_code, None)
         self.assertEqual(len(self.connection.execs), 2)
 
-        self.assertEqual(mock_stdout.return_value.capout,
+        self.assertEqual(fake_console.capout,
 '''TEST_CHECK_LIST : 29.00%
   FOO===========================CP : 95.24%
     FOO : 95.24%
@@ -561,14 +564,14 @@ CL_FOO======CCAU:428
             Response(status_code=200, text=ACOVERAGE_STATEMENTS_RESULTS_XML, headers={}),
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_stdout:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run(
                 'package', 'ypackage', '--coverage-output', 'jacoco', '--result', ResultOptions.ONLY_COVERAGE.value
             )
 
         self.assertEqual(exit_code, None)
         self.assertEqual(len(self.connection.execs), 3)
-        self.assertEqual(mock_stdout.return_value.capout,
+        self.assertEqual(fake_console.capout,
 '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">
 <report name="ypackage">
@@ -622,7 +625,7 @@ CL_FOO======CCAU:428
             Response(status_code=200, text=ACOVERAGE_STATEMENTS_RESULTS_XML, headers={}),
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run(
                 'package', 'ypackage', '--output', 'raw', '--coverage-output', 'raw', '--result', ResultOptions.ALL.value
             )
@@ -630,14 +633,14 @@ CL_FOO======CCAU:428
         self.assertEqual(exit_code, 3)
         self.assertEqual(len(self.connection.execs), 3)
 
-        self.assertEqual(mock_print.return_value.capout, AUNIT_RESULTS_XML + "\n" + ACOVERAGE_RESULTS_XML + "\n")
+        self.assertEqual(fake_console.capout, AUNIT_RESULTS_XML + "\n" + ACOVERAGE_RESULTS_XML + "\n")
 
     def test_result_option_unit(self):
         self.connection.set_responses(
             Response(status_code=200, text=AUNIT_RESULTS_XML, headers={})
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run(
                 'package', 'ypackage', '--output', 'raw', '--coverage-output', 'raw', '--result', ResultOptions.ONLY_UNIT.value
             )
@@ -646,7 +649,7 @@ CL_FOO======CCAU:428
         self.assertEqual(len(self.connection.execs), 1)
 
         self.maxDiff = None
-        self.assertEqual(mock_print.return_value.capout, AUNIT_RESULTS_XML + "\n")
+        self.assertEqual(fake_console.capout, AUNIT_RESULTS_XML + "\n")
 
     def test_result_option_coverage(self):
         self.connection.set_responses(
@@ -655,7 +658,7 @@ CL_FOO======CCAU:428
             Response(status_code=200, text=ACOVERAGE_STATEMENTS_RESULTS_XML, headers={}),
         )
 
-        with patch('sap.cli.core.get_console', return_value=BufferConsole()) as mock_print:
+        with patch_get_print_console_with_buffer() as fake_console:
             exit_code = self.execute_run(
                 'package', 'ypackage', '--output', 'raw', '--coverage-output', 'raw', '--result', ResultOptions.ONLY_COVERAGE.value
             )
@@ -663,7 +666,7 @@ CL_FOO======CCAU:428
         self.assertEqual(exit_code, None)
         self.assertEqual(len(self.connection.execs), 3)
 
-        self.assertEqual(mock_print.return_value.capout, ACOVERAGE_RESULTS_XML + "\n")
+        self.assertEqual(fake_console.capout, ACOVERAGE_RESULTS_XML + "\n")
 
     def test_coverage_filepath(self):
         self.connection.set_responses(
@@ -767,30 +770,30 @@ Errors:     1
 
 class TestAUnitCommandRunTransport(unittest.TestCase):
 
-    @patch('sap.cli.core.printerr')
     @patch('sap.adt.cts.Workbench.fetch_transport_request')
-    def test_not_found_transport(self, fake_fetch_transports, fake_printerr):
+    def test_not_found_transport(self, fake_fetch_transports):
         fake_fetch_transports.return_value = None
 
         connection = Mock()
         args = parse_args('run', 'transport', 'NPLK123456')
-        ret = args.execute(connection, args)
+        with patch_get_print_console_with_buffer() as fake_console:
+            ret = args.execute(connection, args)
 
-        fake_printerr.assert_called_once_with('The transport was not found: NPLK123456')
+        self.assertEqual(fake_console.caperr, 'The transport was not found: NPLK123456\n')
         self.assertEqual(ret, 1)
 
-    @patch('sap.cli.core.printerr')
     @patch('sap.adt.cts.Workbench.fetch_transport_request')
-    def test_no_testable_objects(self, fake_fetch_transports, fake_printerr):
+    def test_no_testable_objects(self, fake_fetch_transports):
         connection = Mock()
 
         fake_fetch_transports.return_value = sap.adt.cts.WorkbenchTransport(
             [], connection, 'NPLK123456', 'FILAK', 'Description', 'D')
 
         args = parse_args('run', 'transport', 'NPLK123456')
-        ret = args.execute(connection, args)
+        with patch_get_print_console_with_buffer() as fake_console:
+            ret = args.execute(connection, args)
 
-        fake_printerr.assert_called_once_with('No testable objects found')
+        self.assertEqual(fake_console.caperr, 'No testable objects found\n')
         self.assertEqual(ret, 1)
 
     @patch('sap.adt.cts.Workbench.fetch_transport_request')

@@ -42,7 +42,7 @@ def attributes(connection, args):
     proginc = sap.adt.Include(connection, args.name.upper())
     proginc.fetch()
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     console.printout(f'Name       : {proginc.name}')
     console.printout(f'Description: {proginc.description}')

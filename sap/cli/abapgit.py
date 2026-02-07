@@ -36,7 +36,7 @@ def link(connection, args):
         'transportRequest': args.corrnr
     })
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     if resp.status_code == 200:
         console.printout('Repository was linked.')
     else:
@@ -63,7 +63,7 @@ def pull(connection, args):
     })
 
     repository.fetch()
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     with sap.cli.helpers.ConsoleHeartBeat(console, 1):
         while repository.get_status() == 'R':
             time.sleep(1)

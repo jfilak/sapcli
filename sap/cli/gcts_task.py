@@ -30,7 +30,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 @CommandGroup.command('info')
 def info(connection, args):
     """Get task information"""
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     if not args.tid or not args.tid.strip() or not args.package or not args.package.strip():
         console.printerr('Invalid command line options\nRun: sapcli gcts task info --help')
@@ -53,7 +53,7 @@ def info(connection, args):
 def print_list(connection, args):
     """Get task information"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     if not args.package or not args.package.strip():
         console.printerr('Invalid command line options\nRun: sapcli gcts task list --help')
@@ -85,7 +85,7 @@ def print_list(connection, args):
 def delete(connection, args):
     """Delete a task"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     try:
         RepositoryTask(connection, args.package, data={'tid': args.tid}).delete()
     except GCTSRepoNotExistsError as exc:

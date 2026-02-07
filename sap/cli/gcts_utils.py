@@ -67,22 +67,28 @@ def print_process_message_details(console, message):
 
 
 def gcts_exception_handler(func):
-    """Exception handler for gcts commands"""
-    def _handler(*args, **kwargs):
+    """Exception handler for gcts commands
+       This decorator should be used only on sap/cli/ command handler functions
+       because we expect it being called with 2 arguments: connection, args.
+       Especially the args is important because we use it to get 'console_factory'.
+    """
+    def _handler(connection, args):
+        console_factory = sap.cli.core.get_console
+        if hasattr(args, 'console_factory'):
+            console_factory = args.console_factory
         try:
-            return func(*args, **kwargs)
+            return func(connection, args)
         except GCTSRequestError as ex:
-            dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+            dump_gcts_messages(console_factory(), ex.messages)
             return 1
         except SAPCliError as ex:
-            sap.cli.core.get_console().printerr(str(ex))
+            console_factory().printerr(str(ex))
             return 1
     return _handler
 
 
-def print_gcts_task_info(err_msg: str | None = None, task: dict | None = None):
+def print_gcts_task_info(console, err_msg: str | None = None, task: dict | None = None):
     """Print out the task information"""
-    console = sap.cli.core.get_console()
     if err_msg:
         console.printerr(err_msg)
     elif task:
@@ -110,7 +116,7 @@ class TaskOperationProgress(LogTaskOperationProgress):
 
     # for printing task info to console
     def update_task(self, error_msg: str | None, task: dict | None):
-        print_gcts_task_info(error_msg, task)
+        print_gcts_task_info(self._console, error_msg, task)
 
     # for context logging
     def _handle_updated(self, message, recover_message, pid):

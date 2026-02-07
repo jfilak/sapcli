@@ -76,7 +76,7 @@ def upload(connection, args):
 def stat(connection, args):
     """Get information about BSP application"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     # check if application exists
     try:

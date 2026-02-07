@@ -143,7 +143,7 @@ class TestClassIncludes(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(conn.execs[0].adt_uri, f'/sap/bc/adt/oo/classes/zcl_reader/includes/{typ}')
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), response.text + '\n')
+        self.assertEqual(fake_console.capout, response.text + '\n')
 
     def test_class_read_definitions(self):
         self.read_test(DEFINITIONS_READ_RESPONSE_OK, 'definitions')

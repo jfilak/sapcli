@@ -40,8 +40,8 @@ class TestObjectActivationWorker(unittest.TestCase):
             with patch_get_print_console_with_buffer() as fake_console:
                 self.worker.begin(case[0])
 
-            self.assertEqual(fake_console.return_value.err_output.getvalue(), '', f'Case {no}')
-            self.assertEqual(fake_console.return_value.std_output.getvalue(), case[1], f'Case {no}')
+            self.assertEqual(fake_console.caperr, '', f'Case {no}')
+            self.assertEqual(fake_console.capout, case[1], f'Case {no}')
 
     def test_start_object(self):
         cases = [('CL_NONE', 1, None, '* CL_NONE\n'),
@@ -52,8 +52,8 @@ class TestObjectActivationWorker(unittest.TestCase):
             with patch_get_print_console_with_buffer() as fake_console:
                 self.worker.start_object(case[0], case[1], case[2])
 
-            self.assertEqual(fake_console.return_value.err_output.getvalue(), '', f'Case {no}')
-            self.assertEqual(fake_console.return_value.std_output.getvalue(), case[3], f'Case {no}')
+            self.assertEqual(fake_console.caperr, '', f'Case {no}')
+            self.assertEqual(fake_console.capout, case[3], f'Case {no}')
 
     def test_handle_message(self):
         message, lines = self.message_builder.build_warning()
@@ -61,8 +61,8 @@ class TestObjectActivationWorker(unittest.TestCase):
         with patch_get_print_console_with_buffer() as fake_console:
             self.worker.handle_message(message)
 
-        self.assertEqual(fake_console.return_value.err_output.getvalue(), '')
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), lines)
+        self.assertEqual(fake_console.caperr, '')
+        self.assertEqual(fake_console.capout, lines)
 
     def assert_ok_stats(self, stats):
         self.assertEqual(stats.warnings, 0)
@@ -79,8 +79,8 @@ class TestObjectActivationWorker(unittest.TestCase):
                                        self.message_builder.build_results_without_messages(),
                                        self.stats)
 
-        self.assertEqual(fake_console.return_value.err_output.getvalue(), '')
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), '')
+        self.assertEqual(fake_console.caperr, '')
+        self.assertEqual(fake_console.capout, '')
 
         self.assert_ok_stats(self.stats)
 
@@ -91,8 +91,8 @@ class TestObjectActivationWorker(unittest.TestCase):
         self.assertEqual(stats.inactive_objects, [self.activated_object])
 
     def assert_error_message_output(self, fake_console):
-        self.assertEqual(fake_console.return_value.err_output.getvalue(), '')
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), self.message_builder.error_message[1])
+        self.assertEqual(fake_console.caperr, '')
+        self.assertEqual(fake_console.capout, self.message_builder.error_message[1])
 
     def test_handle_results_with_errors_no_continue(self):
         with self.assertRaises(sap.cli.wb.StopObjectActivation) as caught, \
@@ -123,8 +123,8 @@ class TestObjectActivationWorker(unittest.TestCase):
         self.assertEqual(stats.inactive_objects, [])
 
     def assert_warning_message_output(self, fake_console):
-        self.assertEqual(fake_console.return_value.err_output.getvalue(), '')
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), self.message_builder.warning_message[1])
+        self.assertEqual(fake_console.caperr, '')
+        self.assertEqual(fake_console.capout, self.message_builder.warning_message[1])
 
     def test_handle_results_with_warnings_and_stop(self):
         self.worker.warnings_as_errors = True
@@ -179,8 +179,8 @@ class TestObjectActivationWorker(unittest.TestCase):
             items = (itm for itm in [('mock_obj_name', self.activated_object)])
             stats = self.worker.activate_sequentially(items, count=2)
 
-        self.assertEqual(fake_console.return_value.err_output.getvalue(), '')
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), '''Activating 2 objects:
+        self.assertEqual(fake_console.caperr, '')
+        self.assertEqual(fake_console.capout, '''Activating 2 objects:
 * mock_obj_name (1/2)
 ''')
 

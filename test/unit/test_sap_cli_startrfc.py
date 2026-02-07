@@ -12,6 +12,7 @@ import types
 import unittest
 from unittest.mock import Mock, MagicMock, patch, mock_open, call
 
+from infra import generate_parse_args
 from mock import ConsoleOutputTestCase, PatcherTestCase, mod_pyrfc, TestRFCLibError, RetainedStringIO
 from fixtures_rfc import (
     BAPIRET2_WARNING,
@@ -23,10 +24,7 @@ sys.modules['pyrfc'] = mod_pyrfc
 import sap.cli.startrfc
 
 
-def parse_args(*argv):
-    parser = ArgumentParser()
-    sap.cli.startrfc.CommandGroup().install_parser(parser)
-    return parser.parse_args(argv)
+parse_args = generate_parse_args(sap.cli.startrfc.CommandGroup())
 
 
 class TestStartRFC(ConsoleOutputTestCase, PatcherTestCase):

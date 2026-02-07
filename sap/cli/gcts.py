@@ -79,7 +79,7 @@ def get_user_credentials(connection, args):
     """Get user credentials"""
 
     user_credentials = sap.rest.gcts.simple.get_user_credentials(connection)
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     if args.format == 'JSON':
         console.printout(user_credentials)
     else:
@@ -136,7 +136,7 @@ def get_properties(connection, args):
         ('URL', 'url'),
     ]
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     repo = get_repository(connection, args.package)
 
     if args.property:
@@ -185,7 +185,7 @@ class BranchCommandGroup(sap.cli.core.CommandGroup):
 def create_branch(connection, args):
     """Create new branch in repository"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     repo = get_repository(connection, args.package)
     response = repo.create_branch(args.name, symbolic=args.symbolic, peeled=args.peeled, local_only=args.local_only)
 
@@ -204,7 +204,7 @@ def create_branch(connection, args):
 def delete_branch(connection, args):
     """Delete branch of repository"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     repo = get_repository(connection, args.package)
     response = repo.delete_branch(args.name)
 
@@ -236,7 +236,7 @@ def _mark_active_branch(branches, active_branch_name):
 def list_branches(connection, args):
     """List branches of repository"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     repo = get_repository(connection, args.package)
     branches = repo.list_branches()
 
@@ -339,7 +339,7 @@ def activities(connection, args):
     """gCTS Activities
     """
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     params = RepoActivitiesQueryParams().set_limit(args.limit).set_offset(args.offset)
     params.set_tocommit(args.tocommit).set_fromcommit(args.fromcommit).set_operation(args.operation)
@@ -382,7 +382,7 @@ def messages(connection, args):
     """gCTS internal logs
     """
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     repo = get_repository(connection, args.package)
     repo_messages = repo.messages(RepoMessagesQueryParams().set_process(args.process))
@@ -430,7 +430,7 @@ def objects(connection, args):
     """gCTS Repository Objects
     """
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     repo = get_repository(connection, args.package)
     repo_objects = repo.objects()
@@ -487,7 +487,7 @@ def _print_config_property(console, config_property, output_format):
 def get_system_config_property(connection, args):
     """Get configuration property value for given key"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     config_property = sap.rest.gcts.simple.get_system_config_property(connection, args.key.upper())
 
     _print_config_property(console, config_property, args.format.upper())
@@ -499,7 +499,7 @@ def get_system_config_property(connection, args):
 @ConfigCommandGroup.command('list')
 def list_system_config(connection, args):
     """List system configuration"""
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     config_list = sap.rest.gcts.simple.list_system_config(connection)
 
     if args.format.upper() == 'JSON':
@@ -528,7 +528,7 @@ def list_system_config(connection, args):
 def set_system_config_property(connection, args):
     """Create or update the configuration property"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     config_property = sap.rest.gcts.simple.set_system_config_property(connection, args.key.upper(), args.value)
 
     _print_config_property(console, config_property, args.format.upper())
@@ -542,7 +542,7 @@ def set_system_config_property(connection, args):
 def delete_system_config_property(connection, args):
     """Delete configuration property"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     response = sap.rest.gcts.simple.delete_system_config_property(connection, args.key.upper())
 
     if args.format.upper() == 'JSON':
@@ -603,7 +603,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 def repolist(connection, args):
     """ls"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     response = sap.rest.gcts.simple.fetch_repos(connection)
 
@@ -647,7 +647,7 @@ def clone(connection, args):
 
     package = args.package or sap.rest.gcts.package_name_from_url(args.url)
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     check_activities_flag = not args.no_import
     clone_action = None
     delayed_exc = None
@@ -755,7 +755,7 @@ def config(connection, args):
         repo.delete_config(args.name)
         console.printout(f'unset {args.name}={old_value}')
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     if args.package is None or not args.list and args.name is None:
         console.printerr('Invalid command line options\nRun: sapcli gcts config --help')
         return 1
@@ -797,7 +797,7 @@ def checkout(connection, args):
     """git checkout <branch>
     """
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     repo = get_repository(connection, args.package)
     old_branch = repo.branch
     from_commit = repo.head
@@ -849,7 +849,7 @@ def gcts_log(connection, args):
     """git log
     """
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     repo = get_repository(connection, args.package)
     commits = sap.rest.gcts.simple.log(connection, repo=repo)
 
@@ -876,7 +876,7 @@ def pull(connection, args):
     """git pull
     """
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     repo = get_repository(connection, args.package)
     with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
@@ -911,7 +911,7 @@ def commit(connection, args):
     """git commit
     """
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     repo = get_repository(connection, args.package)
     if args.corrnr is None:
@@ -936,7 +936,7 @@ def commit(connection, args):
 def update_filesystem(connection, args):
     """Update branch on filesystem only
     """
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     if args.output and os.path.exists(args.output):
         console.printerr(f'Output file must not exist: {args.output}')
@@ -955,7 +955,7 @@ def update_filesystem(connection, args):
                 to_commit = pull_response.get('toCommit') or '()'
                 console.printout(f'The branch "{args.branch}" has been updated: {from_commit} -> {to_commit}')
     except GCTSRequestError as ex:
-        dump_gcts_messages(sap.cli.core.get_console(), ex.messages)
+        dump_gcts_messages(args.console_factory(), ex.messages)
     except SAPCliError as ex:
         console.printerr(str(ex))
     else:

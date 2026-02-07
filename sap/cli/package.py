@@ -74,7 +74,7 @@ def list_package(connection, args):
 
     package = sap.adt.Package(connection, args.name)
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     for pkg, subpackages, objects in sap.adt.package.walk(package):
         basedir = '/'.join(pkg)
@@ -104,7 +104,7 @@ def stat(connection, args):
 
     package = sap.adt.Package(connection, args.name)
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     try:
         package.fetch()
@@ -251,6 +251,6 @@ def check(connection, args):
         checks += runs
         reports.extend(results)
 
-    _, __, errors = _print_out_messages(reports, checks, index, args.group_by, sap.cli.core.get_console())
+    _, __, errors = _print_out_messages(reports, checks, index, args.group_by, args.console_factory())
 
     return 0 if errors == 0 else 1
