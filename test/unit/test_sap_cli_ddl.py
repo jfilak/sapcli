@@ -8,13 +8,11 @@ from io import StringIO
 import sap.cli.interface
 import sap.cli.datadefinition
 
+from infra import generate_parse_args
 from mock import patch_get_print_console_with_buffer
 
 
-def parse_args(argv):
-    parser = ArgumentParser()
-    sap.cli.datadefinition.CommandGroup().install_parser(parser)
-    return parser.parse_args(argv)
+parse_args = generate_parse_args(sap.cli.datadefinition.CommandGroup())
 
 
 class TestCommandGroup(unittest.TestCase):
@@ -43,8 +41,8 @@ class TestDDLActivate(unittest.TestCase):
         fake_conn= Mock()
 
         fake_activate.return_value = (sap.adt.wb.CheckResults(), None)
-        args = parse_args(['activate', 'myusers', 'mygroups'])
-        with patch_get_print_console_with_buffer() as fake_get_console:
+        args = parse_args('activate', 'myusers', 'mygroups')
+        with patch_get_print_console_with_buffer() as fake_console:
             args.execute(fake_conn, args)
 
         self.assertEqual(fake_ddl.mock_calls, [
@@ -56,8 +54,8 @@ class TestDDLActivate(unittest.TestCase):
 
         self.assertEqual(fake_activate.mock_calls, [call(instances[0]), call(instances[1])])
 
-        self.assertEqual(fake_get_console.return_value.err_output.getvalue(), '')
-        self.assertEqual(fake_get_console.return_value.std_output.getvalue(), '''Activating 2 objects:
+        self.assertEqual(fake_console.caperr, '')
+        self.assertEqual(fake_console.capout, '''Activating 2 objects:
 * myusers (1/2)
 * mygroups (2/2)
 Activation has finished
@@ -74,12 +72,12 @@ class TestDDLRead(unittest.TestCase):
         fake_ddl.return_value = Mock()
         fake_ddl.return_value.text = 'source code'
 
-        args = parse_args(['read', 'MYUSERS'])
+        args = parse_args('read', 'MYUSERS')
         with patch_get_print_console_with_buffer() as fake_console:
             args.execute(fake_conn, args)
 
         fake_ddl.assert_called_once_with(fake_conn, 'MYUSERS', package=None, metadata=None)
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), 'source code\n')
+        self.assertEqual(fake_console.capout, 'source code\n')
 
 
 if __name__ == '__main__':

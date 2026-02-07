@@ -70,7 +70,7 @@ class TestStructureRead(unittest.TestCase):
             the_cmd.execute(connection, the_cmd)
 
         expected_stdout = READ_STRUCTURE_BODY + '\n'
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), expected_stdout)
+        self.assertEqual(fake_console.capout, expected_stdout)
 
 
 class TestStructureWrite(unittest.TestCase):

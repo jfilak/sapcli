@@ -658,7 +658,7 @@ def objects_of_transport(as4user: str, connection: sap.adt.core.Connection,
 def print_aunit_output(args, aunit_response, aunit_parsed_response):
     """Prints AUnit output in selected format and console"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     result = None
 
@@ -696,7 +696,7 @@ def print_acoverage_output(args, acoverage_response, root_node, statement_respon
             err_file=coverage_file
         )
     else:
-        console = sap.cli.core.get_console()
+        console = args.console_factory()
 
     if args.coverage_output == 'raw':
         print_acoverage_raw(acoverage_response.text, console)
@@ -749,11 +749,12 @@ def run(connection, args):
 
     sets = sap.adt.objects.ADTObjectSets()
 
+    console = args.console_factory()
     for objname in args.name:
         try:
             sets.include(objfactory.make(args.type, objname))
         except SAPCliError as ex:
-            sap.cli.core.printerr(str(ex))
+            console.printerr(str(ex))
             return 1
 
     aunit = sap.adt.AUnit(connection)

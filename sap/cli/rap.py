@@ -52,7 +52,7 @@ def publish(connection, args):
     """ publish odata service that belongs to a service binding identified by a version
     """
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     binding = sap.adt.businessservice.ServiceBinding(connection, args.binding_name)
     binding.fetch()
@@ -99,6 +99,7 @@ with supplied name "{args.service or ''}" and version "{args.version or ''}"''')
 def definition_activate(connection, args):
     """Activate Business Service Definition"""
 
+    console = args.console_factory()
     activator = sap.cli.wb.ObjectActivationWorker()
     activated_items = ((name, sap.adt.ServiceDefinition(connection, name)) for name in args.name)
-    return sap.cli.object.activate_object_list(activator, activated_items, count=len(args.name))
+    return sap.cli.object.activate_object_list(activator, activated_items, len(args.name), console)

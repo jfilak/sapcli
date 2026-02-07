@@ -1,9 +1,11 @@
 """Test sap.cli.gcts_utils module"""
 
 import unittest
+import types
 from unittest.mock import patch, Mock
 from test.unit.mock import (
-    ConsoleOutputTestCase
+    ConsoleOutputTestCase,
+    BufferConsole
 )
 from sap.cli.gcts_utils import (
     print_gcts_task_info,
@@ -15,13 +17,9 @@ from sap.rest.errors import HTTPRequestError
 from sap.rest.gcts.errors import SAPCliError, GCTSRequestError
 
 
-class TestPrintGCTSTaskInfo(unittest.TestCase):
+class TestPrintGCTSTaskInfo(ConsoleOutputTestCase, unittest.TestCase):
     def setUp(self):
         super().setUp()
-        self.mock_console = Mock()
-        self.mock_console.printerr = Mock()
-        self.mock_console.printout = Mock()
-
         self.task_dict = {
             'tid': '123',
             'rid': 'sample',
@@ -29,31 +27,18 @@ class TestPrintGCTSTaskInfo(unittest.TestCase):
             'status': 'RUNNING'
         }
 
-    @patch('sap.cli.core.get_console')
-    def test_print_gcts_task_info_with_task(self, mock_get_console):
+    def test_print_gcts_task_info_with_task(self):
         """Test print_gcts_task_info when task is provided (no error)"""
-        mock_get_console.return_value = self.mock_console
 
-        print_gcts_task_info(None, self.task_dict)
+        print_gcts_task_info(self.console, None, self.task_dict)
+        self.assertConsoleContents(console=self.console, stdout=f'\nTask Status: {self.task_dict["status"]}\n', stderr='')
 
-        mock_get_console.assert_called_once()
-
-        self.mock_console.printerr.assert_not_called()
-        self.mock_console.printout.assert_called_once_with(f'\nTask Status: {self.task_dict["status"]}')
-
-    @patch('sap.cli.core.get_console')
-    def test_print_gcts_task_info_with_error(self, mock_get_console):
+    def test_print_gcts_task_info_with_error(self):
         """Test print_gcts_task_info when error message is provided"""
-        mock_get_console.return_value = self.mock_console
         error_message = 'Task retrieval failed: Connection error'
 
-        print_gcts_task_info(error_message, None)
-
-        mock_get_console.assert_called_once()
-
-        self.mock_console.printerr.assert_called_once_with(error_message)
-
-        self.mock_console.printout.assert_not_called()
+        print_gcts_task_info(self.console, error_message, None)
+        self.assertConsoleContents(console=self.console, stderr= error_message + '\n', stdout='')
 
 
 class TestPrintGCTSMessage(ConsoleOutputTestCase, unittest.TestCase):
@@ -194,10 +179,10 @@ class TestGCTSExceptionHandler(unittest.TestCase):
         mock_get_console.return_value = self.mock_console
 
         @gcts_exception_handler
-        def test_func():
+        def test_func(connection, args):
             return 0
 
-        result = test_func()
+        result = test_func(Mock(), Mock())
         self.assertEqual(result, 0)
         mock_get_console.assert_not_called()
 
@@ -209,10 +194,10 @@ class TestGCTSExceptionHandler(unittest.TestCase):
         gcts_error = GCTSRequestError(mock_messages)
 
         @gcts_exception_handler
-        def test_func():
+        def test_func(connection, args):
             raise gcts_error
 
-        result = test_func()
+        result = test_func(Mock(), Mock())
         self.assertEqual(result, 1)
         mock_get_console.assert_called_once()
         mock_dump_gcts_messages.assert_called_once_with(self.mock_console, mock_messages)
@@ -223,10 +208,10 @@ class TestGCTSExceptionHandler(unittest.TestCase):
         sap_error = SAPCliError('SAP CLI error message')
 
         @gcts_exception_handler
-        def test_func():
+        def test_func(connection, args):
             raise sap_error
 
-        result = test_func()
+        result = test_func(Mock(), Mock())
         self.assertEqual(result, 1)
         mock_get_console.assert_called_once()
         self.mock_console.printerr.assert_called_once_with('SAP CLI error message')
@@ -236,21 +221,43 @@ class TestGCTSExceptionHandler(unittest.TestCase):
         mock_get_console.return_value = self.mock_console
 
         @gcts_exception_handler
-        def test_func():
+        def test_func(connection, args):
             raise ValueError('Other error')
 
         with self.assertRaises(ValueError):
-            test_func()
+            test_func(Mock(), Mock())
         mock_get_console.assert_not_called()
 
-    @patch('sap.cli.core.get_console')
-    def test_gcts_exception_handler_with_args_kwargs(self, mock_get_console):
-        mock_get_console.return_value = self.mock_console
+
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
+    def test_gcts_exception_handler_gcts_request_error(self, mock_dump_gcts_messages):
+        mock_messages = {'errorLog': [{'message': 'GCTS error'}]}
+        gcts_error = GCTSRequestError(mock_messages)
+
+        my_console = Mock()
+        def test_console_factory():
+            return my_console
 
         @gcts_exception_handler
-        def test_func(arg1, arg2, kwarg1=None):
-            return arg1 + arg2 + (kwarg1 or 0)
+        def test_func(connection, args):
+            raise gcts_error
 
-        result = test_func(1, 2, kwarg1=3)
-        self.assertEqual(result, 6)
-        mock_get_console.assert_not_called()
+        result = test_func(Mock(), types.SimpleNamespace(console_factory=test_console_factory))
+        self.assertEqual(result, 1)
+        mock_dump_gcts_messages.assert_called_once_with(my_console, mock_messages)
+
+    def test_gcts_exception_handler_sap_cli_error(self):
+        sap_error = SAPCliError('SAP CLI error message')
+
+        console = BufferConsole()
+        def test_console_factory():
+            return console
+
+        @gcts_exception_handler
+        def test_func(connection, args):
+            raise sap_error
+
+        result = test_func(Mock(), types.SimpleNamespace(console_factory=test_console_factory))
+        self.assertEqual(result, 1)
+        self.assertEqual(console.caperr, 'SAP CLI error message\n')
+

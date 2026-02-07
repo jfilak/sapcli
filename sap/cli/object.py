@@ -5,7 +5,7 @@ import os
 import collections
 
 import sap.cli.core
-from sap.cli.core import InvalidCommandLineError, printout
+from sap.cli.core import InvalidCommandLineError
 import sap.errors
 
 import sap.adt
@@ -71,43 +71,43 @@ def write_args_to_objects(command, connection, args, metadata=None):
         raise InvalidCommandLineError('Source file can be a list only when Object name is -')
 
 
-def printout_activation_stats(stats):
+def printout_activation_stats(console, stats):
     """Prints out activation statistics"""
 
-    printout('Warnings:', stats.warnings)
-    printout('Errors:', stats.errors)
+    console.printout('Warnings:', stats.warnings)
+    console.printout('Errors:', stats.errors)
 
 
-def printout_adt_object(prefix, obj):
+def printout_adt_object(console, prefix, obj):
     """Prints out ADT object in identifiable way"""
 
-    printout(f'{prefix}{obj.objtype.code} {obj.name}')
+    console.printout(f'{prefix}{obj.objtype.code} {obj.name}')
 
 
-def activate_object_list(activator, object_enumerable, count):
+def activate_object_list(activator, object_enumerable, count, console):
     """Starts object activation and handles results"""
 
     try:
         stats = activator.activate_sequentially(object_enumerable, count)
     except sap.cli.wb.StopObjectActivation as ex:
-        printout('Activation has stopped')
+        console.printout('Activation has stopped')
 
-        printout_activation_stats(ex.stats)
+        printout_activation_stats(console, ex.stats)
 
         if ex.stats.active_objects:
-            printout('Active objects:')
+            console.printout('Active objects:')
             for obj in ex.stats.active_objects:
-                printout_adt_object('  ', obj)
+                printout_adt_object(console, '  ', obj)
 
         return 1
 
-    printout('Activation has finished')
-    printout_activation_stats(stats)
+    console.printout('Activation has finished')
+    printout_activation_stats(console, stats)
 
     if stats.inactive_objects:
-        printout('Inactive objects:')
+        console.printout('Inactive objects:')
         for obj in stats.inactive_objects:
-            printout_adt_object('  ', obj)
+            printout_adt_object(console, '  ', obj)
 
         return 1
 
@@ -242,7 +242,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         """
 
         obj = self.instance(connection, args.name, args)
-        printout(obj.text)
+        args.console_factory().printout(obj.text)
 
     def build_activator(self, args):
         """For children to customize"""
@@ -259,10 +259,11 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         toactivate = collections.OrderedDict()
 
-        printout('Writing:')
+        console = args.console_factory()
+        console.printout('Writing:')
 
         for obj, text in write_args_to_objects(self, connection, args):
-            printout('*', str(obj))
+            console.printout('*', str(obj))
 
             with obj.open_editor(corrnr=args.corrnr) as editor:
                 editor.write(''.join(text))
@@ -273,13 +274,14 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
             return 0
 
         activated_items = toactivate.items()
-        return activate_object_list(self.build_activator(args), activated_items, count=len(activated_items))
+        return activate_object_list(self.build_activator(args), activated_items, len(activated_items), console)
 
     def activate_objects(self, connection, args):
         """Actives the given object."""
 
+        console = args.console_factory()
         activated_items = ((name, self.instance(connection, name, args)) for name in args.name)
-        return activate_object_list(self.build_activator(args), activated_items, count=len(args.name))
+        return activate_object_list(self.build_activator(args), activated_items, len(args.name), console)
 
 
 # pylint: disable=abstract-method

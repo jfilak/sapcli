@@ -97,7 +97,7 @@ def listidentities(connection, args):
     if args.format == 'JSON':
         printout(identities)
     else:
-        console = sap.cli.core.get_console()
+        console = args.console_factory()
         columns = (
             TableWriter.Columns()
             ('PSE_CONTEXT', 'PSE Context')

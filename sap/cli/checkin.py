@@ -632,7 +632,7 @@ def _activate(connection, inactive_objects, console):
 def do_checkin(connection, args):
     """Synchronize directory structure with ABAP package structure"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     top_dir = '.'
     if args.starting_folder:

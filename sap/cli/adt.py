@@ -12,10 +12,10 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 
 @CommandGroup.command('collections')
-def abapclass(connection, _):
+def abapclass(connection, args):
     """List object type and supported ADT XML format versions"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     for typ, versions in connection.collection_types.items():
         console.printout(typ)

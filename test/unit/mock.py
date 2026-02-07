@@ -4,10 +4,10 @@ import types
 from typing import Dict, NamedTuple
 from io import StringIO
 from argparse import ArgumentParser
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, contextmanager
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 
 import sap.adt
 import sap.cli.core
@@ -303,6 +303,7 @@ class RFCConnection:
 class BufferConsole(sap.cli.core.PrintConsole):
 
     def __init__(self):
+        self.tag = None
         self.std_output = StringIO()
         self.err_output = StringIO()
 
@@ -323,17 +324,28 @@ class BufferConsole(sap.cli.core.PrintConsole):
         self.err_output.seek(0)
 
 
+@contextmanager
 def patch_get_print_console_with_buffer():
     """Capture output printed out by sapcli.
 
-        with patch_print_console_with_buffer() as fake_get_console:
+        with patch_get_print_console_with_buffer() as fake_console:
             sap.cli.core.printout('Test!')
             sap.cli.core.printout('Yet another Test!')
+            sap.cli.core.printerr('This is error!')
 
-        self.assertEqual(fake_get_console.return_value.std_output, 'Test!\nYet another Test!\n')
+        self.assertEqual(fake_console.capout, 'Test!\nYet another Test!\n')
+        self.assertEqual(fake_console.caperr, 'This is error!\n')
     """
 
-    return patch('sap.cli.core.get_console', return_value=BufferConsole())
+    buffer = BufferConsole()
+    buffer.tag = 'function patch'
+    backup = sap.cli.core.set_console(buffer)
+    try:
+        yield buffer
+    finally:
+        double_check = sap.cli.core.set_console(backup)
+        if double_check.tag != 'function patch':
+            raise Exception('nightmare')
 
 
 class GroupArgumentParser:
@@ -348,6 +360,8 @@ class GroupArgumentParser:
 
 
 class PatcherTestCase:
+    # Do no add __init__ because it does not work anyways
+    # as this class is involved in multiple inheritance.
 
     def patch(self, spec, **kwargs):
         print('Patching', spec)
@@ -366,13 +380,29 @@ class PatcherTestCase:
         if console is None:
             console = BufferConsole()
 
-        return self.patch('sap.cli.core.get_console', return_value=console)
+        console.tag = self
+
+        old_console = sap.cli.core.set_console(console)
+
+        # Remember only the first one - that's the real original and that's how patch works!
+        if  hasattr(self, '_console_backup'):
+            raise Exception('double patch')
+
+        self._console_backup = old_console
+
+        #return self.patch('sap.cli.core.get_console', return_value=console)
+        return Mock(return_value=console)
 
     def tearDown(self):
         self.unpatch_all()
 
     def unpatch_all(self):
         print('Patcher tear down')
+
+        if hasattr(self, '_console_backup'):
+            double_check = sap.cli.core.set_console(self._console_backup)
+            if not double_check.tag is self:
+                raise Exception('revert something else')
 
         if not hasattr(self, '_patchers'):
             return

@@ -22,7 +22,7 @@ def state(connection, args):
     manager = sap.adt.featuretoggle.FeatureToggleManager(connection)
     states = manager.fetch_feature_toggle_state(args.id.lower())
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
     console.printout(f"Client {args.client}: {states.client_state.value}")
     console.printout(f"User {args.user}: {states.user_state.value}")
     return 0

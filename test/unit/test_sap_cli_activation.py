@@ -92,11 +92,11 @@ class TestInactiveobjectsList(unittest.TestCase):
         std_output = StringIO()
         err_output = StringIO()
 
-        with patch_get_print_console_with_buffer() as fake_get_console:
+        with patch_get_print_console_with_buffer() as fake_console:
             args.execute(conn, args)
 
-        self.assertEqual("", fake_get_console.return_value.err_output.getvalue())
-        self.assertEqual(fake_get_console.return_value.std_output.getvalue(),
+        self.assertEqual("", fake_console.caperr)
+        self.assertEqual(fake_console.capout,
                          """CL_PARENT_CLASS (CLAS/OC)
  + CL_PARENT_CLASS===RUN (CLAS/OC/M)
 CL_ANOTHER_CLASS (CLAS/OC)

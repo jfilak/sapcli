@@ -21,7 +21,7 @@ def _get_enhancement_implementation(connection, args):
 
 
 def _list(connection, args):
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     enho = _get_enhancement_implementation(connection, args)
 
@@ -65,7 +65,7 @@ def set_active(connection, args):
     except KeyError as exc:
         raise sap.errors.SAPCliError(f'BUG: unexpected value of the argument active: {args.active}') from exc
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     enho = _get_enhancement_implementation(connection, args)
     try:
@@ -89,5 +89,5 @@ def set_active(connection, args):
         return 0
 
     activator = sap.cli.wb.ObjectActivationWorker()
-    sap.cli.object.activate_object_list(activator, ((args.enhancement_implementation, enho),), count=1)
+    sap.cli.object.activate_object_list(activator, ((args.enhancement_implementation, enho),), 1, console)
     return 0

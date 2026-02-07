@@ -49,7 +49,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
 def define(connection, args):
     """Changes attributes of the given Data Element"""
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user,
                                    description=args.description)
@@ -128,4 +128,4 @@ def define(connection, args):
     if args.activate:
         console.printout(f'Data element {args.name} activation performed')
         activator = sap.cli.wb.ObjectActivationWorker()
-        sap.cli.object.activate_object_list(activator, ((args.name, dataelement),), count=1)
+        sap.cli.object.activate_object_list(activator, ((args.name, dataelement),), 1, console)

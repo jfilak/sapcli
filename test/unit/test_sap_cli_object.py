@@ -184,7 +184,7 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
             args.execute(connection, args)
 
         self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata=None)
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), 'source code\n')
+        self.assertEqual(fake_console.capout, 'source code\n')
 
     def test_write_object_text_stdin(self):
         connection = MagicMock()
@@ -279,7 +279,7 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
         #self.group.new_object_mock.fetch.assert_called_once()
         # print(self.group.new_object_mock)
         self.assertEqual(fake_activate.call_args_list, [call(self.group.new_object_mock), call(self.group.new_object_mock)])
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), '''Writing:
+        self.assertEqual(fake_console.capout, '''Writing:
 * str(z_one)
 * str(z_one)
 * str(z_two)
@@ -316,7 +316,7 @@ Errors: 0
                                                                   call(connection, 'anothername', args, metadata=None)])
 
 
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), '''Activating 2 objects:
+        self.assertEqual(fake_console.capout, '''Activating 2 objects:
 * myname (1/2)
 * anothername (2/2)
 Activation has finished
@@ -347,7 +347,7 @@ Errors: 0
             exit_code = args.execute(connection, args)
             self.assertEqual(exit_code, 1)
 
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), f'''Activating 2 objects:
+        self.assertEqual(fake_console.capout, f'''Activating 2 objects:
 * myname (1/2)
 * anothername (2/2)
 {message_builder.error_message[1]}Activation has stopped
@@ -380,7 +380,7 @@ Active objects:
             exit_code = args.execute(connection, args)
             self.assertEqual(exit_code, 1)
 
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), f'''Activating 2 objects:
+        self.assertEqual(fake_console.capout, f'''Activating 2 objects:
 * myname (1/2)
 * anothername (2/2)
 {message_builder.error_message[1]}Activation has finished
@@ -413,7 +413,7 @@ Inactive objects:
             exit_code = args.execute(connection, args)
             self.assertEqual(exit_code, 1)
 
-        self.assertEqual(fake_console.return_value.std_output.getvalue(), f'''Activating 2 objects:
+        self.assertEqual(fake_console.capout, f'''Activating 2 objects:
 * myname (1/2)
 * anothername (2/2)
 {message_builder.warning_message[1]}Activation has finished

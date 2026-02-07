@@ -111,6 +111,7 @@ class CommandGroup:
         for command in self.__class__.get_commands().values():
             get_args = command_args.add_parser(command.name, help=command.description)
             get_args.set_defaults(execute=command.handler)
+            get_args.set_defaults(console_factory=get_console)
             command.install_arguments(get_args)
 
         return command_args

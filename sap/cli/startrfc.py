@@ -95,7 +95,7 @@ def startrfc(connection, args):
     """Run whatever RFC enabled Function Module users want"""
     # pylint: disable=too-many-return-statements
 
-    console = sap.cli.core.get_console()
+    console = args.console_factory()
 
     # we required new file to avoid security problems if executed
     # under a user with escalated privileges

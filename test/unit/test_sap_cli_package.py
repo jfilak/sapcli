@@ -13,7 +13,7 @@ from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionResourceNotF
 import sap.cli.package
 import sap.cli.core
 
-from mock import Connection, Response, ConsoleOutputTestCase, PatcherTestCase
+from mock import Connection, Response, ConsoleOutputTestCase, PatcherTestCase, patch_get_print_console_with_buffer
 from fixtures_adt import EMPTY_RESPONSE_OK, ERROR_XML_PACKAGE_ALREADY_EXISTS
 from fixtures_adt_package import GET_PACKAGE_ADT_XML, GET_PACKAGE_ADT_XML_NOT_FOUND
 
@@ -192,7 +192,7 @@ Package Type           :development
 class TestPackageCheck(unittest.TestCase):
 
     def run_checks(self, args, reporters, walk_results):
-        with patch('sap.cli.core.get_console') as fake_get_console, \
+        with patch_get_print_console_with_buffer() as fake_console, \
              patch('sap.adt.checks.run') as fake_run, \
              patch('sap.adt.package.walk') as fake_walk, \
              patch('sap.adt.checks.fetch_reporters') as fake_fetch_reporters:
@@ -231,16 +231,11 @@ class TestPackageCheck(unittest.TestCase):
 
             fake_run.side_effect = sap_adt_checks_run
 
-            std_output = StringIO()
-            err_output = StringIO()
-
-            fake_get_console.return_value = sap.cli.core.PrintConsole(std_output, err_output)
-
             connection = Connection()
 
             ret = args.execute(connection, args)
 
-            return (runs, std_output.getvalue(), err_output.getvalue(), ret)
+            return (runs, fake_console.capout, fake_console.caperr, ret)
 
     def run_check_with_objects(self, args, exp_std, exp_err):
 
