@@ -30,6 +30,7 @@ class CommandsCache:
         import sap.cli.abapclass
         import sap.cli.datadefinition
         import sap.cli.accesscontrol
+        import sap.cli.behaviordefinition
         import sap.cli.function
         import sap.cli.aunit
         import sap.cli.atc
@@ -59,6 +60,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.abapclass.CommandGroup()),
                 (adt_connection_from_args, sap.cli.datadefinition.CommandGroup()),
                 (adt_connection_from_args, sap.cli.accesscontrol.CommandGroup()),
+                (adt_connection_from_args, sap.cli.behaviordefinition.CommandGroup()),
                 (adt_connection_from_args, sap.cli.function.CommandGroupFunctionGroup()),
                 (adt_connection_from_args, sap.cli.function.CommandGroupFunctionModule()),
                 (adt_connection_from_args, sap.cli.aunit.CommandGroup()),

@@ -129,6 +129,12 @@ GET_DCL_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 </dcl:dclSource>
 '''
 
+GET_BDEF_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" abapsource:sourceUri="source/main" abapsource:fixPointArithmetic="true" abapsource:activeUnicodeCheck="true" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:abapLanguageVersion="standard" adtcore:name="ZMYBDEF" adtcore:type="BDEF/BDO" adtcore:changedAt="2025-11-20T14:39:42Z" adtcore:version="active" adtcore:createdAt="2025-11-19T23:00:00Z" adtcore:changedBy="SAP" adtcore:createdBy="DEVELOPER" adtcore:description="My Behavior Definition" adtcore:descriptionTextLimit="60" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/universe" adtcore:type="DEVC/K" adtcore:name="UNIVERSE" adtcore:packageName="UNIVERSE" adtcore:description="Universe"/>
+</blue:blueSource>
+'''
+
 ERROR_XML_PACKAGE_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceAlreadyExists"/><message lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</message><localizedMessage lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</localizedMessage><properties/></exc:exception>'''
 
 
