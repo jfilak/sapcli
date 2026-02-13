@@ -105,16 +105,32 @@ class TestPackageList(PatcherTestCase, ConsoleOutputTestCase):
         ConsoleOutputTestCase.setUp(self)
         self.patch_console(console=self.console)
 
-    def configure_mock_walk(self, conn, fake_walk):
+    def configure_mock_walk(self, fake_walk):
         fake_walk.return_value = iter(
             (([],
               ['$VICTORY_TESTS', '$VICTORY_DOC'],
-              [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD'),
-               SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD'),
-               SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD')]),
+              [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD', description='Test interface'),
+               SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD', description='Test class'),
+               SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', description='Test program')]),
              (['$VICTORY_TESTS'],
               [],
-              [SimpleNamespace(typ='CLAS/OC', name='ZCL_TESTS')]),
+              [SimpleNamespace(typ='CLAS/OC', name='ZCL_TESTS', description='Test class 2')]),
+             (['$VICTORY_DOC'],
+              [],
+              []))
+        )
+
+    def configure_mock_walk_long(self, fake_walk):
+        fake_walk.return_value = iter(
+            (([],
+              [SimpleNamespace(typ='DEVC/K', name='$VICTORY_TESTS', uri='/sap/bc/adt/packages/%24victory_tests', description='Victory Tests'),
+               SimpleNamespace(typ='DEVC/K', name='$VICTORY_DOC', uri='/sap/bc/adt/packages/%24victory_doc', description='Victory Doc')],
+              [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD', description='Test interface'),
+               SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD', description='Test class'),
+               SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', description='Test program')]),
+             (['$VICTORY_TESTS'],
+              [],
+              [SimpleNamespace(typ='CLAS/OC', name='ZCL_TESTS', description='Test class 2')]),
              (['$VICTORY_DOC'],
               [],
               []))
@@ -124,7 +140,7 @@ class TestPackageList(PatcherTestCase, ConsoleOutputTestCase):
     def test_without_recursion(self, fake_walk):
         conn = Connection()
 
-        self.configure_mock_walk(conn, fake_walk)
+        self.configure_mock_walk(fake_walk)
         args = parse_args('list', '$VICTORY')
 
         args.execute(conn, args)
@@ -140,7 +156,7 @@ Z_HELLO_WORLD
     def test_with_recursion(self, fake_walk):
         conn = Connection()
 
-        self.configure_mock_walk(conn, fake_walk)
+        self.configure_mock_walk(fake_walk)
         args = parse_args('list', '$VICTORY', '-r')
 
         args.execute(conn, args)
@@ -150,6 +166,26 @@ ZCL_HELLO_WORLD
 Z_HELLO_WORLD
 $VICTORY_TESTS/ZCL_TESTS
 $VICTORY_DOC/
+''')
+
+    @patch('sap.adt.package.walk')
+    def test_with_long_option(self, fake_walk):
+        conn = Connection()
+
+        self.configure_mock_walk_long(fake_walk)
+        args = parse_args('list', '$VICTORY', '-l')
+
+        args.execute(conn, args)
+
+        fake_walk.assert_called_once()
+        call_args = fake_walk.call_args
+        self.assertEqual(call_args[1]['withdescr'], True)
+
+        self.assertConsoleContents(self.console, stdout='''DEVC/K   $VICTORY_TESTS   Victory Tests
+DEVC/K   $VICTORY_DOC     Victory Doc
+INTF/OI  ZIF_HELLO_WORLD  Test interface
+CLAS/OC  ZCL_HELLO_WORLD  Test class
+PROG/P   Z_HELLO_WORLD    Test program
 ''')
 
 class TestPackageStat(PatcherTestCase, ConsoleOutputTestCase):

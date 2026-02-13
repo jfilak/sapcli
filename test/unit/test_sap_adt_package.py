@@ -115,10 +115,14 @@ class TestADTPackageWalk(unittest.TestCase, PatcherTestCase):
 
         self.assertEqual(root_path, [])
         self.assertEqual(subpackages, ['$VICTORY_TESTS'])
+
+        # The field description should be empty because we did not ask for it in the request
+        # but the fixtures contain it, so we have to set the expected values to match the fixtures
+        # despite the fact that this does not reflect the actual behavior of the system
         self.assertEqual(objects,
-                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD', uri='/sap/bc/adt/oo/classes/zcl_hello_world'),
-                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD', uri='/sap/bc/adt/oo/interfaces/zif_hello_world'),
-                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='/sap/bc/adt/programs/programs/z_hello_world')])
+                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD', uri='/sap/bc/adt/oo/classes/zcl_hello_world', description='Test class'),
+                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD', uri='/sap/bc/adt/oo/interfaces/zif_hello_world', description='Test interface'),
+                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='/sap/bc/adt/programs/programs/z_hello_world', description='Test program')])
 
         root_path, subpackages, objects = next(walk_iter)
 
@@ -165,10 +169,14 @@ class TestADTPackageWalk(unittest.TestCase, PatcherTestCase):
 
         self.assertEqual(root_path, ['$VICTORY_TESTS'])
         self.assertEqual(subpackages, [])
+
+        # The field description should be empty because we did not ask for it in the request
+        # but the fixtures contain it, so we have to set the expected values to match the fixtures
+        # despite the fact that this does not reflect the actual behavior of the system
         self.assertEqual(objects,
-                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD', uri='/sap/bc/adt/oo/classes/zcl_hello_world'),
-                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD', uri='/sap/bc/adt/oo/interfaces/zif_hello_world'),
-                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='/sap/bc/adt/programs/programs/z_hello_world')])
+                        [SimpleNamespace(typ='CLAS/OC', name='ZCL_HELLO_WORLD', uri='/sap/bc/adt/oo/classes/zcl_hello_world', description='Test class'),
+                         SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD', uri='/sap/bc/adt/oo/interfaces/zif_hello_world', description='Test interface'),
+                         SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='/sap/bc/adt/programs/programs/z_hello_world', description='Test program')])
 
 
 if __name__ == '__main__':

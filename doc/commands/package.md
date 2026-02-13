@@ -24,14 +24,43 @@ sapcli package create [--super-package SUPER_PKG] [--app-component APP_COMP] [--
 
 ## list
 
-List sub-packages and object of the given package
+List sub-packages and objects of the given package
 
 ```bash
-sapcli package list \$tests [--recursive]
+sapcli package list \$tests [-r|--recursive] [-l|--long]
 ```
 
-If the parameter `--recursive` is present, the command prints out contents of
-sub-packages too.
+**Parameters**:
+- `-r, --recursive`: List contents of sub-packages recursively. **(optional)**
+- `-l, --long`: Print details (type, name, description) for sub-packages and objects in column-aligned format. **(optional)**
+
+**Examples**:
+
+Basic listing:
+```bash
+sapcli package list \$tests
+```
+
+Output:
+```
+$TESTS_SUB
+ZIF_HELLO_WORLD
+ZCL_HELLO_WORLD
+Z_HELLO_WORLD
+```
+
+Long format with details:
+```bash
+sapcli package list \$tests --long
+```
+
+Output:
+```
+DEVC/K   $TESTS_SUB       Test Subpackage
+INTF/OI  ZIF_HELLO_WORLD  Test interface
+CLAS/OC  ZCL_HELLO_WORLD  Test class
+PROG/P   Z_HELLO_WORLD    Test program
+```
 
 ## check
 

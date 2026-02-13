@@ -66,9 +66,12 @@ def create(connection, args):
         mod_log().info(err.message)
 
 
+@CommandGroup.argument('-l', '--long', default=False, action='store_true', help='Print object details')
 @CommandGroup.argument('-r', '--recursive', default=False, action='store_true', help='List sub-packages')
 @CommandGroup.argument('name')
 @CommandGroup.command('list')
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-branches
 def list_package(connection, args):
     """List information about package contents"""
 
@@ -76,23 +79,46 @@ def list_package(connection, args):
 
     console = args.console_factory()
 
-    for pkg, subpackages, objects in sap.adt.package.walk(package):
+    # Collect all items first to calculate column widths for long format
+    items = []
+    type_width = 0
+    name_width = 0
+    for pkg, subpackages, objects in sap.adt.package.walk(package, withdescr=args.long):
         basedir = '/'.join(pkg)
         if basedir:
             basedir += '/'
 
         if not args.recursive:
             for subpkg in subpackages:
-                console.printout(f'{basedir}{subpkg}')
+                if args.long:
+                    items.append((None, basedir, subpkg.typ, subpkg.name, subpkg.description))
+                    type_width = max(type_width, len(subpkg.typ))
+                    name_width = max(name_width, len(basedir) + len(subpkg.name))
+                else:
+                    items.append((f'{basedir}{subpkg}', None, None, None, None))
 
         for obj in objects:
-            console.printout(f'{basedir}{obj.name}')
+            items.append((None, basedir, obj.typ, obj.name, obj.description))
+            type_width = max(type_width, len(obj.typ))
+            name_width = max(name_width, len(basedir) + len(obj.name))
 
         if not args.recursive:
             break
 
+        # Print empty packages in non-long format and recursive
         if not subpackages and not objects:
-            console.printout(f'{basedir}')
+            items.append((f'{basedir}', None, None, None, None))
+
+    # Print items
+    for item in items:
+        if item[1] is None:  # subpackage (short format) or empty dir
+            console.printout(item[0])
+        else:  # object or subpackage (long format)
+            _, basedir, typ, name, description = item
+            if args.long:
+                console.printout(f'{typ:<{type_width}}  {basedir}{name:<{name_width - len(basedir)}}  {description}')
+            else:
+                console.printout(f'{basedir}{name}')
 
     return 0
 
