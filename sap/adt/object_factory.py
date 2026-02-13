@@ -20,7 +20,11 @@ class ADTObjectFactory:
         if builders:
             self._builders = builders
         else:
-            self._builders = cast(ADTObjectBuilderDictType, {})
+            self._builders = cast(ADTObjectBuilderDictType, {
+                'CLAS': sap.adt.Class,
+                'FUGR': sap.adt.FunctionGroup,
+                'PROG': sap.adt.Program,
+            })
 
     def register(self, typ: str, producer: ADTObjectBuilderType, overwrite: bool = False) -> None:
         """Registers ADT object builder"""

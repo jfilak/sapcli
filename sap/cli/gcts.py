@@ -287,6 +287,40 @@ class RepoCommandGroup(sap.cli.core.CommandGroup):
         self.branch_grp.install_parser(branch_parser)
 
 
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command('run-aunit')
+def run_aunit(connection, args):
+    """Run AUNIT for GCTS repository"""
+
+    adt_connection = connection.get_adt_connection()
+    repo = get_repository(connection, args.package)
+    objects = repo.list_objects()
+    # remove object type DEVC, because it is already included in scope packages
+    # also if you run ATC Checks for DEVC together with other object types, ATC checks will run only for DEVC
+    # SUSH is removed because this type is not supported yet
+    objects = [obj for obj in objects if obj['type'] != 'DEVC' and obj['type'] != 'SUSH']
+    objfactory = sap.adt.object_factory.ADTObjectFactory(adt_connection)
+
+    sets = sap.adt.objects.ADTObjectSets()
+
+    for obj in objects:
+        objname = obj['object']
+        objtype = obj['type']
+        try:
+            sets.include(objfactory.make(objtype, objname))
+        except SAPCliError as ex:
+            sap.cli.core.printerr(str(ex))
+            return 1
+
+    aunit = sap.adt.AUnit(adt_connection)
+    aunit_response = aunit.execute(sets)
+    if aunit_response.status_code != 200:
+        print('AUNIT fail:', aunit_response.text)
+        return 1
+
+    return 0
+
+
 @RepoCommandGroup.argument('url')
 @RepoCommandGroup.argument('package')
 @RepoCommandGroup.command('set-url')

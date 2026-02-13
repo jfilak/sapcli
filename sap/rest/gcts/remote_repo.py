@@ -622,3 +622,10 @@ class Repository:
             raise SAPCliError("gCTS response does not contain 'branches'")
 
         return branches
+
+    def list_objects(self):
+        """List ADT objects of repository"""
+
+        response = self._http.get_json('objects')
+
+        return response['objects']

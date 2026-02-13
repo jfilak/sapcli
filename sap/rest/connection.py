@@ -8,6 +8,7 @@ from urllib3.connection import HTTPConnection
 import requests
 from requests.auth import HTTPBasicAuth
 
+import sap.adt.core
 from sap import get_logger, config_get
 from sap.rest.errors import (
     HTTPRequestError,
@@ -93,6 +94,7 @@ class Connection:
         self._session = None
         self._login_path = login_path
         self._timeout = config_get('http_timeout')
+        self._client = client
 
     @property
     def user(self):
@@ -242,3 +244,10 @@ class Connection:
 
         response = self.execute('DELETE', uri_path, accept='application/json', params=params)
         return response.json()
+
+    def get_adt_connection(self):
+        """Build ADT Connection from this connection.
+        """
+
+        return sap.adt.core.Connection(self._host, self._client, self._user, port=self._port, ssl=self._ssl,
+                                       verify=self._ssl_verify, auth=self._auth)
