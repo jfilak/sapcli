@@ -106,18 +106,26 @@ class TestAddAllFiles(unittest.TestCase):
         with patch('sap.cli.strust.open', mock_open(read_data='CERT')) as mock_file:
             sap.cli.strust.putcertificate(self.mock_connection, params)
 
-        #print(mock_file.mock_calls)
+        # print(mock_file.mock_calls)
 
-        self.assertEqual(
-            mock_file.mock_calls,
-            [call('/path/1', 'rb'),
-             call().__enter__(),
-             call().read(),
-             call().__exit__(None, None, None),
-             call('/path/2', 'rb'),
-             call().__enter__(),
-             call().read(),
-             call().__exit__(None, None, None)])
+        expectedCalls = [
+            call('/path/1', 'rb'),
+            call().__enter__(),
+            call().read(),
+            call().__exit__(None, None, None),
+            call().close(),
+            call('/path/2', 'rb'),
+            call().__enter__(),
+            call().read(),
+            call().__exit__(None, None, None),
+            call().close()
+        ]
+
+        if mock_file.mock_calls[4] != call().close():
+            # remove close() that is not called in older Python versions
+            expectedCalls = expectedCalls[:4] + expectedCalls[5:-1]
+
+        self.assertEqual(mock_file.mock_calls, expectedCalls)
 
         #print(mock_connection.call.call_args_list)
 

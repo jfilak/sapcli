@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 from argparse import ArgumentParser
 import unittest
 from unittest.mock import Mock, PropertyMock, patch, mock_open, call, MagicMock
@@ -24,11 +25,17 @@ def parse_args(argv):
 
 
 def assert_wrote_file(unit_test, fake_open, file_name, contents, fileno=1):
-    start = (fileno - 1) * 4
+    context_calls = 4
+    if fake_open.mock_calls[4] == call().close():
+       context_calls = 5
+
+    start = (fileno - 1) * context_calls
     unit_test.assertEqual(fake_open.mock_calls[start + 0], call(file_name, 'w', encoding='utf8'))
     unit_test.assertEqual(fake_open.mock_calls[start + 1], call().__enter__())
     unit_test.assertEqual(fake_open.mock_calls[start + 2], call().write(contents))
     unit_test.assertEqual(fake_open.mock_calls[start + 3], call().__exit__(None, None, None))
+
+    return context_calls
 
 
 class TestCheckoutCommandGroup(unittest.TestCase):
@@ -110,8 +117,8 @@ class TestCheckout(unittest.TestCase):
         assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.abap', 'class zcl_hello_world', fileno=1)
         assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_def.abap', '* definitions', fileno=2)
         assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_imp.abap', '* implementations', fileno=3)
-        assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.testclasses.abap', '* tests', fileno=4)
-        self.assertEqual(fake_open.mock_calls[16], call('zcl_hello_world.clas.xml', 'w', encoding='utf8'))
+        context_calls = assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.testclasses.abap', '* tests', fileno=4)
+        self.assertEqual(fake_open.mock_calls[context_calls * 4], call('zcl_hello_world.clas.xml', 'w', encoding='utf8'))
 
         args, kwargs = fake_writer.call_args
         ag_serializer = args[0]
