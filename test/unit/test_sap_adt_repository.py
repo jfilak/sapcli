@@ -199,12 +199,26 @@ class TestRepository(unittest.TestCase, PatcherTestCase):
         self.assertEqual(actual_objects, [])
 
     def test_walk_step_with_description(self):
-        fake_read_node = self.patch('sap.adt.repository.Repository.read_node')
+        subpackages = [SimpleNamespace(OBJECT_NAME='SUBPACKAGE1', OBJECT_TYPE='DEVC/K', OBJECT_URI='URI1', DESCRIPTION='Subpkg 1'),
+                       SimpleNamespace(OBJECT_NAME='SUBPACKAGE2', OBJECT_TYPE='DEVC/K', OBJECT_URI='URI2', DESCRIPTION='Subpkg 2')]
+        types = [SimpleNamespace(NODE_ID='000005', OBJECT_TYPE='CLAS/OC'),
+                 SimpleNamespace(NODE_ID='000011', OBJECT_TYPE='DEVC/K')]
+        first_call = SimpleNamespace(objects=subpackages, types=types)
+
+        objects = [SimpleNamespace(OBJECT_NAME='OBJECT1', OBJECT_TYPE='PROG', OBJECT_URI='URI', DESCRIPTION='Desc 1')]
+        second_call = SimpleNamespace(objects=objects)
+
+        self.patch('sap.adt.repository.Repository.read_node', side_effect=[first_call, second_call])
 
         repository = sap.adt.Repository(None)
-        repository.walk_step('PACKAGE', withdescr=True)
+        actual_subpackages, actual_objects = repository.walk_step('PACKAGE', withdescr=True)
 
-        fake_read_node.assert_called_once_with('PACKAGE', withdescr=True)
+        self.assertEqual(actual_subpackages,
+                         [SimpleNamespace(typ=subpkg.OBJECT_TYPE, name=subpkg.OBJECT_NAME, uri=subpkg.OBJECT_URI, description=subpkg.DESCRIPTION)
+                          for subpkg in subpackages])
+        self.assertEqual(actual_objects,
+                         [SimpleNamespace(typ=obj.OBJECT_TYPE, name=obj.OBJECT_NAME, uri=obj.OBJECT_URI, description=obj.DESCRIPTION)
+                          for obj in objects])
 
 
 if __name__ == '__main__':

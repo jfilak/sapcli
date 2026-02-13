@@ -124,20 +124,41 @@ class Repository:
 
         return SimpleNamespace(objects=parser.tree_content, types=parser.object_types, categories=parser.categories)
 
+    @staticmethod
+    def _make_object_info(obj):
+        """Creates a SimpleNamespace with common object information"""
+        return SimpleNamespace(typ=obj.OBJECT_TYPE,
+                               name=obj.OBJECT_NAME,
+                               uri=obj.OBJECT_URI,
+                               description=getattr(obj, 'DESCRIPTION', ''))
+
     def walk_step(self, adt_object, withdescr=False):
-        """Returns list of intermediate subpackages and objects"""
+        """Returns list of intermediate subpackages and objects.
+
+        Args:
+            adt_object: The ADT object to walk.
+            withdescr: If True, include descriptions and return subpackages as
+                SimpleNamespace(typ, name, uri, description). If False, return
+                subpackages as plain name strings.
+
+        Returns:
+            A tuple (subpackages, objects) where:
+            - subpackages: List of subpackage names (str) if withdescr=False,
+              or list of SimpleNamespace(typ, name, uri, description) if withdescr=True.
+            - objects: List of SimpleNamespace(typ, name, uri, description).
+        """
 
         root_node = self.read_node(adt_object, withdescr=withdescr)
-        subpackages = [subpkg.OBJECT_NAME for subpkg in root_node.objects]
+
+        if withdescr:
+            subpackages = [self._make_object_info(subpkg) for subpkg in root_node.objects]
+        else:
+            subpackages = [subpkg.OBJECT_NAME for subpkg in root_node.objects]
 
         nodekeys = [objtyp.NODE_ID for objtyp in root_node.types if objtyp.OBJECT_TYPE != 'DEVC/K']
         if nodekeys:
             objects_node = self.read_node(adt_object, withdescr=withdescr, nodekeys=nodekeys)
-            objects = [SimpleNamespace(typ=obj.OBJECT_TYPE,
-                                       name=obj.OBJECT_NAME,
-                                       uri=obj.OBJECT_URI,
-                                       description=getattr(obj, 'DESCRIPTION', ''))
-                       for obj in objects_node.objects]
+            objects = [self._make_object_info(obj) for obj in objects_node.objects]
         else:
             objects = []
 

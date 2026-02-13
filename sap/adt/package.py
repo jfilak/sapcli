@@ -194,8 +194,22 @@ class Package(ADTObject):
         self._appcomp.name = name
 
 
-def walk(package):
-    """Returns the same structure as python os.walk"""
+def walk(package, withdescr=False):
+    """Returns the same structure as python os.walk.
+
+    Args:
+        package: The package to walk.
+        withdescr: If True, include descriptions and return subpackages as
+            SimpleNamespace(typ, name, uri, description). If False, return
+            subpackages as plain name strings.
+
+    Yields:
+        Tuples of (path, subpackages, objects) where:
+        - path: List of package names from the root.
+        - subpackages: List of subpackage names (str) if withdescr=False,
+          or list of SimpleNamespace(typ, name, uri, description) if withdescr=True.
+        - objects: List of SimpleNamespace(typ, name, uri, description).
+    """
 
     repository = Repository(package.connection)
 
@@ -205,7 +219,11 @@ def walk(package):
 
     while toexplore:
         explored, path = toexplore.pop()
-        subpackages, objects = repository.walk_step(explored)
-        toexplore.extendleft(((Package(package.connection, subpkg), path + [subpkg]) for subpkg in subpackages))
+        subpackages, objects = repository.walk_step(explored, withdescr=withdescr)
+
+        if withdescr:
+            toexplore.extendleft(((Package(package.connection, subpkg.name), path + [subpkg.name]) for subpkg in subpackages))
+        else:
+            toexplore.extendleft(((Package(package.connection, subpkg), path + [subpkg]) for subpkg in subpackages))
 
         yield (path, subpackages, objects)
