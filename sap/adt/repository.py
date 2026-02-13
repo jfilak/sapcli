@@ -133,7 +133,10 @@ class Repository:
         nodekeys = [objtyp.NODE_ID for objtyp in root_node.types if objtyp.OBJECT_TYPE != 'DEVC/K']
         if nodekeys:
             objects_node = self.read_node(adt_object, withdescr=withdescr, nodekeys=nodekeys)
-            objects = [SimpleNamespace(typ=obj.OBJECT_TYPE, name=obj.OBJECT_NAME, uri=obj.OBJECT_URI)
+            objects = [SimpleNamespace(typ=obj.OBJECT_TYPE,
+                                       name=obj.OBJECT_NAME,
+                                       uri=obj.OBJECT_URI,
+                                       description=getattr(obj, 'DESCRIPTION', ''))
                        for obj in objects_node.objects]
         else:
             objects = []

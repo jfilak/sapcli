@@ -173,8 +173,8 @@ class TestRepository(unittest.TestCase, PatcherTestCase):
                  SimpleNamespace(NODE_ID='000011', OBJECT_TYPE='DEVC/K')]
         first_call = SimpleNamespace(objects=subpackages, types=types)
 
-        objects = [SimpleNamespace(OBJECT_NAME='OBJECT1', OBJECT_TYPE='PROG', OBJECT_URI='URI'),
-                   SimpleNamespace(OBJECT_NAME='OBJECT2', OBJECT_TYPE='FUGR/F', OBJECT_URI='URI')]
+        objects = [SimpleNamespace(OBJECT_NAME='OBJECT1', OBJECT_TYPE='PROG', OBJECT_URI='URI', DESCRIPTION='Desc 1'),
+                   SimpleNamespace(OBJECT_NAME='OBJECT2', OBJECT_TYPE='FUGR/F', OBJECT_URI='URI', DESCRIPTION='Desc 2')]
         second_call = SimpleNamespace(objects=objects)
 
         self.patch('sap.adt.repository.Repository.read_node', side_effect=[first_call, second_call])
@@ -184,7 +184,7 @@ class TestRepository(unittest.TestCase, PatcherTestCase):
 
         self.assertEqual(actual_subpackages, [subpackage.OBJECT_NAME for subpackage in subpackages])
         self.assertEqual(actual_objects,
-                         [SimpleNamespace(typ=obj.OBJECT_TYPE, name=obj.OBJECT_NAME, uri=obj.OBJECT_URI) for obj in objects])
+                         [SimpleNamespace(typ=obj.OBJECT_TYPE, name=obj.OBJECT_NAME, uri=obj.OBJECT_URI, description=obj.DESCRIPTION) for obj in objects])
 
     def test_walk_step_empty_nodekeys(self):
         subpackages = [SimpleNamespace(OBJECT_NAME='SUBPACKAGE1'), SimpleNamespace(OBJECT_NAME='SUBPACKAGE2')]
