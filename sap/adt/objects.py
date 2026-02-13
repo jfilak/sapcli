@@ -1403,3 +1403,22 @@ class DataDefinition(ADTObject):
         super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
+
+
+class AccessControl(ADTObject):
+    """CDS Access Control definition (DCL)"""
+
+    OBJTYPE = ADTObjectType(
+        'DCLS/DL',
+        'acm/dcl/sources',
+        xmlns_adtcore_ancestor('dcl', 'http://www.sap.com/adt/acm/dclsources'),
+        'application/vnd.sap.adt.dclSource+xml',
+        {'text/plain': 'source/main'},
+        'dclSource',
+        editor_factory=ADTObjectSourceEditor
+    )
+
+    def __init__(self, connection, name, package=None, metadata=None):
+        super().__init__(connection, name, metadata)
+
+        self._metadata.package_reference.name = package

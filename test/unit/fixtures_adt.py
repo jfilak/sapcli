@@ -123,6 +123,12 @@ GET_DDL_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 </ddl:ddlSource>
 '''
 
+GET_DCL_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<dcl:dclSource xmlns:dcl="http://www.sap.com/adt/acm/dclsources" abapsource:sourceUri="source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:abapLanguageVersion="standard" adtcore:name="ZMYACL" adtcore:type="DCLS/DL" adtcore:changedAt="2025-10-02T13:21:01Z" adtcore:version="active" adtcore:createdAt="2025-08-22T22:00:00Z" adtcore:changedBy="SAP" adtcore:createdBy="DEVELOPER" adtcore:description="My Access Control" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/universe" adtcore:type="DEVC/K" adtcore:name="UNIVERSE" adtcore:packageName="UNIVERSE" adtcore:description="Universe"/>
+</dcl:dclSource>
+'''
+
 ERROR_XML_PACKAGE_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceAlreadyExists"/><message lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</message><localizedMessage lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</localizedMessage><properties/></exc:exception>'''
 
 
