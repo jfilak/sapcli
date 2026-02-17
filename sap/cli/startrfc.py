@@ -211,6 +211,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
         arg_parser.add_argument('-c', '--result-checker', choices=RESULT_CHECKERS, default=RESULT_CHECKER_RAW,
                                 help='Result checker')
         arg_parser.set_defaults(execute=startrfc)
+        arg_parser.set_defaults(console_factory=sap.cli.core.get_console)
 
         # Intentionally return None as this command groups does not support
         # sub-parsers.
