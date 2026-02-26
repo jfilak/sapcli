@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "sapcli"
+version = "1.0.0"
+description = "Command line interface to SAP products"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Jakub Filak", email = "jakub@thefilaks.net" }]
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 6 - Mature",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "requests>=2.20.0",
+    "pyodata>=1.7.0",
+    "PyYAML>=6.0.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/jfilak/sapcli"
+Repository = "https://github.com/jfilak/sapcli"
+Issues = "https://github.com/jfilak/sapcli/issues"
+
+[project.scripts]
+sapcli = "sap.cli._entry:main"
+
+[project.optional-dependencies]
+dev = [
+    "coverage>=5.4",
+    "pylint>=2.6.0",
+    "flake8>=3.8.4",
+    "mypy>=0.930",
+    "types-PyYAML>=6.0.1",
+    "types-requests>=2.26.2",
+]
+test = [
+    "pytest>=2.7.0",
+    "pytest-cov",
+    "codecov",
+    "flake8",
+    "pylint",
+]
+
+[tool.setuptools.packages.find]
+exclude = ["test*"]

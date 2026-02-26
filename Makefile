@@ -33,6 +33,24 @@ MYPY_BIN ?= mypy
 MYPY_CONFIG_FILE=mypy.ini
 MYPY_PARAMS=
 
+VERSION_ENTRY=sap/cli/_entry.py
+
+CURRENT_VERSION := $(shell python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+NEXT_MAJOR_VERSION := $(shell python3 -c "v='$(CURRENT_VERSION)'.split('.'); v[0]=str(int(v[0])+1); v[1]='0'; v[2]='0'; print('.'.join(v))")
+NEXT_MINOR_VERSION := $(shell python3 -c "v='$(CURRENT_VERSION)'.split('.'); v[1]=str(int(v[1])+1); v[2]='0'; print('.'.join(v))")
+NEXT_FIX_VERSION := $(shell python3 -c "v='$(CURRENT_VERSION)'.split('.'); v[2]=str(int(v[2])+1); print('.'.join(v))")
+
+all: _version
+
+.PHONY: _toml_version
+_toml_version:
+	if [ -z "$(NEW_VERSION)" ]; then echo "Missing NEW_VERSION"; exit 1; fi
+	sed -i 's/^version = ".*"/version = "$(NEW_VERSION)"/' pyproject.toml
+
+.PHONY: _version
+_version:
+	sed -i "s/^_FALLBACK_VERSION = .*$$/_FALLBACK_VERSION = '$$(./get_version.sh)'/" $(VERSION_ENTRY)
+
 .PHONY: run_pylint
 run_pylint:
 	$(PYLINT_BIN) --rcfile=$(PYLINT_RC_FILE) $(PYLINT_PARAMS) $(PYTHON_MODULE)
@@ -74,6 +92,25 @@ system-test:
 
 .PHONY: check
 check: lint report-coverage
+
+.PHONY: release
+release: _toml_version _version
+	$(MAKE) check
+	git add pyproject.toml $(VERSION_ENTRY)
+	git commit -m "release: version $(NEW_VERSION)"
+	git tag $(NEW_VERSION)
+
+.PHONY: release-major
+release-major: NEW_VERSION := $(NEXT_MAJOR_VERSION)
+release-major: release
+
+.PHONY: release-minor
+release-minor: NEW_VERSION := $(NEXT_MINOR_VERSION)
+release-minor: release
+
+.PHONY: release-fix
+release-fix: NEW_VERSION := $(NEXT_FIX_VERSION)
+release-fix: release
 
 .PHONY: clean
 clean:
