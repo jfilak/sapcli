@@ -44,17 +44,48 @@ class ACoverage:
     def __init__(self, connection):
         self._connection = connection
 
-    def execute(self, identifier, adt_object_sets):
+    def execute(self, identifier, adt_object_sets, additional_type_info=False):
         """Executes ABAP Coverage on the given ADT object set"""
 
         query = Query(identifier, adt_object_sets)
         coverage_config = Marshal().serialize(query)
 
+        params = None
+        if additional_type_info:
+            params = {'withAdditionalTypeInfo': 'true'}
+
         return self._connection.execute(
             'POST',
             query.objtype.basepath,
+            params=params,
             content_type=query.objtype.mimetype,
             body=coverage_config
+        )
+
+    def parse_response(self, acoverage_response):
+        """Parse the response and follow rel=next links in coverage response and merge child nodes"""
+
+        parsed_acoverage_response = parse_acoverage_response(acoverage_response.text)
+
+        for uri in parsed_acoverage_response.next_uris:
+            child_response = self._fetch_measurements(uri)
+            child_parsed = parse_acoverage_response(child_response.text)
+            parent_node = parsed_acoverage_response.next_uri_to_node[uri]
+            parent_node.nodes.extend(child_parsed.root_node.nodes)
+            parsed_acoverage_response.statement_uris.extend(child_parsed.statement_uris)
+
+        return parsed_acoverage_response
+
+    def _fetch_measurements(self, uri):
+        """Fetches measurements"""
+
+        return self._connection.execute(
+            'GET',
+            uri,
+            accept=[
+                'application/vnd.sap.adt.coverage.measurements.v1+xml',
+                'application/xml'
+            ],
         )
 
 
@@ -88,6 +119,8 @@ class CoverageResponseHandler(ContentHandler):
 
         self.root_node = None
         self.statement_uris = []
+        self.next_uris = []
+        self.next_uri_to_node = {}
         self._node = None
         self._parent_node = None
         self._save_uris = False
@@ -127,7 +160,17 @@ class CoverageResponseHandler(ContentHandler):
             self._node.coverages.append(coverage)
             mod_log().debug('XML: %s: %s', name, coverage.type)
         elif name == 'atom:link' and self._save_uris:
-            self.statement_uris.append(attrs.get('href'))
+            rel = attrs.get('rel', '')
+            link_type = attrs.get('type', '')
+            href = attrs.get('href')
+            if rel == 'next' and link_type == 'application/xml+scov':
+                adt_href = href
+                if href.startswith('/sap/bc/adt/'):
+                    adt_href = href[len('/sap/bc/adt/'):]
+                self.next_uris.append(adt_href)
+                self.next_uri_to_node[adt_href] = self._node
+            elif 'statements' in rel and link_type == 'application/xml+scov':
+                self.statement_uris.append(href)
 
     def endElement(self, name):
         mod_log().debug('XML: %s: CLOSING', name)

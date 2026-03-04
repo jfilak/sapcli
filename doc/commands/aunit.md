@@ -17,7 +17,7 @@ The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests if _unit_ included in the result.
 
 ```bash
-sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH]
+sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH] [--compat]
 ```
 
 - _transport_ : if you use transport, NAME is Transport Number
@@ -25,6 +25,7 @@ sapcli aunit run {package,class,program,program-include,transport} NAME [--outpu
 - _--as4user_ : used only for transports to be able to select the transport
 - _--result_: desired result to be displayed
 - _--coverage-filepath_: path where coverage output will be stored if one of _coverage_ or _all_ is selected as _result_
+- _--compat_: execute AUnit via the deprecated non-public ADT HTTP endpoints
 
 If you struggle to get Transport User, you can use [datapreview](datapreview.md):
 

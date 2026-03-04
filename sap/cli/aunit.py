@@ -14,6 +14,7 @@ import sap
 import sap.adt
 import sap.adt.object_factory
 import sap.adt.aunit
+import sap.adt.api.aunit
 import sap.adt.objects
 import sap.adt.cts
 import sap.cli.core
@@ -34,6 +35,19 @@ def mod_log():
     """AUnit module logger"""
 
     return sap.get_logger()
+
+
+def create_aunit_runner(connection, compat=False):
+    """Factory that returns an AUnit executor.
+
+    Returns AUnitAPI (async, new protocol) by default.
+    Returns AUnit (sync, legacy protocol) when compat=True.
+    """
+
+    if compat:
+        return sap.adt.AUnit(connection)
+
+    return sap.adt.api.aunit.AUnit(connection)
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -596,7 +610,6 @@ def get_acoverage_statements(connection, coverage_identifier, statement_uris):
     acoverage_statements = ACoverageStatements(connection)
     statement_requests = [StatementRequest(uri) for uri in statement_uris]
     bulk_statements = StatementsBulkRequest(coverage_identifier, statement_requests)
-    acoverage_statements = ACoverageStatements(connection)
     acoverage_statements_response = acoverage_statements.execute(bulk_statements)
     parsed_response = parse_statements_response(acoverage_statements_response.text)
 
@@ -717,6 +730,59 @@ class ResultOptions(Enum):
     ALL = 'all'
 
 
+# Mapping from ADT object classes to OSL type codes (for transport in API mode)
+_ADT_OBJ_TO_OSL_TYPE = {
+    sap.adt.Program: 'PROG',
+    sap.adt.Class: 'CLAS',
+    sap.adt.FunctionGroup: 'FUGR',
+}
+
+
+def _build_adt_object_sets(connection, args):
+    """Build ADTObjectSets from CLI args. May raise SAPCliError."""
+
+    objfactory = sap.adt.object_factory.human_names_factory(connection)
+    objfactory.register('transport', partial(objects_of_transport, args.as4user))
+
+    sets = sap.adt.objects.ADTObjectSets()
+    for objname in args.name:
+        sets.include(objfactory.make(args.type, objname))
+
+    return sets
+
+
+def _build_objects_info_for_transport(connection, args):
+    """Resolve transport objects and convert to API protocol objects_info."""
+
+    objects = objects_of_transport(args.as4user, connection, args.name[0])
+    objects_info = []
+    for obj in objects:
+        osl_type = _ADT_OBJ_TO_OSL_TYPE.get(type(obj))
+        if osl_type:
+            objects_info.append((obj.name, osl_type))
+
+    if not objects_info:
+        raise SAPCliError('No testable objects found')
+
+    return objects_info
+
+
+def _build_objects_info(args):
+    """Build API protocol objects_info from CLI args."""
+
+    objects_info = []
+    for name in args.name:
+        if args.type == 'program-include':
+            parts = name.split('\\')
+            if len(parts) > 2:
+                raise SAPCliError('Program include name can be: INCLUDE or MAIN\\INCLUDE')
+            objects_info.append((parts[-1], args.type))
+        else:
+            objects_info.append((name, args.type))
+
+    return objects_info
+
+
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
 @CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'sonar'], default='human')
 @CommandGroup.argument('name', nargs='+', type=str)
@@ -730,6 +796,8 @@ class ResultOptions(Enum):
                        )
 @CommandGroup.argument('--coverage-output', choices=['raw', 'human', 'jacoco'], default='human')
 @CommandGroup.argument('--coverage-filepath', default=None, type=str)
+@CommandGroup.argument('--compat', action='store_true', default=False,
+                       help='Use the deprecated non-public ADT AUnit protocol')
 @CommandGroup.command()
 def run(connection, args):
     """Prints it out based on command line configuration.
@@ -743,32 +811,62 @@ def run(connection, args):
     # pylint: disable=too-many-locals
 
     result = None
-
-    objfactory = sap.adt.object_factory.human_names_factory(connection)
-    objfactory.register('transport', partial(objects_of_transport, args.as4user))
-
-    sets = sap.adt.objects.ADTObjectSets()
-
+    activate_coverage = args.result in (ResultOptions.ONLY_COVERAGE.value, ResultOptions.ALL.value)
     console = args.console_factory()
-    for objname in args.name:
+
+    if args.compat:
+        # Legacy synchronous protocol
         try:
-            sets.include(objfactory.make(args.type, objname))
+            sets = _build_adt_object_sets(connection, args)
         except SAPCliError as ex:
             console.printerr(str(ex))
             return 1
 
-    aunit = sap.adt.AUnit(connection)
-    activate_coverage = args.result in (ResultOptions.ONLY_COVERAGE.value, ResultOptions.ALL.value)
-    aunit_response = aunit.execute(sets, activate_coverage=activate_coverage)
-    aunit_parsed_response = sap.adt.aunit.parse_aunit_response(aunit_response.text)
+        aunit = sap.adt.AUnit(connection)
+        aunit_response = aunit.execute(sets, activate_coverage=activate_coverage)
+    else:
+        # API asynchronous protocol (default)
+        try:
+            if args.type == 'transport':
+                objects_info = _build_objects_info_for_transport(connection, args)
+            else:
+                objects_info = _build_objects_info(args)
+        except SAPCliError as ex:
+            console.printerr(str(ex))
+            return 1
 
-    if args.result in (ResultOptions.ONLY_UNIT.value, ResultOptions.ALL.value):
+        test_run = sap.adt.api.aunit.build_test_run(objects_info, activate_coverage=activate_coverage)
+        aunit_api = sap.adt.api.aunit.AUnit(connection)
+
+        if args.output == 'junit4' and not activate_coverage:
+            accept = sap.adt.api.aunit.ACCEPT_JUNIT_RESULTS
+        else:
+            accept = sap.adt.api.aunit.ACCEPT_AUNIT_RESULTS
+
+        aunit_response = aunit_api.execute(test_run, accept=accept)
+
+    if args.output == 'junit4' and not args.compat and not activate_coverage:
+        if args.result in (ResultOptions.ONLY_UNIT.value, ResultOptions.ALL.value):
+            console.printout(aunit_response.text)
+        aunit_parsed_response = None
+    else:
+        aunit_parsed_response = sap.adt.aunit.parse_aunit_response(aunit_response.text)
+
+    if aunit_parsed_response is not None \
+            and args.result in (ResultOptions.ONLY_UNIT.value, ResultOptions.ALL.value):
         result = print_aunit_output(args, aunit_response, aunit_parsed_response)
 
     if activate_coverage:
+        if not args.compat:
+            try:
+                sets = _build_adt_object_sets(connection, args)
+            except SAPCliError as ex:
+                console.printerr(str(ex))
+                return 1
+
         acoverage = sap.adt.ACoverage(connection)
         acoverage_response = acoverage.execute(aunit_parsed_response.coverage_identifier, sets)
-        parsed_acoverage_response = sap.adt.acoverage.parse_acoverage_response(acoverage_response.text)
+        parsed_acoverage_response = acoverage.parse_response(acoverage_response)
 
         statement_responses = get_acoverage_statements(
             connection,
@@ -777,7 +875,6 @@ def run(connection, args):
         )
 
         root_node = parsed_acoverage_response.root_node
-
         print_acoverage_output(args, acoverage_response, root_node, statement_responses)
 
     return result

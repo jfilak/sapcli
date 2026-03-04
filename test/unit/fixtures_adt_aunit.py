@@ -211,6 +211,52 @@ AUNIT_SYNTAX_ERROR_XML = '''<?xml version="1.0" encoding="utf-8"?>
 '''
 
 
+AUNIT_API_RUN_STATUS_RUNNING_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<aunit:run xmlns:aunit="http://www.sap.com/adt/api/aunit" xmlns:atom="http://www.w3.org/2005/Atom">
+<aunit:progress status="RUNNING" percentage="50"/>
+</aunit:run>'''
+
+AUNIT_API_RUN_STATUS_FINISHED_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<aunit:run xmlns:aunit="http://www.sap.com/adt/api/aunit" xmlns:atom="http://www.w3.org/2005/Atom">
+<aunit:progress status="FINISHED" percentage="100"/>
+<atom:link href="/sap/bc/adt/abapunit/results/RUN_ID_123" rel="results" type="application/xml"/>
+</aunit:run>'''
+
+AUNIT_API_RUN_STATUS_FINISHED_REAL_XML = '''<?xml version="1.0" encoding="utf-8"?>\
+<aunit:run title="Run" context="ABAP Unit Test Run" xmlns:aunit="http://www.sap.com/adt/api/aunit">\
+<aunit:progress status="FINISHED" percentage="100"/>\
+<aunit:executedBy user="DEVELOPER"/>\
+<aunit:time started="2026-03-02T05:34:43Z" ended="2026-03-02T05:35:42Z"/>\
+<atom:link href="/sap/bc/adt/abapunit/results/6D664D9B46CB1FE185BF306327ADDA18" \
+rel="http://www.sap.com/adt/relations/api/abapunit/run-result" \
+type="application/vnd.sap.adt.api.junit.run-result.v1+xml" \
+title="Run Result (JUnit Format)" xmlns:atom="http://www.w3.org/2005/Atom"/>\
+<atom:link href="/sap/bc/adt/abapunit/results/6D664D9B46CB1FE185BF306327ADDA18" \
+rel="http://www.sap.com/adt/relations/api/abapunit/run-result" \
+type="application/vnd.sap.adt.api.abapunit.run-result.v1+xml" \
+title="Run Result (ABAP Unit Format)" xmlns:atom="http://www.w3.org/2005/Atom"/>\
+</aunit:run>'''
+
+AUNIT_API_JUNIT_RESULTS_XML = '''<?xml version="1.0" encoding="utf-8"?>\
+<testsuites title="Run" system="C50" client="100" executedBy="DEVELOPER" \
+time="59.227" timestamp="2026-03-02T05:34:43Z" \
+failures="0" errors="0" skipped="0" asserts="0" tests="3">\
+<testsuite name="" tests="1" failures="0" errors="0" skipped="0" asserts="0" \
+package="odata_correspondence_v2" timestamp="2026-03-02T05:34:43Z" \
+time="0.007" hostname="jakub-test--ddci-generic">\
+<testcase classname="odata_correspondence_v2.clas:acl_fi_corr_req_entityset_dec---ltc_fi_corr_req_entityset_dec" \
+name="test_decorations" time="0.005" asserts="0"/>\
+</testsuite>\
+<testsuite name="" tests="2" failures="0" errors="0" skipped="0" asserts="0" \
+package="odata_correspondence_v2" timestamp="2026-03-02T05:34:43Z" \
+time="0.013" hostname="jakub-test--ddci-generic">\
+<testcase classname="odata_correspondence_v2.clas:cla_fi_corr_prm_rdr_db_bldr---ltcl_param_reader_db_conf" \
+name="test_constructor" time="0.004" asserts="0"/>\
+<testcase classname="odata_correspondence_v2.clas:cla_fi_corr_prm_rdr_db_bldr---ltcl_param_reader_db_conf" \
+name="test_load_parameters" time="0.005" asserts="0"/>\
+</testsuite>\
+</testsuites>'''
+
 AUNIT_RESULTS_SKIPPED_XML = '''<?xml version="1.0" encoding="utf-8"?>
 <aunit:runResult xmlns:aunit="http://www.sap.com/adt/aunit">
   <external>
