@@ -1,4 +1,59 @@
-"""Python decorators for conversions of Python objects to ADT XML fragments"""
+"""Python decorators for conversions of Python objects to ADT XML fragments
+
+# Attributes:
+#
+# <NAME attr_one="something" attr_two="success"/>
+
+class SampleObject(metaclass=OrderedClassMembers):
+
+    read_write_attr = XmlNodeAttributeProperty('attr_two')
+
+    def __init__(self):
+        self._void = None
+
+    xml_attribute("attr_one")
+    def read_only_attr(self) -> str:
+        return 'something'
+
+
+so = SampleObject()
+so.read_write_attr = 'success'
+
+# Elements:
+#
+# <?xml version="1.0" encoding="UTF-8"?>
+# <root_element>
+#    <child_element attr_one="something" attr_two="test_two"/>
+# </root_element>
+
+class RootObject(metaclass=OrderedClassMembers):
+
+    config = XmlNodeProperty('child_element')
+
+ro = RootObject()
+ro.config.read_write_attr = 'test_two'
+
+# Lists:
+
+<parent>
+  <item foo="bar"/>
+</parent>
+
+class SampleItem(metaclass=OrderedClassMembers):
+
+    prop_foo = XmlNodeAttributeProperty('foo')
+
+    def __init__(self, foo):
+        self.prop_foo = foo
+
+
+class SampleList(metaclass=OrderedClassMembers):
+
+    items = XmlListNodeProperty('item')
+
+sl = SampleList()
+sl.items.apped(SampleItem("bar"))
+"""
 
 from enum import Enum
 import collections
