@@ -169,7 +169,7 @@ class Connection:
         req = requests.Request(method.upper(), url, params=params, data=body, headers=headers)
         req = session.prepare_request(req)
 
-        mod_log().info('Executing %s %s', method, url)
+        mod_log().info('Executing %s %s\nHeaders:%s\n++++\n%s\n++++', method, url, str(headers), str(body))
 
         try:
             res = session.send(req, timeout=self._timeout)
@@ -179,7 +179,7 @@ class Connection:
             msg = str(ex)
             raise ADTConnectionError(self._host, self._port, self._ssl, msg) from ex
 
-        mod_log().debug('Response %s %s:\n++++\n%s\n++++', method, url, res.text)
+        mod_log().debug('Response %s %s:\nHeaders:%s\n++++\n%s\n++++', method, url, str(res.headers), res.text)
 
         return (req, res)
 
