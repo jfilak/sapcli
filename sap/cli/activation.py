@@ -1,6 +1,5 @@
 """ADT proxy for Object Activation routines"""
 
-import sap
 import sap.cli.core
 from sap.adt.wb import fetch_inactive_objects
 from sap.cli.core import printout

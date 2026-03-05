@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+import types
 import unittest
 from unittest.mock import call, patch, Mock, PropertyMock, MagicMock, mock_open
 from io import StringIO
 
 import sap.adt.wb
 import sap.cli.activation
+import sap.errors
 
 from mock import Connection, Response, GroupArgumentParser, patch_get_print_console_with_buffer
 

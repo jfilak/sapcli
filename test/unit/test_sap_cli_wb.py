@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
 import unittest
-#from unittest.mock import call, patch, Mock, PropertyMock, MagicMock, mock_open
 from unittest.mock import patch, Mock
 
 import sap.adt.wb
 import sap.cli.wb
+import sap.errors
 
-#from mock import Connection, Response, GroupArgumentParser, patch_get_print_console_with_buffer
-from mock import patch_get_print_console_with_buffer
+from mock import patch_get_print_console_with_buffer, BufferConsole
 
 from fixtures_adt_wb import MessageBuilder
 
@@ -185,6 +184,75 @@ class TestObjectActivationWorker(unittest.TestCase):
 ''')
 
         self.assert_ok_stats(stats)
+
+
+class TestActivate(unittest.TestCase):
+
+    def setUp(self):
+        self.connection = Mock()
+        self.console = BufferConsole()
+        self.inactive_objects = Mock()
+
+    @patch('sap.adt.wb.try_mass_activate')
+    def test_no_messages(self, fake_mass_activate):
+        fake_mass_activate.return_value = None
+
+        sap.cli.wb.activate(self.connection, self.inactive_objects, self.console)
+
+        fake_mass_activate.assert_called_once_with(self.connection, self.inactive_objects)
+        self.assertEqual(self.console.capout, '')
+
+    @patch('sap.adt.wb.try_mass_activate')
+    def test_info_messages(self, fake_mass_activate):
+        msg = Mock()
+        msg.is_error = False
+        msg.obj_descr = 'CL_TEST'
+        msg.typ = 'I'
+        msg.short_text = 'Info message'
+
+        fake_mass_activate.return_value = [msg]
+
+        sap.cli.wb.activate(self.connection, self.inactive_objects, self.console)
+
+        self.assertEqual(self.console.capout, '* CL_TEST ::\n| I: Info message\n')
+
+    @patch('sap.adt.wb.try_mass_activate')
+    def test_error_messages(self, fake_mass_activate):
+        msg = Mock()
+        msg.is_error = True
+        msg.obj_descr = 'CL_BROKEN'
+        msg.typ = 'E'
+        msg.short_text = 'Syntax error'
+
+        fake_mass_activate.return_value = [msg]
+
+        with self.assertRaises(sap.errors.SAPCliError) as cm:
+            sap.cli.wb.activate(self.connection, self.inactive_objects, self.console)
+
+        self.assertEqual(str(cm.exception), 'Aborting because of activation errors')
+        self.assertEqual(self.console.capout, '* CL_BROKEN ::\n| E: Syntax error\n')
+
+    @patch('sap.adt.wb.try_mass_activate')
+    def test_mixed_messages(self, fake_mass_activate):
+        info_msg = Mock()
+        info_msg.is_error = False
+        info_msg.obj_descr = 'CL_OK'
+        info_msg.typ = 'I'
+        info_msg.short_text = 'All good'
+
+        err_msg = Mock()
+        err_msg.is_error = True
+        err_msg.obj_descr = 'CL_BAD'
+        err_msg.typ = 'E'
+        err_msg.short_text = 'Not good'
+
+        fake_mass_activate.return_value = [info_msg, err_msg]
+
+        with self.assertRaises(sap.errors.SAPCliError):
+            sap.cli.wb.activate(self.connection, self.inactive_objects, self.console)
+
+        self.assertIn('* CL_OK ::', self.console.capout)
+        self.assertIn('* CL_BAD ::', self.console.capout)
 
 
 if __name__ == '__main__':

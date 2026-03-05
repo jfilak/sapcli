@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from argparse import ArgumentParser
 from io import StringIO
 
+import sap.errors
 from sap.errors import SAPCliError
 from sap.rest.errors import HTTPRequestError
 from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionResourceNotFound
@@ -308,6 +309,187 @@ Deleted package $TEST
         # 1 object + 1 top-level package
         self.assertEqual(fake_delete.call_count, 2)
         fake_delete.assert_any_call(conn, '/sap/bc/adt/programs/programs/z_hello', corrnr='420')
+
+
+class TestPackageActivate(unittest.TestCase):
+
+    def _make_obj(self, name, uri):
+        return SimpleNamespace(typ='CLAS', name=name, uri=uri, description='')
+
+    @patch('sap.adt.wb.activate')
+    @patch('sap.adt.Package')
+    def test_activate_package(self, fake_pkg_cls, fake_wb_activate):
+        conn = Mock()
+        fake_package = fake_pkg_cls.return_value
+
+        args = parse_args('activate', 'ZPACKAGE')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(conn, args)
+
+        fake_pkg_cls.assert_called_once_with(conn, 'ZPACKAGE')
+        fake_wb_activate.assert_called_once_with(fake_package)
+
+        self.assertIn('Activating package ZPACKAGE', fake_console.capout)
+        self.assertIn('Activated package ZPACKAGE', fake_console.capout)
+
+    @patch('sap.adt.wb.activate')
+    @patch('sap.adt.Package')
+    def test_activate_multiple_packages(self, fake_pkg_cls, fake_wb_activate):
+        conn = Mock()
+        fake_pkg_a = Mock()
+        fake_pkg_b = Mock()
+        fake_pkg_cls.side_effect = [fake_pkg_a, fake_pkg_b]
+
+        args = parse_args('activate', 'ZPKG_A', 'ZPKG_B')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(conn, args)
+
+        self.assertEqual(fake_pkg_cls.call_count, 2)
+        fake_pkg_cls.assert_any_call(conn, 'ZPKG_A')
+        fake_pkg_cls.assert_any_call(conn, 'ZPKG_B')
+
+        self.assertEqual(fake_wb_activate.call_count, 2)
+        fake_wb_activate.assert_any_call(fake_pkg_a)
+        fake_wb_activate.assert_any_call(fake_pkg_b)
+
+        self.assertIn('Activating package ZPKG_A', fake_console.capout)
+        self.assertIn('Activated package ZPKG_A', fake_console.capout)
+        self.assertIn('Activating package ZPKG_B', fake_console.capout)
+        self.assertIn('Activated package ZPKG_B', fake_console.capout)
+
+    @patch('sap.adt.wb.activate', side_effect=sap.errors.SAPCliError('Activation error'))
+    @patch('sap.adt.Package')
+    def test_activate_package_error(self, fake_pkg_cls, fake_wb_activate):
+        conn = Mock()
+
+        args = parse_args('activate', 'ZPACKAGE')
+
+        with self.assertRaises(sap.errors.SAPCliError), \
+             patch_get_print_console_with_buffer():
+            args.execute(conn, args)
+
+    @patch('sap.cli.wb.activate')
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.Package')
+    def test_recursive_single_object(self, fake_pkg_cls, fake_walk, fake_activate):
+        conn = Mock()
+        obj = self._make_obj('CL_TEST', '/sap/bc/adt/classes/cl_test')
+        fake_walk.return_value = iter([([], [], [obj])])
+
+        args = parse_args('activate', '-r', 'ZPACKAGE')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(conn, args)
+
+        fake_activate.assert_called_once()
+        call_args = fake_activate.call_args
+        refs = call_args[0][1]
+        self.assertEqual(len(refs.references), 1)
+        self.assertEqual(refs.references[0].name, 'CL_TEST')
+        self.assertEqual(refs.references[0].uri, '/sap/bc/adt/classes/cl_test')
+
+        self.assertIn('Resolving objects of the package ZPACKAGE', fake_console.capout)
+        self.assertIn('Activating 1 object(s)', fake_console.capout)
+        self.assertIn('Activation completed successfully', fake_console.capout)
+
+    @patch('sap.cli.wb.activate')
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.Package')
+    def test_recursive_empty_package(self, fake_pkg_cls, fake_walk, fake_activate):
+        conn = Mock()
+        fake_walk.return_value = iter([([], [], [])])
+
+        args = parse_args('activate', '-r', 'ZEMPTY')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(conn, args)
+
+        fake_activate.assert_not_called()
+        self.assertIn('Resolving objects of the package ZEMPTY', fake_console.capout)
+        self.assertIn('No objects found', fake_console.capout)
+
+    @patch('sap.cli.wb.activate')
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.Package')
+    def test_recursive(self, fake_pkg_cls, fake_walk, fake_activate):
+        conn = Mock()
+        obj1 = self._make_obj('CL_TOP', '/sap/bc/adt/classes/cl_top')
+        obj2 = self._make_obj('CL_SUB', '/sap/bc/adt/classes/cl_sub')
+        fake_walk.return_value = iter([
+            ([], ['ZSUB'], [obj1]),
+            (['ZSUB'], [], [obj2]),
+        ])
+
+        args = parse_args('activate', '-r', 'ZPACKAGE')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(conn, args)
+
+        call_args = fake_activate.call_args
+        refs = call_args[0][1]
+        self.assertEqual(len(refs.references), 2)
+        names = {r.name for r in refs.references}
+        self.assertEqual(names, {'CL_TOP', 'CL_SUB'})
+
+    @patch('sap.cli.wb.activate')
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.Package')
+    def test_recursive_multiple_packages(self, fake_pkg_cls, fake_walk, fake_activate):
+        conn = Mock()
+        obj_a = self._make_obj('CL_A', '/sap/bc/adt/classes/cl_a')
+        obj_b = self._make_obj('CL_B', '/sap/bc/adt/classes/cl_b')
+
+        fake_walk.side_effect = [
+            iter([([], [], [obj_a])]),
+            iter([([], [], [obj_b])]),
+        ]
+
+        args = parse_args('activate', '-r', 'ZPKG_A', 'ZPKG_B')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(conn, args)
+
+        fake_activate.assert_called_once()
+        refs = fake_activate.call_args[0][1]
+        self.assertEqual(len(refs.references), 2)
+        names = {r.name for r in refs.references}
+        self.assertEqual(names, {'CL_A', 'CL_B'})
+
+        self.assertIn('Resolving objects of the package ZPKG_A', fake_console.capout)
+        self.assertIn('Resolving objects of the package ZPKG_B', fake_console.capout)
+        self.assertIn('Activating 2 object(s)', fake_console.capout)
+
+    @patch('sap.cli.wb.activate', side_effect=sap.errors.SAPCliError('Activation error'))
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.Package')
+    def test_recursive_activation_error(self, fake_pkg_cls, fake_walk, fake_activate):
+        conn = Mock()
+        obj = self._make_obj('CL_BROKEN', '/sap/bc/adt/classes/cl_broken')
+        fake_walk.return_value = iter([([], [], [obj])])
+
+        args = parse_args('activate', '-r', 'ZPACKAGE')
+
+        with self.assertRaises(sap.errors.SAPCliError), \
+             patch_get_print_console_with_buffer():
+            args.execute(conn, args)
+
+    @patch('sap.cli.wb.activate')
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.Package')
+    def test_recursive_object_name_uppercased(self, fake_pkg_cls, fake_walk, fake_activate):
+        conn = Mock()
+        obj = self._make_obj('cl_lower', '/sap/bc/adt/classes/cl_lower')
+        fake_walk.return_value = iter([([], [], [obj])])
+
+        args = parse_args('activate', '-r', 'ZPACKAGE')
+
+        with patch_get_print_console_with_buffer():
+            args.execute(conn, args)
+
+        refs = fake_activate.call_args[0][1]
+        self.assertEqual(refs.references[0].name, 'CL_LOWER')
 
 
 class TestPackageCheck(unittest.TestCase):

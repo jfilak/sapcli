@@ -3,8 +3,9 @@
 1. [create](#create)
 2. [list](#list)
 3. [delete](#delete)
-4. [check](#check)
-5. [stat](#stat)
+4. [activate](#activate)
+5. [check](#check)
+6. [stat](#stat)
 
 ## create
 
@@ -74,6 +75,39 @@ sapcli package delete \$tests [--corrnr TRANSPORT] [-r|--recursive]
 **Parameters**:
 - `--corrnr TRANSPORT`: CTS Transport Request Number. **(optional)**
 - `-r, --recursive`: Recursively delete all objects and sub-packages before deleting the package. **(optional)**
+
+## activate
+
+Activate a package or all objects in its package tree. One or more
+package names can be given.
+
+Without `--recursive`, activates the package objects themselves. With
+`--recursive`, walks sub-packages and activates all their objects.
+
+```bash
+sapcli package activate NAME [NAME ...] [-r|--recursive]
+```
+
+**Parameters**:
+- `NAME`: One or more package names to activate.
+- `-r, --recursive`: Walk sub-packages and activate all their objects. **(optional)**
+
+**Examples**:
+
+Activate a single package:
+```bash
+sapcli package activate ZMY_PACKAGE
+```
+
+Activate multiple packages:
+```bash
+sapcli package activate ZPKG_A ZPKG_B
+```
+
+Recursively activate all objects in the package tree:
+```bash
+sapcli package activate -r ZMY_PACKAGE
+```
 
 ## check
 

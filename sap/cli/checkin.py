@@ -25,6 +25,7 @@ import sap.adt
 import sap.adt.objects
 import sap.adt.errors
 import sap.adt.wb
+import sap.cli.wb
 
 
 def mod_log():
@@ -619,21 +620,7 @@ def _checkin_dependency_group(connection, group, console, corrnr):
 
 
 def _activate(connection, inactive_objects, console):
-    messages = sap.adt.wb.try_mass_activate(connection, inactive_objects)
-
-    if not messages:
-        return
-
-    error = False
-    for msg in messages:
-        if msg.is_error:
-            error = True
-
-        console.printout(f'* {msg.obj_descr} ::')
-        console.printout(f'| {msg.typ}: {msg.short_text}')
-
-    if error:
-        raise sap.errors.SAPCliError('Aborting because of activation errors')
+    sap.cli.wb.activate(connection, inactive_objects, console)
 
 
 @CommandGroup.argument('--starting-folder', default=None)

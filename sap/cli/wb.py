@@ -2,6 +2,7 @@
 
 import sap.adt.wb
 
+import sap.errors
 from sap.errors import SAPCliError
 from sap.cli.core import printout
 from sap.adt.objects import ADT_OBJECT_VERSION_ACTIVE
@@ -132,3 +133,26 @@ class ObjectActivationWorker:
             self.handle_results(name, obj, results, stats)
 
         return stats
+
+
+def activate(connection, inactive_objects, console):
+    """Mass-activate the given inactive objects and report results.
+
+       Raises SAPCliError when activation produces errors.
+    """
+
+    messages = sap.adt.wb.try_mass_activate(connection, inactive_objects)
+
+    if not messages:
+        return
+
+    error = False
+    for msg in messages:
+        if msg.is_error:
+            error = True
+
+        console.printout(f'* {msg.obj_descr} ::')
+        console.printout(f'| {msg.typ}: {msg.short_text}')
+
+    if error:
+        raise sap.errors.SAPCliError('Aborting because of activation errors')

@@ -7,7 +7,10 @@ from sap import get_logger
 import sap.adt
 import sap.adt.checks
 import sap.adt.objects
+import sap.adt.wb
+import sap.cli.wb
 from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionResourceNotFound
+from sap.adt.objects import ADTObjectReference, ADTObjectReferences
 
 import sap.cli.core
 
@@ -195,6 +198,44 @@ def delete(connection, args):
     console.printout(f'Deleted package {args.name}')
 
     return 0
+
+
+@CommandGroup.argument('-r', '--recursive', default=False, action='store_true',
+                       help='Walk sub-packages and activate all their objects')
+@CommandGroup.argument('name', nargs='+')
+@CommandGroup.command()
+def activate(connection, args):
+    """Activate the package itself or, with --recursive, all objects in the package tree"""
+
+    console = args.console_factory()
+
+    if not args.recursive:
+        for name in args.name:
+            console.printout(f'Activating package {name} ...')
+            sap.adt.wb.activate(sap.adt.Package(connection, name))
+            console.printout(f'Activated package {name}')
+        return
+
+    package_objects = ADTObjectReferences()
+
+    for name in args.name:
+        console.printout(f'Resolving objects of the package {name} ...')
+
+        package = sap.adt.Package(connection, name)
+        for _, _, objects in sap.adt.package.walk(package):
+            for obj in objects:
+                package_objects.add_reference(ADTObjectReference(name=obj.name.upper(), uri=obj.uri))
+
+    if not package_objects.references:
+        console.printout('No objects found in the package')
+        return
+
+    count = len(package_objects.references)
+    console.printout(f'Activating {count} object(s) ...')
+
+    sap.cli.wb.activate(connection, package_objects, console)
+
+    console.printout('Activation completed successfully')
 
 
 def _run_reporters_for_objects(connection, reporters, package_objects):
