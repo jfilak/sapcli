@@ -23,6 +23,8 @@ CLAS_XML = '''<?xml version="1.0" encoding="utf-8"?>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
     <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
+    <DURATION_TYPE>1</DURATION_TYPE>
+    <RISK_LEVEL>2</RISK_LEVEL>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>

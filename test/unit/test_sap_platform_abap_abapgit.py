@@ -86,6 +86,46 @@ class TestDOT_ABAP_GIT(unittest.TestCase):
         self.assertEqual(config.FOLDER_LOGIC, 'FULL')
         self.assertEqual([itm for itm in config.IGNORE], ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
 
+    def test_dot_abap_git_from_xml_with_name_and_version_constant(self):
+        config = sap.platform.abap.abapgit.DOT_ABAP_GIT.from_xml('''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DATA>
+   <NAME>Z_MY_REPO</NAME>
+   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
+   <STARTING_FOLDER>/src/</STARTING_FOLDER>
+   <FOLDER_LOGIC>PREFIX</FOLDER_LOGIC>
+   <IGNORE>
+    <item>/.gitignore</item>
+   </IGNORE>
+   <VERSION_CONSTANT>IF_VERSION=&gt;CO_VERSION</VERSION_CONSTANT>
+  </DATA>
+ </asx:values>
+</asx:abap>''')
+
+        self.assertEqual(config.NAME, 'Z_MY_REPO')
+        self.assertEqual(config.MASTER_LANGUAGE, 'E')
+        self.assertEqual(config.STARTING_FOLDER, '/src/')
+        self.assertEqual(config.FOLDER_LOGIC, 'PREFIX')
+        self.assertEqual([itm for itm in config.IGNORE], ['/.gitignore'])
+        self.assertEqual(config.VERSION_CONSTANT, 'IF_VERSION=>CO_VERSION')
+
+    def test_dot_abap_git_from_xml_without_name_and_version_constant(self):
+        config = sap.platform.abap.abapgit.DOT_ABAP_GIT.from_xml('''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DATA>
+   <MASTER_LANGUAGE>E</MASTER_LANGUAGE>
+   <STARTING_FOLDER>/src/</STARTING_FOLDER>
+   <FOLDER_LOGIC>FULL</FOLDER_LOGIC>
+   <IGNORE/>
+  </DATA>
+ </asx:values>
+</asx:abap>''')
+
+        self.assertIsNone(config.NAME)
+        self.assertIsNone(config.VERSION_CONSTANT)
+
 
 class TestAbapGitFromXml(unittest.TestCase):
 
