@@ -308,7 +308,7 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
         def mock_object_handler(connection, repo_obj, corrnr):
             return SimpleNamespace(full_adt_uri=repo_obj.path, name=repo_obj.name)
 
-        args = parse_args('$foo')
+        args = parse_args('package', '$foo')
         with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler, \
              patch('sap.adt.wb.try_mass_activate') as fake_activate:
             fake_handler.get = Mock()
@@ -324,7 +324,7 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
     def test_do_checkin_starting_folder_not_folder(self, fake_os_isdir):
         fake_os_isdir.return_value = False
 
-        args = parse_args('$foo', '--starting-folder', 'FILE')
+        args = parse_args('package', '$foo', '--starting-folder', 'FILE')
         exit_code = args.execute(None, args)
 
         self.assertEqual(exit_code, 1)
@@ -338,7 +338,7 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
             FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
         )
 
-        args = parse_args('$foo')
+        args = parse_args('package', '$foo')
         exit_code = args.execute(None, args)
 
         self.assertEqual(exit_code, 1)
@@ -380,7 +380,7 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
             FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
         )
 
-        args = parse_args('$foo')
+        args = parse_args('package', '$foo')
         exit_code = args.execute(None, args)
 
         self.assertEqual(exit_code, 0)

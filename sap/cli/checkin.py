@@ -33,6 +33,13 @@ def mod_log():
     return get_logger()
 
 
+class CommandGroup(sap.cli.core.CommandGroup):
+    """Commands for importing ADT objects"""
+
+    def __init__(self):
+        super().__init__('checkin')
+
+
 class RepoPackage(typing.NamedTuple):
     """Package on file system"""
 
@@ -629,7 +636,14 @@ def _activate(connection, inactive_objects, console):
         raise sap.errors.SAPCliError('Aborting because of activation errors')
 
 
-def do_checkin(connection, args):
+@CommandGroup.argument('--starting-folder', default=None)
+@CommandGroup.argument('--software-component', type=str, default='LOCAL')
+@CommandGroup.argument('--app-component', type=str, default=None)
+@CommandGroup.argument('--transport-layer', type=str, default=None)
+@CommandGroup.argument('corrnr', type=str, nargs='?', default=None)
+@CommandGroup.argument('name', help='Root ABAP package name')
+@CommandGroup.command('package')
+def do_checkin_directory(connection, args):
     """Synchronize directory structure with ABAP package structure"""
 
     console = args.console_factory()
@@ -666,20 +680,3 @@ def do_checkin(connection, args):
         return 1
 
     return 0
-
-
-class CommandGroup(sap.cli.core.CommandGroup):
-    """Commands for importing ADT objects"""
-
-    def __init__(self):
-        super().__init__('checkin')
-
-    # pylint: disable=arguments-differ
-    def install_parser(self, arg_parser):
-        arg_parser.add_argument('--starting-folder', default=None)
-        arg_parser.add_argument('--software-component', type=str, default='LOCAL')
-        arg_parser.add_argument('--app-component', type=str, default=None)
-        arg_parser.add_argument('--transport-layer', type=str, default=None)
-        arg_parser.add_argument('corrnr', type=str, nargs='?', default=None)
-        arg_parser.add_argument('name')
-        arg_parser.set_defaults(execute=do_checkin)
