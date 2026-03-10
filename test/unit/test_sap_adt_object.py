@@ -263,6 +263,50 @@ class TestADTObject(unittest.TestCase):
   </del:object>
 </del:deletionRequest>''')
 
+    def test_module_create_delete_body(self):
+        body = sap.adt.objects.create_delete_body('/sap/bc/adt/programs/programs/zhello')
+
+        self.assertEqual(body, '''<?xml version="1.0" encoding="UTF-8"?>
+<del:deletionRequest xmlns:adtcore="http://www.sap.com/adt/core" xmlns:del="http://www.sap.com/adt/deletion">
+  <del:object adtcore:uri="/sap/bc/adt/programs/programs/zhello">
+    <del:transportNumber></del:transportNumber>
+  </del:object>
+</del:deletionRequest>''')
+
+    def test_module_create_delete_body_with_corrnr(self):
+        body = sap.adt.objects.create_delete_body('/sap/bc/adt/programs/programs/zhello', corrnr='NPLK900000')
+
+        self.assertEqual(body, '''<?xml version="1.0" encoding="UTF-8"?>
+<del:deletionRequest xmlns:adtcore="http://www.sap.com/adt/core" xmlns:del="http://www.sap.com/adt/deletion">
+  <del:object adtcore:uri="/sap/bc/adt/programs/programs/zhello">
+    <del:transportNumber>NPLK900000</del:transportNumber>
+  </del:object>
+</del:deletionRequest>''')
+
+    def test_module_adt_object_delete(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+        sap.adt.objects.adt_object_delete(conn, '/sap/bc/adt/programs/programs/zhello')
+
+        self.assertEqual(conn.execs[0].method, 'POST')
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/deletion/delete')
+        self.assertEqual(conn.execs[0].body, b'''<?xml version="1.0" encoding="UTF-8"?>
+<del:deletionRequest xmlns:adtcore="http://www.sap.com/adt/core" xmlns:del="http://www.sap.com/adt/deletion">
+  <del:object adtcore:uri="/sap/bc/adt/programs/programs/zhello">
+    <del:transportNumber></del:transportNumber>
+  </del:object>
+</del:deletionRequest>''')
+
+    def test_module_adt_object_delete_with_corrnr(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+        sap.adt.objects.adt_object_delete(conn, '/sap/bc/adt/programs/programs/zhello', corrnr='NPLK900000')
+
+        self.assertEqual(conn.execs[0].body, b'''<?xml version="1.0" encoding="UTF-8"?>
+<del:deletionRequest xmlns:adtcore="http://www.sap.com/adt/core" xmlns:del="http://www.sap.com/adt/deletion">
+  <del:object adtcore:uri="/sap/bc/adt/programs/programs/zhello">
+    <del:transportNumber>NPLK900000</del:transportNumber>
+  </del:object>
+</del:deletionRequest>''')
+
     def test_properties(self):
         victory = DummyADTObject()
 

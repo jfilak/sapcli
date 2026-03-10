@@ -407,6 +407,29 @@ class ADTRootObject(metaclass=OrderedClassMembers):
         return self.__class__.OBJTYPE
 
 
+def create_delete_body(uri, corrnr=None):
+    """Create XML body for ADT deletion request.
+       uri must be the full ADT URI (e.g. /sap/bc/adt/programs/programs/zhello).
+    """
+
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<del:deletionRequest xmlns:adtcore="http://www.sap.com/adt/core" xmlns:del="http://www.sap.com/adt/deletion">
+  <del:object adtcore:uri="{uri}">
+    <del:transportNumber>{corrnr if corrnr else ''}</del:transportNumber>
+  </del:object>
+</del:deletionRequest>'''
+
+
+def adt_object_delete(connection, uri, corrnr=None):
+    """Delete an ADT object by its full URI."""
+
+    return connection.execute(
+        'POST',
+        'deletion/delete',
+        headers={'Content-Type': 'application/vnd.sap.adt.deletion.request.v1+xml'},
+        body=bytes(create_delete_body(uri, corrnr), 'utf-8'))
+
+
 # pylint: disable=too-many-public-methods
 class ADTObject(metaclass=OrderedClassMembers):
     """Abstract base class for ADT objects
@@ -613,22 +636,13 @@ class ADTObject(metaclass=OrderedClassMembers):
     def create_delete_body(self, corrnr=None):
         """Create XML body for deletion request"""
 
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
-<del:deletionRequest xmlns:adtcore="http://www.sap.com/adt/core" xmlns:del="http://www.sap.com/adt/deletion">
-  <del:object adtcore:uri="/sap/bc/adt/{self.uri}">
-    <del:transportNumber>{corrnr if corrnr else ''}</del:transportNumber>
-  </del:object>
-</del:deletionRequest>'''
+        return create_delete_body(f'/sap/bc/adt/{self.uri}', corrnr)
 
     def delete(self, corrnr=None):
         """Deletes ADT object
         """
 
-        return self._connection.execute(
-            'POST',
-            'deletion/delete',
-            headers={'Content-Type': 'application/vnd.sap.adt.deletion.request.v1+xml'},
-            body=bytes(self.create_delete_body(corrnr), 'utf-8'))
+        return adt_object_delete(self._connection, f'/sap/bc/adt/{self.uri}', corrnr)
 
     def fetch(self):
         """Retrieve data from ADT"""
