@@ -6,6 +6,7 @@
 	- [chattr](#chattr)
 	- [activate](#activate)
 	- [read](#read)
+	- [delete](#delete)
 
 ## create
 
@@ -57,4 +58,12 @@ Download main source codes of the given function module
 
 ```bash
 sapcli functionmodule read ZFG_PARENT Z_FUNCTION_MODULE
+```
+
+## delete
+
+Delete function module
+
+```bash
+sapcli functionmodule delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```

@@ -2,6 +2,7 @@
 
 1. [read](#read)
 2. [activate](#activate)
+3. [delete](#delete)
 
 ## activate
 
@@ -17,4 +18,12 @@ Download main source codes of the given public CDS view
 
 ```bash
 sapcli ddl read ZCDS1
+```
+
+## delete
+
+Delete CDS view
+
+```bash
+sapcli ddl delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```

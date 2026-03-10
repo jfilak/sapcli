@@ -4,6 +4,7 @@
 2. [read](#read)
 3. [write](#write)
 4. [activate](#activate)
+5. [delete](#delete)
 
 ## create
 
@@ -86,4 +87,12 @@ Activate multiple objects:
 
 ```bash
 sapcli bdef activate ZMYBDEF ZMYBDEF2 ZMYBDEF3
+```
+
+## delete
+
+Delete behavior definition
+
+```bash
+sapcli bdef delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```

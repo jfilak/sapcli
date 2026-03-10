@@ -4,6 +4,7 @@
 2. [read](#read)
 3. [write](#write)
 4. [activate](#activate)
+5. [delete](#delete)
 
 ## create
 
@@ -86,4 +87,12 @@ Activate multiple objects:
 
 ```bash
 sapcli dcl activate ZMYACL ZMYACL2 ZMYACL3
+```
+
+## delete
+
+Delete access control
+
+```bash
+sapcli dcl delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```

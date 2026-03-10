@@ -2,6 +2,7 @@
 
 - [Data Element](#data-element)
 	- [define](#define)
+	- [delete](#delete)
 
 ## define
 
@@ -24,3 +25,11 @@ sapcli dataelement define DATA_ELEMENT_NAME --type=domain|predefinedAbapType [--
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number **(optional)**
 * _--activate_ activate after finishing the data element modification **(optional)**
 * _--no-error-existing_ do not fail if data element already exists **(optional)**
+
+## delete
+
+Delete data element
+
+```bash
+sapcli dataelement delete NAME [NAME ...] [--corrnr TRANSPORT]
+```

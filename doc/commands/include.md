@@ -4,6 +4,7 @@
 2. [write](#write)
 3. [activate](#activate)
 4. [read](#read)
+5. [delete](#delete)
 
 ## create
 
@@ -46,4 +47,12 @@ Download source codes
 
 ```bash
 sapcli include read ZHELLOWORLD_INC
+```
+
+## delete
+
+Delete include
+
+```bash
+sapcli include delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```

@@ -4,6 +4,7 @@
 2. [write](#write)
 3. [activate](#activate)
 4. [read](#read)
+5. [delete](#delete)
 
 ## create
 
@@ -46,4 +47,12 @@ Download main source codes of the given public interface
 
 ```bash
 sapcli interface read ZIF_GREETER
+```
+
+## delete
+
+Delete interface
+
+```bash
+sapcli interface delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```

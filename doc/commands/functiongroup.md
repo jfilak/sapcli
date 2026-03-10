@@ -5,6 +5,7 @@
 	- [write](#write)
 	- [activate](#activate)
 	- [read group](#read-group)
+	- [delete](#delete)
 	- [Function Group Include](#function-group-include)
 		- [create](#create-1)
 		- [write](#write-1)
@@ -49,6 +50,14 @@ Download main source codes of the given function group
 
 ```bash
 sapcli functiongroup read ZFG_PARENT
+```
+
+## delete
+
+Delete function group
+
+```bash
+sapcli functiongroup delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```
 
 ## Function Group Include

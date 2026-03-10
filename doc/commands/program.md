@@ -5,6 +5,7 @@
 	- [write](#write)
 	- [activate](#activate)
 	- [read](#read)
+	- [delete](#delete)
 
 ## create
 
@@ -46,5 +47,13 @@ Download source codes
 
 ```bash
 sapcli program read ZHELLOWORLD
+```
+
+## delete
+
+Delete program
+
+```bash
+sapcli program delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```
 

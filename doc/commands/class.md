@@ -4,8 +4,9 @@
 2. [write](#write-1)
 3. [activate](#activate-1)
 4. [read](#read-1)
-5. [attributes](#attributes)
-6. [execute](#execute)
+5. [delete](#delete)
+6. [attributes](#attributes)
+7. [execute](#execute)
 
 ## create
 
@@ -81,6 +82,14 @@ Downloads test classes source codes of the given public class
 
 ```bash
 sapcli class read ZCL_HELLOWORLD --type testclasses
+```
+
+## delete
+
+Delete class
+
+```bash
+sapcli class delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```
 
 ## attributes

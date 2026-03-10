@@ -4,6 +4,7 @@
 2. [write](#write)
 3. [activate](#activate)
 4. [read](#read)
+5. [delete](#delete)
 
 ## create
 
@@ -46,4 +47,12 @@ Get the definition of ABAP DDIC transparent table.
 
 ```bash
 sapcli table read TABLE_NAME
+```
+
+## delete
+
+Delete table
+
+```bash
+sapcli table delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```

@@ -88,11 +88,19 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         self.assertEqual(act_activate_cmd, exp_activate_cmd)
         self.assertEqual(len(exp_activate_cmd.arguments), 3)
 
+    def test_define_delete(self):
+        exp_delete_cmd = self.group.define_delete(self.commands)
+        act_delete_cmd = self.commands.get_declaration(self.group.delete_object)
+
+        self.assertEqual(act_delete_cmd, exp_delete_cmd)
+        self.assertEqual(len(exp_delete_cmd.arguments), 2)
+
     def test_define(self):
         self.group.define_create = MagicMock()
         self.group.define_read = MagicMock()
         self.group.define_write = MagicMock()
         self.group.define_activate = MagicMock()
+        self.group.define_delete = MagicMock()
 
         del self.group.__class__._instance
         del self.group.__class__.commands
@@ -105,6 +113,7 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         self.group.define_read.assert_called_once_with(commands)
         self.group.define_write.assert_called_once_with(commands)
         self.group.define_activate.assert_called_once_with(commands)
+        self.group.define_delete.assert_called_once_with(commands)
 
         del self.group.__class__._instance
         del self.group.__class__.commands
@@ -290,6 +299,55 @@ Activation has finished
 Warnings: 0
 Errors: 0
 ''')
+
+    def test_delete_object(self):
+        connection = MagicMock()
+
+        args = self.parse_args('delete', 'myname')
+
+        self.assertEqual(args.name, ['myname'])
+        self.assertEqual(args.corrnr, None)
+        self.assertEqual(args.execute, self.group.delete_object)
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(connection, args)
+
+        self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata=None)
+        self.group.new_object_mock.delete.assert_called_once_with(corrnr=None)
+        self.assertEqual(fake_console.capout, 'Deleting myname ...\nDeleted myname\n')
+
+    def test_delete_multiple_objects(self):
+        connection = MagicMock()
+
+        args = self.parse_args('delete', 'myname', 'anothername')
+
+        self.assertEqual(args.name, ['myname', 'anothername'])
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(connection, args)
+
+        self.assertEqual(self.group.instace_mock.call_args_list,
+                         [call(connection, 'myname', args, metadata=None),
+                          call(connection, 'anothername', args, metadata=None)])
+
+        self.assertEqual(self.group.new_object_mock.delete.call_args_list,
+                         [call(corrnr=None), call(corrnr=None)])
+
+        self.assertEqual(fake_console.capout,
+                         'Deleting myname ...\nDeleted myname\n'
+                         'Deleting anothername ...\nDeleted anothername\n')
+
+    def test_delete_object_with_corrnr(self):
+        connection = MagicMock()
+
+        args = self.parse_args('delete', 'myname', '--corrnr', '123456')
+
+        self.assertEqual(args.corrnr, '123456')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(connection, args)
+
+        self.group.new_object_mock.delete.assert_called_once_with(corrnr='123456')
 
     def test_activate_objects(self):
         connection = MagicMock()

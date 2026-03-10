@@ -199,9 +199,20 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         return activate_cmd
 
+    def define_delete(self, commands):
+        """Declares the Delete command with its parameters and returns
+           the definition.
+        """
+
+        delete_cmd = commands.add_command(self.delete_object, name='delete')
+        delete_cmd.append_argument('name', nargs='+')
+        delete_cmd.declare_corrnr()
+
+        return delete_cmd
+
     def define(self):
-        """Defines the commands Create, Read, Write, and Activate and returns
-           the command list
+        """Defines the commands Create, Read, Write, Activate, and Delete
+           and returns the command list
         """
 
         cls = self.__class__
@@ -218,6 +229,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         self.define_read(commands)
         self.define_write(commands)
         self.define_activate(commands)
+        self.define_delete(commands)
 
         return commands
 
@@ -243,6 +255,18 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         obj = self.instance(connection, args.name, args)
         args.console_factory().printout(obj.text)
+
+    def delete_object(self, connection, args):
+        """Deletes the given objects."""
+
+        console = args.console_factory()
+
+        for name in args.name:
+            obj = self.instance(connection, name, args)
+
+            console.printout(f'Deleting {name} ...')
+            obj.delete(corrnr=args.corrnr)
+            console.printout(f'Deleted {name}')
 
     def build_activator(self, args):
         """For children to customize"""

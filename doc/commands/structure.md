@@ -5,6 +5,7 @@
   - [write](#write)
   - [activate](#activate)
   - [read](#read)
+  - [delete](#delete)
 
 ## create
 
@@ -47,4 +48,12 @@ Get the definition of ABAP DDIC structure.
 
 ```bash
 sapcli structure read STRUCTURE_NAME
+```
+
+## delete
+
+Delete structure
+
+```bash
+sapcli structure delete NAME [NAME ...] [--corrnr TRANSPORT]
 ```
