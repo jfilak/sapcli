@@ -225,6 +225,91 @@ Package Type           :development
         self.assertConsoleContents(self.console, stderr='Package $IAMTHEKING not found\n')
 
 
+class TestPackageDelete(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        ConsoleOutputTestCase.setUp(self)
+        self.patch_console(console=self.console)
+
+    def test_delete_non_recursive(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('delete', '$TEST')
+        args.execute(conn, args)
+
+        self.assertEqual(conn.execs[0].method, 'POST')
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/deletion/delete')
+
+        self.assertConsoleContents(self.console, stdout='Deleting package $TEST ...\nDeleted package $TEST\n')
+
+    def test_delete_non_recursive_with_corrnr(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('delete', '$TEST', '--corrnr', '420')
+        args.execute(conn, args)
+
+        body = conn.execs[0].body.decode('utf-8')
+        self.assertIn('<del:transportNumber>420</del:transportNumber>', body)
+
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.objects.adt_object_delete')
+    def test_delete_recursive(self, fake_delete, fake_walk):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        fake_walk.return_value = iter([
+            ([],
+             [SimpleNamespace(typ='DEVC/K', name='$SUB1', uri='packages/%24sub1', description='Sub 1'),
+              SimpleNamespace(typ='DEVC/K', name='$SUB2', uri='packages/%24sub2', description='Sub 2')],
+             [SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='programs/programs/z_hello_world', description='Test')]),
+            (['$SUB1'],
+             [],
+             [SimpleNamespace(typ='CLAS/OC', name='ZCL_TEST', uri='oo/classes/zcl_test', description='Test class')]),
+            (['$SUB2'],
+             [],
+             []),
+        ])
+
+        args = parse_args('delete', '$TEST', '-r')
+        args.execute(conn, args)
+
+        # 2 objects + 2 sub-packages + 1 top-level package = 5 calls
+        self.assertEqual(fake_delete.call_count, 5)
+        fake_delete.assert_any_call(conn, '/sap/bc/adt/programs/programs/z_hello_world', corrnr=None)
+        fake_delete.assert_any_call(conn, '/sap/bc/adt/oo/classes/zcl_test', corrnr=None)
+        fake_delete.assert_any_call(conn, '/sap/bc/adt/packages/%24sub1', corrnr=None)
+        fake_delete.assert_any_call(conn, '/sap/bc/adt/packages/%24sub2', corrnr=None)
+
+        self.assertConsoleContents(self.console, stdout='''Deleting object Z_HELLO_WORLD ...
+Deleted object Z_HELLO_WORLD
+Deleting object ZCL_TEST ...
+Deleted object ZCL_TEST
+Deleting package $SUB1 ...
+Deleted package $SUB1
+Deleting package $SUB2 ...
+Deleted package $SUB2
+Deleting package $TEST ...
+Deleted package $TEST
+''')
+
+    @patch('sap.adt.package.walk')
+    @patch('sap.adt.objects.adt_object_delete')
+    def test_delete_recursive_with_corrnr(self, fake_delete, fake_walk):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        fake_walk.return_value = iter([
+            ([],
+             [],
+             [SimpleNamespace(typ='PROG/P', name='Z_HELLO', uri='programs/programs/z_hello', description='Test')]),
+        ])
+
+        args = parse_args('delete', '$TEST', '-r', '--corrnr', '420')
+        args.execute(conn, args)
+
+        # 1 object + 1 top-level package
+        self.assertEqual(fake_delete.call_count, 2)
+        fake_delete.assert_any_call(conn, '/sap/bc/adt/programs/programs/z_hello', corrnr='420')
+
+
 class TestPackageCheck(unittest.TestCase):
 
     def run_checks(self, args, reporters, walk_results):

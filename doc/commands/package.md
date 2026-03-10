@@ -2,8 +2,9 @@
 
 1. [create](#create)
 2. [list](#list)
-3. [check](#check)
-4. [stat](#stat)
+3. [delete](#delete)
+4. [check](#check)
+5. [stat](#stat)
 
 ## create
 
@@ -61,6 +62,18 @@ INTF/OI  ZIF_HELLO_WORLD  Test interface
 CLAS/OC  ZCL_HELLO_WORLD  Test class
 PROG/P   Z_HELLO_WORLD    Test program
 ```
+
+## delete
+
+Delete a package. With `--recursive`, deletes all objects and sub-packages first.
+
+```bash
+sapcli package delete \$tests [--corrnr TRANSPORT] [-r|--recursive]
+```
+
+**Parameters**:
+- `--corrnr TRANSPORT`: CTS Transport Request Number. **(optional)**
+- `-r, --recursive`: Recursively delete all objects and sub-packages before deleting the package. **(optional)**
 
 ## check
 

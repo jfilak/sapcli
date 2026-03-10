@@ -6,6 +6,7 @@ from sap import get_logger
 
 import sap.adt
 import sap.adt.checks
+import sap.adt.objects
 from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionResourceNotFound
 
 import sap.cli.core
@@ -147,6 +148,53 @@ def stat(connection, args):
     console.printout(f'Package Type           :{package.attributes.package_type}')
 
     return sap.cli.core.EXIT_CODE_OK
+
+
+@CommandGroup.argument_corrnr()
+@CommandGroup.argument('-r', '--recursive', default=False, action='store_true')
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def delete(connection, args):
+    """Deletes the requested ABAP package."""
+
+    console = args.console_factory()
+
+    if not args.recursive:
+        console.printout(f'Deleting package {args.name} ...')
+        sap.adt.Package(connection, args.name).delete(corrnr=args.corrnr)
+        console.printout(f'Deleted package {args.name}')
+        return 0
+
+    package = sap.adt.Package(connection, args.name)
+
+    all_objects = []
+    sub_packages = []
+
+    for path, subpackages, objects in sap.adt.package.walk(package, withdescr=True):
+        depth = len(path)
+
+        for subpkg in subpackages:
+            sub_packages.append((depth + 1, subpkg.name, subpkg.uri))
+
+        for obj in objects:
+            all_objects.append(obj)
+
+    for obj in all_objects:
+        console.printout(f'Deleting object {obj.name} ...')
+        sap.adt.objects.adt_object_delete(connection, f'/sap/bc/adt/{obj.uri}', corrnr=args.corrnr)
+        console.printout(f'Deleted object {obj.name}')
+
+    sub_packages.sort(key=lambda x: x[0], reverse=True)
+    for _, pkg_name, pkg_uri in sub_packages:
+        console.printout(f'Deleting package {pkg_name} ...')
+        sap.adt.objects.adt_object_delete(connection, f'/sap/bc/adt/{pkg_uri}', corrnr=args.corrnr)
+        console.printout(f'Deleted package {pkg_name}')
+
+    console.printout(f'Deleting package {args.name} ...')
+    sap.adt.Package(connection, args.name).delete(corrnr=args.corrnr)
+    console.printout(f'Deleted package {args.name}')
+
+    return 0
 
 
 def _run_reporters_for_objects(connection, reporters, package_objects):
