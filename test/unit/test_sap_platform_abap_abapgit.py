@@ -3,9 +3,11 @@
 import unittest
 from io import StringIO
 
+from sap.errors import SAPCliError
 from sap.platform.abap import Structure, ItemizedTable
 
 import sap.platform.abap.abapgit
+from sap.platform.abap.abapgit import OptionalBody
 
 
 class SIMPLE_ABAP_STRUCT(Structure):
@@ -127,6 +129,12 @@ class TestDOT_ABAP_GIT(unittest.TestCase):
         self.assertIsNone(config.VERSION_CONSTANT)
 
 
+class ANOTHER_ABAP_STRUCT(Structure):
+
+    FIRST: str
+    SECOND: str
+
+
 class TestAbapGitFromXml(unittest.TestCase):
 
     def test_abap_git_from_xml(self):
@@ -155,6 +163,88 @@ class TestAbapGitFromXml(unittest.TestCase):
         self.assertEqual(parsed['SIMPLE_ABAP_STRUCT_TT'][0].BAR, 'DOH')
         self.assertEqual(parsed['SIMPLE_ABAP_STRUCT_TT'][1].FOO, 'ARG2')
         self.assertEqual(parsed['SIMPLE_ABAP_STRUCT_TT'][1].BAR, 'DOH2')
+
+
+class TestOptionalBody(unittest.TestCase):
+
+    def test_optional_body_name(self):
+        optional = OptionalBody(SIMPLE_ABAP_STRUCT)
+        self.assertEqual(optional.__name__, 'SIMPLE_ABAP_STRUCT')
+
+    def test_optional_body_present(self):
+        parsed = sap.platform.abap.abapgit.from_xml(
+            [SIMPLE_ABAP_STRUCT, OptionalBody(ANOTHER_ABAP_STRUCT), SIMPLE_ABAP_STRUCT_TT],
+            '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <SIMPLE_ABAP_STRUCT>
+      <FOO>hello</FOO>
+      <BAR>world</BAR>
+    </SIMPLE_ABAP_STRUCT>
+    <ANOTHER_ABAP_STRUCT>
+      <FIRST>one</FIRST>
+      <SECOND>two</SECOND>
+    </ANOTHER_ABAP_STRUCT>
+    <SIMPLE_ABAP_STRUCT_TT>
+      <item>
+        <FOO>ARG</FOO>
+        <BAR>DOH</BAR>
+      </item>
+    </SIMPLE_ABAP_STRUCT_TT>
+  </asx:values>
+</asx:abap>''')
+
+        self.assertEqual(parsed['SIMPLE_ABAP_STRUCT'].FOO, 'hello')
+        self.assertEqual(parsed['SIMPLE_ABAP_STRUCT'].BAR, 'world')
+        self.assertEqual(parsed['ANOTHER_ABAP_STRUCT'].FIRST, 'one')
+        self.assertEqual(parsed['ANOTHER_ABAP_STRUCT'].SECOND, 'two')
+        self.assertEqual(len(parsed['SIMPLE_ABAP_STRUCT_TT']), 1)
+        self.assertEqual(parsed['SIMPLE_ABAP_STRUCT_TT'][0].FOO, 'ARG')
+
+    def test_optional_body_missing(self):
+        parsed = sap.platform.abap.abapgit.from_xml(
+            [SIMPLE_ABAP_STRUCT, OptionalBody(ANOTHER_ABAP_STRUCT), SIMPLE_ABAP_STRUCT_TT],
+            '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <SIMPLE_ABAP_STRUCT>
+      <FOO>hello</FOO>
+      <BAR>world</BAR>
+    </SIMPLE_ABAP_STRUCT>
+    <SIMPLE_ABAP_STRUCT_TT>
+      <item>
+        <FOO>ARG</FOO>
+        <BAR>DOH</BAR>
+      </item>
+    </SIMPLE_ABAP_STRUCT_TT>
+  </asx:values>
+</asx:abap>''')
+
+        self.assertEqual(parsed['SIMPLE_ABAP_STRUCT'].FOO, 'hello')
+        self.assertNotIn('ANOTHER_ABAP_STRUCT', parsed)
+        self.assertEqual(len(parsed['SIMPLE_ABAP_STRUCT_TT']), 1)
+
+    def test_required_body_missing_raises_error(self):
+        with self.assertRaises(SAPCliError) as cm:
+            sap.platform.abap.abapgit.from_xml(
+                [SIMPLE_ABAP_STRUCT, ANOTHER_ABAP_STRUCT, SIMPLE_ABAP_STRUCT_TT],
+                '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <SIMPLE_ABAP_STRUCT>
+      <FOO>hello</FOO>
+      <BAR>world</BAR>
+    </SIMPLE_ABAP_STRUCT>
+    <SIMPLE_ABAP_STRUCT_TT>
+      <item>
+        <FOO>ARG</FOO>
+        <BAR>DOH</BAR>
+      </item>
+    </SIMPLE_ABAP_STRUCT_TT>
+  </asx:values>
+</asx:abap>''')
+
+        self.assertEqual(str(cm.exception), 'Got unexpected tag SIMPLE_ABAP_STRUCT_TT')
 
 
 if __name__ == '__main__':

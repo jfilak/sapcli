@@ -15,6 +15,17 @@ from sap.platform.abap import (
 )
 
 
+class OptionalBody:
+    """Marks a body type as optional in the from_xml body_types list"""
+
+    def __init__(self, body_type):
+        self.body_type = body_type
+
+    @property
+    def __name__(self):
+        return self.body_type.__name__
+
+
 FOLDER_LOGIC_FULL = 'FULL'
 FOLDER_LOGIC_PREFIX = 'PREFIX'
 
@@ -124,15 +135,35 @@ class AGXMLObjectAdapter:
 
         self.obj = 'Meta_Parent'
 
+    def _advance_to(self, name):
+        """Advance past optional body types to find a match"""
+
+        while self.body_type_index < len(self.body_types):
+            current = self.body_types[self.body_type_index]
+            if current.__name__ == name:
+                self.current_body_type = current
+                self.current_body_name = name
+                return True
+            if not isinstance(current, OptionalBody):
+                return False
+            self.body_type_index += 1
+
+        return False
+
     def get_member_type(self, name):
         """Returns type of the given member"""
 
         if name != self.current_body_name:
-            raise sap.errors.SAPCliError(f'Got unexpected tag {name} while expected {self.current_body_name}')
+            if not self._advance_to(name):
+                raise sap.errors.SAPCliError(f'Got unexpected tag {name}')
 
         mod_log().debug('Opening the object: %s', name)
 
-        return self.current_body_type
+        body_type = self.current_body_type
+        if isinstance(body_type, OptionalBody):
+            body_type = body_type.body_type
+
+        return body_type
 
     def start(self, name, attrs):
         """Would open Element"""
@@ -141,9 +172,6 @@ class AGXMLObjectAdapter:
 
     def set_child(self, name, child_obj):
         """Sets the member of the given name in the adapted object"""
-
-        if name != self.current_body_name:
-            raise sap.errors.SAPCliError(f'Got unexpected tag {name} while expected {self.current_body_name}')
 
         mod_log().debug('Saving the object: %s', name)
         self.results[name] = child_obj
