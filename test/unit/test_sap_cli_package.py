@@ -259,12 +259,12 @@ class TestPackageDelete(PatcherTestCase, ConsoleOutputTestCase):
 
         fake_walk.return_value = iter([
             ([],
-             [SimpleNamespace(typ='DEVC/K', name='$SUB1', uri='packages/%24sub1', description='Sub 1'),
-              SimpleNamespace(typ='DEVC/K', name='$SUB2', uri='packages/%24sub2', description='Sub 2')],
-             [SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='programs/programs/z_hello_world', description='Test')]),
+             [SimpleNamespace(typ='DEVC/K', name='$SUB1', uri='/sap/bc/adt/packages/%24sub1', description='Sub 1'),
+              SimpleNamespace(typ='DEVC/K', name='$SUB2', uri='/sap/bc/adt/packages/%24sub2', description='Sub 2')],
+             [SimpleNamespace(typ='PROG/P', name='Z_HELLO_WORLD', uri='/sap/bc/adt/programs/programs/z_hello_world', description='Test')]),
             (['$SUB1'],
              [],
-             [SimpleNamespace(typ='CLAS/OC', name='ZCL_TEST', uri='oo/classes/zcl_test', description='Test class')]),
+             [SimpleNamespace(typ='CLAS/OC', name='ZCL_TEST', uri='/sap/bc/adt/oo/classes/zcl_test', description='Test class')]),
             (['$SUB2'],
              [],
              []),
@@ -300,7 +300,7 @@ Deleted package $TEST
         fake_walk.return_value = iter([
             ([],
              [],
-             [SimpleNamespace(typ='PROG/P', name='Z_HELLO', uri='programs/programs/z_hello', description='Test')]),
+             [SimpleNamespace(typ='PROG/P', name='Z_HELLO', uri='/sap/bc/adt/programs/programs/z_hello', description='Test')]),
         ])
 
         args = parse_args('delete', '$TEST', '-r', '--corrnr', '420')

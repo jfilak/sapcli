@@ -184,13 +184,13 @@ def delete(connection, args):
 
     for obj in all_objects:
         console.printout(f'Deleting object {obj.name} ...')
-        sap.adt.objects.adt_object_delete(connection, f'/sap/bc/adt/{obj.uri}', corrnr=args.corrnr)
+        sap.adt.objects.adt_object_delete(connection, obj.uri, corrnr=args.corrnr)
         console.printout(f'Deleted object {obj.name}')
 
     sub_packages.sort(key=lambda x: x[0], reverse=True)
     for _, pkg_name, pkg_uri in sub_packages:
         console.printout(f'Deleting package {pkg_name} ...')
-        sap.adt.objects.adt_object_delete(connection, f'/sap/bc/adt/{pkg_uri}', corrnr=args.corrnr)
+        sap.adt.objects.adt_object_delete(connection, pkg_uri, corrnr=args.corrnr)
         console.printout(f'Deleted package {pkg_name}')
 
     console.printout(f'Deleting package {args.name} ...')
