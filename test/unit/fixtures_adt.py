@@ -239,6 +239,15 @@ DISCOVERY_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
 </app:service>
 '''
 
+DELETION_RESPONSE_FAILED_PACKAGE = '<?xml version="1.0" encoding="utf-8"?><del:deletionResult xmlns:del="http://www.sap.com/adt/deletion"><del:object del:isDeleted="false" adtcore:uri="/sap/bc/adt/packages/%24abapgit_xml" adtcore:type="DEVC/K" adtcore:name="$ABAPGIT_XML" xmlns:adtcore="http://www.sap.com/adt/core"><del:message del:priority="0" del:type="E"><del:text>Package contains 6 objects</del:text></del:message></del:object></del:deletionResult>'
+
+DELETION_RESPONSE_FAILED_INTERFACE = '<?xml version="1.0" encoding="utf-8"?><del:deletionResult xmlns:del="http://www.sap.com/adt/deletion"><del:object del:isDeleted="false" adtcore:uri="/sap/bc/adt//sap/bc/adt/oo/interfaces/zif_abapgit_xml_output" xmlns:adtcore="http://www.sap.com/adt/core"><del:message del:priority="0" del:type="E"><del:text>No URI-Mapping defined for URI</del:text></del:message><del:message del:priority="0" del:type="E"><del:text>No URI-Mapping defined for URI</del:text></del:message></del:object></del:deletionResult>'
+
+DELETION_RESPONSE_OK_INTERFACE = '<?xml version="1.0" encoding="utf-8"?><del:deletionResult xmlns:del="http://www.sap.com/adt/deletion"><del:object del:isDeleted="true" adtcore:uri="/sap/bc/adt/oo/interfaces/zif_abapgit_xml_output" adtcore:type="INTF/OI" adtcore:name="ZIF_ABAPGIT_XML_OUTPUT" adtcore:packageName="$ABAPGIT_XML" xmlns:adtcore="http://www.sap.com/adt/core"><del:message del:priority="0" del:type="S"><del:text/></del:message></del:object></del:deletionResult>'
+
+DELETION_RESPONSE_OK_PACKAGE = '<?xml version="1.0" encoding="utf-8"?><del:deletionResult xmlns:del="http://www.sap.com/adt/deletion"><del:object del:isDeleted="true" adtcore:uri="/sap/bc/adt/packages/%24abapgit_xml" adtcore:type="DEVC/K" adtcore:name="$ABAPGIT_XML" xmlns:adtcore="http://www.sap.com/adt/core"><del:message del:priority="0" del:type="S"><del:text/></del:message></del:object></del:deletionResult>'
+
+
 class DummyADTObject(sap.adt.ADTObject):
 
     OBJTYPE = sap.adt.ADTObjectType(

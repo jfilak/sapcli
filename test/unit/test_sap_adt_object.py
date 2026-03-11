@@ -8,7 +8,11 @@ import sap.adt
 import sap.adt.objects
 import sap.adt.wb
 
-from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK, GET_DUMMY_OBJECT_ADT_XML, GET_DUMMY_OBJECT_INACTIVE_ADT_XML
+from fixtures_adt import (DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, GET_DUMMY_OBJECT_ADT_XML,
+                          GET_DUMMY_OBJECT_INACTIVE_ADT_XML,
+                          DELETION_RESPONSE_FAILED_PACKAGE, DELETION_RESPONSE_FAILED_INTERFACE,
+                          DELETION_RESPONSE_OK_INTERFACE, DELETION_RESPONSE_OK_PACKAGE)
+from sap.adt.errors import ExceptionDeletionFailure
 
 from mock import Response, Connection
 
@@ -306,6 +310,30 @@ class TestADTObject(unittest.TestCase):
     <del:transportNumber>NPLK900000</del:transportNumber>
   </del:object>
 </del:deletionRequest>''')
+
+    def test_module_adt_object_delete_success_interface(self):
+        conn = Connection([Response(text=DELETION_RESPONSE_OK_INTERFACE, status_code=200, headers={})])
+        sap.adt.objects.adt_object_delete(conn, '/sap/bc/adt/oo/interfaces/zif_abapgit_xml_output')
+
+    def test_module_adt_object_delete_success_package(self):
+        conn = Connection([Response(text=DELETION_RESPONSE_OK_PACKAGE, status_code=200, headers={})])
+        sap.adt.objects.adt_object_delete(conn, '/sap/bc/adt/packages/%24abapgit_xml')
+
+    def test_module_adt_object_delete_failed_package(self):
+        conn = Connection([Response(text=DELETION_RESPONSE_FAILED_PACKAGE, status_code=200, headers={})])
+
+        with self.assertRaises(ExceptionDeletionFailure) as cm:
+            sap.adt.objects.adt_object_delete(conn, '/sap/bc/adt/packages/%24abapgit_xml')
+
+        self.assertIn('Package contains 6 objects', str(cm.exception))
+
+    def test_module_adt_object_delete_failed_interface(self):
+        conn = Connection([Response(text=DELETION_RESPONSE_FAILED_INTERFACE, status_code=200, headers={})])
+
+        with self.assertRaises(ExceptionDeletionFailure) as cm:
+            sap.adt.objects.adt_object_delete(conn, '/sap/bc/adt/oo/interfaces/zif_abapgit_xml_output')
+
+        self.assertIn('No URI-Mapping defined for URI', str(cm.exception))
 
     def test_properties(self):
         victory = DummyADTObject()

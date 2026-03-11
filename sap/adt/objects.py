@@ -12,8 +12,11 @@ import sap.adt.marshalling
 from sap.adt.annotations import (
     xml_attribute,
     xml_element,
+    xml_text_node_property,
     XmlElementProperty,
     XmlListNodeProperty,
+    XmlNodeAttributeProperty,
+    XmlNodeProperty,
     OrderedClassMembers
 )
 
@@ -420,14 +423,66 @@ def create_delete_body(uri, corrnr=None):
 </del:deletionRequest>'''
 
 
+XMLNS_DELETION = xmlns_adtcore_ancestor('del', 'http://www.sap.com/adt/deletion')
+
+
+# pylint: disable=too-few-public-methods
+class DeletionMessage(metaclass=OrderedClassMembers):
+    """ADT deletion response message"""
+
+    priority = XmlNodeAttributeProperty('del:priority')
+    typ = XmlNodeAttributeProperty('del:type')
+    text = xml_text_node_property('del:text')
+
+
+# pylint: disable=too-few-public-methods
+class DeletionObject(metaclass=OrderedClassMembers):
+    """ADT deletion response object"""
+
+    is_deleted = XmlNodeAttributeProperty('del:isDeleted')
+    uri = XmlNodeAttributeProperty('adtcore:uri')
+    obj_type = XmlNodeAttributeProperty('adtcore:type')
+    name = XmlNodeAttributeProperty('adtcore:name')
+
+    messages = XmlListNodeProperty('del:message', value=[], factory=DeletionMessage)
+
+
+# pylint: disable=too-few-public-methods
+class DeletionResult(metaclass=OrderedClassMembers):
+    """ADT deletion response"""
+
+    objtype = ADTObjectType(None, None, XMLNS_DELETION, None, None, 'deletionResult')
+
+    obj = XmlNodeProperty('del:object', factory=DeletionObject)
+
+
 def adt_object_delete(connection, uri, corrnr=None):
     """Delete an ADT object by its full URI."""
 
-    return connection.execute(
+    from sap.adt.errors import ExceptionDeletionFailure
+
+    resp = connection.execute(
         'POST',
         'deletion/delete',
         headers={'Content-Type': 'application/vnd.sap.adt.deletion.request.v1+xml'},
         body=bytes(create_delete_body(uri, corrnr), 'utf-8'))
+
+    if not resp.text:
+        return resp
+
+    result = DeletionResult()
+    sap.adt.marshalling.Marshal.deserialize(resp.text, result)
+
+    if result.obj is not None and result.obj.is_deleted == 'false':
+        error_messages = [msg.text for msg in result.obj.messages
+                          if msg.typ == 'E' and msg.text]
+        if error_messages:
+            message = '; '.join(error_messages)
+        else:
+            message = 'Unknown error'
+        raise ExceptionDeletionFailure(message)
+
+    return resp
 
 
 # pylint: disable=too-many-public-methods
