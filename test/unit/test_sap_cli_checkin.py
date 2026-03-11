@@ -17,9 +17,10 @@ from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionCheckinFailu
 from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
-from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, INCLUDE_XML, INVALID_TYPE_XML, FUNCTION_GROUP_XML, \
-    FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_NO_PARAMS_ADT,\
-    FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, FUNCTION_GROUP_XML_NO_RFC
+from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, PROG_WITH_CUA_XML, INCLUDE_XML, INVALID_TYPE_XML, \
+    FUNCTION_GROUP_XML, FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, \
+    FUNCTION_MODULE_CODE_NO_PARAMS_ADT, FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, \
+    FUNCTION_GROUP_XML_NO_RFC
 from infra import generate_parse_args
 
 
@@ -873,6 +874,19 @@ class TestCheckInProgram(PatcherTestCase, ConsoleOutputTestCase):
         self.assertConsoleContents(self.console, stdout=f'''Creating Program: {self.prog_object.name}
 Writing Program: {self.prog_object.name}
 ''')
+
+    def test_checkin_prog_with_cua(self):
+        self.fake_open.side_effect = [StringIOFile(PROG_WITH_CUA_XML), StringIOFile('test_prog_body')]
+
+        sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
+                                                    responsible=self.connection.user)
+        self.fake_program.assert_called_once_with(self.connection, self.prog_object.name, package=self.package.name,
+                                                  metadata=self.metadata)
+        self.assertEqual(self.program.description, 'Test program desc')
+        self.program.create.assert_called_once_with(None)
+        self.program_editor.write.assert_called_once_with('test_prog_body')
 
     def test_checkin_prog_include(self):
         self.fake_open.side_effect = [StringIOFile(INCLUDE_XML), StringIOFile('test_include_body')]

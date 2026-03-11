@@ -12,6 +12,7 @@ import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
     VSEOCLASS,
     PROGDIR,
+    CUA,
     TPOOL,
     VSEOINTERF,
     DEVC,
@@ -395,9 +396,10 @@ def checkin_prog(connection, repo_obj, corrnr=None):
         raise sap.adt.errors.ExceptionCheckinFailure(f'No .abap suffix of source file for program {repo_obj.name}')
 
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        results = sap.platform.abap.abapgit.from_xml([PROGDIR, TPOOL], abap_data_file.read())
+        results = sap.platform.abap.abapgit.from_xml([PROGDIR, sap.platform.abap.abapgit.OptionalBody(CUA), TPOOL], abap_data_file.read())
 
     progdir = results['PROGDIR']
+    # TODO: how to handle CUA?
     tpool = results['TPOOL']
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)

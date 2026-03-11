@@ -223,3 +223,90 @@ class FUNCTION_LINE(Structure):
 
 
 FUNCTIONS = ItemizedTable.define('FUNCTIONS', FUNCTION_LINE)
+
+
+# CUA (Common User Access) types
+
+class RSMPE_ADM(Structure):
+    """CUA administration"""
+
+    PFKCODE: str
+
+
+class RSMPE_STAT(Structure):
+    """CUA status definition"""
+
+    CODE: str
+    MODAL: str
+    PFKCODE: str
+    BUTCODE: str
+    INT_NOTE: str
+
+
+class RSMPE_FUNT(Structure):
+    """CUA function definition"""
+
+    CODE: str
+    TEXTNO: str
+    TYPE: str
+    TEXT_TYPE: str
+    TEXT_NAME: str
+    ICON_ID: str
+    FUN_TEXT: str
+    ICON_TEXT: str
+    PATH: str
+
+
+class RSMPE_BUT(Structure):
+    """CUA button mapping"""
+
+    PFK_CODE: str
+    CODE: str
+    NO: str
+    PFNO: str
+
+
+class RSMPE_PFK(Structure):
+    """CUA PF key mapping"""
+
+    CODE: str
+    PFNO: str
+    FUNCODE: str
+    FUNNO: str
+
+
+class RSMPE_STAF(Structure):
+    """CUA status-function association"""
+
+    STATUS: str
+    FUNCTION: str
+
+
+class RSMPE_ATRT(Structure):
+    """CUA attributes"""
+
+    OBJ_TYPE: str
+    OBJ_CODE: str
+    SUB_CODE: str
+    MODAL: str
+    INT_NOTE: str
+
+
+STA_TYPE = InternalTable.define('STA', RSMPE_STAT)  # type: Any
+FUN_TYPE = InternalTable.define('FUN', RSMPE_FUNT)  # type: Any
+BUT_TYPE = InternalTable.define('BUT', RSMPE_BUT)  # type: Any
+PFK_TYPE = InternalTable.define('PFK', RSMPE_PFK)  # type: Any
+SET_TYPE = InternalTable.define('SET', RSMPE_STAF)  # type: Any
+DOC_TYPE = InternalTable.define('DOC', RSMPE_ATRT)  # type: Any
+
+
+class CUA(Structure):
+    """CUA (Common User Access) definition"""
+
+    ADM: RSMPE_ADM
+    STA: STA_TYPE
+    FUN: FUN_TYPE
+    BUT: BUT_TYPE
+    PFK: PFK_TYPE
+    SET: SET_TYPE
+    DOC: DOC_TYPE
