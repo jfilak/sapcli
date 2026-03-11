@@ -216,6 +216,7 @@ FUNCTION_GROUP_XML = '''<?xml version="1.0" encoding="utf-8"?>
       <RSFDO>
        <PARAMETER>ABAP_PACKAGE</PARAMETER>
        <KIND>P</KIND>
+       <STEXT>ABAP Package Name</STEXT>
       </RSFDO>
      </DOCUMENTATION>
     </item>

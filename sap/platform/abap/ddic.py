@@ -203,6 +203,7 @@ class RSFDO(Structure):
 
     PARAMETER: str
     KIND: str
+    STEXT: str
 
 
 DOCUMENTATION_TYPE = InternalTable.define('DOCUMENTATION', RSFDO)  # type: Any
