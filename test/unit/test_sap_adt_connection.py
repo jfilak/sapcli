@@ -2,10 +2,11 @@
 
 import unittest
 from unittest.mock import Mock, patch
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, ReadTimeout
 
 import sap.adt
 import sap.adt.errors
+import sap.rest.errors
 
 from mock import Request, Response, Connection
 
@@ -371,6 +372,16 @@ class TestADTConnection(unittest.TestCase):
         self.assertEqual(str(cm.exception),
                          f'ADT Connection error: [HOST:"{self.connection._host}", PORT:"{self.connection._port}", '
                          f'SSL:"{self.connection._ssl}"] Error: Cannot connect to the system. Check the HOST and PORT configuration.')
+
+    @patch('sap.adt.core.requests.Request')
+    def test_read_timeout(self, _):
+        session = Mock()
+        session.send.side_effect = ReadTimeout('HTTPSConnectionPool read timed out')
+
+        with self.assertRaises(sap.rest.errors.TimedOutRequestError) as cm:
+            self.connection._retrieve(session, 'method', 'url')
+
+        self.assertIn('took more than', str(cm.exception))
 
 
 if __name__ == '__main__':

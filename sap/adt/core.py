@@ -175,6 +175,8 @@ class Connection:
             res = session.send(req, timeout=self._timeout)
         except requests.exceptions.ConnectTimeout as ex:
             raise TimedOutRequestError(req, self._timeout) from ex
+        except requests.exceptions.ReadTimeout as ex:
+            raise TimedOutRequestError(req, self._timeout) from ex
         except requests.exceptions.ConnectionError as ex:
             msg = str(ex)
             raise ADTConnectionError(self._host, self._port, self._ssl, msg) from ex

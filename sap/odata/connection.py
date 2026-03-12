@@ -56,6 +56,8 @@ class Connection:
 
         except requests.exceptions.ConnectTimeout as ex:
             raise TimedOutRequestError(req, self._timeout) from ex
+        except requests.exceptions.ReadTimeout as ex:
+            raise TimedOutRequestError(req, self._timeout) from ex
 
         if res.status_code == 401:
             raise UnauthorizedError(req, res, self._user)

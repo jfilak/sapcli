@@ -3,11 +3,11 @@
 from functools import partial
 
 import unittest
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, ReadTimeout
 from unittest.mock import Mock, patch
 
 from sap.rest.connection import Connection
-from sap.rest.errors import UnauthorizedError, GCTSConnectionError
+from sap.rest.errors import UnauthorizedError, GCTSConnectionError, TimedOutRequestError
 
 
 def stub_retrieve(response, session, method, url, params=None, headers=None, body=None):
@@ -99,3 +99,16 @@ class TestConnectionExecute(unittest.TestCase):
         self.assertEqual(str(cm.exception),
                          f'GCTS connection error: [HOST:"{self.conn._host}", PORT:"443", '
                          'SSL:"True"] Error: Cannot connect to the system. Check the HOST and PORT configuration.')
+
+    @patch('sap.rest.connection.requests.Request')
+    def test_read_timeout(self, _):
+        session = Mock()
+        session.send.side_effect = ReadTimeout('HTTPSConnectionPool read timed out')
+
+        method = 'GET'
+        url = '/all'
+
+        with self.assertRaises(TimedOutRequestError) as cm:
+            self.conn._retrieve(session, method, url)
+
+        self.assertIn('took more than', str(cm.exception))

@@ -6,6 +6,8 @@ from io import StringIO
 
 import sap
 import sap.cli._entry as entry
+from sap.rest.errors import TimedOutRequestError as RestTimedOutRequestError
+from sap.odata.errors import TimedOutRequestError as ODataTimedOutRequestError
 
 ALL_PARAMETERS = [
     'sapcli', '--ashost', 'fixtures', '--sysnr', '69', '--client', '975',
@@ -305,6 +307,39 @@ class TestMainEntry(unittest.TestCase):
         self.assertEqual(retval, 1)
         self.assertRegex(fake_output.getvalue(), r'^Exception \(ResourceAlreadyExistsError\):')
         self.assertRegex(fake_output.getvalue(), r'Resource already exists')
+
+
+    @patch('sap.cli._entry.parse_command_line')
+    def test_execution_rest_timeout(self, fake_parse_command_line):
+        request = Mock()
+        request.method = 'GET'
+        request.url = 'http://example.com/sap/bc/cts_abapvcs'
+
+        fake_parse_command_line.return_value.execute.side_effect = RestTimedOutRequestError(request, 900.0)
+
+        with patch('sys.stderr', new_callable=StringIO) as fake_output:
+            with patch('sys.stdout', new_callable=StringIO):
+                retval = entry.main(ALL_PARAMETERS.copy())
+
+        self.assertEqual(retval, 1)
+        self.assertIn('TimedOutRequestError', fake_output.getvalue())
+        self.assertIn('SAPCLI_HTTP_TIMEOUT', fake_output.getvalue())
+
+    @patch('sap.cli._entry.parse_command_line')
+    def test_execution_odata_timeout(self, fake_parse_command_line):
+        request = Mock()
+        request.method = 'GET'
+        request.url = 'http://example.com/sap/opu/odata/SERVICE'
+
+        fake_parse_command_line.return_value.execute.side_effect = ODataTimedOutRequestError(request, 900.0)
+
+        with patch('sys.stderr', new_callable=StringIO) as fake_output:
+            with patch('sys.stdout', new_callable=StringIO):
+                retval = entry.main(ALL_PARAMETERS.copy())
+
+        self.assertEqual(retval, 1)
+        self.assertIn('TimedOutRequestError', fake_output.getvalue())
+        self.assertIn('SAPCLI_HTTP_TIMEOUT', fake_output.getvalue())
 
 
 if __name__ == '__main__':

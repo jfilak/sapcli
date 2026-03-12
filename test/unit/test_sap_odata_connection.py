@@ -5,7 +5,7 @@
 
 import unittest
 from unittest.mock import Mock, patch
-from requests.exceptions import ConnectTimeout
+from requests.exceptions import ConnectTimeout, ReadTimeout
 from sap.odata.connection import Connection
 from sap.odata.errors import (
     HTTPRequestError,
@@ -85,6 +85,19 @@ class TestConnection(unittest.TestCase):
         request_patch.assert_called_once()
         client_patch.assert_not_called()
 
+
+    @patch('pyodata.Client')
+    @patch('requests.Request')
+    @patch('requests.Session', return_value=Mock())
+    def test_init_read_timeout(self, session_patch, request_patch, client_patch):
+        session = session_patch.return_value
+        session.send = Mock(side_effect = ReadTimeout())
+
+        with self.assertRaises(TimedOutRequestError):
+            Connection('SERVICE', 'HOST', None, 'CLIENT', 'USER', 'PASSWORD', False, True)
+
+        request_patch.assert_called_once()
+        client_patch.assert_not_called()
 
     @patch('pyodata.Client')
     @patch('requests.Request')
