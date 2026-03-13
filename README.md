@@ -30,6 +30,8 @@ pip install -r requirements.txt
 
 ### Enable RFC features
 
+RFC features are not enabled until you install the required dependencies, but sapcli is perfectly operational even without them because the other features only need HTTP connectivity.
+
 sapcli uses [PyRFC](https://sap.github.io/PyRFC/intro.html) which provides Python API for communication
 over SAP NetWeaver RFC.
 
@@ -41,8 +43,8 @@ Please follow the official installation instructions at:
 It is not necessary to modify */etc/ld.so.conf.d/nwrfcsdk.conf* as you can
 just set the environment variable LD\_LIBRARY\_PATH.
 
-The required libraries are compiled the way you can execute them on any x86-64
-GNU/Linux, thus you can use the libraries located on your Application server.
+The required libraries are compiled in a way that allows you to execute them on any x86-64
+GNU/Linux, so you can use the libraries located on your application server.
 
 ## Features
 
