@@ -46,7 +46,7 @@ GNU/Linux, thus you can use the libraries located on your Application server.
 
 ## Features
 
-The primary goal was to enable ABAP Unit testing
+The primary goal was to build a tool which would allow us to run ABAP Unit tests (even with test coverage):
 
 ```bash
 sapcli aunit run class zcl_foo --output junit4
@@ -54,14 +54,22 @@ sapcli aunit run program zfoo_report --output junit4
 sapcli aunit run package '$local_package' --output junit4
 ```
 
-, ATC checks triggering and installation of [abapGit](https://github.com/larshp/abapGit)
-which is delivered as a single source ABAP program (report, SE38 thing).
+We also use it to run ATC checks and install [abapGit](https://github.com/larshp/abapGit),
+which is delivered as a single-source ABAP program (report, SE38 thing):
 
 ```bash
 sapcli package create '$abapgit' 'git for ABAP by Lars'
 sapcli program create 'zabapgit' 'github.com/larshp/abapGit' '$abapgit'
 curl https://raw.githubusercontent.com/abapGit/build/master/zabapgit.abap | sapcli program write 'zabapgit' - --activate
 ```
+
+However, the tool's scope has broadened in the meantime and we use
+sapcli to install the development abapGit:
+```bash
+sapcli checkin package '$abapgit'
+```
+
+We also use it to create and release transports/tasks, operate gCTS, and much more.
 
 See the complete list of supported operations in [doc/commands.md](doc/commands.md)
 
