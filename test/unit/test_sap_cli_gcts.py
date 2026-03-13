@@ -3155,4 +3155,107 @@ class TestgCTSRepoObjects(PatcherTestCase, ConsoleOutputTestCase):
         self.assertEqual(objects_list_exit_code, 1)
         fake_get_repository.assert_called_once_with(self.fake_connection, package)
         fake_dump_msgs.assert_called_once_with(self.console, messages)
-        
+
+
+class TestgCTSRepoTasks(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+        self.patch_console(console=self.console)
+
+        self.fake_connection = Mock()
+        self.fake_repo = Mock()
+        self.fake_repo.rid = 'repo-id-123'
+
+        self.fake_task1 = {'name': 'Task1', 'type': 'CLONE', 'status': 'READY', 'log': 'Process1'}
+        self.fake_task2 = {'name': 'Task2', 'type': 'DELETE', 'status': 'DONE', 'log': 'Process2'}
+
+    def repo_tasks_cmd(self, *args, **kwargs):
+        return parse_args('repo', 'tasks', *args, **kwargs)
+
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.gcts.RepositoryTask')
+    def test_repo_tasks_list_human_format(self, fake_repo_task_cls, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+        fake_repo_task_instance = fake_repo_task_cls.return_value
+        fake_repo_task_instance.get_list.return_value = [self.fake_task1, self.fake_task2]
+
+        the_cmd = self.repo_tasks_cmd('the_repo')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        fake_get_repository.assert_called_once_with(self.fake_connection, 'the_repo')
+        fake_repo_task_cls.assert_called_once_with(self.fake_connection, 'repo-id-123')
+        fake_repo_task_instance.get_list.assert_called_once()
+
+        self.assertConsoleContents(self.console, stdout=
+            'Name  | Type   | Status | Process \n'
+            '----------------------------------\n'
+            'Task1 | CLONE  | READY  | Process1\n'
+            'Task2 | DELETE | DONE   | Process2\n'
+        )
+
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.gcts.RepositoryTask')
+    def test_repo_tasks_list_json_format(self, fake_repo_task_cls, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+        fake_repo_task_instance = fake_repo_task_cls.return_value
+        fake_repo_task_instance.get_list.return_value = [self.fake_task1, self.fake_task2]
+
+        the_cmd = self.repo_tasks_cmd('the_repo', '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        fake_get_repository.assert_called_once_with(self.fake_connection, 'the_repo')
+        fake_repo_task_cls.assert_called_once_with(self.fake_connection, 'repo-id-123')
+        fake_repo_task_instance.get_list.assert_called_once()
+
+        expected_json = sap.cli.core.json_dumps([self.fake_task1, self.fake_task2])
+        self.assertConsoleContents(self.console, stdout=expected_json + '\n')
+
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.gcts.RepositoryTask')
+    def test_repo_tasks_single_task_human_format(self, fake_repo_task_cls, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+        fake_repo_task_instance = fake_repo_task_cls.return_value
+        fake_repo_task_instance.get_by_id.return_value = fake_repo_task_instance
+        fake_repo_task_instance.to_dict.return_value = self.fake_task1
+
+        the_cmd = self.repo_tasks_cmd('the_repo', '--tid', 'TID1')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        fake_get_repository.assert_called_once_with(self.fake_connection, 'the_repo')
+        fake_repo_task_cls.assert_called_once_with(self.fake_connection, 'repo-id-123')
+        fake_repo_task_instance.get_by_id.assert_called_once_with('TID1')
+        fake_repo_task_instance.get_list.assert_not_called()
+
+        self.assertConsoleContents(self.console, stdout=
+            'Name  | Type  | Status | Process \n'
+            '---------------------------------\n'
+            'Task1 | CLONE | READY  | Process1\n'
+        )
+
+    @patch('sap.cli.gcts.get_repository')
+    @patch('sap.cli.gcts.RepositoryTask')
+    def test_repo_tasks_single_task_json_format(self, fake_repo_task_cls, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+        fake_repo_task_instance = fake_repo_task_cls.return_value
+        fake_repo_task_instance.get_by_id.return_value = fake_repo_task_instance
+        fake_repo_task_instance.to_dict.return_value = self.fake_task1
+
+        the_cmd = self.repo_tasks_cmd('the_repo', '--tid', 'TID1', '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 0)
+        fake_get_repository.assert_called_once_with(self.fake_connection, 'the_repo')
+        fake_repo_task_cls.assert_called_once_with(self.fake_connection, 'repo-id-123')
+        fake_repo_task_instance.get_by_id.assert_called_once_with('TID1')
+        fake_repo_task_instance.get_list.assert_not_called()
+
+        expected_json = sap.cli.core.json_dumps(self.fake_task1)
+        self.assertConsoleContents(self.console, stdout=expected_json + '\n')
+

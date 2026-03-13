@@ -23,13 +23,14 @@ sapcli's implementation forces use of packages as git repositories.
 19. [repo activities](#repo-activities)
 20. [repo messages](#repo-messages)
 21. [repo objects](#repo-objects)
-22. [system config get](#system-config-get)
-23. [system config list](#system-config-list)
-24. [system config set](#system-config-set)
-25. [system config unset](#system-config-unset)
-26. [task info](#task-info)
-27. [task list](#task-list)
-28. [task delete](#task-delete)
+22. [repo tasks](#repo-tasks)
+23. [system config get](#system-config-get)
+24. [system config list](#system-config-list)
+25. [system config set](#system-config-set)
+26. [system config unset](#system-config-unset)
+27. [task info](#task-info)
+28. [task list](#task-list)
+29. [task delete](#task-delete)
 
 
 ## repolist
@@ -329,6 +330,25 @@ sapcli gcts repo objects PACKAGE [--columns COLUMNS] [--noheadings] [-f|--format
 - `--columns COLUMNS`: Comma-separated list of visible columns (e.g., `pgmid,type,object`)
 - `--noheadings`: Do not display a header line
 - `--format`: The format of the command's output. `HUMAN` displays a formatted table, `JSON` outputs JSON format, and `TRANSPORT` outputs tab-separated values suitable for transport files.
+
+## repo tasks
+
+List tasks for a repository. This is a convenience alias for
+[task list](#task-list), accessible under the `repo` subcommand for intuitive
+navigation.
+
+```bash
+sapcli gcts repo tasks PACKAGE [--tid TID] [-f|--format {HUMAN|JSON}]
+```
+
+**Parameters**:
+- `PACKAGE`: The repository name
+- `--tid TID`: Optional task ID to display a single task
+- `--format {HUMAN|JSON}`: Output format. Default is `HUMAN`.
+
+When listing all tasks, displays Name, Type, Status, and Process in a table.
+When `--tid` is specified, shows only that task. JSON format outputs the full
+task data.
 
 ## system config get
 

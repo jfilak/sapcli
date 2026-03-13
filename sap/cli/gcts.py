@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """gCTS methods"""
 
 import os
@@ -15,6 +16,9 @@ from sap.rest.gcts.remote_repo import (
     Repository,
     RepoMessagesQueryParams,
     RepoActivitiesQueryParams,
+)
+from sap.rest.gcts.repo_task import (
+    RepositoryTask,
 )
 from sap.rest.gcts.errors import (
     GCTSRequestError,
@@ -417,6 +421,48 @@ def messages(connection, args):
 
         tw = sap.cli.helpers.TableWriter(repo_messages, columns)
         tw.printout(console)
+
+    return 0
+
+
+@RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
+@RepoCommandGroup.argument('--tid', type=str, default=None)
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command()
+def tasks(connection, args):
+    """gCTS Repository Tasks
+    """
+
+    console = sap.cli.core.get_console()
+
+    repo = get_repository(connection, args.package)
+    repo_task = RepositoryTask(connection, repo.rid)
+
+    if args.tid is not None:
+        task = repo_task.get_by_id(args.tid)
+        if args.format == 'JSON':
+            console.printout(sap.cli.core.json_dumps(task.to_dict()))
+            return 0
+
+        repo_tasks = [task.to_dict()]
+    else:
+        repo_tasks = repo_task.get_list()
+
+        if args.format == 'JSON':
+            console.printout(sap.cli.core.json_dumps(repo_tasks))
+            return 0
+
+    columns = (
+        sap.cli.helpers.TableWriter.Columns()
+        ('name', 'Name')
+        ('type', 'Type')
+        ('status', 'Status')
+        ('log', 'Process')
+        .done()
+    )
+
+    tw = sap.cli.helpers.TableWriter(repo_tasks, columns)
+    tw.printout(console)
 
     return 0
 
