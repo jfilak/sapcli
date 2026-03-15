@@ -3,6 +3,7 @@
 1. [read](#read)
 2. [activate](#activate)
 3. [delete](#delete)
+4. [whereused](#whereused)
 
 ## activate
 
@@ -26,4 +27,12 @@ Delete CDS view
 
 ```bash
 sapcli ddl delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given CDS view
+
+```bash
+sapcli ddl whereused ZCDS1
 ```

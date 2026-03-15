@@ -95,12 +95,20 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         self.assertEqual(act_delete_cmd, exp_delete_cmd)
         self.assertEqual(len(exp_delete_cmd.arguments), 2)
 
+    def test_define_whereused(self):
+        exp_whereused_cmd = self.group.define_whereused(self.commands)
+        act_whereused_cmd = self.commands.get_declaration(self.group.whereused_object)
+
+        self.assertEqual(act_whereused_cmd, exp_whereused_cmd)
+        self.assertEqual(len(exp_whereused_cmd.arguments), 1)
+
     def test_define(self):
         self.group.define_create = MagicMock()
         self.group.define_read = MagicMock()
         self.group.define_write = MagicMock()
         self.group.define_activate = MagicMock()
         self.group.define_delete = MagicMock()
+        self.group.define_whereused = MagicMock()
 
         del self.group.__class__._instance
         del self.group.__class__.commands
@@ -114,6 +122,7 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         self.group.define_write.assert_called_once_with(commands)
         self.group.define_activate.assert_called_once_with(commands)
         self.group.define_delete.assert_called_once_with(commands)
+        self.group.define_whereused.assert_called_once_with(commands)
 
         del self.group.__class__._instance
         del self.group.__class__.commands
@@ -348,6 +357,68 @@ Errors: 0
             args.execute(connection, args)
 
         self.group.new_object_mock.delete.assert_called_once_with(corrnr='123456')
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_object_zero_results(self, fake_where_used):
+        connection = MagicMock()
+
+        mock_result = MagicMock()
+        mock_result.result_description = '[A4H] Where-Used List: MYNAME (Program)'
+        mock_result.referenced_objects = []
+        fake_where_used.return_value = mock_result
+
+        args = self.parse_args('whereused', 'myname')
+
+        self.assertEqual(args.name, 'myname')
+        self.assertEqual(args.execute, self.group.whereused_object)
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(connection, args)
+
+        self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata=None)
+        fake_where_used.assert_called_once_with(connection, self.group.new_object_mock.full_adt_uri)
+        self.assertEqual(fake_console.capout, '')
+        self.assertEqual(fake_console.caperr, '')
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_object_with_results(self, fake_where_used):
+        connection = MagicMock()
+
+        pkg_ref1 = MagicMock()
+        pkg_ref1.name = '$ABAPGIT_ENV'
+
+        adt_obj1 = MagicMock()
+        adt_obj1.typ = 'CLAS/OC'
+        adt_obj1.name = 'ZCL_ABAPGIT_ABAP_LANGUAGE_VERS'
+        adt_obj1.package_ref = pkg_ref1
+
+        ref_obj1 = MagicMock()
+        ref_obj1.adt_object = adt_obj1
+
+        pkg_ref2 = MagicMock()
+        pkg_ref2.name = '$ABAPGIT_ENV'
+
+        adt_obj2 = MagicMock()
+        adt_obj2.typ = None
+        adt_obj2.name = 'Local Test Classes'
+        adt_obj2.package_ref = pkg_ref2
+
+        ref_obj2 = MagicMock()
+        ref_obj2.adt_object = adt_obj2
+
+        mock_result = MagicMock()
+        mock_result.result_description = '[A4H] Where-Used List: MYNAME (Program)'
+        mock_result.referenced_objects = [ref_obj1, ref_obj2]
+        fake_where_used.return_value = mock_result
+
+        args = self.parse_args('whereused', 'myname')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(connection, args)
+
+        self.assertEqual(fake_console.capout,
+                         '  CLAS/OC ZCL_ABAPGIT_ABAP_LANGUAGE_VERS\n'
+                         '   Local Test Classes\n')
 
     def test_activate_objects(self):
         connection = MagicMock()

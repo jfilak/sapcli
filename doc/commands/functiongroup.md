@@ -6,6 +6,7 @@
 	- [activate](#activate)
 	- [read group](#read-group)
 	- [delete](#delete)
+	- [whereused](#whereused)
 	- [Function Group Include](#function-group-include)
 		- [create](#create-1)
 		- [write](#write-1)
@@ -58,6 +59,14 @@ Delete function group
 
 ```bash
 sapcli functiongroup delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given function group
+
+```bash
+sapcli functiongroup whereused ZFG_PARENT
 ```
 
 ## Function Group Include

@@ -6,6 +6,7 @@
   - [activate](#activate)
   - [read](#read)
   - [delete](#delete)
+  - [whereused](#whereused)
 
 ## create
 
@@ -56,4 +57,12 @@ Delete structure
 
 ```bash
 sapcli structure delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given structure
+
+```bash
+sapcli structure whereused STRUCTURE_NAME
 ```

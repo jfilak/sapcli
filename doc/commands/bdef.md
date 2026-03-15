@@ -5,6 +5,7 @@
 3. [write](#write)
 4. [activate](#activate)
 5. [delete](#delete)
+6. [whereused](#whereused)
 
 ## create
 
@@ -95,4 +96,12 @@ Delete behavior definition
 
 ```bash
 sapcli bdef delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given behavior definition
+
+```bash
+sapcli bdef whereused ZMYBDEF
 ```

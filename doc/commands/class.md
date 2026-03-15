@@ -5,8 +5,9 @@
 3. [activate](#activate-1)
 4. [read](#read-1)
 5. [delete](#delete)
-6. [attributes](#attributes)
-7. [execute](#execute)
+6. [whereused](#whereused)
+7. [attributes](#attributes)
+8. [execute](#execute)
 
 ## create
 
@@ -90,6 +91,14 @@ Delete class
 
 ```bash
 sapcli class delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given class
+
+```bash
+sapcli class whereused ZCL_HELLOWORLD
 ```
 
 ## attributes

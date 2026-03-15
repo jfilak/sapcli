@@ -7,6 +7,7 @@
 	- [activate](#activate)
 	- [read](#read)
 	- [delete](#delete)
+	- [whereused](#whereused)
 
 ## create
 
@@ -66,4 +67,12 @@ Delete function module
 
 ```bash
 sapcli functionmodule delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given function module
+
+```bash
+sapcli functionmodule whereused Z_FUNCTION_MODULE
 ```

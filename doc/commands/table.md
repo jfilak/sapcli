@@ -5,6 +5,7 @@
 3. [activate](#activate)
 4. [read](#read)
 5. [delete](#delete)
+6. [whereused](#whereused)
 
 ## create
 
@@ -55,4 +56,12 @@ Delete table
 
 ```bash
 sapcli table delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given table
+
+```bash
+sapcli table whereused TABLE_NAME
 ```

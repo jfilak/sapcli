@@ -3,6 +3,7 @@
 - [Data Element](#data-element)
 	- [define](#define)
 	- [delete](#delete)
+	- [whereused](#whereused)
 
 ## define
 
@@ -32,4 +33,12 @@ Delete data element
 
 ```bash
 sapcli dataelement delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given data element
+
+```bash
+sapcli dataelement whereused DATA_ELEMENT_NAME
 ```

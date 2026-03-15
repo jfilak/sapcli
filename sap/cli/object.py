@@ -10,6 +10,7 @@ import sap.errors
 
 import sap.adt
 import sap.adt.wb
+import sap.adt.whereused
 import sap.cli.wb
 
 
@@ -210,6 +211,16 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         return delete_cmd
 
+    def define_whereused(self, commands):
+        """Declares the Where-Used command with its parameters and returns
+           the definition.
+        """
+
+        whereused_cmd = commands.add_command(self.whereused_object, name='whereused')
+        whereused_cmd.append_argument('name')
+
+        return whereused_cmd
+
     def define(self):
         """Defines the commands Create, Read, Write, Activate, and Delete
            and returns the command list
@@ -230,6 +241,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         self.define_write(commands)
         self.define_activate(commands)
         self.define_delete(commands)
+        self.define_whereused(commands)
 
         return commands
 
@@ -267,6 +279,19 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
             console.printout(f'Deleting {name} ...')
             obj.delete(corrnr=args.corrnr)
             console.printout(f'Deleted {name}')
+
+    def whereused_object(self, connection, args):
+        """Finds objects that reference the given object."""
+
+        console = args.console_factory()
+
+        obj = self.instance(connection, args.name, args)
+        result = sap.adt.whereused.where_used(connection, obj.full_adt_uri)
+
+        for ref_obj in result.referenced_objects:
+            adt_obj = ref_obj.adt_object
+            typ = adt_obj.typ or ''
+            console.printout(f'  {typ} {adt_obj.name}')
 
     def build_activator(self, args):
         """For children to customize"""

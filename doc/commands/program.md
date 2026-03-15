@@ -6,6 +6,7 @@
 	- [activate](#activate)
 	- [read](#read)
 	- [delete](#delete)
+	- [whereused](#whereused)
 
 ## create
 
@@ -55,5 +56,13 @@ Delete program
 
 ```bash
 sapcli program delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given program
+
+```bash
+sapcli program whereused ZHELLOWORLD
 ```
 

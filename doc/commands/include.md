@@ -5,6 +5,7 @@
 3. [activate](#activate)
 4. [read](#read)
 5. [delete](#delete)
+6. [whereused](#whereused)
 
 ## create
 
@@ -55,4 +56,12 @@ Delete include
 
 ```bash
 sapcli include delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## whereused
+
+Find objects that reference the given include
+
+```bash
+sapcli include whereused ZHELLOWORLD_INC
 ```
