@@ -2,6 +2,8 @@
 
 import abc
 from typing import Union
+
+import sap.errors
 from sap.platform.abap.ddic import RSIMP, RSEXC, RSEXP, RSTBL, RSCHA
 
 
@@ -142,7 +144,15 @@ class TableBuilder(ParameterBuilder):
         rstbl = RSTBL()
         rstbl.PARAMETER = self.name
         rstbl.OPTIONAL = 'X' if self.optional else None
-        rstbl.DBSTRUCT = self.associated_type
+
+        if 'STRUCTURE' in self.parts:
+            rstbl.DBSTRUCT = self.associated_type
+            rstbl.TYP = None
+        elif 'TYPE' in self.parts:
+            rstbl.TYP = self.associated_type
+            rstbl.DBSTRUCT = None
+        else:
+            raise sap.errors.SAPCliError(f'Unsupported Function TABLES parameter definition: {self.name}')
 
         return rstbl
 

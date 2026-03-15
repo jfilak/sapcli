@@ -184,6 +184,7 @@ class RSTBL(Structure):
     PARAMETER: str
     OPTIONAL: str
     DBSTRUCT: str
+    TYP: str
 
 
 TABLE_TYPE = InternalTable.define('TABLES', RSTBL)  # type: Any

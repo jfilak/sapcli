@@ -175,7 +175,8 @@ class TestFunctionModule(unittest.TestCase):
         self.assertEqual(parameters['CHANGING'], ["REFERENCE(CHANGING_PARAM_1) TYPE  BAPIRET2",
                                                   "VALUE(CHANGING_PARAM_2) TYPE  BAPIRET2 DEFAULT 'default'"])
         self.assertEqual(parameters['TABLES'], ["TABLES_PARAM_1 TYPE  BAPIRET2",
-                                                "TABLES_PARAM_2 TYPE  BAPIRET2 OPTIONAL"])
+                                                "TABLES_PARAM_2 TYPE  BAPIRET2 OPTIONAL",
+                                                "TABLES_PARAM_3 TYPE  BAPIRET2_T"])
         self.assertEqual(parameters['EXCEPTIONS'], ["TEST_EXCEPTION"])
 
     def test_function_module_get_local_interface(self):
@@ -183,14 +184,16 @@ class TestFunctionModule(unittest.TestCase):
         function = sap.adt.FunctionModule(conn, 'TEST_FUNCTION', 'TEST_FUNCTION_GROUP')
         local_interface = function.get_local_interface()
 
+        self.maxDiff=None
         self.assertEqual(local_interface['IMPORTING'], [RSIMP(PARAMETER='IMPORT_PARAM_1', DEFAULT='&apos;/src/&apos;', OPTIONAL='X', TYP='STRING'),
                                                         RSIMP(PARAMETER='IMPORT_PARAM_2', TYP='STRING')])
         self.assertEqual(local_interface['CHANGING'], [RSCHA(PARAMETER='CHANGING_PARAM_1', REFERENCE='X', TYP='BAPIRET2'),
                                                        RSCHA(PARAMETER='CHANGING_PARAM_2', DEFAULT='&apos;default&apos;', OPTIONAL='X', TYP='BAPIRET2')])
         self.assertEqual(local_interface['EXPORTING'], [RSEXP(PARAMETER='EXPORT_PARAM_1', TYP='BAPIRET2'),
                                                         RSEXP(PARAMETER='EXPORT_PARAM_2', REFERENCE='X', TYP='STRING')])
-        self.assertEqual(local_interface['TABLES'], [RSTBL(PARAMETER='TABLES_PARAM_1', DBSTRUCT='BAPIRET2'),
-                                                     RSTBL(PARAMETER='TABLES_PARAM_2', OPTIONAL='X', DBSTRUCT='BAPIRET2')])
+        self.assertEqual(local_interface['TABLES'], [RSTBL(PARAMETER='TABLES_PARAM_1', TYP='BAPIRET2'),
+                                                     RSTBL(PARAMETER='TABLES_PARAM_2', OPTIONAL='X', TYP='BAPIRET2'),
+                                                     RSTBL(PARAMETER='TABLES_PARAM_3', TYP='BAPIRET2_T')])
         self.assertEqual(local_interface['EXCEPTIONS'], [RSEXC(EXCEPTION='TEST_EXCEPTION')])
 
     def test_function_module_get_body(self):

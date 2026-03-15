@@ -230,8 +230,12 @@ class AbapToAbapGitTranslator:
             prefix += '   '
             for param in params:
                 if param_type == 'TABLES':
-                    var_name, _, *abap_type = param.split(' ')
-                    source += f'{prefix}{var_name} STRUCTURE {" ".join(abap_type)}\n'
+                    var_name, typing, *abap_type = param.split(' ')
+
+                    if typing not in ['STRUCTURE', 'TYPE']:
+                        raise sap.errors.SAPCliError('TABLES parameter {varname} has unsupported typing: {typing}')
+
+                    source += f'{prefix}{var_name} {typing} {" ".join(abap_type)}\n'
                 else:
                     source += f'{prefix}{param}\n'
 

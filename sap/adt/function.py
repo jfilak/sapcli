@@ -2,6 +2,7 @@
 from copy import copy
 
 # pylint: disable=unused-import
+import sap.errors
 from sap.adt.repository import Repository
 from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import ADTObjectType, ADTObject, ADTObjectSourceEditorWithResponse, xmlns_adtcore_ancestor
@@ -274,6 +275,7 @@ class FunctionModule(ADTObject):
             *"     VALUE(EV_PARAM2) TYPE  STRING
             *"  TABLES
             *"     ET_PARAM3 STRUCTURE  STRING
+            *"     ET_PARAM4 TYPE  STRING
             *"----------------------------------------------------------------------
         ```
         The parsed parameters are:
@@ -281,7 +283,7 @@ class FunctionModule(ADTObject):
             'IMPORTING': ['VALUE(IV_PARAM1) TYPE STRING'],
             'EXPORTING': ['VALUE(EV_PARAM2) TYPE STRING'],
             'CHANGING': [],
-            'TABLES': ['ET_PARAM3 TYPE  STRING'],
+            'TABLES': ['ET_PARAM3 TYPE  STRING', 'ET_PARAM4 TYPE  STRING'],
             'EXCEPTIONS': []
         }
 
@@ -300,8 +302,15 @@ class FunctionModule(ADTObject):
 
         for i, table_param in enumerate(parameters['TABLES']):
             var_name, abap_typing, *abap_type = table_param.split(' ')
-            if abap_typing == 'STRUCTURE':
+            # abapGit format used have STRUCTURE with a table type
+            # the current format has TYPE with a structure type ADT format used
+            # to support TYPE with a table type and
+            # now it suport TYPE with a structure type
+            # however, ADT does no support STRUCTURE, so we rename the typing spec here
+            if abap_typing in ['STRUCTURE', 'TYPE']:
                 parameters['TABLES'][i] = f'{var_name} TYPE {" ".join(abap_type)}'
+            else:
+                raise sap.errors.SAPCliError('Unsupported TABLES parameter: {var_name}')
 
         return parameters
 
