@@ -51,6 +51,7 @@ class CommandsCache:
         import sap.cli.badi
         import sap.cli.structure
         import sap.cli.dataelement
+        import sap.cli.abap
 
         if CommandsCache.adt is None:
             CommandsCache.adt = [
@@ -79,6 +80,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.checkin.CommandGroup()),
                 (adt_connection_from_args, sap.cli.badi.CommandGroup()),
                 (adt_connection_from_args, sap.cli.featuretoggle.CommandGroup()),
+                (adt_connection_from_args, sap.cli.abap.CommandGroup()),
             ]
 
         if CommandsCache.rest is None:
