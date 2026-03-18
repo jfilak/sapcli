@@ -43,6 +43,7 @@ def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer,
     """Writes ABAP attributes to a file"""
 
     filename = build_filename(object_name, typsfx, 'xml', destdir=destdir)
+    sap.cli.core.printout(f'- {os.path.basename(filename)}')
     with open(filename, 'w', encoding='utf8') as dest:
         writer = XMLWriter(ag_serializer, dest)
 
@@ -56,6 +57,7 @@ def write_source(source, object_name, typsfx, destdir=None):
     """Write source code to file"""
 
     filename = build_filename(object_name, typsfx, 'abap', destdir=destdir)
+    sap.cli.core.printout(f'- {os.path.basename(filename)}')
     with open(filename, 'w', encoding='utf8') as dest:
         dest.write(source)
 
@@ -104,6 +106,7 @@ def build_class_abap_attributes(clas):
 def checkout_class(connection, name, destdir=None):
     """Download entire class"""
 
+    sap.cli.core.printout(name)
     clas = sap.adt.Class(connection, name)
     clas.fetch()
 
@@ -146,6 +149,7 @@ def build_program_abap_attributes(adt_program):
 def checkout_program(connection, name, destdir=None):
     """Download program sources"""
 
+    sap.cli.core.printout(name)
     adt_program = sap.adt.Program(connection, name)
     adt_program.fetch()
 
@@ -182,6 +186,7 @@ def build_interface_abap_attributes(adt_intf):
 def checkout_interface(connection, name, destdir=None):
     """Download interface sources"""
 
+    sap.cli.core.printout(name)
     intf = sap.adt.Interface(connection, name)
     intf.fetch()
 
@@ -301,6 +306,7 @@ def checkout_function_include(include_name, funcgrp, destdir=None):
 def checkout_function_group(connection, name, destdir=None, source_format=SourceCodeFormat.ABAPGIT):
     """Download function group sources"""
 
+    sap.cli.core.printout(name)
     funcgrp = sap.adt.FunctionGroup(connection, name)
     function_modules = []
     includes = []

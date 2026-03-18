@@ -626,7 +626,7 @@ class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         exit_code = args.execute(self.conn, args)
 
         self.assertEqual(exit_code, 1)
-        self.assertConsoleContents(self.console, stderr='Checkout failed: Unsupported function group object: UNSUPPORTED/THIS TEST\n')
+        self.assertConsoleContents(self.console, stdout='TEST_FUNCGRP\n', stderr='Checkout failed: Unsupported function group object: UNSUPPORTED/THIS TEST\n')
 
     @patch('sap.cli.checkout.build_function_group_abap_attributes')
     @patch('sap.cli.checkout.build_system_fn_include_abap_attributes')
@@ -660,7 +660,7 @@ class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         fake_download.assert_not_called()
         fake_build_funcgrp.assert_called_once()
         fake_dump.assert_called_once()
-        self.assertConsoleContents(self.console, stdout='Skipping system generated "UXX" function group include: TESTUXX.\n')
+        self.assertConsoleContents(self.console, stdout='TEST_FUNCGRP\nSkipping system generated "UXX" function group include: TESTUXX.\n')
 
 
 if __name__ == '__main__':
