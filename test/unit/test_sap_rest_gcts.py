@@ -575,6 +575,28 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         self.assertIsNotNone(repo._data)
         self.assertEqual(str(caught.exception), 'gCTS exception: Pull Error')
 
+    def test_push(self):
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        repo.push()
+
+        self.assertIsNone(repo._data)
+
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get(adt_uri=f'repository/{self.repo_rid}/push'), self)
+
+    def test_push_error(self):
+        messages = LogBuilder(exception='Push Error').get_contents()
+        self.conn.set_responses(
+            Response.with_json(status_code=500, json=messages)
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            repo.push()
+
+        self.assertIsNotNone(repo._data)
+        self.assertEqual(str(caught.exception), 'gCTS exception: Push Error')
+
     def assert_repo_activities(self, query_params, expected_result, expected_params):
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
         result = repo.activities(query_params)
@@ -2872,6 +2894,26 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         fake_instance.pull.return_value = 'probe'
 
         response = sap.rest.gcts.simple.pull(None, repo=fake_instance)
+        self.assertEqual(response, 'probe')
+
+    @patch('sap.rest.gcts.simple.Repository')
+    def test_simple_push_name(self, fake_repository):
+        fake_instance = Mock()
+        fake_repository.return_value = fake_instance
+        fake_instance.push = Mock()
+        fake_instance.push.return_value = 'probe'
+
+        response = sap.rest.gcts.simple.push(self.conn, rid=self.repo_rid)
+        fake_repository.assert_called_once_with(self.conn, self.repo_rid)
+        fake_instance.push.assert_called_once_with()
+        self.assertEqual(response, 'probe')
+
+    def test_simple_push_repo(self):
+        fake_instance = Mock()
+        fake_instance.push = Mock()
+        fake_instance.push.return_value = 'probe'
+
+        response = sap.rest.gcts.simple.push(None, repo=fake_instance)
         self.assertEqual(response, 'probe')
 
     def test_simple_get_user_credentials(self):

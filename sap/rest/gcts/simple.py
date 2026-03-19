@@ -235,6 +235,15 @@ def pull(connection, rid=None, repo=None):
     return repo.pull()
 
 
+def push(connection, rid=None, repo=None):
+    """Pushes the given repository on the give system"""
+
+    if repo is None:
+        repo = Repository(connection, rid)
+
+    return repo.push()
+
+
 def delete(connection, rid=None, repo=None):
     """Deletes the given repository on the give system"""
 

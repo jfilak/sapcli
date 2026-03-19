@@ -7,28 +7,29 @@ sapcli's implementation forces use of packages as git repositories.
 3. [checkout](#checkout)
 4. [log](#log)
 5. [pull](#pull)
-6. [commit](#commit)
-7. [delete](#delete)
-8. [config](#config)
-9. [user get-credentials](#user-get-credentials)
-10. [user set-credentials](#user-set-credentials)
-11. [user delete-credentials](#user-delete-credentials)
-12. [repo set-url](#repo-set-url)
-13. [repo property get](#repo-property-get)
-14. [repo property set](#repo-property-set)
-15. [repo branch create](#repo-branch-create)
-16. [repo branch delete](#repo-branch-delete)
-17. [repo branch list](#repo-branch-list)
-18. [repo activities](#repo-activities)
-18. [repo messages](#repo-messaages)
-19. [repo objects](#repo-objects)
-20. [system config get](#system-config-get)
-21. [system config list](#system-config-list)
-22. [system config set](#system-config-set)
-23. [system config unset](#system-config-unset)
-24. [task info](#task-info)
-25. [task list](#task-list)
-26. [task delete](#task-delete)
+6. [push](#push)
+7. [commit](#commit)
+8. [delete](#delete)
+9. [config](#config)
+10. [user get-credentials](#user-get-credentials)
+11. [user set-credentials](#user-set-credentials)
+12. [user delete-credentials](#user-delete-credentials)
+13. [repo set-url](#repo-set-url)
+14. [repo property get](#repo-property-get)
+15. [repo property set](#repo-property-set)
+16. [repo branch create](#repo-branch-create)
+17. [repo branch delete](#repo-branch-delete)
+18. [repo branch list](#repo-branch-list)
+19. [repo activities](#repo-activities)
+20. [repo messages](#repo-messages)
+21. [repo objects](#repo-objects)
+22. [system config get](#system-config-get)
+23. [system config list](#system-config-list)
+24. [system config set](#system-config-set)
+25. [system config unset](#system-config-unset)
+26. [task info](#task-info)
+27. [task list](#task-list)
+28. [task delete](#task-delete)
 
 
 ## repolist
@@ -108,6 +109,18 @@ sapcli gcts pull PACKAGE
 
 **Parameters:**:
 - `PACKAGE`: Repository name or URL
+
+## push
+
+Pushes all available local commits of the repository to the remote
+
+```bash
+sapcli gcts push [--heartbeat SECONDS] PACKAGE
+```
+
+**Parameters:**:
+- `PACKAGE`: Repository name or URL
+- `--heartbeat SECONDS`: Console heart beat printing dots
 
 ## commit
 

@@ -899,6 +899,24 @@ def pull(connection, args):
 
 
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
+@CommandGroup.argument('package')
+@CommandGroup.command()
+def push(connection, args):
+    """git push
+    """
+
+    console = args.console_factory()
+
+    repo = get_repository(connection, args.package)
+    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+        sap.rest.gcts.simple.push(connection, repo=repo)
+
+    console.printout(f'The repository "{repo.rid}" has been pushed')
+
+    return 0
+
+
+@CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--description', type=str, default=None)
 @CommandGroup.argument('-m', '--message', type=str, default=None)
 @CommandGroup.argument('-d', '--devc', type=str, default=None,

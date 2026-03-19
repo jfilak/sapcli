@@ -1419,6 +1419,68 @@ New HEAD is 456
 ''')
 
 
+class TestgCTSPush(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_simple_push = self.patch('sap.rest.gcts.simple.push')
+
+    def push(self, *args, **kwargs):
+        return parse_args('push', *args, **kwargs)
+
+    def test_push_no_params(self):
+        conn = Mock()
+        repo_rid = 'repo-id'
+
+        args = self.push(repo_rid)
+        args.execute(conn, args)
+
+        repo = self.fake_simple_push.call_args.kwargs['repo']
+        self.assertEqual(repo.rid, repo_rid)
+
+        self.fake_simple_push.assert_called_once_with(conn, repo=repo)
+        self.assertConsoleContents(self.console, stdout=f'The repository "{repo_rid}" has been pushed\n')
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_push_with_url(self, fake_fetch_repos):
+        conn = Mock()
+        repo_rid = 'repo-id'
+        repo_name = 'the_repo'
+        repo_url = 'http://github.com/the_repo.git'
+        fake_repo = mock_repository(fake_fetch_repos, rid=repo_rid, name=repo_name, url=repo_url)
+
+        args = self.push(repo_url)
+        args.execute(conn, args)
+
+        self.fake_simple_push.assert_called_once_with(conn, repo=fake_repo)
+
+    @patch('sap.cli.gcts_utils.dump_gcts_messages')
+    def test_push_error(self, fake_dumper):
+        messages = {'exception': 'test'}
+        self.fake_simple_push.side_effect = sap.rest.gcts.errors.GCTSRequestError(messages)
+
+        args = self.push('a_repo')
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        fake_dumper.assert_called_once_with(sap.cli.core.get_console(), messages)
+
+    @patch('sap.rest.gcts.simple.fetch_repos')
+    def test_push_url_error(self, _):
+        repo_url = 'http://github.com/the_repo.git'
+
+        args = self.push(repo_url)
+        exit_code = args.execute(None, args)
+        self.assertEqual(exit_code, 1)
+
+        self.assertConsoleContents(self.console, stderr=f'No repository found with the URL "{repo_url}".\n')
+
+
 class TestgCTSConfig(PatcherTestCase, ConsoleOutputTestCase):
 
     def setUp(self):

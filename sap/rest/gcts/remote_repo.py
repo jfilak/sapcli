@@ -492,6 +492,15 @@ class Repository:
 
         return json_body
 
+    def push(self):
+        """Pushes the repo on the configured system"""
+
+        response = self._http.get('push')
+
+        self.wipe_data()
+
+        return response
+
     def delete(self):
         """Deletes the repo from the configured system"""
 
