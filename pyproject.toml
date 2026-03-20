@@ -53,4 +53,4 @@ test = [
 ]
 
 [tool.setuptools.packages.find]
-exclude = ["test*"]
+exclude = ["test*", "build", "dist"]
