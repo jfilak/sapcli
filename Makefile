@@ -115,3 +115,10 @@ release-fix: release
 .PHONY: clean
 clean:
 	rm -rf .coverage $(COVERAGE_HTML_DIR)
+
+.PHONY: dist
+dist:
+	COMMIT_COUNT=$$(git rev-list --count HEAD); \
+	COMMIT_HASH=$$(git rev-parse --short HEAD); \
+	sed -i "s/^version = .*/version = \"1.0.dev$${COMMIT_COUNT}+$${COMMIT_HASH}\"/" pyproject.toml
+	$(PYTHON_BIN) -m build --wheel
