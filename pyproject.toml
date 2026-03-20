@@ -42,6 +42,7 @@ dev = [
     "mypy>=0.930",
     "types-PyYAML>=6.0.1",
     "types-requests>=2.26.2",
+    "build",
 ]
 test = [
     "pytest>=2.7.0",
