@@ -19,16 +19,15 @@ jobs:
         python-version: ["3.13"]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install -r dev-requirements.txt
-        python -m pip install -r requirements.txt
+        python -m pip install -e ".[dev,test]"
     - name: Lint
       run: |
         make lint
@@ -37,3 +36,29 @@ jobs:
         make test report-coverage
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v1
+
+  publish-wheel:
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheel
+        run: |
+          make dist
+      - name: Upload to rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          prerelease: true
+          make_latest: false
+          files: dist/*.whl
+          body: |
+            Rolling build from main (${{ github.sha }})
