@@ -13,19 +13,32 @@ where ADT is not sufficient or possible.
 
 ## Installation and usage
 
-You need Python 3 (>=3.10) and the python-requests module.
+You need Python 3 (>=3.10) and very few basic Python packages to run sapcli.
 No other dependencies are required since ADT operates over HTTP.
 
 ### Ubuntu
 
+First of all, install Python 3:
+
 ```bash
-sudo apt-get install -y git python3 python3-requests python3-openssl python3-venv
-git clone https://github.com/jfilak/sapcli.git
-cd sapcli
-python3 -m venv ve
-. ve/bin/activate
-pip install -r requirements.txt
-./sapcli --help
+sudo apt-get install -y python3.12
+```
+
+sapcli is not published as a PyPI package and is frequently updated, so the best
+way to install it is direct installation from git repository (the rigorous
+testing ensures the main branch is always in a working state).
+
+Currently, the most comfortable tool is [pipx](https://pipx.pypa.io/), available
+in Ubuntu 24.04 repositories:
+
+```bash
+sudo apt-get install -y pipx
+```
+
+Finally, install sapcli:
+
+```bash
+pipx install git+https://github.com/jfilak/sapcli.git
 ```
 
 ### Enable RFC features
