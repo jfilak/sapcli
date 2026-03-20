@@ -8,6 +8,7 @@ import logging
 from argparse import ArgumentParser
 import getpass
 import warnings
+from importlib.metadata import version
 
 import sap
 import sap.cli
@@ -18,8 +19,6 @@ from sap.odata.errors import TimedOutRequestError as ODataTimedOutRequestError
 
 # pylint: disable=invalid-name
 log = sap.get_logger()
-
-_FALLBACK_VERSION = '1.0.0'
 
 
 # pylint: disable=too-few-public-methods
@@ -48,7 +47,8 @@ def parse_command_line(argv):
     """Parses command line arguments"""
 
     arg_parser = ArgumentParser(os.path.basename(argv[0]))
-    arg_parser.add_argument('--version', action='version', version=f'%(prog)s {_FALLBACK_VERSION}')
+    sapcli_version = version('sapcli')
+    arg_parser.add_argument('--version', action='version', version=f'%(prog)s {sapcli_version}')
     arg_parser.add_argument(
         '-v', '--verbose', dest='verbose_count', action='count', default=0,
         help='make verbose output')
