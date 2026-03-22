@@ -17,14 +17,24 @@ The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests if _unit_ included in the result.
 
 ```bash
-sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH] [--compat]
+sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH] [--report-missed-lines] [--compat]
 ```
 
 - _transport_ : if you use transport, NAME is Transport Number
 - _program-include_: sapcli will try to automatically determine the corresponding main program. If it cannot be done, it is possible to define the main program by prepending the main program's name to the parameter NAME the following way: "MAIN\_PROGRAM\_NAME\\NAME" (concatenate the main program's name with the include's name and use back slash as separator).
 - _--as4user_ : used only for transports to be able to select the transport
 - _--result_: desired result to be displayed
+- _--coverage-output_: output format for coverage results; one of _raw_, _human_, _jacoco_
 - _--coverage-filepath_: path where coverage output will be stored if one of _coverage_ or _all_ is selected as _result_
+- _--report-missed-lines_: when using `--coverage-output=human`, append a _Missed statements_ section that lists unexecuted lines grouped by object, with consecutive lines collapsed into ranges (e.g. `183-185`), similar to `python -m coverage report -m`
+
+```
+Missed statements:
+zcx_abapgit_exception (source/main)
+- 183-185
+zcx_abapgit_exception (includes/implementations)
+- 50, 55, 60-62
+```
 - _--compat_: execute AUnit via the deprecated non-public ADT HTTP endpoints
 
 If you struggle to get Transport User, you can use [datapreview](datapreview.md):

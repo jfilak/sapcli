@@ -773,6 +773,142 @@ Warnings:   0
 Errors:     1
 ''')
 
+
+def make_statement(executed, uri):
+    from sap.adt.acoverage_statements import Statement
+    return Statement(executed=executed, uri=uri)
+
+
+class TestFormatLineRanges(unittest.TestCase):
+
+    def test_single_line(self):
+        self.assertEqual(sap.cli.aunit._format_line_ranges([5]), '5')
+
+    def test_consecutive_lines_collapsed_to_range(self):
+        self.assertEqual(sap.cli.aunit._format_line_ranges([183, 184, 185]), '183-185')
+
+    def test_two_consecutive_lines(self):
+        self.assertEqual(sap.cli.aunit._format_line_ranges([224, 225]), '224-225')
+
+    def test_mixed_singles_and_ranges(self):
+        self.assertEqual(sap.cli.aunit._format_line_ranges([55, 224, 225]), '55, 224-225')
+
+    def test_multiple_ranges(self):
+        self.assertEqual(sap.cli.aunit._format_line_ranges([1, 2, 5, 6, 7, 10]), '1-2, 5-7, 10')
+
+
+class TestPrintMissedStatements(unittest.TestCase):
+
+    def test_groups_unexecuted_statements(self):
+        from sap.adt.acoverage_statements import StatementResponse
+
+        responses = [
+            StatementResponse(name='METHOD_A', statements=[
+                make_statement('4', '/sap/bc/adt/oo/classes/foo/source/main#start=53,1;end=53,38'),
+                make_statement('0', '/sap/bc/adt/oo/classes/foo/source/main#start=55,1;end=55,10'),
+            ]),
+            StatementResponse(name='METHOD_B', statements=[
+                make_statement('0', '/sap/bc/adt/oo/classes/foo/source/main#start=224,1;end=224,24'),
+                make_statement('0', '/sap/bc/adt/oo/classes/foo/source/main#start=225,1;end=225,59'),
+            ]),
+        ]
+
+        output = BufferConsole()
+        sap.cli.aunit.print_missed_statements(responses, output)
+
+        self.assertEqual(output.capout,
+'''Missed statements:
+foo (source/main)
+- 55, 224-225
+''')
+
+    def test_skips_executed_statements(self):
+        from sap.adt.acoverage_statements import StatementResponse
+
+        responses = [
+            StatementResponse(name='METHOD_A', statements=[
+                make_statement('5', '/sap/bc/adt/oo/classes/foo/source/main#start=53,1;end=53,38'),
+            ]),
+        ]
+
+        output = BufferConsole()
+        sap.cli.aunit.print_missed_statements(responses, output)
+
+        self.assertEqual(output.capout, 'Missed statements:\n')
+
+
+class TestGetMethodLinesMapping(unittest.TestCase):
+
+    def test_uses_parsed_uri_start_line(self):
+        from sap.adt.acoverage_statements import StatementResponse
+
+        responses = [
+            StatementResponse(name='FOO.BAR.METHOD_A', statements=[
+                make_statement('4', '/sap/bc/adt/oo/classes/foo/source/main#start=53,1;end=53,38'),
+                make_statement('0', '/sap/bc/adt/oo/classes/foo/source/main#start=55,1;end=55,10'),
+            ]),
+        ]
+
+        result = sap.cli.aunit.get_method_lines_mapping(responses)
+
+        self.assertEqual(result[('BAR', 'METHOD_A')], [(53, True), (55, False)])
+
+    def test_skips_statement_with_unparseable_uri(self):
+        from sap.adt.acoverage_statements import Statement, StatementResponse
+
+        responses = [
+            StatementResponse(name='FOO.BAR.METHOD_A', statements=[
+                Statement(executed='1', uri='/sap/bc/adt/oo/classes/foo/source/main#start=52,9'),
+            ]),
+        ]
+
+        result = sap.cli.aunit.get_method_lines_mapping(responses)
+
+        self.assertEqual(result[('BAR', 'METHOD_A')], [])
+
+
+class TestReportMissingLines(unittest.TestCase):
+
+    def test_parse_statement_uri_fixture_data(self):
+        from sap.adt.acoverage_statements import parse_statements_response
+
+        parsed = parse_statements_response(ACOVERAGE_STATEMENTS_RESULTS_XML.encode('utf-8'))
+        output = BufferConsole()
+        sap.cli.aunit.print_missed_statements(parsed.statement_responses, output)
+
+        self.assertEqual(output.capout,
+'''Missed statements:
+foo (source/main)
+- 224-225
+''')
+
+    def test_print_acoverage_output_human_with_report_missed_lines(self):
+        from sap.adt.acoverage_statements import parse_statements_response
+        from sap.adt.acoverage import parse_acoverage_response
+
+        parsed_coverage = parse_acoverage_response(ACOVERAGE_RESULTS_XML.encode('utf-8'))
+        parsed_statements = parse_statements_response(ACOVERAGE_STATEMENTS_RESULTS_XML.encode('utf-8'))
+
+        output = BufferConsole()
+        args = SimpleNamespace(
+            coverage_output='human',
+            coverage_filepath=None,
+            report_missed_lines=True,
+            console_factory=lambda: output,
+        )
+
+        acoverage_response = Mock()
+        acoverage_response.text = ACOVERAGE_RESULTS_XML
+
+        sap.cli.aunit.print_acoverage_output(
+            args, acoverage_response, parsed_coverage.root_node, parsed_statements.statement_responses
+        )
+
+        self.assertIn('Missed statements:', output.capout)
+        self.assertIn('foo (source/main)', output.capout)
+        self.assertIn('- 224-225', output.capout)
+
+
 class TestAUnitCommandRunTransport(unittest.TestCase):
 
     @patch('sap.adt.cts.Workbench.fetch_transport_request')

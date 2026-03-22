@@ -1,7 +1,6 @@
 """ADT proxy for ABAP Unit"""
 
 import os
-import re
 from collections import defaultdict
 from enum import Enum
 from functools import partial
@@ -12,6 +11,7 @@ from typing import List
 
 import sap
 import sap.adt
+import sap.adt.uri
 import sap.adt.object_factory
 import sap.adt.aunit
 import sap.adt.api.aunit
@@ -28,6 +28,7 @@ from sap.adt.acoverage_statements import (
     StatementRequest,
     parse_statements_response
 )
+from sap.adt.errors import InvalidURIError
 from sap.errors import SAPCliError
 
 
@@ -483,20 +484,44 @@ def print_acoverage_raw(acoverage_xml, console):
     console.printout(acoverage_xml)
 
 
-def get_line_and_column(location):
-    """Finds line and column in uri"""
+def _format_line_ranges(lines):
+    """Format a sorted list of line numbers as a coverage-style range string.
 
-    # pylint: disable=invalid-name
-    START_PATTERN = r'(start=)(?P<line>\d+)(,(?P<column>\d+))?'
+    Consecutive lines are collapsed into ranges:
+      [55, 224, 225] -> '55, 224-225'
+      [183, 184, 185] -> '183-185'
+    """
 
-    search_result = re.search(START_PATTERN, location or '')
+    parts = []
+    start = prev = lines[0]
+    for line in lines[1:]:
+        if line == prev + 1:
+            prev = line
+        else:
+            parts.append(str(start) if start == prev else f'{start}-{prev}')
+            start = prev = line
+    parts.append(str(start) if start == prev else f'{start}-{prev}')
+    return ', '.join(parts)
 
-    line = column = '0'
-    if search_result:
-        line = search_result.group('line')
-        column = search_result.group('column') or '0'
 
-    return line, column
+def print_missed_statements(statement_responses, console):
+    """Print statements with executed=0, grouped by object and part."""
+
+    console.printout('Missed statements:')
+    groups = {}
+    for response in statement_responses:
+        for statement in response.statements:
+            if statement.executed == '0':
+                try:
+                    position = statement.get_position()
+                except InvalidURIError:
+                    continue
+                lines = list(range(position.start_line, position.end_line + 1))
+                groups.setdefault((position.object_name, position.object_part), []).extend(lines)
+
+    for (object_name, object_part), lines in groups.items():
+        console.printout(f'{object_name} ({object_part})')
+        console.printout(f'- {_format_line_ranges(lines)}')
 
 
 def get_method_lines_mapping(statement_responses):
@@ -511,9 +536,13 @@ def get_method_lines_mapping(statement_responses):
         class_name = split_results[-2]
         method_name = split_results[-1]
         for statement in statement_response.statements:
-            line, _ = get_line_and_column(statement.uri)
+            try:
+                position = statement.get_position()
+            except InvalidURIError:
+                continue
             is_covered = bool(int(statement.executed or 0))
-            result[(class_name, method_name)].append((line, is_covered))
+            # TODO: shall we expand the range?
+            result[(class_name, method_name)].append((position.start_line, is_covered))
 
     return result
 
@@ -565,7 +594,7 @@ def _print_class_jacoco(node, method_lines_mapping, console, indent, indent_leve
     lines_data = []
     console.printout(f'{class_level_indent}<class name="{node.name}" sourcefilename="{node.name}">')
     for method in node.nodes:
-        line, _ = get_line_and_column(method.uri)
+        line, _ = sap.adt.uri.parse_object_implementation_start_uri(method.uri)
         console.printout(f'{method_level_indent}<method name="{method.name}" desc="" line="{line}">')
         _print_counters_jacoco(method, console, indent, indent_level + 2)
         console.printout(f'{method_level_indent}</method>')
@@ -718,6 +747,9 @@ def print_acoverage_output(args, acoverage_response, root_node, statement_respon
     elif args.coverage_output == 'jacoco':
         print_acoverage_jacoco(root_node, statement_responses, args, console)
 
+    if args.coverage_output == 'human' and args.report_missed_lines:
+        print_missed_statements(statement_responses, console)
+
     if coverage_file is not None:
         coverage_file.close()
 
@@ -796,6 +828,7 @@ def _build_objects_info(args):
                        )
 @CommandGroup.argument('--coverage-output', choices=['raw', 'human', 'jacoco'], default='human')
 @CommandGroup.argument('--coverage-filepath', default=None, type=str)
+@CommandGroup.argument('--report-missed-lines', action='store_true', default=False)
 @CommandGroup.argument('--compat', action='store_true', default=False,
                        help='Use the deprecated non-public ADT AUnit protocol')
 @CommandGroup.command()
