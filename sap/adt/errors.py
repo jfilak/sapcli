@@ -106,6 +106,17 @@ class ExceptionDeletionFailure(SAPCliError):
         return f'{self.message}'
 
 
+class InvalidURIError(SAPCliError):
+    """Raised when an ADT URI cannot be parsed"""
+
+    def __init__(self, message):
+        super().__init__()
+        self.message = message
+
+    def __str__(self):
+        return f'{self.message}'
+
+
 def new_adt_error_from_xml(xmldata):
     """Parses the xml data and create the correct instance.
 
