@@ -7,6 +7,7 @@ from sap import get_logger
 from sap.adt.annotations import OrderedClassMembers, xml_attribute, xml_element
 from sap.adt.marshalling import Marshal
 from sap.adt.objects import XMLNamespace, ADTObjectType
+from sap.adt.uri import StatementPosition, parse_statement_uri
 
 XMLNS_COV = XMLNamespace('cov', 'http://www.sap.com/adt/cov')
 
@@ -97,6 +98,11 @@ class Statement(NamedTuple):
 
     executed: str
     uri: str
+
+    def get_position(self) -> StatementPosition:
+        """Return information about statement position"""
+
+        return parse_statement_uri(self.uri)
 
 
 # pylint: disable=too-few-public-methods
