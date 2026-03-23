@@ -1,10 +1,73 @@
 #!/usr/bin/env python3
 
 import os
+import stat
+import tempfile
 import unittest
+import warnings
+from pathlib import Path
 from unittest.mock import patch
 
+import yaml
+
 import sap.config
+from sap.config import (
+    ConfigFile,
+    SAPCliConfigError,
+    _resolve_config_path,
+    _check_file_permissions,
+    _has_passwords,
+    _load_config_file,
+)
+
+
+TEST_CONFIG_PATH = Path('/test/config.yml')
+
+SAMPLE_CONFIG = {
+    'current-context': 'dev',
+    'connections': {
+        'dev-server': {
+            'ashost': 'dev-system.example.com',
+            'client': '100',
+            'port': 443,
+            'ssl': True,
+            'ssl_verify': True,
+            'sysnr': '00',
+        },
+        'prod-server': {
+            'ashost': 'prod-system.example.com',
+            'client': '200',
+            'port': 443,
+            'ssl': True,
+            'ssl_verify': True,
+        },
+    },
+    'users': {
+        'dev-user': {
+            'user': 'DEVELOPER',
+        },
+        'prod-user': {
+            'user': 'DEPLOYER',
+            'password': 'secret',
+        },
+    },
+    'contexts': {
+        'dev': {
+            'connection': 'dev-server',
+            'user': 'dev-user',
+        },
+        'prod': {
+            'connection': 'prod-server',
+            'user': 'prod-user',
+        },
+    },
+}
+
+
+def _write_config(path, data):
+    """Helper to write config YAML to a file."""
+    with open(path, 'w', encoding='utf-8') as f:
+        yaml.dump(data, f, default_flow_style=False)
 
 
 class TestConfigGet(unittest.TestCase):
@@ -25,3 +88,754 @@ class TestConfigGet(unittest.TestCase):
             timeout = sap.config.config_get('http_timeout')
 
         self.assertEqual(timeout, 0.777)
+
+
+class TestResolveConfigPath(unittest.TestCase):
+
+    def test_cli_path_exists(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml') as tmp:
+            result = _resolve_config_path(tmp.name)
+            self.assertEqual(result, Path(tmp.name))
+
+    def test_cli_path_not_exists(self):
+        result = _resolve_config_path('/nonexistent/path/config.yml')
+        self.assertEqual(result, Path('/nonexistent/path/config.yml'))
+
+    def test_env_variable_path(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml') as tmp:
+            with patch.dict(os.environ, {'SAPCLI_CONFIG': tmp.name}):
+                result = _resolve_config_path()
+                self.assertEqual(result, Path(tmp.name))
+
+    def test_env_variable_path_not_exists(self):
+        with patch.dict(os.environ, {'SAPCLI_CONFIG': '/nonexistent/config.yml'}):
+            result = _resolve_config_path()
+            self.assertEqual(result, Path('/nonexistent/config.yml'))
+
+    def test_default_path_not_exists(self):
+        with patch.dict(os.environ, {}, clear=True):
+            # Remove SAPCLI_CONFIG if present
+            env = os.environ.copy()
+            env.pop('SAPCLI_CONFIG', None)
+            with patch.dict(os.environ, env, clear=True):
+                # Default path likely doesn't exist in test environment
+                result = _resolve_config_path()
+                self.assertIsInstance(result, Path)
+
+    def test_cli_path_takes_precedence_over_env(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml') as tmp:
+            with patch.dict(os.environ, {'SAPCLI_CONFIG': '/some/other/path.yml'}):
+                result = _resolve_config_path(tmp.name)
+                self.assertEqual(result, Path(tmp.name))
+
+
+class TestLoadConfigFile(unittest.TestCase):
+
+    def test_load_valid_yaml(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            yaml.dump(SAMPLE_CONFIG, tmp)
+            tmp_path = tmp.name
+
+        try:
+            data = _load_config_file(Path(tmp_path))
+            self.assertEqual(data['current-context'], 'dev')
+            self.assertIn('connections', data)
+            self.assertIn('users', data)
+            self.assertIn('contexts', data)
+        finally:
+            os.unlink(tmp_path)
+
+    def test_load_empty_file(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            tmp.write('')
+            tmp_path = tmp.name
+
+        try:
+            data = _load_config_file(Path(tmp_path))
+            self.assertEqual(data, {})
+        finally:
+            os.unlink(tmp_path)
+
+    def test_load_invalid_yaml_not_dict(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            tmp.write('- item1\n- item2\n')
+            tmp_path = tmp.name
+
+        try:
+            with self.assertRaises(SAPCliConfigError):
+                _load_config_file(Path(tmp_path))
+        finally:
+            os.unlink(tmp_path)
+
+    def test_load_malformed_yaml_raises_config_error(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            tmp.write('invalid: yaml: content:\n  - :\n')
+            tmp_path = tmp.name
+
+        try:
+            with self.assertRaises(SAPCliConfigError) as cm:
+                _load_config_file(Path(tmp_path))
+            self.assertIn('Failed to parse', str(cm.exception))
+        finally:
+            os.unlink(tmp_path)
+
+    def test_load_unreadable_file_raises_config_error(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            tmp.write('current-context: dev\n')
+            tmp_path = tmp.name
+
+        try:
+            os.chmod(tmp_path, 0o000)
+            with self.assertRaises(SAPCliConfigError) as cm:
+                _load_config_file(Path(tmp_path))
+            self.assertIn('Failed to read', str(cm.exception))
+        finally:
+            os.chmod(tmp_path, stat.S_IRUSR | stat.S_IWUSR)
+            os.unlink(tmp_path)
+
+
+class TestHasPasswords(unittest.TestCase):
+
+    def test_no_users_section(self):
+        self.assertFalse(_has_passwords({}))
+
+    def test_users_without_passwords(self):
+        data = {'users': {'dev-user': {'user': 'DEV'}}}
+        self.assertFalse(_has_passwords(data))
+
+    def test_users_with_passwords(self):
+        data = {'users': {'dev-user': {'user': 'DEV', 'password': 'secret'}}}
+        self.assertTrue(_has_passwords(data))
+
+    def test_users_with_empty_password(self):
+        data = {'users': {'dev-user': {'user': 'DEV', 'password': ''}}}
+        self.assertFalse(_has_passwords(data))
+
+    def test_invalid_users_structure(self):
+        data = {'users': 'not-a-dict'}
+        self.assertFalse(_has_passwords(data))
+
+    def test_context_with_password_override(self):
+        data = {'contexts': {'prod': {'connection': 'srv', 'user': 'u', 'password': 'secret'}}}
+        self.assertTrue(_has_passwords(data))
+
+    def test_context_without_password(self):
+        data = {'contexts': {'dev': {'connection': 'srv', 'user': 'u'}}}
+        self.assertFalse(_has_passwords(data))
+
+    def test_context_with_empty_password(self):
+        data = {'contexts': {'dev': {'connection': 'srv', 'user': 'u', 'password': ''}}}
+        self.assertFalse(_has_passwords(data))
+
+    def test_invalid_contexts_structure(self):
+        data = {'contexts': 'not-a-dict'}
+        self.assertFalse(_has_passwords(data))
+
+    def test_invalid_context_entry_structure(self):
+        data = {'contexts': {'dev': 'not-a-dict'}}
+        self.assertFalse(_has_passwords(data))
+
+    def test_password_in_context_but_not_users(self):
+        data = {
+            'users': {'dev-user': {'user': 'DEV'}},
+            'contexts': {'prod': {'connection': 'srv', 'user': 'dev-user', 'password': 'secret'}},
+        }
+        self.assertTrue(_has_passwords(data))
+
+
+class TestCheckFilePermissions(unittest.TestCase):
+
+    def test_warns_when_world_readable(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            os.chmod(tmp_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IROTH)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                _check_file_permissions(Path(tmp_path))
+                self.assertEqual(len(w), 1)
+                self.assertIn('world-readable', str(w[0].message))
+        finally:
+            os.unlink(tmp_path)
+
+    def test_no_warning_when_restricted(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            os.chmod(tmp_path, stat.S_IRUSR | stat.S_IWUSR)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                _check_file_permissions(Path(tmp_path))
+                self.assertEqual(len(w), 0)
+        finally:
+            os.unlink(tmp_path)
+
+
+class TestConfigFile(unittest.TestCase):
+
+    def _create_config_file(self, data=None):
+        """Create a temporary config file and return the path."""
+        if data is None:
+            data = SAMPLE_CONFIG
+        tmp = tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False)
+        yaml.dump(data, tmp)
+        tmp.close()
+        return tmp.name
+
+    def test_load_from_file(self):
+        path = self._create_config_file()
+        try:
+            config = ConfigFile.load(path)
+            self.assertIsNotNone(config.path)
+            self.assertEqual(config.current_context, 'dev')
+        finally:
+            os.unlink(path)
+
+    def test_load_no_file(self):
+        config = ConfigFile.load('/nonexistent/config.yml')
+        self.assertEqual(config.path, Path('/nonexistent/config.yml'))
+        self.assertEqual(config.data, {})
+
+    def test_load_cli_path_is_directory_raises_error(self):
+        """--config pointing to a directory must raise, not silently ignore."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with self.assertRaises(SAPCliConfigError) as cm:
+                ConfigFile.load(tmpdir)
+            self.assertIn('not a regular file', str(cm.exception))
+            self.assertIn(tmpdir, str(cm.exception))
+
+    def test_load_env_path_is_directory_raises_error(self):
+        """SAPCLI_CONFIG pointing to a directory must raise, not silently ignore."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict('os.environ', {'SAPCLI_CONFIG': tmpdir}, clear=False):
+                with self.assertRaises(SAPCliConfigError) as cm:
+                    ConfigFile.load()
+                self.assertIn('not a regular file', str(cm.exception))
+
+    def test_load_default_path_is_directory_returns_empty(self):
+        """Default config path being a directory should silently return empty."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            default_path = os.path.join(tmpdir, 'config.yml')
+            os.mkdir(default_path)
+            with patch('sap.config.DEFAULT_CONFIG_PATH', default_path):
+                with patch.dict('os.environ', {}, clear=True):
+                    config = ConfigFile.load()
+            self.assertEqual(config.data, {})
+
+    def test_current_context(self):
+        config = ConfigFile(SAMPLE_CONFIG.copy(), TEST_CONFIG_PATH)
+        self.assertEqual(config.current_context, 'dev')
+
+    def test_set_current_context(self):
+        data = SAMPLE_CONFIG.copy()
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        config.current_context = 'prod'
+        self.assertEqual(config.current_context, 'prod')
+
+    def test_connections(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        self.assertIn('dev-server', config.connections)
+        self.assertIn('prod-server', config.connections)
+
+    def test_users(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        self.assertIn('dev-user', config.users)
+        self.assertIn('prod-user', config.users)
+
+    def test_contexts(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        self.assertIn('dev', config.contexts)
+        self.assertIn('prod', config.contexts)
+
+    def test_get_context_exists(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        ctx = config.get_context('dev')
+        self.assertEqual(ctx['connection'], 'dev-server')
+        self.assertEqual(ctx['user'], 'dev-user')
+
+    def test_get_context_not_exists(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_context('nonexistent')
+        self.assertIn('nonexistent', str(cm.exception))
+
+    def test_get_connection_exists(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        conn = config.get_connection('dev-server')
+        self.assertEqual(conn['ashost'], 'dev-system.example.com')
+
+    def test_get_connection_not_exists(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_connection('nonexistent')
+        self.assertIn('nonexistent', str(cm.exception))
+
+    def test_get_user_exists(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        user = config.get_user('dev-user')
+        self.assertEqual(user['user'], 'DEVELOPER')
+
+    def test_get_user_not_exists(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_user('nonexistent')
+        self.assertIn('nonexistent', str(cm.exception))
+
+    def test_empty_config_sections(self):
+        config = ConfigFile({}, TEST_CONFIG_PATH)
+        self.assertIsNone(config.current_context)
+        self.assertEqual(config.connections, {})
+        self.assertEqual(config.users, {})
+        self.assertEqual(config.contexts, {})
+
+    def test_get_context_section_not_dict(self):
+        config = ConfigFile({'contexts': ['dev', 'prod']}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_context('dev')
+        self.assertIn('contexts', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_get_context_entry_not_dict(self):
+        config = ConfigFile({'contexts': {'dev': 'not-a-mapping'}}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_context('dev')
+        self.assertIn('dev', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_get_connection_section_not_dict(self):
+        config = ConfigFile({'connections': 'not-a-dict'}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_connection('dev-server')
+        self.assertIn('connections', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_get_connection_entry_not_dict(self):
+        config = ConfigFile({'connections': {'dev-server': 42}}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_connection('dev-server')
+        self.assertIn('dev-server', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_get_user_section_not_dict(self):
+        config = ConfigFile({'users': ['dev-user']}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_user('dev-user')
+        self.assertIn('users', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_get_user_entry_not_dict(self):
+        config = ConfigFile({'users': {'dev-user': 'DEVELOPER'}}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.get_user('dev-user')
+        self.assertIn('dev-user', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+
+class TestConfigFileResolveContext(unittest.TestCase):
+
+    def test_resolve_dev_context(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        result = config.resolve_context('dev')
+
+        self.assertEqual(result['ashost'], 'dev-system.example.com')
+        self.assertEqual(result['client'], '100')
+        self.assertEqual(result['port'], 443)
+        self.assertTrue(result['ssl'])
+        self.assertTrue(result['ssl_verify'])
+        self.assertEqual(result['sysnr'], '00')
+        self.assertEqual(result['user'], 'DEVELOPER')
+        self.assertNotIn('password', result)
+
+    def test_resolve_prod_context(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        result = config.resolve_context('prod')
+
+        self.assertEqual(result['ashost'], 'prod-system.example.com')
+        self.assertEqual(result['client'], '200')
+        self.assertEqual(result['user'], 'DEPLOYER')
+        self.assertEqual(result['password'], 'secret')
+
+    def test_resolve_current_context(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        result = config.resolve_context()
+
+        self.assertEqual(result['ashost'], 'dev-system.example.com')
+        self.assertEqual(result['user'], 'DEVELOPER')
+
+    def test_resolve_no_context(self):
+        config = ConfigFile({}, TEST_CONFIG_PATH)
+        result = config.resolve_context()
+        self.assertIsNone(result)
+
+    def test_resolve_nonexistent_context(self):
+        config = ConfigFile(SAMPLE_CONFIG, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError):
+            config.resolve_context('nonexistent')
+
+    def test_resolve_context_missing_connection(self):
+        data = {
+            'contexts': {'bad': {'user': 'some-user'}},
+            'users': {'some-user': {'user': 'TEST'}},
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.resolve_context('bad')
+        self.assertIn('does not specify a connection', str(cm.exception))
+
+    def test_resolve_context_missing_user(self):
+        data = {
+            'contexts': {'bad': {'connection': 'some-conn'}},
+            'connections': {'some-conn': {'ashost': 'host', 'client': '100'}},
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.resolve_context('bad')
+        self.assertIn('does not specify a user', str(cm.exception))
+
+    def test_resolve_context_connection_not_found(self):
+        data = {
+            'contexts': {'bad': {'connection': 'missing-conn', 'user': 'some-user'}},
+            'users': {'some-user': {'user': 'TEST'}},
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError):
+            config.resolve_context('bad')
+
+    def test_resolve_context_user_not_found(self):
+        data = {
+            'contexts': {'bad': {'connection': 'some-conn', 'user': 'missing-user'}},
+            'connections': {'some-conn': {'ashost': 'host', 'client': '100'}},
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError):
+            config.resolve_context('bad')
+
+    def test_resolve_context_malformed_context_entry(self):
+        data = {
+            'contexts': {'bad': 'not-a-mapping'},
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.resolve_context('bad')
+        self.assertIn('bad', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_resolve_context_malformed_connection_entry(self):
+        data = {
+            'contexts': {'ctx': {'connection': 'broken-conn', 'user': 'some-user'}},
+            'connections': {'broken-conn': 'not-a-mapping'},
+            'users': {'some-user': {'user': 'TEST'}},
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.resolve_context('ctx')
+        self.assertIn('broken-conn', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_resolve_context_malformed_user_entry(self):
+        data = {
+            'contexts': {'ctx': {'connection': 'some-conn', 'user': 'broken-user'}},
+            'connections': {'some-conn': {'ashost': 'host', 'client': '100'}},
+            'users': {'broken-user': 'not-a-mapping'},
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.resolve_context('ctx')
+        self.assertIn('broken-user', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_resolve_context_overrides_connection_ashost(self):
+        data = {
+            'current-context': 'dev',
+            'connections': {
+                'base-server': {
+                    'ashost': 'base-host.example.com',
+                    'client': '100',
+                    'port': 443,
+                    'ssl': True,
+                },
+            },
+            'users': {
+                'dev-user': {'user': 'DEVELOPER'},
+            },
+            'contexts': {
+                'dev': {
+                    'connection': 'base-server',
+                    'user': 'dev-user',
+                    'ashost': 'override-host.example.com',
+                },
+            },
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        result = config.resolve_context('dev')
+
+        self.assertEqual(result['ashost'], 'override-host.example.com')
+        self.assertEqual(result['client'], '100')
+        self.assertEqual(result['port'], 443)
+        self.assertTrue(result['ssl'])
+
+    def test_resolve_context_overrides_user_password(self):
+        data = {
+            'connections': {
+                'server': {'ashost': 'host.example.com', 'client': '100'},
+            },
+            'users': {
+                'base-user': {'user': 'BASE_USER', 'password': 'base-pass'},
+            },
+            'contexts': {
+                'ctx': {
+                    'connection': 'server',
+                    'user': 'base-user',
+                    'password': 'override-pass',
+                },
+            },
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        result = config.resolve_context('ctx')
+
+        self.assertEqual(result['user'], 'BASE_USER')
+        self.assertEqual(result['password'], 'override-pass')
+
+    def test_resolve_context_overrides_multiple_fields(self):
+        data = {
+            'connections': {
+                'base-server': {
+                    'ashost': 'base-host.example.com',
+                    'client': '100',
+                    'port': 443,
+                    'sysnr': '00',
+                },
+            },
+            'users': {
+                'base-user': {'user': 'BASE_USER'},
+            },
+            'contexts': {
+                'ctx': {
+                    'connection': 'base-server',
+                    'user': 'base-user',
+                    'ashost': 'new-host.example.com',
+                    'port': 8443,
+                    'client': '200',
+                },
+            },
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        result = config.resolve_context('ctx')
+
+        self.assertEqual(result['ashost'], 'new-host.example.com')
+        self.assertEqual(result['port'], 8443)
+        self.assertEqual(result['client'], '200')
+        self.assertEqual(result['sysnr'], '00')
+
+    def test_resolve_context_does_not_override_user_reference(self):
+        """The 'user' key in context is always a reference name, not an override."""
+        data = {
+            'connections': {
+                'server': {'ashost': 'host.example.com', 'client': '100'},
+            },
+            'users': {
+                'base-user': {'user': 'BASE_USER'},
+            },
+            'contexts': {
+                'ctx': {
+                    'connection': 'server',
+                    'user': 'base-user',
+                },
+            },
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        result = config.resolve_context('ctx')
+
+        # 'user' in result comes from the users definition, not the context reference
+        self.assertEqual(result['user'], 'BASE_USER')
+
+    def test_resolve_context_shared_connection_different_hosts(self):
+        """Real-world scenario: same connection config, different hosts per context."""
+        data = {
+            'connections': {
+                'sap-standard': {
+                    'client': '100',
+                    'port': 443,
+                    'ssl': True,
+                    'ssl_verify': True,
+                    'sysnr': '00',
+                },
+            },
+            'users': {
+                'dev-user': {'user': 'DEVELOPER'},
+            },
+            'contexts': {
+                'dev': {
+                    'connection': 'sap-standard',
+                    'user': 'dev-user',
+                    'ashost': 'dev.example.com',
+                },
+                'qa': {
+                    'connection': 'sap-standard',
+                    'user': 'dev-user',
+                    'ashost': 'qa.example.com',
+                },
+                'prod': {
+                    'connection': 'sap-standard',
+                    'user': 'dev-user',
+                    'ashost': 'prod.example.com',
+                },
+            },
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+
+        dev = config.resolve_context('dev')
+        qa = config.resolve_context('qa')
+        prod = config.resolve_context('prod')
+
+        self.assertEqual(dev['ashost'], 'dev.example.com')
+        self.assertEqual(qa['ashost'], 'qa.example.com')
+        self.assertEqual(prod['ashost'], 'prod.example.com')
+
+        # All share the same base connection values
+        for result in (dev, qa, prod):
+            self.assertEqual(result['client'], '100')
+            self.assertEqual(result['port'], 443)
+            self.assertTrue(result['ssl'])
+            self.assertTrue(result['ssl_verify'])
+            self.assertEqual(result['sysnr'], '00')
+            self.assertEqual(result['user'], 'DEVELOPER')
+
+
+class TestConfigFileSave(unittest.TestCase):
+
+    def test_save_to_existing_path(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / 'config.yml'
+            config = ConfigFile(SAMPLE_CONFIG.copy(), path)
+            config.save()
+
+            self.assertTrue(path.exists())
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved_data = yaml.safe_load(f)
+            self.assertEqual(saved_data['current-context'], 'dev')
+
+    def test_save_to_new_path(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / 'subdir' / 'config.yml'
+            config = ConfigFile(SAMPLE_CONFIG.copy(), TEST_CONFIG_PATH)
+            config.save(path)
+
+            self.assertTrue(path.exists())
+            self.assertEqual(config.path, path)
+
+    def test_save_creates_parent_dirs(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / 'a' / 'b' / 'c' / 'config.yml'
+            config = ConfigFile({'current-context': 'test'}, TEST_CONFIG_PATH)
+            config.save(path)
+
+            self.assertTrue(path.exists())
+
+    def test_save_updates_current_context(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / 'config.yml'
+            data = SAMPLE_CONFIG.copy()
+            config = ConfigFile(data, path)
+            config.current_context = 'prod'
+            config.save()
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved_data = yaml.safe_load(f)
+            self.assertEqual(saved_data['current-context'], 'prod')
+
+    def test_save_creates_file_with_restrictive_permissions(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / 'config.yml'
+            config = ConfigFile(SAMPLE_CONFIG.copy(), path)
+            config.save()
+
+            file_mode = os.stat(path).st_mode & 0o777
+            self.assertEqual(file_mode, 0o600)
+
+    def test_save_mkdir_oserror_raises_config_error(self):
+        """OSError from mkdir is wrapped in SAPCliConfigError."""
+        original_path = TEST_CONFIG_PATH
+        config = ConfigFile({'current-context': 'dev'}, original_path)
+        target = Path('/proc/0/impossible/config.yml')
+
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.save(target)
+        self.assertIn('Failed to create directory', str(cm.exception))
+        # self._path must not be updated on failure
+        self.assertEqual(config.path, original_path)
+
+    def test_save_open_oserror_raises_config_error(self):
+        """OSError from os.open is wrapped in SAPCliConfigError."""
+        original_path = TEST_CONFIG_PATH
+        config = ConfigFile({'current-context': 'dev'}, original_path)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / 'config.yml'
+            # Make the directory read-only so os.open fails
+            os.chmod(tmpdir, stat.S_IRUSR | stat.S_IXUSR)
+            try:
+                with self.assertRaises(SAPCliConfigError) as cm:
+                    config.save(target)
+                self.assertIn('Failed to write', str(cm.exception))
+                self.assertEqual(config.path, original_path)
+            finally:
+                os.chmod(tmpdir, stat.S_IRWXU)
+
+    def test_save_yaml_error_raises_config_error(self):
+        """yaml.YAMLError from yaml.dump is wrapped in SAPCliConfigError."""
+        original_path = TEST_CONFIG_PATH
+        config = ConfigFile({'current-context': 'dev'}, original_path)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / 'config.yml'
+            with patch('yaml.dump', side_effect=yaml.YAMLError('bad data')):
+                with self.assertRaises(SAPCliConfigError) as cm:
+                    config.save(target)
+            self.assertIn('Failed to serialize', str(cm.exception))
+            self.assertEqual(config.path, original_path)
+
+
+class TestConfigFileLoadWithPermissions(unittest.TestCase):
+
+    def test_warns_world_readable_with_passwords(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            yaml.dump(SAMPLE_CONFIG, tmp)
+            tmp_path = tmp.name
+
+        try:
+            os.chmod(tmp_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IROTH)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                ConfigFile.load(tmp_path)
+                self.assertTrue(any('world-readable' in str(warning.message) for warning in w))
+        finally:
+            os.unlink(tmp_path)
+
+    def test_no_warning_without_passwords(self):
+        data = {
+            'current-context': 'dev',
+            'connections': {'dev': {'ashost': 'host', 'client': '100'}},
+            'users': {'dev-user': {'user': 'DEV'}},
+            'contexts': {'dev': {'connection': 'dev', 'user': 'dev-user'}},
+        }
+
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            yaml.dump(data, tmp)
+            tmp_path = tmp.name
+
+        try:
+            os.chmod(tmp_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IROTH)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                ConfigFile.load(tmp_path)
+                self.assertFalse(any('world-readable' in str(warning.message) for warning in w))
+        finally:
+            os.unlink(tmp_path)
+
+
+if __name__ == '__main__':
+    unittest.main()

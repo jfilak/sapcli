@@ -14,6 +14,7 @@ import sap
 import sap.cli
 import sap.adt
 import sap.rfc
+from sap.config import ConfigFile
 from sap.rest.errors import TimedOutRequestError as RestTimedOutRequestError
 from sap.odata.errors import TimedOutRequestError as ODataTimedOutRequestError
 
@@ -56,6 +57,12 @@ def parse_command_line(argv):
     arg_parser.add_argument(
         '-v', '--verbose', dest='verbose_count', action='count', default=0,
         help='make verbose output')
+    arg_parser.add_argument(
+        '--config', dest='config', type=str, default=None,
+        help='Path to configuration file (default: ~/.sapcli/config.yml)')
+    arg_parser.add_argument(
+        '--context', dest='context', type=str, default=None,
+        help='Configuration context to use (overrides current-context in config file)')
     arg_parser.add_argument(
         '--ashost', dest='ashost', type=str, default=None,
         help='Application Server address (DNS or IP)')
@@ -115,6 +122,14 @@ def parse_command_line(argv):
         report_args_error_and_exit(
             arg_parser,
             'No command specified - please consult the help and specify a command to execute')
+
+    # Load config file and attach to args for use by resolve_default_connection_values
+    args.config_file = ConfigFile.load(args.config)
+
+    # Commands that don't need a connection (e.g. config) skip connection validation
+    connection_factory = getattr(args, 'connection_factory', None)
+    if connection_factory is sap.cli.no_connection:
+        return args
 
     sap.cli.resolve_default_connection_values(args)
 
