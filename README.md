@@ -117,6 +117,44 @@ sapcli program create zabapgit 'github.com/larshp/abapGit' '$abapgit'
 sapcli aunit run class zabapgit
 ```
 
+### Configuration file
+
+sapcli also supports a kubeconfig-style YAML configuration file at
+`~/.sapcli/config.yml` (on Windows `C:\Users\<user>\.sapcli\config.yml`)
+with named connections, users, and contexts:
+
+```yaml
+current-context: dev
+
+connections:
+  sap-standard:
+    client: "100"
+    port: 443
+    ssl: true
+
+users:
+  dev-user:
+    user: DEVELOPER
+
+contexts:
+  dev:
+    connection: sap-standard
+    user: dev-user
+    ashost: dev.example.com
+  qa:
+    connection: sap-standard
+    user: dev-user
+    ashost: qa.example.com
+```
+
+Switch between systems instantly:
+
+```bash
+sapcli --context qa aunit run class zcl_foo
+SAPCLI_CONTEXT=prod sapcli program read zreport
+sapcli config use-context dev
+```
+
 The tool asks only for user and password if missing. All other parameters
 either have own default value or causes fatal error if not provided.
 

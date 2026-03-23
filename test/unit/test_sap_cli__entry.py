@@ -1,13 +1,17 @@
 import os
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch, Mock
 from io import StringIO
 
 import sap
 import sap.cli._entry as entry
+from sap.config import ConfigFile
 from sap.rest.errors import TimedOutRequestError as RestTimedOutRequestError
 from sap.odata.errors import TimedOutRequestError as ODataTimedOutRequestError
+
+TEST_CONFIG_PATH = Path('/test/config.yml')
 
 ALL_PARAMETERS = [
     'sapcli', '--ashost', 'fixtures', '--sysnr', '69', '--client', '975',
@@ -56,7 +60,11 @@ class TestParseCommandLine(unittest.TestCase):
         self._fake_cmd = make_mock_command()
         fake_commands.return_value = [(Mock(), self._fake_cmd)]
 
+        self._config_patcher = patch('sap.cli._entry.ConfigFile.load', return_value=ConfigFile({}, TEST_CONFIG_PATH))
+        self._config_patcher.start()
+
     def tearDown(self):
+        self._config_patcher.stop()
         self._get_commands_patcher.stop()
 
     def test_args_sanity(self):
@@ -64,6 +72,7 @@ class TestParseCommandLine(unittest.TestCase):
         args = entry.parse_command_line(params)
 
         parsed = vars(args)
+
         self.assertEqual(parsed['ashost'], 'fixtures')
         self.assertEqual(parsed['sysnr'], '69')
         self.assertEqual(parsed['client'], '975')
@@ -251,8 +260,9 @@ class TestParseCommandLine(unittest.TestCase):
 
 class TestParseCommandLineNoCommand(unittest.TestCase):
 
+    @patch('sap.cli._entry.ConfigFile.load', return_value=ConfigFile({}, TEST_CONFIG_PATH))
     @patch('sap.cli.get_commands')
-    def test_no_command_specified(self, fake_commands):
+    def test_no_command_specified(self, fake_commands, _fake_config):
         fake_cmd = make_mock_command()
         fake_commands.return_value = [(Mock(), fake_cmd)]
 
@@ -286,8 +296,9 @@ class TestParseCommandLineWithCorrnr(unittest.TestCase):
 
         fake_commands.return_value = [(Mock(), fake_cmd)]
 
+    @patch('sap.cli._entry.ConfigFile.load', return_value=ConfigFile({}, TEST_CONFIG_PATH))
     @patch('sap.cli.get_commands')
-    def test_args_env_corrnr(self, fake_commands):
+    def test_args_env_corrnr(self, fake_commands, _fake_config):
         self.configure_mock(fake_commands)
 
         test_params = ALL_PARAMETERS.copy()
@@ -304,8 +315,9 @@ class TestParseCommandLineWithCorrnr(unittest.TestCase):
 
         self.assertEqual(args.corrnr, exp_corrnr)
 
+    @patch('sap.cli._entry.ConfigFile.load', return_value=ConfigFile({}, TEST_CONFIG_PATH))
     @patch('sap.cli.get_commands')
-    def test_args_env_and_param_corrnr(self, fake_commands):
+    def test_args_env_and_param_corrnr(self, fake_commands, _fake_config):
         self.configure_mock(fake_commands)
 
         test_params = ALL_PARAMETERS.copy()
@@ -394,6 +406,73 @@ class TestMainEntry(unittest.TestCase):
         self.assertEqual(retval, 1)
         self.assertIn('TimedOutRequestError', fake_output.getvalue())
         self.assertIn('SAPCLI_HTTP_TIMEOUT', fake_output.getvalue())
+
+
+class TestParseCommandLineConfigFile(unittest.TestCase):
+
+    def setUp(self):
+        self._get_commands_patcher = patch('sap.cli.get_commands')
+        fake_commands = self._get_commands_patcher.start()
+        self._fake_cmd = make_mock_command()
+        fake_commands.return_value = [(Mock(), self._fake_cmd)]
+
+        self._config_patcher = patch('sap.cli._entry.ConfigFile.load', return_value=ConfigFile({}, TEST_CONFIG_PATH))
+        self._config_patcher.start()
+
+    def tearDown(self):
+        self._config_patcher.stop()
+        self._get_commands_patcher.stop()
+
+    def test_config_flag_default_none(self):
+        params = get_tested_parameters()
+        args = entry.parse_command_line(params)
+        self.assertIsNone(args.config)
+
+    def test_context_flag_default_none(self):
+        params = get_tested_parameters()
+        args = entry.parse_command_line(params)
+        self.assertIsNone(args.context)
+
+    def test_config_flag_set(self):
+        params = get_tested_parameters()
+        params.insert(1, '--config')
+        params.insert(2, '/some/path/config.yml')
+        args = entry.parse_command_line(params)
+        self.assertEqual(args.config, '/some/path/config.yml')
+
+    def test_context_flag_set(self):
+        self._config_patcher.stop()
+        config_data = {
+            'connections': {'srv': {'ashost': 'host', 'client': '100'}},
+            'users': {'usr': {'user': 'USER'}},
+            'contexts': {'prod': {'connection': 'srv', 'user': 'usr'}},
+        }
+        with patch('sap.cli._entry.ConfigFile.load', return_value=ConfigFile(config_data, TEST_CONFIG_PATH)):
+            params = get_tested_parameters()
+            params.insert(1, '--context')
+            params.insert(2, 'prod')
+            args = entry.parse_command_line(params)
+        self._config_patcher.start()
+        self.assertEqual(args.context, 'prod')
+
+    def test_config_file_attached_to_args(self):
+        params = get_tested_parameters()
+        args = entry.parse_command_line(params)
+        self.assertTrue(hasattr(args, 'config_file'))
+
+    def test_config_command_skips_connection_validation(self):
+        """The config subcommand should not require ashost/client/etc."""
+        # Stop the get_commands mock so real commands (including 'config') are registered
+        self._get_commands_patcher.stop()
+        try:
+            params = ['sapcli', 'config', 'get-contexts']
+            # This should not exit or error even though no host/client/user is provided
+            args = entry.parse_command_line(params)
+            self.assertIsNotNone(args)
+        finally:
+            # Restart the patcher so tearDown can stop it cleanly
+            fake_commands = self._get_commands_patcher.start()
+            fake_commands.return_value = [(Mock(), make_mock_command())]
 
 
 if __name__ == '__main__':
