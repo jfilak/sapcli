@@ -1,8 +1,12 @@
 """Function Group and Function Module object proxies"""
+import logging
 from copy import copy
 
 # pylint: disable=unused-import
 import sap.errors
+import sap.adt.search
+from sap import get_logger
+from sap.adt.core import Connection
 from sap.adt.repository import Repository
 from sap.adt.objects import OrderedClassMembers
 from sap.adt.objects import ADTObjectType, ADTObject, ADTObjectSourceEditorWithResponse, xmlns_adtcore_ancestor
@@ -10,6 +14,12 @@ from sap.adt.objects import find_mime_version
 from sap.adt.annotations import xml_attribute, xml_element
 from sap.platform.abap.ddic_builders import (ImportBuilder, ChangingBuilder, ExportBuilder, TableBuilder,
                                              ExceptionBuilder)
+
+
+def mod_log() -> logging.Logger:
+    """Module logger"""
+
+    return get_logger()
 
 
 class ADTContainer(metaclass=OrderedClassMembers):
@@ -127,6 +137,39 @@ class FunctionGroup(ADTObject):
             object_name=name,
             package_name=package_name)
 
+    @classmethod
+    def group_name_from_uri(cls, uri: str) -> str:
+        """Extracts function group name from an ADT URI.
+
+           Expected URI format: .../<basepath>/GROUP_NAME/...
+           :param uri: ADT URI string
+           :returns: group name in upper case
+           :raises SAPCliError: if the URI does not match the expected pattern
+        """
+
+        marker = f'{cls.OBJTYPE.basepath}/'
+
+        if not uri:
+            raise sap.errors.SAPCliError(
+                f'URI "{uri}" does not contain the expected Function Group marker "{marker}"'
+            )
+
+        pos = uri.find(marker)
+        if pos < 0:
+            raise sap.errors.SAPCliError(
+                f'URI "{uri}" does not contain the expected Function Group marker "{marker}"'
+            )
+
+        rest = uri[pos + len(marker):]
+        group_name = rest.split('/', 1)[0]
+
+        if not group_name:
+            raise sap.errors.SAPCliError(
+                f'URI "{uri}" contains an empty Function Group name after "{marker}"'
+            )
+
+        return group_name.upper()
+
     def walk(self):
         """Returns the same structure as python os.walk"""
 
@@ -163,6 +206,32 @@ class FunctionModule(ADTObject):
         self._processing_type = None
         self._reference = None
         self._release_state = None
+
+    @staticmethod
+    def resolve_group(connection: Connection, function_name: str) -> str:
+        """Resolves the function group name for the given function module name
+           by searching for the function module in the ADT repository.
+
+           :param connection: ADT connection
+           :param function_name: function module name
+           :returns: function group name
+           :raises SAPCliError: if the function module is not found
+        """
+
+        search = sap.adt.search.ADTSearch(connection)
+        results = search.quick_search(function_name)
+
+        for ref in results.references:
+            if ref.typ == FunctionModule.OBJTYPE.code and ref.name and ref.name.upper() == function_name.upper():
+                try:
+                    return FunctionGroup.group_name_from_uri(ref.uri)
+                except sap.errors.SAPCliError as exc:
+                    mod_log().info('Skipping search result for "%s" with unexpected URI: %s', ref.name, exc)
+                    continue
+
+        raise sap.errors.SAPCliError(
+            f'Could not find function module "{function_name.upper()}" in the system'
+        )
 
     def _get_mime_and_version(self):
         # because the standard _get_mime_and_version() use basepath which

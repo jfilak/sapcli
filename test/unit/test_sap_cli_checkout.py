@@ -571,7 +571,7 @@ class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         fake_func_module_class.side_effect = self.mock_function_module
 
         fake_walk = MagicMock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/I', name=include.name) for include in self.includes]
-                                             + [SimpleNamespace(typ='FUGR/FF', name=fn_module.name) for fn_module in self.fn_modules])])
+                                             + [SimpleNamespace(typ=sap.adt.FunctionModule.OBJTYPE.code, name=fn_module.name) for fn_module in self.fn_modules])])
         self.fake_funcgrp.walk = fake_walk
 
     def setUp(self) -> None:

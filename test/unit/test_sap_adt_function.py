@@ -18,7 +18,10 @@ from fixtures_adt_function import (
         CREATE_FUNCTION_INCLUDE_ADT_XML,
         GET_FUNCTION_INCLUDE_ADT_XML,
         FUNCTION_MODULE_CODE,
-        FUNCTION_MODULE_CODE_ABAPGIT,)
+        FUNCTION_MODULE_CODE_ABAPGIT,
+        SEARCH_FUNCTION_MODULE_RESPONSE_XML,
+        SEARCH_FUNCTION_MODULE_NOT_FOUND_RESPONSE_XML,
+        SEARCH_FUNCTION_MODULE_WRONG_TYPE_RESPONSE_XML,)
 
 
 class TestFunctionGroup(unittest.TestCase):
@@ -89,6 +92,49 @@ class TestFunctionGroup(unittest.TestCase):
         fugr = sap.adt.FunctionGroup(None, 'ZFG_HELLO_WORLD')
 
         self.assertEqual(fugr.walk(), [([], [], 'objects')])
+
+
+class TestGroupNameFromUri(unittest.TestCase):
+
+    def test_valid_uri(self):
+        group = sap.adt.FunctionGroup.group_name_from_uri(
+            '/sap/bc/adt/functions/groups/zfg_hello_world/fmodules/z_fn_hello_world')
+
+        self.assertEqual(group, 'ZFG_HELLO_WORLD')
+
+    def test_valid_uri_returns_upper_case(self):
+        group = sap.adt.FunctionGroup.group_name_from_uri(
+            '/sap/bc/adt/functions/groups/zfg_lower/fmodules/z_fn_test')
+
+        self.assertEqual(group, 'ZFG_LOWER')
+
+    def test_invalid_prefix_raises(self):
+        with self.assertRaises(SAPCliError) as caught:
+            sap.adt.FunctionGroup.group_name_from_uri(
+                '/sap/bc/adt/programs/includes/z_fn_hello_world')
+
+        self.assertIn('does not contain the expected Function Group marker', str(caught.exception))
+
+    def test_empty_uri_raises(self):
+        with self.assertRaises(SAPCliError):
+            sap.adt.FunctionGroup.group_name_from_uri('')
+
+    def test_none_uri_raises(self):
+        with self.assertRaises(SAPCliError):
+            sap.adt.FunctionGroup.group_name_from_uri(None)
+
+    def test_non_standard_adt_root(self):
+        group = sap.adt.FunctionGroup.group_name_from_uri(
+            '/custom/root/functions/groups/zfg_custom/fmodules/z_fn_test')
+
+        self.assertEqual(group, 'ZFG_CUSTOM')
+
+    def test_empty_group_name_raises(self):
+        with self.assertRaises(SAPCliError) as caught:
+            sap.adt.FunctionGroup.group_name_from_uri(
+                '/sap/bc/adt/functions/groups//fmodules/z_fn_hello_world')
+
+        self.assertIn('contains an empty Function Group name', str(caught.exception))
 
 
 class TestFunctionModule(unittest.TestCase):
@@ -202,6 +248,54 @@ class TestFunctionModule(unittest.TestCase):
         body = function.get_body()
 
         self.assertEqual(body, '''    Write 'Hello World'.''')
+
+
+class TestResolveGroup(unittest.TestCase):
+
+    def test_resolve_group_found(self):
+        connection = Connection([
+            Response(text=SEARCH_FUNCTION_MODULE_RESPONSE_XML, status_code=200)
+        ])
+
+        group = sap.adt.FunctionModule.resolve_group(connection, 'Z_FN_HELLO_WORLD')
+
+        self.assertEqual(group, 'ZFG_HELLO_WORLD')
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'GET')
+        self.assertIn('repository/informationsystem/search', connection.execs[0].adt_uri)
+        self.assertEqual(connection.execs[0].params['query'], 'Z_FN_HELLO_WORLD')
+
+    def test_resolve_group_not_found_empty(self):
+        connection = Connection([
+            Response(text=SEARCH_FUNCTION_MODULE_NOT_FOUND_RESPONSE_XML, status_code=200)
+        ])
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.adt.FunctionModule.resolve_group(connection, 'Z_FN_NONEXISTENT')
+
+        self.assertEqual(str(caught.exception),
+                         'Could not find function module "Z_FN_NONEXISTENT" in the system')
+
+    def test_resolve_group_not_found_wrong_type(self):
+        connection = Connection([
+            Response(text=SEARCH_FUNCTION_MODULE_WRONG_TYPE_RESPONSE_XML, status_code=200)
+        ])
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.adt.FunctionModule.resolve_group(connection, 'Z_FN_HELLO_WORLD')
+
+        self.assertEqual(str(caught.exception),
+                         'Could not find function module "Z_FN_HELLO_WORLD" in the system')
+
+    def test_resolve_group_case_insensitive(self):
+        connection = Connection([
+            Response(text=SEARCH_FUNCTION_MODULE_RESPONSE_XML, status_code=200)
+        ])
+
+        group = sap.adt.FunctionModule.resolve_group(connection, 'z_fn_hello_world')
+
+        self.assertEqual(group, 'ZFG_HELLO_WORLD')
 
 
 class TestFunctionInclude(unittest.TestCase):

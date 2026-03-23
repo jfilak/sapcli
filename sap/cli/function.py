@@ -1,9 +1,28 @@
 """ADT proxy for ABAP Functions"""
 
+import argparse
 import os
+from typing import Optional
 
 import sap.adt
 import sap.cli.object
+from sap.adt.core import Connection
+
+
+def get_group(connection: Connection, args: argparse.Namespace, name: Optional[str] = None) -> str:
+    """Returns the function group name from args, resolving it via search
+       if the user passed '-' instead of a group name.
+
+       :param name: optional explicit function module name to search for;
+                    if not provided, args.name is used (must be a string)
+    """
+
+    if args.group == '-':
+        if name is None:
+            name = args.name
+        return sap.adt.FunctionModule.resolve_group(connection, name)
+
+    return args.group
 
 
 class CommandGroupFunctionGroupInclude(sap.cli.object.CommandGroupObjectTemplate):
@@ -92,10 +111,14 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
         return sap.adt.ADTCoreData(language='EN', master_language='EN',
                                    responsible=connection.user.upper())
 
-    def instance(self, connection, name, args, metadata=None):
-        return sap.adt.FunctionModule(connection, name.upper(), args.group, metadata=metadata)
+    def instance(self, connection: Connection, name: str, args: argparse.Namespace,
+                 metadata: Optional[sap.adt.ADTCoreData] = None) -> sap.adt.FunctionModule:
+        group = get_group(connection, args, name=name)
+        return sap.adt.FunctionModule(connection, name.upper(), group, metadata=metadata)
 
-    def instance_from_file_path(self, connection, filepath, args, metadata=None):
+    def instance_from_file_path(self, connection: Connection, filepath: str,
+                                args: argparse.Namespace,
+                                metadata: Optional[sap.adt.ADTCoreData] = None) -> sap.adt.FunctionModule:
         basename = os.path.basename(filepath)
         parts = basename.split('.', 3)
 
@@ -145,14 +168,15 @@ class CommandGroupFunctionModule(sap.cli.object.CommandGroupObjectTemplate):
 @CommandGroupFunctionModule.argument('name')
 @CommandGroupFunctionModule.argument('group')
 @CommandGroupFunctionModule.command()
-def chattr(connection, args):
+def chattr(connection: Connection, args: argparse.Namespace) -> None:
     """Changes attributes of the given Function Module"""
 
-    fmodule = sap.adt.FunctionModule(connection, args.name.upper(), args.group)
+    group = get_group(connection, args)
+    fmodule = sap.adt.FunctionModule(connection, args.name.upper(), group)
     fmodule.fetch()
 
     if hasattr(args, 'processing_type'):
-        fmodule.processing_type = args.processing_type
+        fmodule.processing_type = args.processing_type  # type: ignore[method-assign]
 
     with fmodule.open_editor(corrnr=args.corrnr) as editor:
         editor.push()

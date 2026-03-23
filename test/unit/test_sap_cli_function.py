@@ -20,7 +20,8 @@ from fixtures_adt_function import (
         WRITE_FUNCTION_GROUP_INCLUDE_BODY,
         READ_FUNCTION_GROUP_INCLUDE_BODY,
         FUNCTION_GROUP_INCLUDE_ADT_XML,
-        ACTIVATE_FUNCTION_GROUP_INCLUDE_BODY
+        ACTIVATE_FUNCTION_GROUP_INCLUDE_BODY,
+        SEARCH_FUNCTION_MODULE_RESPONSE_XML,
         )
 
 fugr_parser = ArgumentParser()
@@ -248,7 +249,68 @@ class TestFunctionGroupIncludeActivate(unittest.TestCase):
             body=ACTIVATE_FUNCTION_GROUP_INCLUDE_BODY,
             params={'method': 'activate', 'preauditRequested': 'true'}
         )
-
         self.assertEqual(connection.execs[0], expected_request)
+
+
+class TestFunctionModuleReadWithDash(unittest.TestCase):
+
+    def test_read_with_dash_group(self):
+        connection = Connection([
+            Response(text=SEARCH_FUNCTION_MODULE_RESPONSE_XML, status_code=200),
+            Response(text='FUNCTION Z_FN_HELLO_WORLD.\nENDFUNCTION.',
+                     status_code=200,
+                     headers={'Content-Type': 'text/plain; charset=utf-8'})
+        ])
+
+        args = fm_parse_args('read', '-', 'Z_FN_HELLO_WORLD')
+        with patch('sys.stdin', StringIO('')):
+            args.execute(connection, args)
+
+        # First call: search, second call: read source
+        self.assertEqual(len(connection.execs), 2)
+        self.assertIn('repository/informationsystem/search', connection.execs[0].adt_uri)
+        self.assertEqual(connection.execs[1].method, 'GET')
+        self.assertIn('/sap/bc/adt/functions/groups/zfg_hello_world/fmodules/z_fn_hello_world', connection.execs[1].adt_uri)
+
+
+class TestFunctionModuleChattrWithDash(unittest.TestCase):
+
+    def test_fmod_chattr_rfc_with_dash_group(self):
+        connection = Connection([
+            Response(text=SEARCH_FUNCTION_MODULE_RESPONSE_XML, status_code=200),
+            Response(text=GET_FUNCTION_MODULE_ADT_XML,
+                     status_code=200,
+                     headers={'Content-Type': 'application/vnd.sap.adt.functions.fmodules.v3+xml; charset=utf-8'}),
+            LOCK_RESPONSE_OK,
+            EMPTY_RESPONSE_OK,
+            EMPTY_RESPONSE_OK
+        ])
+
+        args = fm_parse_args('chattr', '-', 'Z_FN_HELLO_WORLD', '-t', 'rfc')
+        args.execute(connection, args)
+
+        # First call: search, then: GET (fetch), POST (lock), PUT (push), POST (unlock)
+        self.assertEqual(len(connection.execs), 5)
+        self.assertIn('repository/informationsystem/search', connection.execs[0].adt_uri)
+        self.assertEqual(connection.execs[1].method, 'GET')
+        self.assertIn('/sap/bc/adt/functions/groups/zfg_hello_world/fmodules/z_fn_hello_world', connection.execs[1].adt_uri)
+
+
+class TestFunctionModuleActivateWithDash(unittest.TestCase):
+
+    def test_activate_with_dash_group(self):
+        connection = Connection([
+            Response(text=SEARCH_FUNCTION_MODULE_RESPONSE_XML, status_code=200),
+            RESPONSE_ACTIVATION_OK,
+            Response(text=GET_FUNCTION_MODULE_ADT_XML, status_code=200, headers={})
+        ])
+
+        args = fm_parse_args('activate', '-', 'Z_FN_HELLO_WORLD')
+        args.execute(connection, args)
+
+        # First call: search, then activation requests
+        self.assertIn('repository/informationsystem/search', connection.execs[0].adt_uri)
+
+
 if __name__ == '__main__':
     unittest.main()
