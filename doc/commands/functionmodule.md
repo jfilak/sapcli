@@ -9,6 +9,21 @@
 	- [delete](#delete)
 	- [whereused](#whereused)
 
+## Group name resolution
+
+Function modules always belong to a function group. Most commands require
+the group name as the first argument. If you do not know the group name,
+you can pass `-` instead and sapcli will resolve it automatically by
+searching for the function module in the system.
+
+```bash
+# Explicit group name:
+sapcli functionmodule read ZFG_PARENT Z_FUNCTION_MODULE
+
+# Auto-resolve group name:
+sapcli functionmodule read - Z_FUNCTION_MODULE
+```
+
 ## create
 
 Creates a function module in the given function group of the given name with
@@ -26,8 +41,8 @@ Changes main source code of the given function module.
 sapcli functionmodule write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
 ```
 
-* _GROUP\_NAME_ either function group name or - when it should be deduced from FILE\_PATH
-* _OBJECT\_NAME_ either founction module name or - when it should be deduced from FILE\_PATH
+* _GROUP\_NAME_ either function group name or - to resolve it automatically via search; when OBJECT\_NAME is also -, the group is deduced from FILE\_PATH
+* _OBJECT\_NAME_ either function module name or - when it should be deduced from FILE\_PATH
 * _FILE\_PATH_ if OBJECT\_NAME is not -, single file path or - for reading _stdin_; otherwise space separated list of file paths
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 * _--activate_ activate after finishing the write operation
@@ -39,9 +54,10 @@ sapcli functionmodule write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--cor
 Changes attributes of the given function module.
 
 ```bash
-sapcli functionmodule chattr "ZFG_PARENT" "Z_FUNCTION_MODULE [--processing_type normal|rfc] [--corrnr TRANSPORT]
+sapcli functionmodule chattr [ZFG_PARENT|-] Z_FUNCTION_MODULE [--processing_type normal|rfc] [--corrnr TRANSPORT]
 ```
 
+* _GROUP\_NAME_ either function group name or - to resolve it automatically via search
 * _--processing_type [normal|rfc]_ could be used to make RFC enabled
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
 
@@ -50,16 +66,20 @@ sapcli functionmodule chattr "ZFG_PARENT" "Z_FUNCTION_MODULE [--processing_type 
 Activates the given function module.
 
 ```bash
-sapcli functionmodule activate ZFG_PARENT Z_FUNCTION_MODULE
+sapcli functionmodule activate [ZFG_PARENT|-] Z_FUNCTION_MODULE
 ```
+
+* _GROUP\_NAME_ either function group name or - to resolve it automatically via search
 
 ## read
 
-Download main source codes of the given function module
+Download main source codes of the given function module.
 
 ```bash
-sapcli functionmodule read ZFG_PARENT Z_FUNCTION_MODULE
+sapcli functionmodule read [ZFG_PARENT|-] Z_FUNCTION_MODULE
 ```
+
+* _GROUP\_NAME_ either function group name or - to resolve it automatically via search
 
 ## delete
 

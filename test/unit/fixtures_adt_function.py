@@ -129,3 +129,33 @@ ACTIVATE_FUNCTION_GROUP_INCLUDE_BODY = '''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
 <adtcore:objectReference adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world/includes/zfg_i_hello_world" adtcore:name="ZFG_I_HELLO_WORLD"/>
 </adtcore:objectReferences>'''
+
+SEARCH_FUNCTION_MODULE_RESPONSE_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:objectReference
+    adtcore:uri="/sap/bc/adt/functions/groups/zfg_hello_world/fmodules/z_fn_hello_world"
+    adtcore:type="FUGR/FF"
+    adtcore:name="Z_FN_HELLO_WORLD"
+    adtcore:packageName="$TEST"
+    adtcore:description="Hello Function!"/>
+  <adtcore:objectReference
+    adtcore:uri="/sap/bc/adt/aps/iam/sush/z_fn_hello_world%20rf"
+    adtcore:type="SUSH"
+    adtcore:name="Z_FN_HELLO_WORLD RF"
+    adtcore:packageName="$TEST"
+    adtcore:description="Z_FN_HELLO_WORLD"/>
+</adtcore:objectReferences>'''
+
+SEARCH_FUNCTION_MODULE_NOT_FOUND_RESPONSE_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+</adtcore:objectReferences>'''
+
+SEARCH_FUNCTION_MODULE_WRONG_TYPE_RESPONSE_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:objectReference
+    adtcore:uri="/sap/bc/adt/programs/includes/z_fn_hello_world"
+    adtcore:type="PROG/I"
+    adtcore:name="Z_FN_HELLO_WORLD"
+    adtcore:packageName="$TEST"
+    adtcore:description="Include Z_FN_HELLO_WORLD"/>
+</adtcore:objectReferences>'''
