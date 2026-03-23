@@ -8,7 +8,7 @@ import logging
 from argparse import ArgumentParser
 import getpass
 import warnings
-from importlib.metadata import version
+from importlib.metadata import version, PackageNotFoundError
 
 import sap
 import sap.cli
@@ -47,7 +47,11 @@ def parse_command_line(argv):
     """Parses command line arguments"""
 
     arg_parser = ArgumentParser(os.path.basename(argv[0]))
-    sapcli_version = version('sapcli')
+    try:
+        sapcli_version = version('sapcli')
+    except PackageNotFoundError:
+        sapcli_version = 'unknown version'
+
     arg_parser.add_argument('--version', action='version', version=f'%(prog)s {sapcli_version}')
     arg_parser.add_argument(
         '-v', '--verbose', dest='verbose_count', action='count', default=0,
