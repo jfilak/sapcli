@@ -3,6 +3,7 @@
 import sys
 
 import sap.cli.core
+import sap.adt.system
 import sap.platform.abap.run
 
 
@@ -36,3 +37,21 @@ def run(connection, args):
     )
 
     console.printout(result)
+
+
+@CommandGroup.argument('--key', type=str, default=None, help='Print only the value for the given key')
+@CommandGroup.command()
+def systeminfo(connection, args):
+    """Prints system information"""
+
+    console = args.console_factory()
+
+    info = sap.adt.system.get_information(connection)
+
+    if args.key:
+        value = info.get(args.key)
+        if value is not None:
+            console.printout(value)
+    else:
+        for entry in info:
+            console.printout(f'{entry.identity}: {entry.title}')
