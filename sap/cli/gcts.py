@@ -77,6 +77,7 @@ class UserCommandGroup(sap.cli.core.CommandGroup):
         super().__init__('user')
 
 
+@UserCommandGroup.argument('-e', '--endpoint', default=None)
 @UserCommandGroup.argument('-f', '--format', choices=['HUMAN', 'JSON'], default='HUMAN')
 @UserCommandGroup.command('get-credentials')
 def get_user_credentials(connection, args):
@@ -84,6 +85,10 @@ def get_user_credentials(connection, args):
 
     user_credentials = sap.rest.gcts.simple.get_user_credentials(connection)
     console = args.console_factory()
+
+    if args.endpoint is not None:
+        user_credentials = _filter_credentials_by_endpoint(user_credentials, args.endpoint)
+
     if args.format == 'JSON':
         console.printout(user_credentials)
     else:
@@ -96,6 +101,31 @@ def get_user_credentials(connection, args):
         )
 
         sap.cli.helpers.TableWriter(user_credentials, columns).printout(console)
+
+
+def _canonicalize_endpoint(endpoint):
+    """Canonicalize endpoint URL for consistent matching"""
+
+    return endpoint.strip().rstrip('/').lower()
+
+
+def _filter_credentials_by_endpoint(user_credentials, endpoint):
+    """Filter credentials by endpoint and validate state"""
+
+    canonical_endpoint = _canonicalize_endpoint(endpoint)
+
+    matching = [cred for cred in user_credentials
+                if _canonicalize_endpoint(cred['endpoint']) == canonical_endpoint]
+
+    if not matching:
+        raise SAPCliError(f'No credentials found for endpoint: {endpoint}')
+
+    valid = [cred for cred in matching if cred.get('state', '') != 'false']
+
+    if not valid:
+        raise SAPCliError(f'Credentials for endpoint {endpoint} are not valid: {matching[0]["state"]}')
+
+    return valid
 
 
 @UserCommandGroup.argument('-t', '--token')

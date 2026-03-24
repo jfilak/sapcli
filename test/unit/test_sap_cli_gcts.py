@@ -2471,6 +2471,200 @@ class TestqCTSUserGetCredentials(PatcherTestCase, ConsoleOutputTestCase):
         fake_dumper.assert_called_once_with(self.console, messages)
 
 
+class TestgCTSUserGetCredentialsEndpoint(PatcherTestCase, ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+        self.fake_connection = None
+        self.api_url = 'https://api.github.com/v3/'
+        self.fake_get_credentials = self.patch('sap.rest.gcts.simple.get_user_credentials')
+
+    def get_credentials_cmd(self, *args, **kwargs):
+        return parse_args('user', 'get-credentials', *args, **kwargs)
+
+    def test_endpoint_filter_valid_state_json(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': self.api_url, 'type': 'token', 'state': 'user123'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', self.api_url, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertIsNone(exit_code)
+        self.assertConsoleContents(
+            self.console,
+            stdout=f"[{{'endpoint': '{self.api_url}', 'type': 'token', 'state': 'user123'}}]\n"
+        )
+
+    def test_endpoint_filter_valid_state_human(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': self.api_url, 'type': 'token', 'state': 'user123'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', self.api_url, '-f', 'HUMAN')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertIsNone(exit_code)
+        self.assertConsoleContents(
+            self.console,
+            stdout=(
+                "Endpoint                   | Type  | State  \n"
+                "--------------------------------------------\n"
+                f"{self.api_url} | token | user123\n"
+            )
+        )
+
+    def test_endpoint_filter_not_found(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': self.api_url, 'type': 'token', 'state': 'user123'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', 'https://other.example.com/')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(
+            self.console,
+            stderr='No credentials found for endpoint: https://other.example.com/\n'
+        )
+
+    def test_endpoint_filter_invalid_state(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': self.api_url, 'type': 'token', 'state': 'false'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', self.api_url)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(
+            self.console,
+            stderr=f'Credentials for endpoint {self.api_url} are not valid: false\n'
+        )
+
+    def test_endpoint_canonicalization_trailing_slash(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': 'https://api.github.com/v3/', 'type': 'token', 'state': 'user123'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', 'https://api.github.com/v3', '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertIsNone(exit_code)
+        self.assertConsoleContents(
+            self.console,
+            stdout="[{'endpoint': 'https://api.github.com/v3/', 'type': 'token', 'state': 'user123'}]\n"
+        )
+
+    def test_endpoint_canonicalization_case_insensitive(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': 'https://API.GitHub.com/v3/', 'type': 'token', 'state': 'user123'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', 'https://api.github.com/v3/', '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertIsNone(exit_code)
+        self.assertConsoleContents(
+            self.console,
+            stdout="[{'endpoint': 'https://API.GitHub.com/v3/', 'type': 'token', 'state': 'user123'}]\n"
+        )
+
+    def test_endpoint_canonicalization_whitespace(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': 'https://api.github.com/v3/', 'type': 'token', 'state': 'user123'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', '  https://api.github.com/v3/  ', '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertIsNone(exit_code)
+        self.assertConsoleContents(
+            self.console,
+            stdout="[{'endpoint': 'https://api.github.com/v3/', 'type': 'token', 'state': 'user123'}]\n"
+        )
+
+    def test_endpoint_filter_multiple_credentials(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': 'https://api.github.com/v3/', 'type': 'token', 'state': 'user123'},
+            {'endpoint': 'https://other.example.com/', 'type': 'token', 'state': 'user456'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', 'https://other.example.com/', '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertIsNone(exit_code)
+        self.assertConsoleContents(
+            self.console,
+            stdout="[{'endpoint': 'https://other.example.com/', 'type': 'token', 'state': 'user456'}]\n"
+        )
+
+    def test_endpoint_filter_multiple_matching_returns_all_valid(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': self.api_url, 'type': 'token', 'state': 'user123'},
+            {'endpoint': self.api_url, 'type': 'basic', 'state': 'user456'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', self.api_url, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertIsNone(exit_code)
+        self.assertConsoleContents(
+            self.console,
+            stdout=f"[{{'endpoint': '{self.api_url}', 'type': 'token', 'state': 'user123'}}, "
+                   f"{{'endpoint': '{self.api_url}', 'type': 'basic', 'state': 'user456'}}]\n"
+        )
+
+    def test_endpoint_filter_multiple_matching_skips_invalid(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': self.api_url, 'type': 'token', 'state': 'false'},
+            {'endpoint': self.api_url, 'type': 'basic', 'state': 'user456'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', self.api_url, '-f', 'JSON')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertIsNone(exit_code)
+        self.assertConsoleContents(
+            self.console,
+            stdout=f"[{{'endpoint': '{self.api_url}', 'type': 'basic', 'state': 'user456'}}]\n"
+        )
+
+    def test_endpoint_filter_all_matching_invalid(self):
+        self.fake_get_credentials.return_value = [
+            {'endpoint': self.api_url, 'type': 'token', 'state': 'false'},
+            {'endpoint': self.api_url, 'type': 'basic', 'state': 'false'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-e', self.api_url)
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertConsoleContents(
+            self.console,
+            stderr=f'Credentials for endpoint {self.api_url} are not valid: false\n'
+        )
+
+    def test_no_endpoint_lists_all(self):
+        """When --endpoint is not given, all credentials are listed (existing behavior)"""
+        self.fake_get_credentials.return_value = [
+            {'endpoint': self.api_url, 'type': 'token', 'state': 'user123'}
+        ]
+
+        the_cmd = self.get_credentials_cmd('-f', 'JSON')
+        the_cmd.execute(self.fake_connection, the_cmd)
+
+        self.assertConsoleContents(
+            self.console,
+            stdout=f"[{{'endpoint': '{self.api_url}', 'type': 'token', 'state': 'user123'}}]\n"
+        )
+
+
 class TestgCTSUserSetCredentials(PatcherTestCase, ConsoleOutputTestCase):
 
     def setUp(self):

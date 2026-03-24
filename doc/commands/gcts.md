@@ -170,11 +170,17 @@ sapcli gcts config [-l|--list] [--unset] PACKAGE [NAME] [VALUE]
 Get credentials of the logged in user
 
 ```bash
-sapcli gcts user get-credentials [-f|--format] {HUMAN|JSON}
+sapcli gcts user get-credentials [-f|--format] {HUMAN|JSON} [-e|--endpoint ENDPOINT]
 ```
 
 **Parameters:**
 - `--format`: The format of the command's output
+- `--endpoint`: Filter credentials by HTTP API endpoint. When specified,
+  only credentials matching the given endpoint are returned. The endpoint
+  is canonicalized before matching (trailing slashes are stripped and
+  comparison is case-insensitive). The command returns a non-zero exit code
+  if no credentials are found for the endpoint or if all matching
+  credentials have an invalid state.
 
 ## user set-credentials
 
