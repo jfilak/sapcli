@@ -8,7 +8,12 @@ from unittest.mock import patch, mock_open
 import sap.cli.abap
 import sap.platform.abap.run
 
-from mock import BufferConsole
+from mock import BufferConsole, Connection
+
+from fixtures_adt_system import (
+    RESPONSE_SYSTEM_INFORMATION,
+    RESPONSE_JSON_SYSTEM_INFORMATION,
+)
 
 parser = ArgumentParser()
 sap.cli.abap.CommandGroup().install_parser(parser)
@@ -115,6 +120,90 @@ class TestAbapRun(unittest.TestCase):
             )
 
         self.assertEqual(console.capout, expected_output + '\n')
+
+
+class TestAbapSystemInfo(unittest.TestCase):
+
+    def test_systeminfo_prints_all_entries(self):
+        """Test that systeminfo prints key: value lines for all entries"""
+        connection = Connection([RESPONSE_SYSTEM_INFORMATION, RESPONSE_JSON_SYSTEM_INFORMATION])
+        args = parse_args(['systeminfo'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        output = console.capout
+        lines = output.strip().split('\n')
+
+        # 24 XML entries + 5 JSON entries
+        self.assertEqual(len(lines), 29)
+
+    def test_systeminfo_output_format(self):
+        """Test that systeminfo prints entries in key: value format"""
+        connection = Connection([RESPONSE_SYSTEM_INFORMATION, RESPONSE_JSON_SYSTEM_INFORMATION])
+        args = parse_args(['systeminfo'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        output = console.capout
+        self.assertIn('ApplicationServerName: C50_ddci\n', output)
+        self.assertIn('DBName: C50/02\n', output)
+        self.assertIn('OSName: Linux\n', output)
+        self.assertIn('SID: C50\n', output)
+        self.assertIn('userName: DEVELOPER\n', output)
+        self.assertIn('client: 100\n', output)
+        self.assertIn('language: EN\n', output)
+
+    def test_systeminfo_sends_requests(self):
+        """Test that systeminfo sends GET requests to both endpoints"""
+        connection = Connection([RESPONSE_SYSTEM_INFORMATION, RESPONSE_JSON_SYSTEM_INFORMATION])
+        args = parse_args(['systeminfo'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(len(connection.execs), 2)
+        self.assertEqual(connection.execs[0].method, 'GET')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/system/information')
+        self.assertEqual(connection.execs[1].method, 'GET')
+        self.assertEqual(connection.execs[1].adt_uri, '/sap/bc/adt/core/http/systeminformation')
+
+    def test_systeminfo_key_prints_value_only(self):
+        """Test that --key prints only the matching value"""
+        connection = Connection([RESPONSE_SYSTEM_INFORMATION, RESPONSE_JSON_SYSTEM_INFORMATION])
+        args = parse_args(['systeminfo', '--key', 'OSName'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(console.capout, 'Linux\n')
+
+    def test_systeminfo_key_json_entry(self):
+        """Test that --key works for entries from the JSON endpoint"""
+        connection = Connection([RESPONSE_SYSTEM_INFORMATION, RESPONSE_JSON_SYSTEM_INFORMATION])
+        args = parse_args(['systeminfo', '--key', 'userName'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(console.capout, 'DEVELOPER\n')
+
+    def test_systeminfo_key_not_found(self):
+        """Test that --key with unknown key prints nothing"""
+        connection = Connection([RESPONSE_SYSTEM_INFORMATION, RESPONSE_JSON_SYSTEM_INFORMATION])
+        args = parse_args(['systeminfo', '--key', 'NonExistent'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(console.capout, '')
 
 
 if __name__ == '__main__':
