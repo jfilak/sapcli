@@ -111,6 +111,11 @@ def parse_command_line(argv):
     log.setLevel(loglevel)
     logging.debug('Logging level: %i', loglevel)
 
+    if not hasattr(args, 'execute'):
+        report_args_error_and_exit(
+            arg_parser,
+            'No command specified - please consult the help and specify a command to execute')
+
     sap.cli.resolve_default_connection_values(args)
 
     if not args.ashost and not args.mshost:
