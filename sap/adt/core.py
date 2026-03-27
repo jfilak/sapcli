@@ -93,7 +93,8 @@ class Connection:
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self, host, client, user, password, port=None, ssl=True, verify=True):
+    def __init__(self, host, client, user, password=None, port=None, ssl=True, verify=True,
+                 auth=None):
         """Parameters:
             - host: string host name
             - client: string SAP client
@@ -124,7 +125,7 @@ class Connection:
         self._base_url = f'{protocol}://{host}:{port}/{self._adt_uri}'
         self._query_args = f'sap-client={client}&saml2=disabled'
         self._user = user
-        self._auth = HTTPBasicAuth(user, password)
+        self._auth = auth if auth else HTTPBasicAuth(user, password)
         self._session = None
         self._collection_types = None
         self._timeout = config_get('http_timeout')
