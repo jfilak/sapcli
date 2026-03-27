@@ -6,8 +6,9 @@ import tempfile
 import unittest
 import warnings
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
+import requests
 import yaml
 
 import sap.config
@@ -18,6 +19,10 @@ from sap.config import (
     _check_file_permissions,
     _has_passwords,
     _load_config_file,
+    _validate_config_data,
+    merge_into,
+    fetch_config_source,
+    MERGEABLE_SECTIONS,
 )
 
 
@@ -833,6 +838,429 @@ class TestConfigFileLoadWithPermissions(unittest.TestCase):
                 warnings.simplefilter('always')
                 ConfigFile.load(tmp_path)
                 self.assertFalse(any('world-readable' in str(warning.message) for warning in w))
+        finally:
+            os.unlink(tmp_path)
+
+
+class TestValidateConfigData(unittest.TestCase):
+
+    def test_valid_data(self):
+        _validate_config_data(SAMPLE_CONFIG, 'test')
+
+    def test_empty_dict(self):
+        _validate_config_data({}, 'test')
+
+    def test_not_a_dict(self):
+        with self.assertRaises(SAPCliConfigError) as cm:
+            _validate_config_data('not-a-dict', 'Source')
+        self.assertIn('Source', str(cm.exception))
+        self.assertIn('valid YAML mapping', str(cm.exception))
+
+    def test_list_raises(self):
+        with self.assertRaises(SAPCliConfigError) as cm:
+            _validate_config_data(['a', 'b'], 'Source')
+        self.assertIn('valid YAML mapping', str(cm.exception))
+
+    def test_connections_not_dict(self):
+        with self.assertRaises(SAPCliConfigError) as cm:
+            _validate_config_data({'connections': 'bad'}, 'Source')
+        self.assertIn('connections', str(cm.exception))
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_users_not_dict(self):
+        with self.assertRaises(SAPCliConfigError) as cm:
+            _validate_config_data({'users': ['a']}, 'Source')
+        self.assertIn('users', str(cm.exception))
+
+    def test_contexts_not_dict(self):
+        with self.assertRaises(SAPCliConfigError) as cm:
+            _validate_config_data({'contexts': 42}, 'Source')
+        self.assertIn('contexts', str(cm.exception))
+
+    def test_missing_sections_are_ok(self):
+        _validate_config_data({'current-context': 'dev'}, 'test')
+
+
+class TestMergeInto(unittest.TestCase):
+
+    def _make_target(self, data=None):
+        if data is None:
+            data = {}
+        return ConfigFile(data, TEST_CONFIG_PATH)
+
+    def test_merge_into_empty_target(self):
+        target = self._make_target()
+        source = {
+            'connections': {'srv': {'ashost': 'host', 'client': '100'}},
+            'users': {'usr': {'user': 'DEV'}},
+            'contexts': {'ctx': {'connection': 'srv', 'user': 'usr'}},
+        }
+        summary = merge_into(target, source)
+
+        self.assertEqual(target.data['connections']['srv']['ashost'], 'host')
+        self.assertEqual(target.data['users']['usr']['user'], 'DEV')
+        self.assertEqual(target.data['contexts']['ctx']['connection'], 'srv')
+        self.assertEqual(summary['added']['connections'], ['srv'])
+        self.assertEqual(summary['added']['users'], ['usr'])
+        self.assertEqual(summary['added']['contexts'], ['ctx'])
+        self.assertEqual(summary['skipped']['connections'], [])
+        self.assertEqual(summary['skipped']['users'], [])
+        self.assertEqual(summary['skipped']['contexts'], [])
+
+    def test_merge_empty_source(self):
+        target = self._make_target({
+            'connections': {'srv': {'ashost': 'host'}},
+        })
+        summary = merge_into(target, {})
+
+        self.assertEqual(target.data['connections']['srv']['ashost'], 'host')
+        for section in MERGEABLE_SECTIONS:
+            self.assertEqual(summary['added'][section], [])
+            self.assertEqual(summary['skipped'][section], [])
+
+    def test_merge_connections_no_overlap(self):
+        target = self._make_target({
+            'connections': {'srv1': {'ashost': 'host1'}},
+        })
+        source = {'connections': {'srv2': {'ashost': 'host2'}}}
+        summary = merge_into(target, source)
+
+        self.assertIn('srv1', target.data['connections'])
+        self.assertIn('srv2', target.data['connections'])
+        self.assertEqual(summary['added']['connections'], ['srv2'])
+        self.assertEqual(summary['skipped']['connections'], [])
+
+    def test_merge_connections_overlap_no_overwrite(self):
+        target = self._make_target({
+            'connections': {'srv': {'ashost': 'original'}},
+        })
+        source = {'connections': {'srv': {'ashost': 'new'}}}
+        summary = merge_into(target, source, overwrite=False)
+
+        self.assertEqual(target.data['connections']['srv']['ashost'], 'original')
+        self.assertEqual(summary['skipped']['connections'], ['srv'])
+        self.assertEqual(summary['added']['connections'], [])
+
+    def test_merge_connections_overlap_overwrite(self):
+        target = self._make_target({
+            'connections': {'srv': {'ashost': 'original'}},
+        })
+        source = {'connections': {'srv': {'ashost': 'new'}}}
+        summary = merge_into(target, source, overwrite=True)
+
+        self.assertEqual(target.data['connections']['srv']['ashost'], 'new')
+        self.assertEqual(summary['added']['connections'], ['srv'])
+        self.assertEqual(summary['skipped']['connections'], [])
+
+    def test_merge_users_no_overlap(self):
+        target = self._make_target({
+            'users': {'usr1': {'user': 'A'}},
+        })
+        source = {'users': {'usr2': {'user': 'B'}}}
+        summary = merge_into(target, source)
+
+        self.assertIn('usr1', target.data['users'])
+        self.assertIn('usr2', target.data['users'])
+        self.assertEqual(summary['added']['users'], ['usr2'])
+
+    def test_merge_users_overlap_no_overwrite(self):
+        target = self._make_target({
+            'users': {'usr': {'user': 'ORIGINAL'}},
+        })
+        source = {'users': {'usr': {'user': 'NEW'}}}
+        summary = merge_into(target, source, overwrite=False)
+
+        self.assertEqual(target.data['users']['usr']['user'], 'ORIGINAL')
+        self.assertEqual(summary['skipped']['users'], ['usr'])
+
+    def test_merge_users_overlap_overwrite(self):
+        target = self._make_target({
+            'users': {'usr': {'user': 'ORIGINAL'}},
+        })
+        source = {'users': {'usr': {'user': 'NEW'}}}
+        summary = merge_into(target, source, overwrite=True)
+
+        self.assertEqual(target.data['users']['usr']['user'], 'NEW')
+        self.assertEqual(summary['added']['users'], ['usr'])
+
+    def test_merge_contexts_no_overlap(self):
+        target = self._make_target({
+            'contexts': {'ctx1': {'connection': 'srv1', 'user': 'usr1'}},
+        })
+        source = {'contexts': {'ctx2': {'connection': 'srv2', 'user': 'usr2'}}}
+        summary = merge_into(target, source)
+
+        self.assertIn('ctx1', target.data['contexts'])
+        self.assertIn('ctx2', target.data['contexts'])
+        self.assertEqual(summary['added']['contexts'], ['ctx2'])
+
+    def test_merge_contexts_overlap_no_overwrite(self):
+        target = self._make_target({
+            'contexts': {'ctx': {'connection': 'srv1', 'user': 'usr1'}},
+        })
+        source = {'contexts': {'ctx': {'connection': 'srv2', 'user': 'usr2'}}}
+        summary = merge_into(target, source, overwrite=False)
+
+        self.assertEqual(target.data['contexts']['ctx']['connection'], 'srv1')
+        self.assertEqual(summary['skipped']['contexts'], ['ctx'])
+
+    def test_merge_contexts_overlap_overwrite(self):
+        target = self._make_target({
+            'contexts': {'ctx': {'connection': 'srv1', 'user': 'usr1'}},
+        })
+        source = {'contexts': {'ctx': {'connection': 'srv2', 'user': 'usr2'}}}
+        summary = merge_into(target, source, overwrite=True)
+
+        self.assertEqual(target.data['contexts']['ctx']['connection'], 'srv2')
+        self.assertEqual(summary['added']['contexts'], ['ctx'])
+
+    def test_merge_all_sections_combined(self):
+        target = self._make_target({
+            'connections': {'existing-srv': {'ashost': 'old'}},
+            'users': {'existing-usr': {'user': 'OLD'}},
+            'contexts': {'existing-ctx': {'connection': 'existing-srv', 'user': 'existing-usr'}},
+        })
+        source = {
+            'connections': {
+                'existing-srv': {'ashost': 'new'},
+                'new-srv': {'ashost': 'new-host'},
+            },
+            'users': {
+                'new-usr': {'user': 'NEW'},
+            },
+            'contexts': {
+                'new-ctx': {'connection': 'new-srv', 'user': 'new-usr'},
+            },
+        }
+        summary = merge_into(target, source)
+
+        self.assertEqual(target.data['connections']['existing-srv']['ashost'], 'old')
+        self.assertEqual(target.data['connections']['new-srv']['ashost'], 'new-host')
+        self.assertEqual(summary['added']['connections'], ['new-srv'])
+        self.assertEqual(summary['skipped']['connections'], ['existing-srv'])
+        self.assertEqual(summary['added']['users'], ['new-usr'])
+        self.assertEqual(summary['added']['contexts'], ['new-ctx'])
+
+    def test_merge_preserves_current_context(self):
+        target = self._make_target({
+            'current-context': 'my-ctx',
+            'connections': {},
+            'users': {},
+            'contexts': {},
+        })
+        source = {
+            'current-context': 'other-ctx',
+            'connections': {'srv': {'ashost': 'host'}},
+        }
+        merge_into(target, source)
+
+        self.assertEqual(target.data['current-context'], 'my-ctx')
+
+    def test_merge_creates_missing_sections(self):
+        target = self._make_target({'current-context': 'dev'})
+        source = {
+            'connections': {'srv': {'ashost': 'host'}},
+            'users': {'usr': {'user': 'DEV'}},
+            'contexts': {'ctx': {'connection': 'srv', 'user': 'usr'}},
+        }
+        merge_into(target, source)
+
+        self.assertIn('connections', target.data)
+        self.assertIn('users', target.data)
+        self.assertIn('contexts', target.data)
+
+    def test_merge_invalid_source_not_dict(self):
+        target = self._make_target()
+        with self.assertRaises(SAPCliConfigError) as cm:
+            merge_into(target, 'not-a-dict')
+        self.assertIn('valid YAML mapping', str(cm.exception))
+
+    def test_merge_invalid_source_section_not_dict(self):
+        target = self._make_target()
+        with self.assertRaises(SAPCliConfigError) as cm:
+            merge_into(target, {'connections': 'bad'})
+        self.assertIn('connections', str(cm.exception))
+
+
+class TestFetchConfigSource(unittest.TestCase):
+
+    def test_fetch_local_file(self):
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            yaml.dump(SAMPLE_CONFIG, tmp)
+            tmp_path = tmp.name
+
+        try:
+            data = fetch_config_source(tmp_path)
+            self.assertEqual(data['current-context'], 'dev')
+            self.assertIn('connections', data)
+        finally:
+            os.unlink(tmp_path)
+
+    def test_fetch_local_file_not_found(self):
+        with self.assertRaises(SAPCliConfigError) as cm:
+            fetch_config_source('/nonexistent/file.yml')
+        self.assertIn('not found', str(cm.exception))
+
+    def test_fetch_https_url(self):
+        yaml_content = yaml.dump(SAMPLE_CONFIG)
+        mock_response = Mock()
+        mock_response.text = yaml_content
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response) as mock_get:
+            data = fetch_config_source('https://config.example.com/config.yml')
+
+        mock_get.assert_called_once_with('https://config.example.com/config.yml', timeout=30, verify=True)
+        self.assertEqual(data['current-context'], 'dev')
+        self.assertIn('connections', data)
+
+    def test_fetch_https_url_network_error(self):
+        with patch('sap.config.requests.get', side_effect=requests.ConnectionError('refused')):
+            with self.assertRaises(SAPCliConfigError) as cm:
+                fetch_config_source('https://config.example.com/config.yml')
+        self.assertIn('Failed to fetch', str(cm.exception))
+
+    def test_fetch_https_url_http_error(self):
+        mock_response = Mock()
+        mock_response.raise_for_status.side_effect = requests.HTTPError('404 Not Found')
+
+        with patch('sap.config.requests.get', return_value=mock_response):
+            with self.assertRaises(SAPCliConfigError) as cm:
+                fetch_config_source('https://config.example.com/config.yml')
+        self.assertIn('Failed to fetch', str(cm.exception))
+
+    def test_fetch_https_url_invalid_yaml(self):
+        mock_response = Mock()
+        mock_response.text = 'invalid: yaml: content:\n  - :\n'
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response):
+            with self.assertRaises(SAPCliConfigError) as cm:
+                fetch_config_source('https://config.example.com/config.yml')
+        self.assertIn('Failed to parse', str(cm.exception))
+
+    def test_fetch_https_url_not_dict(self):
+        mock_response = Mock()
+        mock_response.text = '- item1\n- item2\n'
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response):
+            with self.assertRaises(SAPCliConfigError) as cm:
+                fetch_config_source('https://config.example.com/config.yml')
+        self.assertIn('valid YAML mapping', str(cm.exception))
+
+    def test_fetch_https_url_empty_response(self):
+        mock_response = Mock()
+        mock_response.text = ''
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response):
+            data = fetch_config_source('https://config.example.com/config.yml')
+        self.assertEqual(data, {})
+
+    def test_fetch_http_url_rejected(self):
+        with self.assertRaises(SAPCliConfigError) as cm:
+            fetch_config_source('http://config.example.com/config.yml')
+        self.assertIn('Plain HTTP is not allowed', str(cm.exception))
+        self.assertIn('HTTPS', str(cm.exception))
+        self.assertIn('--insecure', str(cm.exception))
+
+    def test_fetch_http_url_with_insecure(self):
+        yaml_content = yaml.dump({'connections': {'srv': {'ashost': 'host'}}})
+        mock_response = Mock()
+        mock_response.text = yaml_content
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response) as mock_get:
+            data = fetch_config_source('http://config.example.com/config.yml', insecure=True)
+
+        # HTTP with insecure=True always passes verify=True (no SSL to verify)
+        mock_get.assert_called_once_with('http://config.example.com/config.yml', timeout=30, verify=True)
+        self.assertIn('srv', data['connections'])
+
+    def test_fetch_https_url_skip_ssl_verify(self):
+        yaml_content = yaml.dump({'connections': {'srv': {'ashost': 'host'}}})
+        mock_response = Mock()
+        mock_response.text = yaml_content
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response) as mock_get:
+            data = fetch_config_source('https://config.example.com/config.yml', ssl_verify=False)
+
+        mock_get.assert_called_once_with('https://config.example.com/config.yml', timeout=30, verify=False)
+        self.assertIn('srv', data['connections'])
+
+    def test_fetch_https_url_ssl_verify_default_true(self):
+        yaml_content = yaml.dump({'connections': {'srv': {'ashost': 'host'}}})
+        mock_response = Mock()
+        mock_response.text = yaml_content
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response) as mock_get:
+            data = fetch_config_source('https://config.example.com/config.yml')
+
+        mock_get.assert_called_once_with('https://config.example.com/config.yml', timeout=30, verify=True)
+        self.assertIn('srv', data['connections'])
+
+    def test_fetch_http_url_insecure_ignores_ssl_verify(self):
+        """When insecure=True and ssl_verify=False, HTTP requests still use verify=True."""
+        yaml_content = yaml.dump({'connections': {'srv': {'ashost': 'host'}}})
+        mock_response = Mock()
+        mock_response.text = yaml_content
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response) as mock_get:
+            data = fetch_config_source('http://config.example.com/config.yml',
+                                       insecure=True, ssl_verify=False)
+
+        # ssl_verify is irrelevant for HTTP; always passes verify=True
+        mock_get.assert_called_once_with('http://config.example.com/config.yml', timeout=30, verify=True)
+        self.assertIn('srv', data['connections'])
+
+    def test_fetch_warns_passwords_in_local_source(self):
+        data_with_password = {
+            'users': {'usr': {'user': 'DEV', 'password': 'secret'}},
+        }
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            yaml.dump(data_with_password, tmp)
+            tmp_path = tmp.name
+
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                fetch_config_source(tmp_path)
+                self.assertTrue(any('passwords' in str(warning.message).lower() for warning in w))
+        finally:
+            os.unlink(tmp_path)
+
+    def test_fetch_warns_passwords_in_remote_source(self):
+        data_with_password = {
+            'users': {'usr': {'user': 'DEV', 'password': 'secret'}},
+        }
+        mock_response = Mock()
+        mock_response.text = yaml.dump(data_with_password)
+        mock_response.raise_for_status = Mock()
+
+        with patch('sap.config.requests.get', return_value=mock_response):
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                fetch_config_source('https://config.example.com/config.yml')
+                self.assertTrue(any('passwords' in str(warning.message).lower() for warning in w))
+
+    def test_fetch_no_warning_without_passwords(self):
+        data_no_password = {
+            'connections': {'srv': {'ashost': 'host'}},
+            'users': {'usr': {'user': 'DEV'}},
+        }
+        with tempfile.NamedTemporaryFile(suffix='.yml', mode='w', delete=False) as tmp:
+            yaml.dump(data_no_password, tmp)
+            tmp_path = tmp.name
+
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                fetch_config_source(tmp_path)
+                self.assertFalse(any('passwords' in str(warning.message).lower() for warning in w))
         finally:
             os.unlink(tmp_path)
 
