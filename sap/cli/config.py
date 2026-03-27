@@ -3,7 +3,7 @@
 import yaml
 
 import sap.cli.core
-from sap.config import ConfigFile
+from sap.config import ConfigFile, MERGEABLE_SECTIONS, fetch_config_source, merge_into
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -104,5 +104,51 @@ def get_contexts(_, args):
         connection = ctx.get('connection', '')
         user = ctx.get('user', '')
         console.printout(f'{marker} {name:<20s} {connection:<20s} {user}')
+
+    return 0
+
+
+@CommandGroup.argument('--insecure', action='store_true', default=False,
+                       help='Allow plain HTTP source URLs (not recommended)')
+@CommandGroup.argument('--overwrite', action='store_true', default=False,
+                       help='Overwrite existing entries with source values')
+@CommandGroup.argument('--source', required=True,
+                       help='Path or HTTPS URL to the source configuration file')
+@CommandGroup.command()
+def merge(_, args):
+    """Merge a source configuration into the user config"""
+
+    console = sap.cli.core.get_console()
+
+    # --skip-ssl-validation is a global flag (dest='verify', store_false,
+    # default=None). Treat None as True (verify by default).
+    ssl_verify = getattr(args, 'verify', None)
+    if ssl_verify is None:
+        ssl_verify = True
+
+    source_data = fetch_config_source(args.source, insecure=args.insecure,
+                                      ssl_verify=ssl_verify)
+
+    config_file = _get_config_file(args)
+
+    summary = merge_into(config_file, source_data, overwrite=args.overwrite)
+
+    config_file.save()
+
+    has_changes = False
+    for section in MERGEABLE_SECTIONS:
+        added = summary['added'][section]
+        if added:
+            has_changes = True
+            console.printout(f'Added {section}: {", ".join(added)}')
+
+    for section in MERGEABLE_SECTIONS:
+        skipped = summary['skipped'][section]
+        if skipped:
+            has_changes = True
+            console.printout(f'Skipped {section} (already exist): {", ".join(skipped)}')
+
+    if not has_changes:
+        console.printout('Nothing to merge.')
 
     return 0

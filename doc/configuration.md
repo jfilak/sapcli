@@ -270,7 +270,56 @@ sapcli config use-context prod
 
 # List available contexts
 sapcli config get-contexts
+
+# Merge a shared configuration file into your config
+sapcli config merge --source /shared/team-connections.yml
+
+# Merge from an HTTPS URL
+sapcli config merge --source https://config.company.com/sapcli/common.yml
+
+# Merge and overwrite existing entries
+sapcli config merge --source /shared/team-connections.yml --overwrite
+
+# Merge from an HTTP URL (not recommended)
+sapcli config merge --source http://internal-server/config.yml --insecure
+
+# Merge from HTTPS without certificate validation (e.g. self-signed cert)
+sapcli --skip-ssl-validation config merge --source https://internal-server/config.yml
 ```
+
+### Merging configuration files
+
+The `merge` command allows you to incorporate connection details from a shared
+configuration file into your personal config. This is useful for onboarding
+new users or distributing common system connection details across a team.
+
+**Merge semantics:**
+
+- The `connections`, `users`, and `contexts` sections are merged additively.
+- Existing entries with the same name are **not overwritten** by default. Your
+  personal config always wins. Use `--overwrite` to replace existing entries.
+- Your `current-context` is never changed by the merge.
+- The command prints a summary of what was added and what was skipped.
+
+**Source types:**
+
+- **Local file path**: any file path on the local filesystem.
+- **HTTPS URL**: a remote configuration file served over HTTPS. Plain HTTP
+  is rejected for security reasons.
+
+**Security notes:**
+
+- Shared configuration files should not contain passwords. The command will
+  warn if the source file contains credentials.
+- Remote sources must use HTTPS. Plain HTTP URLs are rejected unless
+  `--insecure` is passed, which should only be used for trusted internal
+  networks.
+- For HTTPS servers with self-signed certificates or CA trust issues (common
+  on Windows), use the global `--skip-ssl-validation` flag to skip certificate
+  verification:
+  ```bash
+  sapcli --skip-ssl-validation config merge --source https://internal-server/config.yml
+  ```
 
 ## Context selection precedence
 

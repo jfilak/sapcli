@@ -6,6 +6,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Optional
 
+import requests
 import yaml
 
 from sap.errors import SAPCliError
@@ -337,6 +338,143 @@ class ConfigFile:
             ) from ex
 
         self._path = save_path
+
+
+MERGEABLE_SECTIONS = ('connections', 'users', 'contexts')
+
+
+def _validate_config_data(data, label: str) -> None:
+    """Validate that data is a dict with dict-valued mergeable sections."""
+
+    if not isinstance(data, dict):
+        raise SAPCliConfigError(
+            f'{label} does not contain a valid YAML mapping'
+        )
+
+    for section in MERGEABLE_SECTIONS:
+        value = data.get(section)
+        if value is not None and not isinstance(value, dict):
+            raise SAPCliConfigError(
+                f'{label} section \'{section}\' is not a valid mapping'
+            )
+
+
+def merge_into(target: 'ConfigFile', source_data: dict,
+               overwrite: bool = False) -> dict:
+    """Merge source config data into target ConfigFile.
+
+    Merges the connections, users, and contexts sections additively.
+    Returns a summary dict with 'added' and 'skipped' keys, each
+    mapping section names to lists of entry names.
+    """
+
+    _validate_config_data(source_data, 'Source configuration')
+
+    summary = {
+        'added': {s: [] for s in MERGEABLE_SECTIONS},
+        'skipped': {s: [] for s in MERGEABLE_SECTIONS},
+    }
+
+    for section in MERGEABLE_SECTIONS:
+        source_section = source_data.get(section, {})
+        if not source_section:
+            continue
+
+        if section not in target.data:
+            target.data[section] = {}
+
+        target_section = target.data[section]
+
+        for name, value in source_section.items():
+            if name in target_section and not overwrite:
+                summary['skipped'][section].append(name)
+            else:
+                target_section[name] = value
+                summary['added'][section].append(name)
+
+    return summary
+
+
+def fetch_config_source(source: str, insecure: bool = False,
+                        ssl_verify: bool = True) -> dict:
+    """Load config data from a local file path or HTTPS/HTTP URL.
+
+    Raises SAPCliConfigError on errors (network, parsing, validation).
+    Plain HTTP URLs are rejected unless insecure=True.
+    When ssl_verify=False, HTTPS certificate validation is skipped.
+    """
+
+    if source.startswith('http://'):
+        if not insecure:
+            raise SAPCliConfigError(
+                f'Plain HTTP is not allowed for security reasons: {source}\n'
+                'Use HTTPS or pass --insecure to allow plain HTTP.'
+            )
+        return _fetch_config_from_url(source, ssl_verify=True)
+
+    if source.startswith('https://'):
+        return _fetch_config_from_url(source, ssl_verify=ssl_verify)
+
+    return _fetch_config_from_path(source)
+
+
+def _fetch_config_from_url(url: str, ssl_verify: bool = True) -> dict:
+    """Fetch and parse config data from an HTTP(S) URL."""
+
+    try:
+        response = requests.get(url, timeout=30, verify=ssl_verify)
+        response.raise_for_status()
+    except requests.RequestException as ex:
+        raise SAPCliConfigError(
+            f'Failed to fetch configuration from {url}: {ex}'
+        ) from ex
+
+    try:
+        data = yaml.safe_load(response.text)
+    except yaml.YAMLError as ex:
+        raise SAPCliConfigError(
+            f'Failed to parse configuration from {url}: {ex}'
+        ) from ex
+
+    if data is None:
+        data = {}
+
+    _validate_config_data(data, f'Remote configuration {url}')
+
+    if _has_passwords(data):
+        warnings.warn(
+            f'Source configuration from {url} contains passwords. '
+            'Shared configuration files should not contain credentials.',
+            UserWarning,
+            stacklevel=2
+        )
+
+    return data
+
+
+def _fetch_config_from_path(source: str) -> dict:
+    """Load and parse config data from a local file path."""
+
+    path = Path(source).expanduser()
+
+    if not path.is_file():
+        raise SAPCliConfigError(
+            f'Source configuration file not found: {path}'
+        )
+
+    data = _load_config_file(path)
+
+    _validate_config_data(data, f'Source configuration {path}')
+
+    if _has_passwords(data):
+        warnings.warn(
+            f'Source configuration file {path} contains passwords. '
+            'Shared configuration files should not contain credentials.',
+            UserWarning,
+            stacklevel=2
+        )
+
+    return data
 
 
 def config_get(option: str, default: Any = None) -> Any:
