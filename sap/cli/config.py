@@ -47,11 +47,21 @@ def current_context(_, args):
     config_file = _get_config_file(args)
     console = sap.cli.core.get_console()
 
-    context_name = getattr(args, 'name', None) or config_file.current_context
-
-    if context_name is None:
-        console.printerr('No current context is set.')
+    if not config_file.data:
+        console.printerr('No configuration file found.')
         return 1
+
+    context_name = getattr(args, 'name', None)
+
+    if context_name is not None:
+        if context_name not in config_file.contexts:
+            console.printerr(f'Context \'{context_name}\' not found in configuration file.')
+            return 1
+    else:
+        context_name = config_file.current_context
+        if context_name is None:
+            console.printerr('No current context is set.')
+            return 1
 
     console.printout(context_name)
 

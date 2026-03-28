@@ -143,7 +143,21 @@ class TestConfigCurrentContext(unittest.TestCase):
             retval = sap.cli.config.current_context(None, args)
 
         self.assertEqual(retval, 1)
-        console.printerr.assert_called_once_with('No current context is set.')
+        console.printerr.assert_called_once_with('No configuration file found.')
+
+    def test_current_context_with_nonexistent_name_arg(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='nonexistent')
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.current_context(None, args)
+
+            self.assertEqual(retval, 1)
+            console.printerr.assert_called_once_with(
+                "Context 'nonexistent' not found in configuration file.")
+        finally:
+            os.unlink(path)
 
 
 class TestConfigUseContext(unittest.TestCase):
