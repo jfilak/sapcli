@@ -318,7 +318,7 @@ def checkout_function_group(connection, name, destdir=None, source_format=Source
             sap.cli.core.printout(f'Skipping system generated "UXX" function group include: {obj.name}.')
             continue
 
-        if obj.typ == 'FUGR/FF':
+        if obj.typ == sap.adt.FunctionModule.OBJTYPE.code:
             adt_obj = sap.adt.FunctionModule(funcgrp.connection, obj.name, funcgrp.name)
             function_modules.append(adt_obj)
             if source_format == SourceCodeFormat.ABAPGIT:
@@ -327,7 +327,7 @@ def checkout_function_group(connection, name, destdir=None, source_format=Source
             else:
                 download_abap_source(funcgrp.name, adt_obj, f'.fugr.{adt_obj.name}', destdir=destdir)
 
-        elif obj.typ in ('FUGR/I', 'FUGR/PX'):
+        elif obj.typ in (sap.adt.FunctionInclude.OBJTYPE.code, 'FUGR/PX'):
             adt_obj = checkout_function_include(obj.name, funcgrp, destdir=destdir)
             includes.append(adt_obj)
             download_abap_source(funcgrp.name, adt_obj, f'.fugr.{adt_obj.name}', destdir=destdir)
@@ -360,10 +360,10 @@ def checkout_objects(connection, objects, destdir=None):
 
     # This could be a global variable but it breaks mock patching in tests
     checkouters = {
-        'PROG/P': checkout_program,
-        'CLAS/OC': checkout_class,
-        'INTF/OI': checkout_interface,
-        'FUGR/F': checkout_function_group,
+        sap.adt.Program.OBJTYPE.code: checkout_program,
+        sap.adt.Class.OBJTYPE.code: checkout_class,
+        sap.adt.Interface.OBJTYPE.code: checkout_interface,
+        sap.adt.FunctionGroup.OBJTYPE.code: checkout_function_group,
     }
 
     if not os.path.isdir(destdir):

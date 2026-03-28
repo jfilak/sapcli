@@ -552,7 +552,10 @@ class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_include_2.connection.get_text = Mock(return_value='Include 2 source code.')
         self.fake_include_2.description = 'Test include 2 description.'
         self.includes = [self.fake_include_1, self.fake_include_2]
+
+        includeObjtype = sap.adt.FunctionInclude.OBJTYPE
         fake_fun_include_class = self.patch('sap.adt.FunctionInclude')
+        fake_fun_include_class.OBJTYPE = includeObjtype
         fake_fun_include_class.side_effect = self.mock_include
 
         # Fake function modules must correspond to XMLs in fixtures
@@ -567,11 +570,13 @@ class TestCheckoutFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         self.fake_func_module_2.processing_type = 'rfc'
         self.fn_modules = [self.fake_func_module_1, self.fake_func_module_2]
 
+        moduleObjtype = sap.adt.FunctionModule.OBJTYPE
         fake_func_module_class = self.patch('sap.adt.FunctionModule')
+        fake_func_module_class.OBJTYPE = moduleObjtype
         fake_func_module_class.side_effect = self.mock_function_module
 
         fake_walk = MagicMock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/I', name=include.name) for include in self.includes]
-                                             + [SimpleNamespace(typ=sap.adt.FunctionModule.OBJTYPE.code, name=fn_module.name) for fn_module in self.fn_modules])])
+                                             + [SimpleNamespace(typ='FUGR/FF', name=fn_module.name) for fn_module in self.fn_modules])])
         self.fake_funcgrp.walk = fake_walk
 
     def setUp(self) -> None:
