@@ -329,6 +329,17 @@ class TestConfigFile(unittest.TestCase):
                     config = ConfigFile.load()
             self.assertEqual(config.data, {})
 
+    def test_load_malformed_section_raises_error(self):
+        """ConfigFile.load rejects configs where a section is not a mapping."""
+        path = self._create_config_file({'connections': ['not', 'a', 'dict']})
+        try:
+            with self.assertRaises(SAPCliConfigError) as cm:
+                ConfigFile.load(path)
+            self.assertIn('connections', str(cm.exception))
+            self.assertIn('not a valid mapping', str(cm.exception))
+        finally:
+            os.unlink(path)
+
     def test_current_context(self):
         config = ConfigFile(SAMPLE_CONFIG.copy(), TEST_CONFIG_PATH)
         self.assertEqual(config.current_context, 'dev')
