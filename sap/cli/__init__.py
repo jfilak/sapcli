@@ -124,7 +124,8 @@ def adt_connection_from_args(args):
 
     return sap.adt.Connection(
         args.ashost, args.client, args.user, args.password,
-        port=args.port, ssl=args.ssl, verify=args.verify)
+        port=args.port, ssl=args.ssl, verify=args.verify,
+        ssl_server_cert=args.ssl_server_cert)
 
 
 def rfc_connection_from_args(args):
@@ -153,7 +154,7 @@ def gcts_connection_from_args(args):
 
     return sap.rest.Connection('sap/bc/cts_abapvcs', 'system', args.ashost, args.client,
                                args.user, args.password, port=args.port, ssl=args.ssl,
-                               verify=args.verify)
+                               verify=args.verify, ssl_server_cert=args.ssl_server_cert)
 
 
 def odata_connection_from_args(service_name, args):
@@ -163,7 +164,7 @@ def odata_connection_from_args(service_name, args):
     import sap.odata
     return sap.odata.Connection(service_name, args.ashost, args.port,
                                 args.client, args.user, args.password, args.ssl,
-                                args.verify)
+                                args.verify, ssl_server_cert=args.ssl_server_cert)
 
 
 def no_connection(_args):
@@ -194,6 +195,7 @@ def build_empty_connection_values():
         port=None,
         ssl=None,
         verify=None,
+        ssl_server_cert=None,
         user=None,
         password=None,
     )
@@ -269,6 +271,9 @@ def resolve_default_connection_values(args):
             args.verify = _normalize_bool(config_values['ssl_verify'])
         else:
             args.verify = True
+
+    if not args.ssl_server_cert:
+        args.ssl_server_cert = os.getenv('SAP_SSL_SERVER_CERT') or config_values.get('ssl_server_cert')
 
     if not args.user:
         args.user = os.getenv('SAP_USER') or config_values.get('user')

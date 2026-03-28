@@ -384,5 +384,62 @@ class TestADTConnection(unittest.TestCase):
         self.assertIn('took more than', str(cm.exception))
 
 
+class TestADTConnectionSSLServerCert(unittest.TestCase):
+    """Test ssl_server_cert parameter wiring in ADT Connection."""
+
+    def test_ssl_server_cert_default_none(self):
+        connection = sap.adt.Connection('localhost', '357', 'user', 'pass')
+        self.assertIsNone(connection._ssl_server_cert)
+
+    def test_ssl_server_cert_stored(self):
+        connection = sap.adt.Connection('localhost', '357', 'user', 'pass',
+                                        ssl_server_cert='/path/to/ca.pem')
+        self.assertEqual(connection._ssl_server_cert, '/path/to/ca.pem')
+
+    @patch('sap.adt.core.Connection._build_adt_url', return_value='url')
+    @patch('sap.adt.core.Connection._execute_with_session')
+    def test_ssl_server_cert_sets_session_verify(self, mock_exec, mock_url):
+        """When ssl_server_cert is set, session.verify is the cert path."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'x-csrf-token': 'token123'}
+        mock_response.text = DISCOVERY_ADT_XML
+        mock_exec.return_value = mock_response
+
+        connection = sap.adt.Connection('localhost', '357', 'user', 'pass',
+                                        ssl_server_cert='/path/to/ca.pem')
+        session = connection._get_session()
+        self.assertEqual(session.verify, '/path/to/ca.pem')
+
+    @patch('sap.adt.core.Connection._build_adt_url', return_value='url')
+    @patch('sap.adt.core.Connection._execute_with_session')
+    def test_ssl_server_cert_none_verify_true(self, mock_exec, mock_url):
+        """Without ssl_server_cert, session.verify defaults to True."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'x-csrf-token': 'token123'}
+        mock_response.text = DISCOVERY_ADT_XML
+        mock_exec.return_value = mock_response
+
+        connection = sap.adt.Connection('localhost', '357', 'user', 'pass')
+        session = connection._get_session()
+        self.assertTrue(session.verify)
+
+    @patch('sap.adt.core.Connection._build_adt_url', return_value='url')
+    @patch('sap.adt.core.Connection._execute_with_session')
+    def test_ssl_server_cert_takes_precedence_over_verify_false(self, mock_exec, mock_url):
+        """ssl_server_cert takes precedence over verify=False."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'x-csrf-token': 'token123'}
+        mock_response.text = DISCOVERY_ADT_XML
+        mock_exec.return_value = mock_response
+
+        connection = sap.adt.Connection('localhost', '357', 'user', 'pass',
+                                        verify=False, ssl_server_cert='/path/to/ca.pem')
+        session = connection._get_session()
+        self.assertEqual(session.verify, '/path/to/ca.pem')
+
+
 if __name__ == '__main__':
     unittest.main()

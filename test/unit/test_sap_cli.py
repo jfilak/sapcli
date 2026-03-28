@@ -78,6 +78,7 @@ class TestConnection(unittest.TestCase):
         self.assertEqual(args.port, None)
         self.assertEqual(args.ssl, None)
         self.assertEqual(args.verify, None)
+        self.assertEqual(args.ssl_server_cert, None)
         self.assertEqual(args.user, None)
         self.assertEqual(args.password, None)
 
@@ -116,7 +117,8 @@ class TestResolveDefaultConnectionValuesWithConfigFile(unittest.TestCase):
         """Create a SimpleNamespace with all connection fields defaulted to None."""
         defaults = dict(
             ashost=None, sysnr=None, client=None, port=None,
-            ssl=None, verify=None, user=None, password=None,
+            ssl=None, verify=None, ssl_server_cert=None,
+            user=None, password=None,
         )
         defaults.update(kwargs)
         return SimpleNamespace(**defaults)
@@ -581,6 +583,76 @@ class TestResolveDefaultConnectionValuesWithConfigFile(unittest.TestCase):
             with self.assertRaises(SAPCliConfigError) as cm:
                 sap.cli.resolve_default_connection_values(args)
         self.assertIn('prodd', str(cm.exception))
+
+    def test_ssl_server_cert_from_config_file(self):
+        """Config file ssl_server_cert is used when CLI and env vars are not set."""
+        config_data = {
+            'current-context': 'dev',
+            'connections': {
+                'dev-server': {
+                    'ashost': 'host.example.com',
+                    'client': '100',
+                    'ssl_server_cert': '/path/to/ca.pem',
+                },
+            },
+            'users': {
+                'dev-user': {'user': 'USR', 'password': 'PWD'},
+            },
+            'contexts': {
+                'dev': {'connection': 'dev-server', 'user': 'dev-user'},
+            },
+        }
+        config_file = ConfigFile(config_data, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.ssl_server_cert, '/path/to/ca.pem')
+
+    def test_ssl_server_cert_env_overrides_config(self):
+        """SAP_SSL_SERVER_CERT env var takes precedence over config file."""
+        config_data = {
+            'current-context': 'dev',
+            'connections': {
+                'dev-server': {
+                    'ashost': 'host.example.com',
+                    'client': '100',
+                    'ssl_server_cert': '/path/from/config.pem',
+                },
+            },
+            'users': {
+                'dev-user': {'user': 'USR', 'password': 'PWD'},
+            },
+            'contexts': {
+                'dev': {'connection': 'dev-server', 'user': 'dev-user'},
+            },
+        }
+        config_file = ConfigFile(config_data, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {'SAP_SSL_SERVER_CERT': '/path/from/env.pem'}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.ssl_server_cert, '/path/from/env.pem')
+
+    def test_ssl_server_cert_cli_overrides_env(self):
+        """CLI --ssl-server-cert takes precedence over env var."""
+        args = self._make_args(ssl_server_cert='/path/from/cli.pem')
+
+        with patch.dict('os.environ', {'SAP_SSL_SERVER_CERT': '/path/from/env.pem'}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.ssl_server_cert, '/path/from/cli.pem')
+
+    def test_ssl_server_cert_none_when_not_set(self):
+        """ssl_server_cert stays None when not provided anywhere."""
+        args = self._make_args()
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIsNone(args.ssl_server_cert)
 
 
 class TestNoConnection(unittest.TestCase):

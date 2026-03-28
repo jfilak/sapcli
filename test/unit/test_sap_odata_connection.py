@@ -128,3 +128,52 @@ class TestConnection(unittest.TestCase):
 
         request_patch.assert_called_once()
         client_patch.assert_not_called()
+
+
+class TestConnectionSSLServerCert(unittest.TestCase):
+    """Test ssl_server_cert parameter wiring in OData Connection."""
+
+    @patch('pyodata.Client')
+    @patch('requests.Request')
+    @patch('requests.Session', return_value=Mock())
+    def test_ssl_server_cert_sets_session_verify(self, session_patch, request_patch, client_patch):
+        """When ssl_server_cert is set, session.verify is the cert path."""
+        response = Mock()
+        response.status_code = 200
+        response.headers.get = Mock(return_value='TOKEN')
+        session = session_patch.return_value
+        session.send = Mock(return_value=response)
+
+        con = Connection('SERVICE', 'HOST', 'PORT', 'CLIENT', 'USER', 'PASSWORD',
+                         True, True, ssl_server_cert='/path/to/ca.pem')
+        self.assertEqual(session.verify, '/path/to/ca.pem')
+
+    @patch('pyodata.Client')
+    @patch('requests.Request')
+    @patch('requests.Session', return_value=Mock())
+    def test_ssl_server_cert_none_uses_verify(self, session_patch, request_patch, client_patch):
+        """Without ssl_server_cert, session.verify follows the verify param."""
+        response = Mock()
+        response.status_code = 200
+        response.headers.get = Mock(return_value='TOKEN')
+        session = session_patch.return_value
+        session.send = Mock(return_value=response)
+
+        con = Connection('SERVICE', 'HOST', 'PORT', 'CLIENT', 'USER', 'PASSWORD',
+                         True, True)
+        self.assertEqual(session.verify, True)
+
+    @patch('pyodata.Client')
+    @patch('requests.Request')
+    @patch('requests.Session', return_value=Mock())
+    def test_ssl_server_cert_takes_precedence_over_verify_false(self, session_patch, request_patch, client_patch):
+        """ssl_server_cert takes precedence over verify=False."""
+        response = Mock()
+        response.status_code = 200
+        response.headers.get = Mock(return_value='TOKEN')
+        session = session_patch.return_value
+        session.send = Mock(return_value=response)
+
+        con = Connection('SERVICE', 'HOST', 'PORT', 'CLIENT', 'USER', 'PASSWORD',
+                         True, False, ssl_server_cert='/path/to/ca.pem')
+        self.assertEqual(session.verify, '/path/to/ca.pem')
