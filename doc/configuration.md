@@ -209,7 +209,6 @@ contexts:
 | `snc_myname` | string | no | - | `SNC_MYNAME` |
 | `snc_partnername` | string | no | - | `SNC_PARTNERNAME` |
 | `snc_lib` | string | no | - | `SNC_LIB` |
-| `http_timeout` | float | no | `900` | `SAPCLI_HTTP_TIMEOUT` |
 
 (*) Either `ashost` or `mshost` must be provided.
 
