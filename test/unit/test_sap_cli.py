@@ -412,6 +412,48 @@ class TestResolveDefaultConnectionValuesWithConfigFile(unittest.TestCase):
         self.assertEqual(args.snc_partnername, 'p:server@REALM')
         self.assertEqual(args.snc_lib, '/path/to/libsapcrypto.so')
 
+    def test_build_empty_connection_values_gets_extra_params_from_config(self):
+        """Extra params (mshost, snc_*) are applied even when args lacks those attributes."""
+        config_data = {
+            'current-context': 'dev',
+            'connections': {
+                'dev-server': {
+                    'ashost': 'dev-host.example.com',
+                    'client': '100',
+                    'mshost': 'msg-server.example.com',
+                    'msserv': '3600',
+                    'sysid': 'DEV',
+                    'group': 'PUBLIC',
+                    'snc_qop': '3',
+                    'snc_myname': 'p:client@REALM',
+                    'snc_partnername': 'p:server@REALM',
+                    'snc_lib': '/path/to/libsapcrypto.so',
+                },
+            },
+            'users': {
+                'dev-user': {'user': 'DEV_USER'},
+            },
+            'contexts': {
+                'dev': {'connection': 'dev-server', 'user': 'dev-user'},
+            },
+        }
+        config_file = ConfigFile(config_data, TEST_CONFIG_PATH)
+        # build_empty_connection_values does NOT include mshost, snc_*, etc.
+        args = sap.cli.build_empty_connection_values()
+        args.config_file = config_file
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.mshost, 'msg-server.example.com')
+        self.assertEqual(args.msserv, '3600')
+        self.assertEqual(args.sysid, 'DEV')
+        self.assertEqual(args.group, 'PUBLIC')
+        self.assertEqual(args.snc_qop, '3')
+        self.assertEqual(args.snc_myname, 'p:client@REALM')
+        self.assertEqual(args.snc_partnername, 'p:server@REALM')
+        self.assertEqual(args.snc_lib, '/path/to/libsapcrypto.so')
+
     def test_sapcli_context_env_selects_context(self):
         """SAPCLI_CONTEXT env var selects the active context."""
         config_data = {
