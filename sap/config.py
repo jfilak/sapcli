@@ -144,6 +144,8 @@ class ConfigFile:
 
         data = _load_config_file(path)
 
+        _validate_config_data(data, f'Configuration file {path}')
+
         if _has_passwords(data):
             _check_file_permissions(path)
 
