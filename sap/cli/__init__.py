@@ -321,7 +321,7 @@ def _apply_config_extra_params(args, config_values):
     }
 
     for param in extra_params:
-        if hasattr(args, param) and not getattr(args, param) and param in config_values:
+        if not getattr(args, param, None) and param in config_values:
             setattr(args, param, config_values[param])
 
 
