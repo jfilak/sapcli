@@ -563,6 +563,29 @@ class TestResolveDefaultConnectionValuesWithConfigFile(unittest.TestCase):
         self.assertIn('not-a-number', str(cm.exception))
         self.assertIn('integer', str(cm.exception))
 
+    def test_nonconvertible_config_port_raises_error(self):
+        """Config file port with a non-string/non-numeric value (e.g. None) must raise SAPCliConfigError."""
+        config_data = {
+            'current-context': 'dev',
+            'connections': {
+                'dev-server': {'ashost': 'host.example.com', 'port': None},
+            },
+            'users': {
+                'dev-user': {'user': 'DEV_USER'},
+            },
+            'contexts': {
+                'dev': {'connection': 'dev-server', 'user': 'dev-user'},
+            },
+        }
+        config_file = ConfigFile(config_data, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            with self.assertRaises(SAPCliConfigError) as cm:
+                sap.cli.resolve_default_connection_values(args)
+        self.assertIn('None', str(cm.exception))
+        self.assertIn('integer', str(cm.exception))
+
     def test_nonexistent_context_raises_error(self):
         """A misspelled or missing context must fail fast, not silently use defaults."""
         config_data = {

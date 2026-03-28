@@ -249,7 +249,7 @@ def resolve_default_connection_values(args):
         elif 'port' in config_values:
             try:
                 args.port = int(config_values['port'])
-            except ValueError as exc:
+            except (ValueError, TypeError) as exc:
                 raise SAPCliConfigError(f"Config port must be an integer, got: '{config_values['port']}'") from exc
         else:
             args.port = 443
