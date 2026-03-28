@@ -314,6 +314,149 @@ class ConfigFile:
 
         return result
 
+    def _ensure_section(self, section: str) -> dict:
+        """Ensure a top-level section exists and return it."""
+
+        if section not in self._data:
+            self._data[section] = {}
+
+        value = self._data[section]
+        if not isinstance(value, dict):
+            raise SAPCliConfigError(
+                f'Configuration \'{section}\' section is not a valid mapping'
+            )
+
+        return value
+
+    def set_connection(self, name: str, fields: dict) -> None:
+        """Create or merge-update a named connection.
+
+        If the connection exists, only the provided fields are updated
+        (merge/patch semantics). If it does not exist, a new entry is
+        created with the provided fields.
+        """
+
+        connections = self._ensure_section('connections')
+
+        if name in connections:
+            if not isinstance(connections[name], dict):
+                connections[name] = {}
+            connections[name].update(fields)
+        else:
+            connections[name] = dict(fields)
+
+    def set_user(self, name: str, fields: dict) -> None:
+        """Create or merge-update a named user."""
+
+        users = self._ensure_section('users')
+
+        if name in users:
+            if not isinstance(users[name], dict):
+                users[name] = {}
+            users[name].update(fields)
+        else:
+            users[name] = dict(fields)
+
+    def set_context(self, name: str, fields: dict) -> None:
+        """Create or merge-update a named context."""
+
+        contexts = self._ensure_section('contexts')
+
+        if name in contexts:
+            if not isinstance(contexts[name], dict):
+                contexts[name] = {}
+            contexts[name].update(fields)
+        else:
+            contexts[name] = dict(fields)
+
+    def find_referencing_contexts(self, section: str, name: str) -> list:
+        """Return a list of context names that reference the given
+        connection or user by name.
+
+        section must be 'connection' or 'user' (the key used inside
+        context definitions to reference the named entry).
+        """
+
+        if section not in ('connection', 'user'):
+            raise ValueError(
+                f"section must be 'connection' or 'user', got '{section}'"
+            )
+
+        contexts = self.contexts
+        if not isinstance(contexts, dict):
+            return []
+
+        refs = []
+        for ctx_name, ctx_def in contexts.items():
+            if isinstance(ctx_def, dict) and ctx_def.get(section) == name:
+                refs.append(ctx_name)
+
+        return refs
+
+    def delete_connection(self, name: str, force: bool = False) -> None:
+        """Delete a named connection.
+
+        Raises SAPCliConfigError if the connection does not exist or is
+        referenced by contexts (unless force=True).
+        """
+
+        connections = self.connections
+        if name not in connections:
+            raise SAPCliConfigError(
+                f'Connection \'{name}\' not found in configuration file'
+            )
+
+        if not force:
+            refs = self.find_referencing_contexts('connection', name)
+            if refs:
+                raise SAPCliConfigError(
+                    f'Cannot delete connection \'{name}\': '
+                    f'referenced by contexts: {", ".join(refs)}'
+                )
+
+        del self._data['connections'][name]
+
+    def delete_user(self, name: str, force: bool = False) -> None:
+        """Delete a named user.
+
+        Raises SAPCliConfigError if the user does not exist or is
+        referenced by contexts (unless force=True).
+        """
+
+        users = self.users
+        if name not in users:
+            raise SAPCliConfigError(
+                f'User \'{name}\' not found in configuration file'
+            )
+
+        if not force:
+            refs = self.find_referencing_contexts('user', name)
+            if refs:
+                raise SAPCliConfigError(
+                    f'Cannot delete user \'{name}\': '
+                    f'referenced by contexts: {", ".join(refs)}'
+                )
+
+        del self._data['users'][name]
+
+    def delete_context(self, name: str) -> None:
+        """Delete a named context.
+
+        Raises SAPCliConfigError if the context does not exist.
+        If current-context points to the deleted context, it is unset.
+        """
+
+        contexts = self.contexts
+        if name not in contexts:
+            raise SAPCliConfigError(
+                f'Context \'{name}\' not found in configuration file'
+            )
+
+        del self._data['contexts'][name]
+
+        if self.current_context == name:
+            del self._data['current-context']
+
     def save(self, path: Optional[Path] = None) -> None:
         """Save the configuration to file."""
 
@@ -372,7 +515,7 @@ def merge_into(target: 'ConfigFile', source_data: dict,
 
     _validate_config_data(source_data, 'Source configuration')
 
-    summary = {
+    summary: dict[str, dict[str, list[str]]] = {
         'added': {s: [] for s in MERGEABLE_SECTIONS},
         'skipped': {s: [] for s in MERGEABLE_SECTIONS},
     }

@@ -286,6 +286,64 @@ sapcli config merge --source http://internal-server/config.yml --insecure
 sapcli --skip-ssl-validation config merge --source https://internal-server/config.yml
 ```
 
+### Managing connections
+
+```bash
+# Create a new connection
+sapcli config set-connection dev-server --ashost dev.example.com --client 100 --port 443 --ssl
+
+# Update an existing connection (only specified fields change, others preserved)
+sapcli config set-connection dev-server --port 8443
+
+# List all connections
+sapcli config get-connections
+
+# Delete a connection (blocked if referenced by contexts)
+sapcli config delete-connection dev-server
+
+# Force delete even if referenced
+sapcli config delete-connection dev-server --force
+```
+
+### Managing users
+
+```bash
+# Create a new user
+sapcli config set-user dev-user --user DEVELOPER
+
+# Update a user (add or change password)
+sapcli config set-user dev-user --password secret
+
+# List all users
+sapcli config get-users
+
+# Delete a user (blocked if referenced by contexts)
+sapcli config delete-user dev-user
+
+# Force delete even if referenced
+sapcli config delete-user dev-user --force
+```
+
+### Managing contexts
+
+```bash
+# Create a context linking a connection and user
+sapcli config set-context dev --connection dev-server --user dev-user
+
+# Update a context with field overrides
+sapcli config set-context qa --connection dev-server --user dev-user --ashost qa.example.com
+
+# Add a password override to a context
+sapcli config set-context prod --password prod-secret
+
+# Delete a context (unsets current-context if it pointed here)
+sapcli config delete-context qa
+```
+
+All `set-*` commands use **upsert semantics**: they create the entry if it
+does not exist, or merge the provided fields into the existing entry. Fields
+not specified on the command line are preserved (patch/merge behavior).
+
 ### Merging configuration files
 
 The `merge` command allows you to incorporate connection details from a shared

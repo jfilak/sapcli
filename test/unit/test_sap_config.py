@@ -1276,5 +1276,264 @@ class TestFetchConfigSource(unittest.TestCase):
             os.unlink(tmp_path)
 
 
+class TestConfigFileSetConnection(unittest.TestCase):
+
+    def _make_config(self, data=None):
+        import copy
+        return ConfigFile(copy.deepcopy(data or SAMPLE_CONFIG), TEST_CONFIG_PATH)
+
+    def test_create_new_connection(self):
+        config = self._make_config()
+        config.set_connection('new-server', {'ashost': 'new.example.com', 'client': '300'})
+        self.assertIn('new-server', config.connections)
+        self.assertEqual(config.connections['new-server']['ashost'], 'new.example.com')
+        self.assertEqual(config.connections['new-server']['client'], '300')
+
+    def test_update_existing_connection_merges(self):
+        config = self._make_config()
+        config.set_connection('dev-server', {'port': 8443})
+        # Updated field
+        self.assertEqual(config.connections['dev-server']['port'], 8443)
+        # Original fields preserved
+        self.assertEqual(config.connections['dev-server']['ashost'], 'dev-system.example.com')
+        self.assertEqual(config.connections['dev-server']['client'], '100')
+
+    def test_create_connection_in_empty_config(self):
+        config = ConfigFile({}, TEST_CONFIG_PATH)
+        config.set_connection('srv', {'ashost': 'host.example.com'})
+        self.assertIn('srv', config.connections)
+        self.assertEqual(config.connections['srv']['ashost'], 'host.example.com')
+
+    def test_create_connection_when_section_missing(self):
+        config = ConfigFile({'current-context': 'dev'}, TEST_CONFIG_PATH)
+        config.set_connection('srv', {'ashost': 'host.example.com'})
+        self.assertIn('srv', config.connections)
+
+    def test_set_connection_malformed_section_raises(self):
+        config = ConfigFile({'connections': 'not-a-dict'}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.set_connection('srv', {'ashost': 'host'})
+        self.assertIn('not a valid mapping', str(cm.exception))
+
+    def test_update_connection_malformed_entry_replaces(self):
+        """If an existing entry is not a dict, it gets replaced."""
+        import copy
+        data = copy.deepcopy(SAMPLE_CONFIG)
+        data['connections']['bad-entry'] = 'not-a-dict'
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        config.set_connection('bad-entry', {'ashost': 'host'})
+        self.assertEqual(config.connections['bad-entry'], {'ashost': 'host'})
+
+
+class TestConfigFileSetUser(unittest.TestCase):
+
+    def _make_config(self, data=None):
+        import copy
+        return ConfigFile(copy.deepcopy(data or SAMPLE_CONFIG), TEST_CONFIG_PATH)
+
+    def test_create_new_user(self):
+        config = self._make_config()
+        config.set_user('new-user', {'user': 'NEWDEV'})
+        self.assertIn('new-user', config.users)
+        self.assertEqual(config.users['new-user']['user'], 'NEWDEV')
+
+    def test_update_existing_user_merges(self):
+        config = self._make_config()
+        config.set_user('dev-user', {'password': 'newpass'})
+        self.assertEqual(config.users['dev-user']['password'], 'newpass')
+        # Original field preserved
+        self.assertEqual(config.users['dev-user']['user'], 'DEVELOPER')
+
+    def test_create_user_in_empty_config(self):
+        config = ConfigFile({}, TEST_CONFIG_PATH)
+        config.set_user('usr', {'user': 'DEV'})
+        self.assertIn('usr', config.users)
+
+    def test_set_user_malformed_section_raises(self):
+        config = ConfigFile({'users': 'not-a-dict'}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError):
+            config.set_user('usr', {'user': 'DEV'})
+
+
+class TestConfigFileSetContext(unittest.TestCase):
+
+    def _make_config(self, data=None):
+        import copy
+        return ConfigFile(copy.deepcopy(data or SAMPLE_CONFIG), TEST_CONFIG_PATH)
+
+    def test_create_new_context(self):
+        config = self._make_config()
+        config.set_context('qa', {'connection': 'dev-server', 'user': 'dev-user'})
+        self.assertIn('qa', config.contexts)
+        self.assertEqual(config.contexts['qa']['connection'], 'dev-server')
+
+    def test_update_existing_context_merges(self):
+        config = self._make_config()
+        config.set_context('dev', {'ashost': 'override.example.com'})
+        # New override field added
+        self.assertEqual(config.contexts['dev']['ashost'], 'override.example.com')
+        # Original fields preserved
+        self.assertEqual(config.contexts['dev']['connection'], 'dev-server')
+        self.assertEqual(config.contexts['dev']['user'], 'dev-user')
+
+    def test_create_context_in_empty_config(self):
+        config = ConfigFile({}, TEST_CONFIG_PATH)
+        config.set_context('ctx', {'connection': 'srv', 'user': 'usr'})
+        self.assertIn('ctx', config.contexts)
+
+    def test_set_context_malformed_section_raises(self):
+        config = ConfigFile({'contexts': 'not-a-dict'}, TEST_CONFIG_PATH)
+        with self.assertRaises(SAPCliConfigError):
+            config.set_context('ctx', {'connection': 'srv'})
+
+
+class TestConfigFileFindReferencingContexts(unittest.TestCase):
+
+    def _make_config(self, data=None):
+        import copy
+        return ConfigFile(copy.deepcopy(data or SAMPLE_CONFIG), TEST_CONFIG_PATH)
+
+    def test_find_connection_references(self):
+        config = self._make_config()
+        refs = config.find_referencing_contexts('connection', 'dev-server')
+        self.assertEqual(refs, ['dev'])
+
+    def test_find_user_references(self):
+        config = self._make_config()
+        refs = config.find_referencing_contexts('user', 'dev-user')
+        self.assertEqual(refs, ['dev'])
+
+    def test_find_no_references(self):
+        config = self._make_config()
+        refs = config.find_referencing_contexts('connection', 'nonexistent')
+        self.assertEqual(refs, [])
+
+    def test_find_multiple_references(self):
+        import copy
+        data = copy.deepcopy(SAMPLE_CONFIG)
+        data['contexts']['qa'] = {'connection': 'dev-server', 'user': 'dev-user'}
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        refs = config.find_referencing_contexts('connection', 'dev-server')
+        self.assertIn('dev', refs)
+        self.assertIn('qa', refs)
+        self.assertEqual(len(refs), 2)
+
+    def test_find_refs_empty_contexts(self):
+        config = ConfigFile({}, TEST_CONFIG_PATH)
+        refs = config.find_referencing_contexts('connection', 'srv')
+        self.assertEqual(refs, [])
+
+    def test_find_refs_invalid_section_raises(self):
+        config = self._make_config()
+        with self.assertRaises(ValueError):
+            config.find_referencing_contexts('invalid', 'name')
+
+    def test_find_refs_skips_malformed_context_entries(self):
+        import copy
+        data = copy.deepcopy(SAMPLE_CONFIG)
+        data['contexts']['bad'] = 'not-a-dict'
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        refs = config.find_referencing_contexts('connection', 'dev-server')
+        self.assertEqual(refs, ['dev'])
+
+
+class TestConfigFileDeleteConnection(unittest.TestCase):
+
+    def _make_config(self, data=None):
+        import copy
+        return ConfigFile(copy.deepcopy(data or SAMPLE_CONFIG), TEST_CONFIG_PATH)
+
+    def test_delete_unreferenced_connection(self):
+        import copy
+        data = copy.deepcopy(SAMPLE_CONFIG)
+        data['connections']['standalone'] = {'ashost': 'alone.example.com'}
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        config.delete_connection('standalone')
+        self.assertNotIn('standalone', config.connections)
+
+    def test_delete_referenced_connection_blocked(self):
+        config = self._make_config()
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.delete_connection('dev-server')
+        self.assertIn('Cannot delete', str(cm.exception))
+        self.assertIn('dev-server', str(cm.exception))
+        self.assertIn('dev', str(cm.exception))
+        # Connection should still exist
+        self.assertIn('dev-server', config.connections)
+
+    def test_delete_referenced_connection_force(self):
+        config = self._make_config()
+        config.delete_connection('dev-server', force=True)
+        self.assertNotIn('dev-server', config.connections)
+
+    def test_delete_nonexistent_connection_raises(self):
+        config = self._make_config()
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.delete_connection('nonexistent')
+        self.assertIn('not found', str(cm.exception))
+
+
+class TestConfigFileDeleteUser(unittest.TestCase):
+
+    def _make_config(self, data=None):
+        import copy
+        return ConfigFile(copy.deepcopy(data or SAMPLE_CONFIG), TEST_CONFIG_PATH)
+
+    def test_delete_unreferenced_user(self):
+        import copy
+        data = copy.deepcopy(SAMPLE_CONFIG)
+        data['users']['standalone'] = {'user': 'ALONE'}
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        config.delete_user('standalone')
+        self.assertNotIn('standalone', config.users)
+
+    def test_delete_referenced_user_blocked(self):
+        config = self._make_config()
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.delete_user('dev-user')
+        self.assertIn('Cannot delete', str(cm.exception))
+        self.assertIn('dev-user', str(cm.exception))
+        self.assertIn('dev', str(cm.exception))
+        # User should still exist
+        self.assertIn('dev-user', config.users)
+
+    def test_delete_referenced_user_force(self):
+        config = self._make_config()
+        config.delete_user('dev-user', force=True)
+        self.assertNotIn('dev-user', config.users)
+
+    def test_delete_nonexistent_user_raises(self):
+        config = self._make_config()
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.delete_user('nonexistent')
+        self.assertIn('not found', str(cm.exception))
+
+
+class TestConfigFileDeleteContext(unittest.TestCase):
+
+    def _make_config(self, data=None):
+        import copy
+        return ConfigFile(copy.deepcopy(data or SAMPLE_CONFIG), TEST_CONFIG_PATH)
+
+    def test_delete_context(self):
+        config = self._make_config()
+        config.delete_context('prod')
+        self.assertNotIn('prod', config.contexts)
+        # current-context is 'dev', should be untouched
+        self.assertEqual(config.current_context, 'dev')
+
+    def test_delete_current_context_unsets_current(self):
+        config = self._make_config()
+        config.delete_context('dev')
+        self.assertNotIn('dev', config.contexts)
+        self.assertIsNone(config.current_context)
+
+    def test_delete_nonexistent_context_raises(self):
+        config = self._make_config()
+        with self.assertRaises(SAPCliConfigError) as cm:
+            config.delete_context('nonexistent')
+        self.assertIn('not found', str(cm.exception))
+
+
 if __name__ == '__main__':
     unittest.main()

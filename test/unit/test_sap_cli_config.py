@@ -266,6 +266,14 @@ class TestConfigCommandGroup(unittest.TestCase):
         self.assertIn('use-context', command_names)
         self.assertIn('get-contexts', command_names)
         self.assertIn('merge', command_names)
+        self.assertIn('set-connection', command_names)
+        self.assertIn('delete-connection', command_names)
+        self.assertIn('get-connections', command_names)
+        self.assertIn('set-user', command_names)
+        self.assertIn('delete-user', command_names)
+        self.assertIn('get-users', command_names)
+        self.assertIn('set-context', command_names)
+        self.assertIn('delete-context', command_names)
 
 
 SOURCE_CONFIG = {
@@ -518,6 +526,639 @@ class TestConfigMerge(unittest.TestCase):
                                                insecure=False, ssl_verify=True)
         finally:
             os.unlink(target_path)
+
+
+# ---------------------------------------------------------------------------
+# set-connection
+# ---------------------------------------------------------------------------
+
+class TestConfigSetConnection(unittest.TestCase):
+
+    def test_create_new_connection(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'config.yml')
+            args = SimpleNamespace(
+                config=path, name='new-srv',
+                ashost='new.example.com', client='100', port=443,
+                ssl=True, ssl_verify=None, ssl_server_cert=None,
+                sysnr=None, mshost=None, msserv=None, sysid=None,
+                group=None, snc_qop=None, snc_myname=None,
+                snc_partnername=None, snc_lib=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_connection(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Created connection 'new-srv'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertEqual(saved['connections']['new-srv']['ashost'], 'new.example.com')
+            self.assertEqual(saved['connections']['new-srv']['client'], '100')
+            self.assertEqual(saved['connections']['new-srv']['port'], 443)
+            self.assertTrue(saved['connections']['new-srv']['ssl'])
+
+    def test_update_existing_connection(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(
+                config=path, name='dev-server',
+                ashost=None, client=None, port=8443,
+                ssl=None, ssl_verify=None, ssl_server_cert=None,
+                sysnr=None, mshost=None, msserv=None, sysid=None,
+                group=None, snc_qop=None, snc_myname=None,
+                snc_partnername=None, snc_lib=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_connection(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Updated connection 'dev-server'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            # Updated field
+            self.assertEqual(saved['connections']['dev-server']['port'], 8443)
+            # Preserved original fields
+            self.assertEqual(saved['connections']['dev-server']['ashost'], 'dev-system.example.com')
+            self.assertEqual(saved['connections']['dev-server']['client'], '100')
+        finally:
+            os.unlink(path)
+
+    def test_no_fields_specified(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(
+                config=path, name='dev-server',
+                ashost=None, client=None, port=None,
+                ssl=None, ssl_verify=None, ssl_server_cert=None,
+                sysnr=None, mshost=None, msserv=None, sysid=None,
+                group=None, snc_qop=None, snc_myname=None,
+                snc_partnername=None, snc_lib=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_connection(None, args)
+
+            self.assertEqual(retval, 1)
+            console.printerr.assert_called_once_with('No connection fields specified.')
+        finally:
+            os.unlink(path)
+
+    def test_set_ssl_false(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'config.yml')
+            args = SimpleNamespace(
+                config=path, name='no-ssl-srv',
+                ashost='host.example.com', client=None, port=None,
+                ssl=False, ssl_verify=None, ssl_server_cert=None,
+                sysnr=None, mshost=None, msserv=None, sysid=None,
+                group=None, snc_qop=None, snc_myname=None,
+                snc_partnername=None, snc_lib=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_connection(None, args)
+
+            self.assertEqual(retval, 0)
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertFalse(saved['connections']['no-ssl-srv']['ssl'])
+
+
+# ---------------------------------------------------------------------------
+# delete-connection
+# ---------------------------------------------------------------------------
+
+class TestConfigDeleteConnection(unittest.TestCase):
+
+    def test_delete_unreferenced_connection(self):
+        data = {
+            'connections': {
+                'standalone': {'ashost': 'alone.example.com'},
+                'dev-server': {'ashost': 'dev.example.com'},
+            },
+            'users': {},
+            'contexts': {},
+        }
+        path = _create_config_file(data)
+        try:
+            args = SimpleNamespace(config=path, name='standalone', force=False)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.delete_connection(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Deleted connection 'standalone'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertNotIn('standalone', saved['connections'])
+            self.assertIn('dev-server', saved['connections'])
+        finally:
+            os.unlink(path)
+
+    def test_delete_referenced_connection_blocked(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='dev-server', force=False)
+            with self.assertRaises(sap.config.SAPCliConfigError) as cm:
+                sap.cli.config.delete_connection(None, args)
+            self.assertIn('Cannot delete', str(cm.exception))
+            self.assertIn('dev', str(cm.exception))
+        finally:
+            os.unlink(path)
+
+    def test_delete_referenced_connection_force(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='dev-server', force=True)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.delete_connection(None, args)
+
+            self.assertEqual(retval, 0)
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertNotIn('dev-server', saved['connections'])
+        finally:
+            os.unlink(path)
+
+    def test_delete_nonexistent_connection(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='nonexistent', force=False)
+            with self.assertRaises(sap.config.SAPCliConfigError) as cm:
+                sap.cli.config.delete_connection(None, args)
+            self.assertIn('not found', str(cm.exception))
+        finally:
+            os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# get-connections
+# ---------------------------------------------------------------------------
+
+class TestConfigGetConnections(unittest.TestCase):
+
+    def test_get_connections_with_data(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.get_connections(None, args)
+
+            self.assertEqual(retval, 0)
+            calls = console.printout.call_args_list
+            self.assertEqual(len(calls), 2)
+
+            all_output = ' '.join(str(c) for c in calls)
+            self.assertIn('dev-server', all_output)
+            self.assertIn('dev-system.example.com', all_output)
+            self.assertIn('prod-server', all_output)
+        finally:
+            os.unlink(path)
+
+    def test_get_connections_empty(self):
+        path = _create_config_file({'connections': {}, 'users': {}, 'contexts': {}})
+        try:
+            args = SimpleNamespace(config=path)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.get_connections(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with('No connections defined.')
+        finally:
+            os.unlink(path)
+
+    def test_get_connections_no_config(self):
+        args = SimpleNamespace(config='/nonexistent/config.yml')
+        console = MagicMock()
+        with patch('sap.cli.core.get_console', return_value=console):
+            retval = sap.cli.config.get_connections(None, args)
+
+        self.assertEqual(retval, 0)
+        console.printout.assert_called_once_with('No connections defined.')
+
+    def test_get_connections_shows_mshost_when_no_ashost(self):
+        data = {
+            'connections': {
+                'msg-server': {'mshost': 'msg.example.com', 'client': '100'},
+            },
+            'users': {},
+            'contexts': {},
+        }
+        path = _create_config_file(data)
+        try:
+            args = SimpleNamespace(config=path)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.get_connections(None, args)
+
+            self.assertEqual(retval, 0)
+            output = str(console.printout.call_args_list[0])
+            self.assertIn('msg.example.com', output)
+        finally:
+            os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# set-user
+# ---------------------------------------------------------------------------
+
+class TestConfigSetUser(unittest.TestCase):
+
+    def test_create_new_user(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'config.yml')
+            args = SimpleNamespace(
+                config=path, name='new-user',
+                user_value='NEWDEV', password=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_user(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Created user 'new-user'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertEqual(saved['users']['new-user']['user'], 'NEWDEV')
+
+    def test_update_existing_user(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(
+                config=path, name='dev-user',
+                user_value=None, password='newpass',
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_user(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Updated user 'dev-user'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertEqual(saved['users']['dev-user']['password'], 'newpass')
+            # Original field preserved
+            self.assertEqual(saved['users']['dev-user']['user'], 'DEVELOPER')
+        finally:
+            os.unlink(path)
+
+    def test_no_fields_specified(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(
+                config=path, name='dev-user',
+                user_value=None, password=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_user(None, args)
+
+            self.assertEqual(retval, 1)
+            console.printerr.assert_called_once_with('No user fields specified.')
+        finally:
+            os.unlink(path)
+
+    def test_create_user_with_both_fields(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'config.yml')
+            args = SimpleNamespace(
+                config=path, name='full-user',
+                user_value='ADMIN', password='secret',
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_user(None, args)
+
+            self.assertEqual(retval, 0)
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertEqual(saved['users']['full-user']['user'], 'ADMIN')
+            self.assertEqual(saved['users']['full-user']['password'], 'secret')
+
+
+# ---------------------------------------------------------------------------
+# delete-user
+# ---------------------------------------------------------------------------
+
+class TestConfigDeleteUser(unittest.TestCase):
+
+    def test_delete_unreferenced_user(self):
+        data = {
+            'connections': {},
+            'users': {
+                'standalone': {'user': 'ALONE'},
+                'dev-user': {'user': 'DEV'},
+            },
+            'contexts': {},
+        }
+        path = _create_config_file(data)
+        try:
+            args = SimpleNamespace(config=path, name='standalone', force=False)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.delete_user(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Deleted user 'standalone'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertNotIn('standalone', saved['users'])
+        finally:
+            os.unlink(path)
+
+    def test_delete_referenced_user_blocked(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='dev-user', force=False)
+            with self.assertRaises(sap.config.SAPCliConfigError) as cm:
+                sap.cli.config.delete_user(None, args)
+            self.assertIn('Cannot delete', str(cm.exception))
+            self.assertIn('dev', str(cm.exception))
+        finally:
+            os.unlink(path)
+
+    def test_delete_referenced_user_force(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='dev-user', force=True)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.delete_user(None, args)
+
+            self.assertEqual(retval, 0)
+        finally:
+            os.unlink(path)
+
+    def test_delete_nonexistent_user(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='nonexistent', force=False)
+            with self.assertRaises(sap.config.SAPCliConfigError) as cm:
+                sap.cli.config.delete_user(None, args)
+            self.assertIn('not found', str(cm.exception))
+        finally:
+            os.unlink(path)
+
+
+# ---------------------------------------------------------------------------
+# get-users
+# ---------------------------------------------------------------------------
+
+class TestConfigGetUsers(unittest.TestCase):
+
+    def test_get_users_with_data(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.get_users(None, args)
+
+            self.assertEqual(retval, 0)
+            calls = console.printout.call_args_list
+            self.assertEqual(len(calls), 2)
+
+            all_output = ' '.join(str(c) for c in calls)
+            self.assertIn('dev-user', all_output)
+            self.assertIn('DEVELOPER', all_output)
+            self.assertIn('prod-user', all_output)
+            self.assertIn('DEPLOYER', all_output)
+        finally:
+            os.unlink(path)
+
+    def test_get_users_empty(self):
+        path = _create_config_file({'connections': {}, 'users': {}, 'contexts': {}})
+        try:
+            args = SimpleNamespace(config=path)
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.get_users(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with('No users defined.')
+        finally:
+            os.unlink(path)
+
+    def test_get_users_no_config(self):
+        args = SimpleNamespace(config='/nonexistent/config.yml')
+        console = MagicMock()
+        with patch('sap.cli.core.get_console', return_value=console):
+            retval = sap.cli.config.get_users(None, args)
+
+        self.assertEqual(retval, 0)
+        console.printout.assert_called_once_with('No users defined.')
+
+
+# ---------------------------------------------------------------------------
+# set-context
+# ---------------------------------------------------------------------------
+
+class TestConfigSetContext(unittest.TestCase):
+
+    def test_create_new_context(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(
+                config=path, name='qa',
+                connection='dev-server', user_ref='dev-user',
+                ashost=None, sysnr=None, client=None, port=None,
+                ssl=None, ssl_verify=None, ssl_server_cert=None,
+                mshost=None, msserv=None, sysid=None, group=None,
+                snc_qop=None, snc_myname=None, snc_partnername=None,
+                snc_lib=None, ctx_password=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_context(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Created context 'qa'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertEqual(saved['contexts']['qa']['connection'], 'dev-server')
+            self.assertEqual(saved['contexts']['qa']['user'], 'dev-user')
+        finally:
+            os.unlink(path)
+
+    def test_update_existing_context(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(
+                config=path, name='dev',
+                connection=None, user_ref=None,
+                ashost='override.example.com', sysnr=None, client=None,
+                port=None, ssl=None, ssl_verify=None, ssl_server_cert=None,
+                mshost=None, msserv=None, sysid=None, group=None,
+                snc_qop=None, snc_myname=None, snc_partnername=None,
+                snc_lib=None, ctx_password=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_context(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Updated context 'dev'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            # Override added
+            self.assertEqual(saved['contexts']['dev']['ashost'], 'override.example.com')
+            # Original fields preserved
+            self.assertEqual(saved['contexts']['dev']['connection'], 'dev-server')
+            self.assertEqual(saved['contexts']['dev']['user'], 'dev-user')
+        finally:
+            os.unlink(path)
+
+    def test_set_context_with_password_override(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(
+                config=path, name='dev',
+                connection=None, user_ref=None,
+                ashost=None, sysnr=None, client=None, port=None,
+                ssl=None, ssl_verify=None, ssl_server_cert=None,
+                mshost=None, msserv=None, sysid=None, group=None,
+                snc_qop=None, snc_myname=None, snc_partnername=None,
+                snc_lib=None, ctx_password='ctx-secret',
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_context(None, args)
+
+            self.assertEqual(retval, 0)
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertEqual(saved['contexts']['dev']['password'], 'ctx-secret')
+        finally:
+            os.unlink(path)
+
+    def test_no_fields_specified(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(
+                config=path, name='dev',
+                connection=None, user_ref=None,
+                ashost=None, sysnr=None, client=None, port=None,
+                ssl=None, ssl_verify=None, ssl_server_cert=None,
+                mshost=None, msserv=None, sysid=None, group=None,
+                snc_qop=None, snc_myname=None, snc_partnername=None,
+                snc_lib=None, ctx_password=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_context(None, args)
+
+            self.assertEqual(retval, 1)
+            console.printerr.assert_called_once_with('No context fields specified.')
+        finally:
+            os.unlink(path)
+
+    def test_create_context_into_empty_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'config.yml')
+            args = SimpleNamespace(
+                config=path, name='new-ctx',
+                connection='srv', user_ref='usr',
+                ashost=None, sysnr=None, client=None, port=None,
+                ssl=None, ssl_verify=None, ssl_server_cert=None,
+                mshost=None, msserv=None, sysid=None, group=None,
+                snc_qop=None, snc_myname=None, snc_partnername=None,
+                snc_lib=None, ctx_password=None,
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_context(None, args)
+
+            self.assertEqual(retval, 0)
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertEqual(saved['contexts']['new-ctx']['connection'], 'srv')
+            self.assertEqual(saved['contexts']['new-ctx']['user'], 'usr')
+
+
+# ---------------------------------------------------------------------------
+# delete-context
+# ---------------------------------------------------------------------------
+
+class TestConfigDeleteContext(unittest.TestCase):
+
+    def test_delete_context(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='prod')
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.delete_context(None, args)
+
+            self.assertEqual(retval, 0)
+            console.printout.assert_called_once_with("Deleted context 'prod'.")
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertNotIn('prod', saved['contexts'])
+            # current-context unchanged
+            self.assertEqual(saved['current-context'], 'dev')
+        finally:
+            os.unlink(path)
+
+    def test_delete_current_context_unsets_current(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='dev')
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.delete_context(None, args)
+
+            self.assertEqual(retval, 0)
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertNotIn('dev', saved['contexts'])
+            self.assertNotIn('current-context', saved)
+        finally:
+            os.unlink(path)
+
+    def test_delete_nonexistent_context(self):
+        path = _create_config_file()
+        try:
+            args = SimpleNamespace(config=path, name='nonexistent')
+            with self.assertRaises(sap.config.SAPCliConfigError) as cm:
+                sap.cli.config.delete_context(None, args)
+            self.assertIn('not found', str(cm.exception))
+        finally:
+            os.unlink(path)
 
 
 if __name__ == '__main__':
