@@ -1,6 +1,5 @@
 """HTTP connection helpers"""
 
-import os
 import json
 
 import socket
@@ -57,7 +56,8 @@ class Connection:
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self, icf_path, login_path, host, client, user, password, port=None, ssl=True, verify=True):
+    def __init__(self, icf_path, login_path, host, client, user, password, port=None, ssl=True, verify=True,
+                 ssl_server_cert=None):
         """Parameters:
             - host: string host name
             - client: string SAP client
@@ -67,6 +67,7 @@ class Connection:
                     (default 80 or 443 - it depends on the parameter ssl)
             - ssl: boolean to switch between http and https
             - verify: boolean to switch SSL validation on/off
+            - ssl_server_cert: optional path to a custom CA certificate file
         """
 
         setup_keepalive()
@@ -81,6 +82,7 @@ class Connection:
                 port = '80'
 
         self._ssl_verify = verify
+        self._ssl_server_cert = ssl_server_cert
 
         self._host = host
         self._port = port
@@ -161,10 +163,9 @@ class Connection:
             self._session = requests.Session()
             self._session.auth = self._auth
             # requests.session.verify is either boolean or path to CA to use!
-            self._session.verify = os.environ.get('SAP_SSL_SERVER_CERT', self._session.verify)
-
-            if self._session.verify is not True:
-                mod_log().info('Using custom SSL Server cert path: SAP_SSL_SERVER_CERT = %s', self._session.verify)
+            if self._ssl_server_cert:
+                self._session.verify = self._ssl_server_cert
+                mod_log().info('Using custom SSL Server cert path: %s', self._session.verify)
             elif self._ssl_verify is False:
                 import urllib3
                 urllib3.disable_warnings()

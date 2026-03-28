@@ -112,3 +112,42 @@ class TestConnectionExecute(unittest.TestCase):
             self.conn._retrieve(session, method, url)
 
         self.assertIn('took more than', str(cm.exception))
+
+
+class TestConnectionSSLServerCert(unittest.TestCase):
+    """Test ssl_server_cert parameter wiring in REST Connection."""
+
+    def test_ssl_server_cert_default_none(self):
+        conn = Connection('/foo', '/bar', 'host', '100', 'user', 'pass')
+        self.assertIsNone(conn._ssl_server_cert)
+
+    def test_ssl_server_cert_stored(self):
+        conn = Connection('/foo', '/bar', 'host', '100', 'user', 'pass',
+                          ssl_server_cert='/path/to/ca.pem')
+        self.assertEqual(conn._ssl_server_cert, '/path/to/ca.pem')
+
+    @patch('sap.rest.connection.Connection._execute_with_session')
+    def test_ssl_server_cert_sets_session_verify(self, mock_exec):
+        """When ssl_server_cert is set, session.verify is the cert path."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'x-csrf-token': 'token123'}
+        mock_exec.return_value = mock_response
+
+        conn = Connection('/foo', '/bar', 'host', '100', 'user', 'pass',
+                          ssl_server_cert='/path/to/ca.pem')
+        session = conn._get_session()
+        self.assertEqual(session.verify, '/path/to/ca.pem')
+
+    @patch('sap.rest.connection.Connection._execute_with_session')
+    def test_ssl_server_cert_takes_precedence_over_verify_false(self, mock_exec):
+        """ssl_server_cert takes precedence over verify=False."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.headers = {'x-csrf-token': 'token123'}
+        mock_exec.return_value = mock_response
+
+        conn = Connection('/foo', '/bar', 'host', '100', 'user', 'pass',
+                          verify=False, ssl_server_cert='/path/to/ca.pem')
+        session = conn._get_session()
+        self.assertEqual(session.verify, '/path/to/ca.pem')

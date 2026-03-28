@@ -44,6 +44,7 @@ def report_args_error_and_exit(args, error):
     sys.exit(ExitCodes.INVALID_CONFIGURATION)
 
 
+# pylint: disable=too-many-statements
 def parse_command_line(argv):
     """Parses command line arguments"""
 
@@ -78,6 +79,9 @@ def parse_command_line(argv):
     arg_parser.add_argument(
         '--skip-ssl-validation', dest='verify', default=None, action='store_false',
         help='Skip validation of SSL server certificates')
+    arg_parser.add_argument(
+        '--ssl-server-cert', dest='ssl_server_cert', type=str, default=None,
+        help='Path to a custom CA certificate file for SSL verification')
     arg_parser.add_argument(
         '--port', dest='port', type=int, default=None,
         help='ADT HTTP port; default = 443')

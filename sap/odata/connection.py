@@ -16,7 +16,7 @@ class Connection:
     client = None
 
     # pylint: disable=too-many-arguments
-    def __init__(self, service, host, port, client, user, password, ssl, verify):
+    def __init__(self, service, host, port, client, user, password, ssl, verify, ssl_server_cert=None):
         """Parameters:
             - service: id of the odata service (e.g. UI5/ABAP_REPOSITORY_SRV)
             - host: string host name or IP of
@@ -26,6 +26,7 @@ class Connection:
             - password: string user password
             - ssl: boolean to switch between http and https
             - verify: boolean to switch SSL validation on/off
+            - ssl_server_cert: optional path to a custom CA certificate file
         """
 
         if ssl:
@@ -44,7 +45,10 @@ class Connection:
         self._timeout = config_get('http_timeout')
 
         self._session = requests.Session()
-        self._session.verify = verify
+        if ssl_server_cert:
+            self._session.verify = ssl_server_cert
+        else:
+            self._session.verify = verify
         self._session.auth = (user, password)
 
         # csrf token handling for all future "create" requests

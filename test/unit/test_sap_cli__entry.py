@@ -90,6 +90,7 @@ class TestParseCommandLine(unittest.TestCase):
         self.assertIsNone(parsed['snc_qop'])
         self.assertEqual(parsed['snc_lib'], 'somelib.dylib')
         self.assertIsNone(parsed['sysid'])
+        self.assertIsNone(parsed['ssl_server_cert'])
         self.assertTrue(callable(parsed['execute']))
 
     def test_args_no_ashost(self):
@@ -256,6 +257,22 @@ class TestParseCommandLine(unittest.TestCase):
                 del os.environ['SAP_SSL_VERIFY']
 
             self.assertTrue(args.verify, msg=variant)
+
+    def test_args_ssl_server_cert(self):
+        test_params = get_tested_parameters()
+        test_params.insert(1, '--ssl-server-cert')
+        test_params.insert(2, '/path/to/ca.pem')
+
+        args = entry.parse_command_line(test_params)
+
+        self.assertEqual(args.ssl_server_cert, '/path/to/ca.pem')
+
+    def test_args_ssl_server_cert_default_none(self):
+        test_params = get_tested_parameters()
+
+        args = entry.parse_command_line(test_params)
+
+        self.assertIsNone(args.ssl_server_cert)
 
 
 class TestParseCommandLineNoCommand(unittest.TestCase):
