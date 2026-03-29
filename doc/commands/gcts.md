@@ -2,6 +2,17 @@
 
 sapcli's implementation forces use of packages as git repositories.
 
+The sapcli's gCTS command line interface was designed to mimic git command
+line interface and resemble abapGit workflows. Both were chose because they are
+highly popular and so user should have steep learning curve.
+
+To promote using git in ABAP for defining well organized repositories instead
+of boxes of arbitrary objects, sapcli uses the term PACKAGE where the gCTS
+documentation mentions repository ID.
+
+To avoid confusion, it is highly recommended to use gCTS the same way as
+abapGit - map one git repository to one root package.
+
 1. [repolist](#repolist)
 2. [clone](#clone)
 3. [checkout](#checkout)
@@ -116,7 +127,7 @@ sapcli gcts pull PACKAGE
 Pushes all available local commits of the repository to the remote
 
 ```bash
-sapcli gcts push [--heartbeat SECONDS] PACKAGE
+sapcli gcts push [-h] [--heartbeat [HEARTBEAT]] package
 ```
 
 **Parameters:**:
@@ -125,17 +136,22 @@ sapcli gcts push [--heartbeat SECONDS] PACKAGE
 
 ## commit
 
-Commits & pushes a transport to the correspoding repository
+Commits all object of an ABAP package or a released transport to the correspoding repository
 
 ```bash
-sapcli gcts commit PACKAGE CORRNR [-m|--message MESSAGE] [--description DESCRIPTION]
+sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] PACKAGE [CORRNR]
 ```
 
 **Parameters:**:
+
 - `PACKAGE`: Repository name or URL
-- `CORRNR`: Transport number (e.g. from *sapcli cts list transport*)
-- `--message MESSAGE`: Short commit messsage
-- `--description DESCRIPTION`: Commit message body
+- `CORRNR`: Transport number whose objects will be commited in the give repository (PACKAGE)
+- `--heartbeat SECONDS`: Console heart beat printing dots
+- `--devc DEVC`:  Name of committed ABAP package if CORRNR is not give. Default: the parameter PACKAGE
+- `--message MESSAGE`: Short commit message
+- `--description DESCRIPTION`: Long commit description
+
+Without the positional parameter CORRNR, all change objects belonging to the PACKAGE hierarchy will be committed.
 
 ## delete
 
