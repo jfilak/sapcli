@@ -3,7 +3,10 @@
 import sys
 
 import sap.cli.core
+import sap.cli.helpers
+import sap.adt.search
 import sap.adt.system
+import sap.errors
 import sap.platform.abap.run
 
 
@@ -55,3 +58,35 @@ def systeminfo(connection, args):
     else:
         for entry in info:
             console.printout(f'{entry.identity}: {entry.title}')
+
+
+@CommandGroup.argument('--max-results', type=int, default=51, help='Maximum number of results')
+@CommandGroup.argument('term', type=str)
+@CommandGroup.command()
+def find(connection, args):
+    """Find ABAP objects by name"""
+
+    console = args.console_factory()
+
+    term = args.term.strip()
+    if not term:
+        raise sap.errors.SAPCliError('No search term provided')
+
+    if args.max_results <= 0:
+        raise sap.errors.SAPCliError(f'Maximum number of results must be positive, got: {args.max_results}')
+
+    if not term.endswith('*'):
+        term = term + '*'
+
+    search = sap.adt.search.ADTSearch(connection)
+    results = search.quick_search(term, max_results=args.max_results)
+
+    columns = (
+        sap.cli.helpers.TableWriter.Columns()
+        ('typ', 'Object type')
+        ('name', 'Name')
+        ('description', 'Description')
+        .done()
+    )
+
+    sap.cli.helpers.TableWriter(results.references, columns).printout(console)
