@@ -1,6 +1,40 @@
 # ABAP
 
-1. [run](#run)
+1. [find](#find)
+2. [run](#run)
+
+## find
+
+Find ABAP objects by name using ADT quick search. A trailing `*` wildcard is
+appended automatically so that prefix matching works out of the box.
+
+```bash
+sapcli abap find [--max-results MAX_RESULTS] TERM
+```
+
+* _TERM_ search query string (e.g. `BAPIRET2_T`)
+* _--max-results MAX\_RESULTS_ maximum number of results to return (default: `51`)
+
+### Find objects matching a prefix
+
+```bash
+sapcli abap find BAPIRET2_T
+```
+
+Example output:
+
+```
+Object type | Name        | Description
+------------|-------------|----------------------------
+TTYP/DA     | BAPIRET2_T  | Return parameter table
+TABL/DS     | BAPIRET2_T1 | Proxy Structure (generated)
+```
+
+### Limit the number of results
+
+```bash
+sapcli abap find --max-results 10 Z_MY_OBJECT
+```
 
 ## run
 

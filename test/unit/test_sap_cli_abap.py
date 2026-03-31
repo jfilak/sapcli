@@ -7,13 +7,36 @@ from unittest.mock import patch, mock_open
 
 import sap.cli.abap
 import sap.platform.abap.run
+from sap.errors import SAPCliError
 
-from mock import BufferConsole, Connection
+from mock import BufferConsole, Connection, Response
 
 from fixtures_adt_system import (
     RESPONSE_SYSTEM_INFORMATION,
     RESPONSE_JSON_SYSTEM_INFORMATION,
 )
+
+FIXTURE_SEARCH_RESPONSE_TWO_RESULTS = """<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:objectReference
+    adtcore:uri="/sap/bc/adt/ddic/tabletypes/bapiret2_t"
+    adtcore:type="TTYP/DA"
+    adtcore:name="BAPIRET2_T"
+    adtcore:packageName="SDFM"
+    adtcore:description="Return parameter table"/>
+  <adtcore:objectReference
+    adtcore:uri="/sap/bc/adt/ddic/structures/bapiret2_t1"
+    adtcore:type="TABL/DS"
+    adtcore:name="BAPIRET2_T1"
+    adtcore:packageName="S_EPM_PI"
+    adtcore:description="Proxy Structure (generated)"/>
+</adtcore:objectReferences>
+"""
+
+FIXTURE_SEARCH_RESPONSE_EMPTY = """<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+</adtcore:objectReferences>
+"""
 
 parser = ArgumentParser()
 sap.cli.abap.CommandGroup().install_parser(parser)
@@ -204,6 +227,134 @@ class TestAbapSystemInfo(unittest.TestCase):
         args.execute(connection, args)
 
         self.assertEqual(console.capout, '')
+
+
+class TestAbapFind(unittest.TestCase):
+
+    def test_find_prints_table_with_results(self):
+        connection = Connection([
+            Response(text=FIXTURE_SEARCH_RESPONSE_TWO_RESULTS, status_code=200),
+        ])
+        args = parse_args(['find', 'BAPIRET2_T'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        output = console.capout
+        lines = output.strip().split('\n')
+        self.assertEqual(len(lines), 4)  # header + separator + 2 results
+
+        self.assertIn('Object type', lines[0])
+        self.assertIn('Name', lines[0])
+        self.assertIn('Description', lines[0])
+
+        self.assertIn('TTYP/DA', lines[2])
+        self.assertIn('BAPIRET2_T', lines[2])
+        self.assertIn('Return parameter table', lines[2])
+
+        self.assertIn('TABL/DS', lines[3])
+        self.assertIn('BAPIRET2_T1', lines[3])
+        self.assertIn('Proxy Structure (generated)', lines[3])
+
+    def test_find_empty_results(self):
+        connection = Connection([
+            Response(text=FIXTURE_SEARCH_RESPONSE_EMPTY, status_code=200),
+        ])
+        args = parse_args(['find', 'NONEXISTENT'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        output = console.capout
+        lines = output.strip().split('\n')
+        # header + separator only
+        self.assertEqual(len(lines), 2)
+        self.assertIn('Object type', lines[0])
+
+    def test_find_appends_wildcard(self):
+        connection = Connection([
+            Response(text=FIXTURE_SEARCH_RESPONSE_EMPTY, status_code=200),
+        ])
+        args = parse_args(['find', 'BAPIRET2_T'])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(connection.execs[0].params['query'], 'BAPIRET2_T*')
+
+    def test_find_does_not_double_wildcard(self):
+        connection = Connection([
+            Response(text=FIXTURE_SEARCH_RESPONSE_EMPTY, status_code=200),
+        ])
+        args = parse_args(['find', 'BAPIRET2_T*'])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(connection.execs[0].params['query'], 'BAPIRET2_T*')
+
+    def test_find_sends_correct_request(self):
+        connection = Connection([
+            Response(text=FIXTURE_SEARCH_RESPONSE_EMPTY, status_code=200),
+        ])
+        args = parse_args(['find', 'BAPIRET2_T'])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'GET')
+        self.assertIn('repository/informationsystem/search', connection.execs[0].adt_uri)
+        self.assertEqual(connection.execs[0].params['operation'], 'quickSearch')
+        self.assertEqual(connection.execs[0].params['query'], 'BAPIRET2_T*')
+        self.assertEqual(connection.execs[0].params['maxResults'], 51)
+
+    def test_find_custom_max_results(self):
+        connection = Connection([
+            Response(text=FIXTURE_SEARCH_RESPONSE_EMPTY, status_code=200),
+        ])
+        args = parse_args(['find', '--max-results', '10', 'BAPIRET2_T'])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(connection.execs[0].params['maxResults'], 10)
+
+    def test_find_empty_term_raises(self):
+        args = parse_args(['find', '   '])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(Connection(), args)
+
+        self.assertIn('No search term provided', str(caught.exception))
+
+    def test_find_zero_max_results_raises(self):
+        args = parse_args(['find', '--max-results', '0', 'BAPIRET2_T'])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(Connection(), args)
+
+        self.assertIn('must be positive', str(caught.exception))
+
+    def test_find_negative_max_results_raises(self):
+        args = parse_args(['find', '--max-results', '-5', 'BAPIRET2_T'])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(Connection(), args)
+
+        self.assertIn('must be positive', str(caught.exception))
 
 
 if __name__ == '__main__':
