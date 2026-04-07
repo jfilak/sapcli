@@ -11,6 +11,44 @@ build your CI tools.
 This tool also provides a limited set of RFC Functionality for the cases
 where ADT is not sufficient or possible.
 
+## Features
+
+The primary goal was to build a tool which would allow us to run ABAP Unit tests (even with test coverage):
+
+```bash
+sapcli aunit run class zcl_foo --output junit4
+sapcli aunit run program zfoo_report --output junit4
+sapcli aunit run package '$local_package' --output junit4
+```
+
+We also use it to run ATC checks and install [abapGit](https://github.com/larshp/abapGit),
+which is delivered as a single-source ABAP program (report, SE38 thing):
+
+```bash
+sapcli package create '$abapgit' 'git for ABAP by Lars'
+sapcli program create 'zabapgit' 'github.com/larshp/abapGit' '$abapgit'
+curl https://raw.githubusercontent.com/abapGit/build/master/zabapgit.abap | sapcli program write 'zabapgit' - --activate
+```
+
+However, the tool's scope has broadened in the meantime and we use
+sapcli to install the development abapGit:
+```bash
+sapcli checkin package '$abapgit'
+```
+
+We also use it to create and release transports/tasks, operate gCTS, and much more.
+
+By the way, coding agents love `sapcli abap run` which allows them to run ABAP
+snippets:
+
+```bash
+sapcli abap run - <<_EOF
+    out->write( |Hello, { sy-uname }!| ).
+_EOF
+```
+
+See the complete list of supported operations in [doc/commands.md](doc/commands.md)
+
 ## Installation and usage
 
 You need Python 3 (>=3.10) and very few basic Python packages to run sapcli.
@@ -91,35 +129,6 @@ just set the environment variable LD\_LIBRARY\_PATH.
 
 The required libraries are compiled in a way that allows you to execute them on any x86-64
 GNU/Linux, so you can use the libraries located on your application server.
-
-## Features
-
-The primary goal was to build a tool which would allow us to run ABAP Unit tests (even with test coverage):
-
-```bash
-sapcli aunit run class zcl_foo --output junit4
-sapcli aunit run program zfoo_report --output junit4
-sapcli aunit run package '$local_package' --output junit4
-```
-
-We also use it to run ATC checks and install [abapGit](https://github.com/larshp/abapGit),
-which is delivered as a single-source ABAP program (report, SE38 thing):
-
-```bash
-sapcli package create '$abapgit' 'git for ABAP by Lars'
-sapcli program create 'zabapgit' 'github.com/larshp/abapGit' '$abapgit'
-curl https://raw.githubusercontent.com/abapGit/build/master/zabapgit.abap | sapcli program write 'zabapgit' - --activate
-```
-
-However, the tool's scope has broadened in the meantime and we use
-sapcli to install the development abapGit:
-```bash
-sapcli checkin package '$abapgit'
-```
-
-We also use it to create and release transports/tasks, operate gCTS, and much more.
-
-See the complete list of supported operations in [doc/commands.md](doc/commands.md)
 
 ## Usage
 
