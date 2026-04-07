@@ -41,6 +41,39 @@ Finally, install sapcli:
 pipx install git+https://github.com/jfilak/sapcli.git
 ```
 
+### Windows
+
+Install **Python**:
+- Open [https://www.python.org/downloads/](https://www.python.org/downloads/)
+- Find the latest "bugfix"
+- Click the download link
+- Scroll down to the section Files
+- Click the Download Python install manager button in the Windows rectangle
+- Scroll down to the section Files
+- Click the Download Installer (MSIX) button in the Windows rectangle
+- Open the downloaded file and proceed with the installation
+
+Note: for sapcli, you don't need CPython
+
+Install **pipx**:
+- Press the Windows Key, type "cmd", and press Enter
+- Run: py -m pip install --user pipx
+- If you need more details consult [pipx how-to](https://pipx.pypa.io/stable/how-to/install-pipx/#on-windows):
+
+Note: the pipx documentation warns about PATH, so watch the output and run `ensurepath` if needed
+
+```
+<User Dir>\AppData\Roaming\Python\Python3XY\Scripts\pipx.exe ensurepath
+```
+
+Finally install **sapcli**:
+- Go to [Releases](https://github.com/jfilak/sapcli/releases)
+- Unfold Assets
+- Copy the link to "sapcli-*.whl"
+- Go to "cmd" again
+- Run: pipx install <the link>
+- Verify the installation by running: `sapcli --version`
+
 ### Enable RFC features
 
 RFC features are not enabled until you install the required dependencies, but sapcli is perfectly operational even without them because the other features only need HTTP connectivity.
