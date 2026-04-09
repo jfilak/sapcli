@@ -109,7 +109,7 @@ Finally install **sapcli**:
 - Unfold Assets
 - Copy the link to "sapcli-*.whl"
 - Go to "cmd" again
-- Run: pipx install <the link>
+- Run: `pipx install <the copied link>`
 - Verify the installation by running: `sapcli --version`
 
 ### Enable RFC features
