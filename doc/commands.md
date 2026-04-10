@@ -27,4 +27,5 @@
 25. [table](commands/table.md) - ABAP DDIC transparent tables
 26. [badi](commands/badi.md) - New style (Enhancements) BAdI operations
 27. [featuretoggle](commands/featuretoggles.md) - Feature Toggles
-27. [abap](commands/abap.md) - ABAP utilities like run or find
+28. [authorizations](commands/authorizations.md) - Authorization Fields, Objects, Transactions, and Defaults
+29. [abap](commands/abap.md) - ABAP utilities like run or find
