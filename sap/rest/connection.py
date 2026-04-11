@@ -8,13 +8,13 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger, config_get
-from sap.rest.errors import (
+from sap.http import (
     HTTPRequestError,
     UnexpectedResponseContent,
     UnauthorizedError,
     TimedOutRequestError,
-    GCTSConnectionError,
 )
+from sap.rest.errors import GCTSConnectionError
 
 
 KEEPALIVE_CONFIGURED = False

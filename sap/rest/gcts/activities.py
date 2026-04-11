@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Union
 
-from sap.rest.errors import HTTPRequestError
+from sap.http import HTTPRequestError
 from sap.rest.gcts.errors import SAPCliError
 from sap.rest.gcts.remote_repo import Repository, RepoActivitiesQueryParams
 

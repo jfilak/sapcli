@@ -15,7 +15,7 @@ import sap.cli
 import sap.adt
 import sap.rfc
 from sap.config import ConfigFile
-from sap.rest.errors import TimedOutRequestError as RestTimedOutRequestError
+from sap.http import TimedOutRequestError as HttpTimedOutRequestError
 from sap.odata.errors import TimedOutRequestError as ODataTimedOutRequestError
 
 # pylint: disable=invalid-name
@@ -183,7 +183,7 @@ def main(argv=None):
         retval = args.execute(connection, args)
     except KeyboardInterrupt:
         log.error('Program interrupted!')
-    except (RestTimedOutRequestError, ODataTimedOutRequestError) as ex:
+    except (HttpTimedOutRequestError, ODataTimedOutRequestError) as ex:
         print(f'Exception ({type(ex).__name__}):', file=sys.stderr)
         print(' ', str(ex), file=sys.stderr)
         print('  You can increase the timeout with the environment variable SAPCLI_HTTP_TIMEOUT (in seconds).', file=sys.stderr)

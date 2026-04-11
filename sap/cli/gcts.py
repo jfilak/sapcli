@@ -29,7 +29,7 @@ from sap.rest.gcts.activities import (
     is_clone_activity_success,
 )
 from sap.errors import OperationTimeoutError
-from sap.rest.errors import HTTPRequestError
+from sap.http import HTTPRequestError
 from sap.cli.gcts_task import CommandGroup as TaskCommandGroup
 from sap.cli.gcts_utils import (
     dump_gcts_messages,
