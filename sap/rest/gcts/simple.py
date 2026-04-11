@@ -6,7 +6,7 @@ from typing import Optional
 
 from sap import get_logger
 from sap.errors import OperationTimeoutError
-from sap.rest.errors import HTTPRequestError
+from sap.http import HTTPRequestError
 from sap.rest.gcts.remote_repo import Repository
 from sap.rest.gcts.repo_task import RepositoryTask
 from sap.rest.gcts.errors import (

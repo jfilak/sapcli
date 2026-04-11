@@ -9,6 +9,7 @@ import sap.adt.checks
 import sap.adt.objects
 import sap.adt.wb
 import sap.cli.wb
+import sap.http
 from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionResourceNotFound
 from sap.adt.objects import ADTObjectReference, ADTObjectReferences
 
@@ -259,7 +260,7 @@ def _run_reporters_for_objects(connection, reporters, package_objects):
         try:
             reports = sap.adt.checks.run(connection, reporter, check_objects)
             checks += 1
-        except sap.rest.errors.HTTPRequestError as ex:
+        except sap.http.HTTPRequestError as ex:
             mod_log().info('Reporter %s\n%s', reporter.name, str(ex))
         else:
             results.extend(reports)

@@ -5,7 +5,7 @@ from enum import Enum
 from sap import get_logger
 
 
-from sap.rest.errors import HTTPRequestError
+from sap.http import HTTPRequestError
 
 from sap.rest.gcts.errors import (
     SAPCliError,

@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch, MagicMock, Mock
 
 import sap.adt
+import sap.rest
 import sap.cli.core
 
 
@@ -234,6 +235,9 @@ class Connection(sap.adt.Connection):
         self.asserter = asserter if asserter is not None else SimpleAsserter()
         self.set_responses_iter(ok_responses() if responses is None else iter(responses))
 
+        # Rewire _http_client.retrieve to use our mock _retrieve
+        self._http_client.retrieve = self._retrieve
+
     def set_responses(self, *responses):
         if responses and isinstance(responses[0], list):
             responses = responses[0]
@@ -276,7 +280,7 @@ class Connection(sap.adt.Connection):
         if self.collections is None:
             return [default_mimetype]
 
-        return self.collections[f'/{self._adt_uri}/{basepath}']
+        return self.collections[f'/{self.uri}/{basepath}']
 
 
 def empty_rfc_responses():
