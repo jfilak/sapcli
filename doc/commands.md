@@ -23,8 +23,9 @@
 21. [rap](commands/businessservice.md) - RAP Business Services
 22. [strust](commands/strust.md) - SSL Certificates
 23. [dataelement](commands/dataelement.md) - ABAP DDIC Data Elements
-24. [structure](commands/structure.md) - ABAP DDIC structures
-25. [table](commands/table.md) - ABAP DDIC transparent tables
+24. [domain](commands/domain.md) - ABAP DDIC Domains
+25. [structure](commands/structure.md) - ABAP DDIC structures
+26. [table](commands/table.md) - ABAP DDIC transparent tables
 26. [badi](commands/badi.md) - New style (Enhancements) BAdI operations
 27. [featuretoggle](commands/featuretoggles.md) - Feature Toggles
 28. [authorizations](commands/authorizations.md) - Authorization Fields, Objects, Transactions, and Defaults
