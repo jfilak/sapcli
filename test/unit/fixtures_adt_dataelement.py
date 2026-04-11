@@ -185,3 +185,42 @@ ACTIVATE_DATA_ELEMENT_BODY = f'''<?xml version="1.0" encoding="UTF-8"?>
 </adtcore:objectReferences>'''
 
 ERROR_XML_DATA_ELEMENT_ALREADY_EXISTS=f'''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceAlreadyExists"/><message lang="EN">Resource Data Element {DATA_ELEMENT_NAME} does already exist.</message><localizedMessage lang="EN">Resource Package $SAPCLI_TEST_ROOT does already exist.</localizedMessage><properties/></exc:exception>'''
+
+# Domain ABC fixture for testing --expand feature
+DOMAIN_ABC_NAME = 'ABC'
+DOMAIN_ABC_ADT_GET_RESPONSE_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<doma:domain xmlns:doma="http://www.sap.com/dictionary/domain" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="SAP" adtcore:abapLanguageVersion="standard" adtcore:name="ABC" adtcore:type="DOMA/DD" adtcore:changedAt="2023-09-12T10:00:00Z" adtcore:version="active" adtcore:changedBy="SAP" adtcore:createdBy="DEVELOPER" adtcore:description="Test Domain ABC" adtcore:language="EN" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/package" adtcore:type="DEVC/K" adtcore:name="PACKAGE"/>
+  <doma:content>
+    <doma:typeInformation>
+      <doma:datatype>CHAR</doma:datatype>
+      <doma:length>000010</doma:length>
+      <doma:decimals>000000</doma:decimals>
+    </doma:typeInformation>
+    <doma:outputInformation>
+      <doma:length>000010</doma:length>
+      <doma:style>00</doma:style>
+      <doma:conversionExit/>
+      <doma:signExists>false</doma:signExists>
+      <doma:lowercase>false</doma:lowercase>
+      <doma:ampmFormat>false</doma:ampmFormat>
+    </doma:outputInformation>
+    <doma:valueInformation>
+      <doma:appendExists>false</doma:appendExists>
+      <doma:fixValues>
+        <doma:fixValue>
+          <doma:position>0001</doma:position>
+          <doma:low>A</doma:low>
+          <doma:high/>
+          <doma:text>Option A</doma:text>
+        </doma:fixValue>
+        <doma:fixValue>
+          <doma:position>0002</doma:position>
+          <doma:low>B</doma:low>
+          <doma:high/>
+          <doma:text>Option B</doma:text>
+        </doma:fixValue>
+      </doma:fixValues>
+    </doma:valueInformation>
+  </doma:content>
+</doma:domain>'''

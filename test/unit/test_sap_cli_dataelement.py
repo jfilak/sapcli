@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import unittest
 from unittest.mock import call, patch, Mock
 from sap.adt.errors import ExceptionResourceAlreadyExists
@@ -25,7 +26,8 @@ from fixtures_adt_dataelement import (
     DATA_ELEMENT_DEFINITION_ADT_XML,
     DEFINE_DATA_ELEMENT_W_DOMAIN_BODY,
     DEFINE_DATA_ELEMENT_W_PREDEFINED_ABAP_TYPE_BODY,
-    ERROR_XML_DATA_ELEMENT_ALREADY_EXISTS
+    ERROR_XML_DATA_ELEMENT_ALREADY_EXISTS,
+    DOMAIN_ABC_ADT_GET_RESPONSE_XML
 )
 from fixtures_adt_wb import RESPONSE_ACTIVATION_OK
 
@@ -507,3 +509,202 @@ class TestDataElementDefine(unittest.TestCase):
         self.assertEqual(
             'BUG: please report a forgotten case DataElementValidationIssues(9999)',
             str(caught.exception))
+
+
+class TestDataElementRead(unittest.TestCase):
+
+    def data_element_read_cmd(self, *args, **kwargs):
+        # Lazy initialization to avoid module-level CommandGroup instantiation
+        parser = generate_parse_args(sap.cli.dataelement.CommandGroup())
+        return parser('read', *args, **kwargs)
+
+    def test_read_human_format(self):
+        """Test reading data element in HUMAN format"""
+        connection = Connection([
+            Response(text=DATA_ELEMENT_DEFINITION_ADT_XML, status_code=200, headers={})
+        ])
+
+        from mock import BufferConsole
+        console = BufferConsole()
+        the_cmd = self.data_element_read_cmd(DATA_ELEMENT_NAME, '--format=HUMAN')
+        the_cmd.console_factory = lambda: console
+        the_cmd.execute(connection, the_cmd)
+
+        output = console.capout
+
+        # Verify the human-readable output contains expected information
+        self.assertIn('Data Element: TEST_DATA_ELEMENT', output)
+        self.assertIn('Description: Test data element', output)
+        self.assertIn('Package: PACKAGE', output)
+        # Check for new nested structure
+        self.assertIn('Definition:', output)
+        self.assertIn('Type', output)
+        self.assertIn('Kind: predefinedAbapType', output)
+        self.assertIn('Name: STRING', output)
+
+    def test_read_uppercase_name(self):
+        """Test that lowercase input is converted to uppercase"""
+        connection = Connection([
+            Response(text=DATA_ELEMENT_DEFINITION_ADT_XML, status_code=200, headers={})
+        ])
+
+        from mock import BufferConsole
+        console = BufferConsole()
+        the_cmd = self.data_element_read_cmd('test_data_element')  # lowercase
+        the_cmd.console_factory = lambda: console
+        the_cmd.execute(connection, the_cmd)
+
+        # Should work and show uppercase name in output
+        self.assertIn('Data Element: TEST_DATA_ELEMENT', console.capout)
+
+    def test_read_abap_format_not_implemented(self):
+        """Test that ABAP format works"""
+        connection = Connection([
+            Response(text=DATA_ELEMENT_DEFINITION_ADT_XML, status_code=200, headers={})
+        ])
+
+        from mock import BufferConsole
+        console = BufferConsole()
+        the_cmd = self.data_element_read_cmd(DATA_ELEMENT_NAME, '--format=ABAP')
+        the_cmd.console_factory = lambda: console
+
+        the_cmd.execute(connection, the_cmd)
+
+        # Parse the JSON output
+        output = json.loads(console.capout)
+        self.assertEqual(output['formatVersion'], '1')
+        self.assertEqual(output['header']['description'], 'Test data element')
+        self.assertEqual(output['definition']['typeKind'], 'predefinedAbapType')
+        self.assertEqual(output['definition']['dataType'], 'STRING')
+
+
+class TestDataElementReadWithExpand(unittest.TestCase):
+
+    def data_element_read_cmd(self, *args, **kwargs):
+        # Lazy initialization to avoid module-level CommandGroup instantiation
+        parser = generate_parse_args(sap.cli.dataelement.CommandGroup())
+        return parser('read', *args, **kwargs)
+
+    def test_read_human_domain_based_shows_domain_details(self):
+        """Test domain-based data element always shows domain details in HUMAN format"""
+
+        connection = Connection([
+            Response(text=DEFINE_DATA_ELEMENT_W_DOMAIN_BODY, status_code=200, headers={}),  # dataelement fetch
+            Response(text=DOMAIN_ABC_ADT_GET_RESPONSE_XML, status_code=200, headers={})  # domain fetch
+        ])
+
+        from mock import BufferConsole
+        console = BufferConsole()
+        the_cmd = self.data_element_read_cmd(DATA_ELEMENT_NAME)
+        the_cmd.console_factory = lambda: console
+        the_cmd.execute(connection, the_cmd)
+
+        output = console.capout
+
+        # Verify dataelement info is present
+        self.assertIn('Data Element: TEST_DATA_ELEMENT', output)
+        self.assertIn('Definition:', output)
+        self.assertIn('Type', output)
+        self.assertIn('Kind: domain', output)
+        self.assertIn('Name: ABC', output)
+
+        # Verify domain details are shown inline under Type
+        self.assertIn('Description:', output)
+        self.assertIn('Type Information:', output)
+        self.assertIn('Datatype:', output)
+
+    def test_read_human_domain_fetch_failure(self):
+        """Test reading domain-based data element when domain fetch fails"""
+        connection = Connection([
+            Response(text=DEFINE_DATA_ELEMENT_W_DOMAIN_BODY, status_code=200, headers={}),  # dataelement fetch
+            Response(text='Domain not found', status_code=404, headers={})  # domain fetch fails
+        ])
+
+        from mock import BufferConsole
+        console = BufferConsole()
+        the_cmd = self.data_element_read_cmd(DATA_ELEMENT_NAME)
+        the_cmd.console_factory = lambda: console
+
+        # Should not raise exception, but print warning
+        the_cmd.execute(connection, the_cmd)
+
+        output = console.capout
+        # Verify dataelement info is still present
+        self.assertIn('Data Element: TEST_DATA_ELEMENT', output)
+        self.assertIn('Kind: domain', output)
+
+        # Check stderr for warning
+        self.assertIn('Warning:', console.caperr)
+
+    def test_read_human_predefined_type_no_domain_details(self):
+        """Test predefined ABAP type data element doesn't show domain details"""
+        connection = Connection([
+            Response(text=DATA_ELEMENT_DEFINITION_ADT_XML, status_code=200, headers={})
+        ])
+
+        from mock import BufferConsole
+        console = BufferConsole()
+        the_cmd = self.data_element_read_cmd(DATA_ELEMENT_NAME)
+        the_cmd.console_factory = lambda: console
+        the_cmd.execute(connection, the_cmd)
+
+        output = console.capout
+
+        # Verify dataelement info is present
+        self.assertIn('Data Element: TEST_DATA_ELEMENT', output)
+        self.assertIn('Kind: predefinedAbapType', output)
+
+        # Domain description/details should NOT be present
+        self.assertNotIn('Domain:', output)
+        self.assertNotIn('Test Domain ABC', output)
+
+    def test_read_abap_format_no_domain_details(self):
+        """Test ABAP format does not include domain details"""
+
+        connection = Connection([
+            Response(text=DEFINE_DATA_ELEMENT_W_DOMAIN_BODY, status_code=200, headers={}),  # dataelement fetch
+            # No domain fetch - ABAP format should not trigger domain fetch
+        ])
+
+        from mock import BufferConsole
+        console = BufferConsole()
+        the_cmd = self.data_element_read_cmd(DATA_ELEMENT_NAME, '--format=ABAP')
+        the_cmd.console_factory = lambda: console
+        the_cmd.execute(connection, the_cmd)
+
+        # Parse JSON output
+        output = json.loads(console.capout)
+
+        # Verify basic structure
+        self.assertEqual(output['formatVersion'], '1')
+        self.assertEqual(output['definition']['typeKind'], 'domain')
+        self.assertEqual(output['definition']['domainName'], 'ABC')
+
+        # Domain details should NOT be embedded
+        self.assertNotIn('domainDetails', output)
+
+    def test_read_abap_format_predefined_type(self):
+        """Test ABAP format for predefined ABAP type"""
+        connection = Connection([
+            Response(text=DATA_ELEMENT_DEFINITION_ADT_XML, status_code=200, headers={})
+        ])
+
+        from mock import BufferConsole
+        console = BufferConsole()
+        the_cmd = self.data_element_read_cmd(DATA_ELEMENT_NAME, '--format=ABAP')
+        the_cmd.console_factory = lambda: console
+        the_cmd.execute(connection, the_cmd)
+
+        # Parse JSON output
+        output = json.loads(console.capout)
+
+        # Verify basic structure
+        self.assertEqual(output['formatVersion'], '1')
+        self.assertEqual(output['definition']['typeKind'], 'predefinedAbapType')
+        self.assertIn('dataType', output['definition'])
+        self.assertIn('length', output['definition'])
+        self.assertIn('decimals', output['definition'])
+
+
+if __name__ == '__main__':
+    unittest.main()
