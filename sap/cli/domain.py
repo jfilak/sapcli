@@ -3,6 +3,7 @@
 import json
 import sap.adt
 import sap.cli.object
+import sap.cli.domain_formatter
 from sap.errors import SAPCliError
 
 
@@ -63,52 +64,11 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         console.printout('')
         console.printout('Content:')
 
-        # Type Information
-        console.printout('    Type Information:')
-        console.printout(f'        Datatype: {obj.content.type_information.datatype}')
-        length = int(obj.content.type_information.length) if obj.content.type_information.length else 0
-        console.printout(f'        Length: {length}')
-
-        # Output Information
-        console.printout('    Output Information:')
-        out_length = int(obj.content.output_information.length) if obj.content.output_information.length else 0
-        console.printout(f'        Length: {out_length}')
-
-        # Value Information
-        console.printout('    Value Information:')
-        if obj.content.value_information.value_table_ref and obj.content.value_information.value_table_ref.name:
-            console.printout(f'        Table Reference: {obj.content.value_information.value_table_ref.name}')
-
-        if obj.content.value_information.fix_values:
-            console.printout('        Fix Values:')
-            for fix_value in obj.content.value_information.fix_values:
-                console.printout(f'            - {fix_value.low}: {fix_value.text}')
+        # Delegate to shared formatter
+        sap.cli.domain_formatter.format_domain_human(console, obj, indent='    ')
 
     def _print_abap_format(self, console, obj):
         """Print Domain details in ABAP-compatible JSON format"""
 
-        output = {
-            'formatVersion': '1',
-            'header': {
-                'description': obj.description or '',
-                'originalLanguage': obj._metadata.master_language.lower() if obj._metadata.master_language else ''
-            },
-            'format': {
-                'dataType': obj.content.type_information.datatype or '',
-                'length': int(obj.content.type_information.length) if obj.content.type_information.length else 0
-            },
-            'outputCharacteristics': {
-                'length': int(obj.content.output_information.length) if obj.content.output_information.length else 0
-            }
-        }
-
-        # Add fixed values if they exist
-        if obj.content.value_information.fix_values:
-            output['fixedValues'] = []
-            for fix_value in obj.content.value_information.fix_values:
-                output['fixedValues'].append({
-                    'fixedValue': fix_value.low or '',
-                    'description': fix_value.text or ''
-                })
-
+        output = sap.cli.domain_formatter.format_domain_abap(obj)
         console.printout(json.dumps(output, indent=2))
