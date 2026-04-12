@@ -82,7 +82,8 @@ def _get_collection_accepts(discovery_xml):
 
 def _adt_http_error_handler(client, req, res):  # pylint: disable=unused-argument
 
-    if res.headers['content-type'] == 'application/xml':
+    content_type = res.headers.get('content-type', '').lower().split(';')[0].strip()
+    if content_type == 'application/xml':
         error = new_adt_error_from_xml(res.text)
 
         if error is not None:
