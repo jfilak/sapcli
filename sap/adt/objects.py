@@ -2,7 +2,7 @@
 """Objects ADT functionality module"""
 
 import re
-from typing import NamedTuple, Union, List, cast
+from typing import NamedTuple, Optional, Union, List, cast
 from urllib.parse import quote_plus
 
 from sap.adt.core import mod_log
@@ -251,17 +251,17 @@ class ADTCoreData:
     class Reference(metaclass=OrderedClassMembers):
         """ADT Reference by Name"""
 
-        def __init__(self, name=None):
+        def __init__(self, name: str | None = None):
             self._name = None if name is None else name.upper()
 
         @xml_attribute('adtcore:name')
-        def name(self):
+        def name(self) -> str | None:
             """Returns reference name """
 
             return self._name
 
         @name.setter
-        def name(self, value):
+        def name(self, value: str | None):
             """Sets reference name"""
 
             self._name = None if value is None else value.upper()
@@ -269,19 +269,22 @@ class ADTCoreData:
     # pylint: disable=too-many-arguments
     def __init__(self, package=None, description=None, language=None,
                  master_language=None, master_system=None, responsible=None,
-                 package_reference=None, abap_language_version=None):
+                 package_reference: str | None = None, abap_language_version=None):
         self._package = package
         self._description = description
         self._language = language
         self._master_language = master_language
         self._master_system = master_system
         self._responsible = responsible
-        self._package_reference = ADTCoreData.Reference(name=package_reference)
+        self._package_reference: ADTCoreData.Reference | None = ADTCoreData.Reference(name=package_reference)
         self._abap_language_version = abap_language_version
 
     @property
     def package(self):
-        """ABAP development package (DEVC)"""
+        """ABAP development package (DEVC)
+
+        This property is not populated by ADT response.
+        """
 
         return self._package
 
@@ -358,13 +361,13 @@ class ADTCoreData:
         self._responsible = value
 
     @property
-    def package_reference(self):
-        """The object's package reference"""
+    def package_reference(self) -> Optional["ADTCoreData.Reference"]:
+        """The object's package reference as returned by ADT backend"""
 
         return self._package_reference
 
     @package_reference.setter
-    def package_reference(self, value):
+    def package_reference(self, value: Optional["ADTCoreData.Reference"]):
         """Set the object's package reference"""
 
         self._package_reference = value
@@ -510,7 +513,7 @@ class ADTObject(metaclass=OrderedClassMembers):
         return f'{self.objtype.code} {self.name}'
 
     @property
-    def coredata(self):
+    def coredata(self) -> ADTCoreData | None:
         """ADT Core Data"""
 
         return self._metadata
@@ -530,7 +533,11 @@ class ADTObject(metaclass=OrderedClassMembers):
 
     @property
     def package(self):
-        """ABAP development package"""
+        """ABAP development package. If you need authoritative
+           information about package where the object belongs, use
+           coredata.package_reference.name instead because the package property is not
+           populated by ADT response and is only for object's internal use.
+        """
 
         return self._metadata.package
 
@@ -656,7 +663,7 @@ class ADTObject(metaclass=OrderedClassMembers):
 
     @xml_element('adtcore:packageRef')
     def reference(self):
-        """The object's package reference"""
+        """The object's package reference, usually populated by ADT back-end response"""
 
         return self._metadata.package_reference
 
