@@ -97,12 +97,21 @@ class HTTPClient():
 
         The handler will be called with the request and response objects
         when an error occurs.
+
+        The handler is supposed to either raise an exception or return None. If
+        it returns None, the next handler will be called. If no handler raises
+        an exception, the default behavior is to raise an HTTPRequestError.
         """
 
         self.error_handlers.insert(0, handler)
 
     def handle_http_error(self, req, res):
-        """Raise the correct exception based on response content."""
+        """Raise the correct exception based on response content.
+
+        Calls the error handlers in order until one of them raises an
+        exception. If no handler raises an exception, a HTTPRequestError is
+        raised.
+        """
 
         for handler in self.error_handlers:
             handler(self, req, res)
@@ -111,7 +120,12 @@ class HTTPClient():
         """Set the connection error handler for the client.
 
         The handler will be called with the client and error
-        when a connection error occurs.
+        when a requests.exceptions.ConnectionError occurs.
+
+        def my_connection_error_handler(client: sap.http.client.HTTPClient, error: requests.exceptions.ConnectionError):
+            # Handle the connection error, e.g. by logging it or raising a custom exception
+
+        If the handler does not raise an exception, the original ConnectionError will be re-raised.
         """
 
         self._connection_error_handler = handler
