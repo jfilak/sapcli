@@ -12,13 +12,22 @@ in Python classes, the classes must inherit their metaclass from OrderedClassMem
 Top ADT objects such as ABAP Class or ABAP Function Module should inherit from ADTObject.
 Helper ADT objects (members of the top adt objects can just specify their metaclass=OrderedClassMembers).
 
-ADTObject childern must define class level object OBJTYPE which must be compatible with ADTObjectType.
+ADTObject children must define class level object OBJTYPE which must be compatible with ADTObjectType.
 
 Top ADT objects must declare their metadata stored in the class ADTCoreData.
 
 The corresponding Python code is stored in the directory sap/adt/
 
-# Functions
+## ADT object anatomy
+
+Objects metadata such as `Master Language` is accessible via the property
+`ADTObject.coredata` which returns an instance of `ADTCoreData`.
+
+The authoritative package information for the give object is accessible via the
+property `ADTOjbect.coredata.package_reference` which returns an instance of
+`ADTCoreData.Reference`.
+
+### Functions
 
 ABAP function modules s are organized in function groups which are something
 like directories of function modules.
