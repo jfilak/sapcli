@@ -14,6 +14,73 @@ from mock import Request, Response, Connection
 from fixtures_adt import ERROR_XML_PACKAGE_ALREADY_EXISTS, DISCOVERY_ADT_XML
 
 
+class TestADTErrorHandler(unittest.TestCase):
+
+    def test_without_content_type(self):
+        client = Mock()
+        req = Mock()
+
+        res = Mock()
+        res.status_code = 500
+        res.headers = {}
+        res.text = 'arbitrary crash'
+
+        # shall not raise
+        sap.adt.core._adt_http_error_handler(client, req, res)
+        self.assertTrue(True)
+
+    def test_without_content_type_xml(self):
+        client = Mock()
+        req = Mock()
+
+        res = Mock()
+        res.status_code = 500
+        res.headers = {'content-type': 'application/json'}
+        res.text = 'arbitrary crash'
+
+        # shall not raise
+        sap.adt.core._adt_http_error_handler(client, req, res)
+        self.assertTrue(True)
+
+    @patch('sap.adt.core.new_adt_error_from_xml')
+    def test_with_content_type(self, fake_new_adt_error_from_xml):
+        client = Mock()
+        req = Mock()
+
+        res = Mock()
+        res.status_code = 500
+        res.headers = {'content-type': 'application/xml'}
+        res.text = 'standard ADT error'
+
+        expected_error = sap.adt.errors.ADTError('com.sap.adt', 'ADHOC', 'Parsed ADT error')
+        fake_new_adt_error_from_xml.return_value = expected_error
+
+        with self.assertRaises(sap.adt.errors.ADTError) as cm:
+            sap.adt.core._adt_http_error_handler(client, req, res)
+
+        self.assertTrue(fake_new_adt_error_from_xml.called)
+        self.assertIs(cm.exception, expected_error)
+
+    @patch('sap.adt.core.new_adt_error_from_xml')
+    def test_with_content_type_and_charset(self, fake_new_adt_error_from_xml):
+        client = Mock()
+        req = Mock()
+
+        res = Mock()
+        res.status_code = 500
+        res.headers = {'content-type': 'application/xml; charset=utf-8'}
+        res.text = 'standard ADT error'
+
+        expected_error = sap.adt.errors.ADTError('com.sap.adt', 'ADHOC', 'Parsed ADT error')
+        fake_new_adt_error_from_xml.return_value = expected_error
+
+        with self.assertRaises(sap.adt.errors.ADTError) as cm:
+            sap.adt.core._adt_http_error_handler(client, req, res)
+
+        self.assertTrue(fake_new_adt_error_from_xml.called)
+        self.assertIs(cm.exception, expected_error)
+
+
 class TestADTConnection(unittest.TestCase):
     """Connection(host, client, user, password, port=None, ssl=True)"""
 
