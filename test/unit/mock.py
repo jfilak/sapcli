@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch, MagicMock, Mock
 
 import sap.adt
+import sap.http
 import sap.rest
 import sap.cli.core
 
@@ -166,19 +167,21 @@ class SimpleAsserter:
         assert lhs == rhs, message
 
 
-class RESTConnection(sap.rest.Connection):
+class MockHTTPClient(sap.http.HTTPClient):
+    """HTTPClient that records requests and returns predefined responses.
 
-    def __init__(self, responses=None, user='ANZEIGER', asserter=None):
-        """
-        Args:
-            response: A list of Response instances or tuples (Response, Request)
-                      if you want to automatically check the request. Ins such
-                      case, you should also pass the argument asserter.
-        """
-        super().__init__('/icf/path', 'login/url', 'host', '100', user, 'mockpass')
+    Used by mock connections (e.g. RESTConnection) to intercept HTTP calls
+    without hitting the network. Subclassing HTTPClient keeps the real
+    execute_with_session/error-handler logic intact; only retrieve() is
+    replaced.
+    """
+
+    def __init__(self, responses=None, asserter=None, url_builder=None, user='ANZEIGER'):
+        super().__init__(host='mockhost', client='100', user=user, password='mockpass')
 
         self.execs = list()
         self.asserter = asserter if asserter is not None else SimpleAsserter()
+        self._url_builder = url_builder
         self.set_responses_iter(ok_responses() if responses is None else iter(responses))
 
     def set_responses(self, *responses):
@@ -190,14 +193,8 @@ class RESTConnection(sap.rest.Connection):
     def set_responses_iter(self, responses_iter):
         self._resp_iter = responses_iter
 
-    def _get_session(self):
-        return 'bogus session'
-
-    def _build_url(self, uri_path):
-        return uri_path
-
-    def _retrieve(self, session, method, url, params=None, headers=None, body=None):
-        req = Request(method, url, headers, body, params)
+    def retrieve(self, session, method, path, params=None, headers=None, body=None):
+        req = Request(method, path, headers, body, params)
         self.execs.append(req)
 
         res = next(self._resp_iter)
@@ -208,15 +205,53 @@ class RESTConnection(sap.rest.Connection):
             exp_request = res[1]
             res = res[0]
 
-            full_uri = self._build_url(exp_request.adt_uri)
-            exp_request = exp_request.clone_with_uri(full_uri)
+            if self._url_builder is not None:
+                full_uri = self._url_builder(exp_request.adt_uri)
+                exp_request = exp_request.clone_with_uri(full_uri)
 
             exp_request.assertEqual(req, self.asserter)
 
         return (req, res)
 
+
+class RESTConnection(sap.rest.Connection):
+
+    def __init__(self, responses=None, user='ANZEIGER', asserter=None):
+        """
+        Args:
+            response: A list of Response instances or tuples (Response, Request)
+                      if you want to automatically check the request. Ins such
+                      case, you should also pass the argument asserter.
+        """
+        super().__init__('/icf/path', 'login/url', 'host', '100', user, 'mockpass')
+
+        self.asserter = asserter if asserter is not None else SimpleAsserter()
+
+        self._http_client = MockHTTPClient(
+            responses=responses,
+            asserter=self.asserter,
+            url_builder=self._build_url,
+            user=user,
+        )
+
+    @property
+    def execs(self):
+        return self._http_client.execs
+
+    def set_responses(self, *responses):
+        self._http_client.set_responses(*responses)
+
+    def set_responses_iter(self, responses_iter):
+        self._http_client.set_responses_iter(responses_iter)
+
+    def _get_session(self):
+        return 'bogus session'
+
+    def _build_url(self, uri_path):
+        return uri_path
+
     def mock_methods(self):
-        return  [(e.method, e.adt_uri) for e in self.execs]
+        return [(e.method, e.adt_uri) for e in self.execs]
 
 
 class Connection(sap.adt.Connection):
