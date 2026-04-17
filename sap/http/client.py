@@ -33,7 +33,9 @@ def build_url(ssl=True, host=None, port=None, path=None, client=None, saml2=None
     default_port = '443' if ssl else '80'
     port = port or default_port
 
-    return f'{protocol}://{host}:{port}/{path}', build_query_args(client, saml2)
+    base = f'{protocol}://{host}:{port}'
+    url = f'{base}/{path}' if path is not None else base
+    return url, build_query_args(client, saml2)
 
 
 def default_http_error_handler(client, req, res):
@@ -75,6 +77,8 @@ class HTTPClient():
             self.protocol = 'http'
             if port is None:
                 self.port = '80'
+
+        self._base_url, _ = build_url(self.ssl, self.host, self.port)
 
         self.ssl_verify = verify
         self.ssl_server_cert = ssl_server_cert
@@ -133,7 +137,8 @@ class HTTPClient():
     def retrieve(self, session, method, path, params=None, headers=None, body=None):
         """Execute an HTTP request and return the raw (request, response) tuple."""
 
-        url, default_params = build_url(self.ssl, self.host, self.port, path, self.client, self.saml2)
+        url = f'{self._base_url}/{path.lstrip("/")}'
+        default_params = build_query_args(self.client, self.saml2)
         default_params.update(params or {})
         req = requests.Request(method.upper(), url, params=default_params, data=body, headers=headers)
         req = session.prepare_request(req)

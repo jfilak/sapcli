@@ -71,6 +71,12 @@ class TestBuildUrl(unittest.TestCase):
         self.assertEqual(url, 'https://example.com:443/sap/bc/adt')
         self.assertEqual(params, {'sap-client': '100', 'saml2': 'enabled'})
 
+    def test_no_path_returns_base_url(self):
+        url, params = build_url(host='example.com')
+
+        self.assertEqual(url, 'https://example.com:443')
+        self.assertEqual(params, {})
+
 
 class TestDefaultHttpErrorHandler(unittest.TestCase):
 
@@ -136,6 +142,7 @@ class TestHTTPClientInit(unittest.TestCase):
         self.assertEqual(client.login_method, 'HEAD')
         self.assertIsNone(client.ssl_verify)
         self.assertIsNone(client.ssl_server_cert)
+        self.assertEqual(client._base_url, 'https://example.com:443')
 
     def test_defaults_no_ssl(self):
         client = HTTPClient(ssl=False, host='example.com', user='SAP*', password='pass')
@@ -143,18 +150,21 @@ class TestHTTPClientInit(unittest.TestCase):
         self.assertFalse(client.ssl)
         self.assertEqual(client.port, '80')
         self.assertEqual(client.protocol, 'http')
+        self.assertEqual(client._base_url, 'http://example.com:80')
 
     def test_custom_port_ssl(self):
         client = HTTPClient(host='example.com', port='8443', user='u', password='p')
 
         self.assertEqual(client.port, '8443')
         self.assertEqual(client.protocol, 'https')
+        self.assertEqual(client._base_url, 'https://example.com:8443')
 
     def test_custom_port_no_ssl(self):
         client = HTTPClient(ssl=False, host='example.com', port='8080', user='u', password='p')
 
         self.assertEqual(client.port, '8080')
         self.assertEqual(client.protocol, 'http')
+        self.assertEqual(client._base_url, 'http://example.com:8080')
 
     def test_all_parameters(self):
         client = HTTPClient(
@@ -321,6 +331,30 @@ class TestHTTPClientRetrieve(unittest.TestCase):
         self.assertEqual(kwargs['params'], {'sap-client': '200', 'saml2': 'enabled', 'foo': 'bar'})
         self.assertEqual(kwargs['data'], 'data')
         self.assertEqual(kwargs['headers'], {'X-H': '1'})
+
+    @patch('sap.http.client.requests.Request')
+    def test_retrieve_path_without_leading_slash(self, mock_request_cls):
+        client = self._make_client(ssl=True, host='myhost', port='44300')
+        session = Mock()
+        session.prepare_request.return_value = Mock()
+        session.send.return_value = Mock(text='')
+
+        client.retrieve(session, 'GET', 'api/path')
+
+        args = mock_request_cls.call_args[0]
+        self.assertEqual(args[1], 'https://myhost:44300/api/path')
+
+    @patch('sap.http.client.requests.Request')
+    def test_retrieve_path_with_leading_slash(self, mock_request_cls):
+        client = self._make_client(ssl=True, host='myhost', port='44300')
+        session = Mock()
+        session.prepare_request.return_value = Mock()
+        session.send.return_value = Mock(text='')
+
+        client.retrieve(session, 'GET', '/api/path')
+
+        args = mock_request_cls.call_args[0]
+        self.assertEqual(args[1], 'https://myhost:44300/api/path')
 
     @patch('sap.http.client.requests.Request')
     def test_retrieve_method_uppercased(self, mock_request_cls):
