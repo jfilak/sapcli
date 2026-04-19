@@ -1,6 +1,9 @@
 - this python projects has source codes located in the directory sap/
+- use red/green test drive development - first tests, then product ioncode
 - tests are located in the directory test/unit/
 - tests are written in python unittest
+- write tests sequentially without loops
+- when witting code follow the rule Keep it simple stupid
 - every module should have a special test file. Example: module sap/cli/gcts.py has tests in test/unit/test_sap_cli_gcts.py
 - test fixtures are located in the same directory with test.
 - test fixtures are stored as module files with the prefix test_.
