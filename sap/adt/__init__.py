@@ -18,3 +18,6 @@ from sap.adt.dataelement import DataElement  # noqa: F401
 from sap.adt.domain import Domain  # noqa: F401
 from sap.adt.authorization_field import AuthorizationField  # noqa: F401
 from sap.adt.whereused import where_used, get_scope, get_where_used  # noqa: F401
+from sap.adt.apirelease import (get_api_release, validate_api_release,  # noqa: F401
+                                set_api_release, ApiRelease, ContractKey,
+                                ApiReleaseValidation, ValidationMessage)
