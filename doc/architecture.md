@@ -27,6 +27,8 @@ The authoritative package information for the give object is accessible via the
 property `ADTOjbect.coredata.package_reference` which returns an instance of
 `ADTCoreData.Reference`.
 
+The complete Object ADT path is available in the property `full_adt_uri`.
+
 ### Functions
 
 ABAP function modules s are organized in function groups which are something
