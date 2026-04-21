@@ -4,6 +4,7 @@ import sap.adt
 import sap.adt.wb
 import sap.cli.core
 import sap.cli.object
+import sap.cli.apirelease
 
 
 class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
@@ -15,6 +16,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         super().__init__('ddl', description='CDS views')
 
         self.define()
+        sap.cli.apirelease.enhance_command_group(self)
 
     def instance(self, connection, name, args, metadata=None):
         package = None
