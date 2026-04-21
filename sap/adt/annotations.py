@@ -116,8 +116,8 @@ class OrderedClassMembers(type):
 class XmlElementKind(Enum):
     """XML element kinds"""
 
-    OBJECT = 1
-    TEXT = 2
+    OBJECT = 1  # Represents XML tag: <tag attribute=foo><child>...</child></tag>
+    TEXT = 2  # Represents text data of an XML tag: <tag>text data</tag>
 
 
 # pylint: disable=too-few-public-methods
@@ -137,7 +137,20 @@ class XmlAttributeProperty(property):
 
 # pylint: disable=too-few-public-methods,too-many-arguments
 class XmlElementProperty(property):
-    """XML Annotation"""
+    """XML Annotation
+
+       Arguments:
+        - name: XML element name
+        - fget: getter function for the annotated property
+        - fset: setter function for the annotated property (default: None)
+        - deserialize: whether the property should be deserialized when parsing
+          XML, use False if you need a property that appears only in
+          serialization (default: True)
+        - factory: a callable to create an instance of the property type when deserializing (default: None)
+        - kind: the kind of XML element OBJECT or TEXT (default: OBJECT)
+        - version: an optional version or list of versions to make the property name unique across versions (default: None)
+        - ignore_empty: set to True if you do not want to serialize empty XML tags for None values (default: False)
+    """
 
     NAME_FROM_OBJECT = None
 
@@ -185,6 +198,17 @@ class XmlPropertyImpl:
 class XmlNodeProperty(XmlElementProperty, XmlPropertyImpl):
     """A descriptor class to avoid the need to define 2 useless functions
        get/set when absolutely not necessary.
+
+       Arguments:
+         - name: XML element name
+         - value: default value to return if the property is not set on the object
+         - deserialize: whether the property should be deserialized when
+           parsing XML, use False if you need a property that appears only in
+           serialization (default: True)
+         - factory: a callable to create an instance of the property type when deserializing (default: None)
+         - kind: the kind of XML element (default: OBJECT)
+         - version: an optional version or list of versions to make the property name unique across versions (default: None)
+         - ignore_empty: set to True if you do not want to serialize empty XML tags for None values (default: False)
     """
 
     def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None,
