@@ -51,6 +51,18 @@ class CommandGroup(sap.cli.core.CommandGroup):
         self.profile_grp.install_parser(profile_parser)
 
 
+def _format_human_location(location):
+    """Format finding location for human output"""
+
+    line, column = get_line_and_column(location)
+
+    if line == '0':
+        return 'entire object'
+    if column == '0':
+        return f'line={line}'
+    return f'line={line}, column={column}'
+
+
 def print_worklists_to_stream(all_results, stream, error_level=99, priority_filter=5):
     """Print results to stream"""
 
@@ -66,7 +78,11 @@ def print_worklists_to_stream(all_results, stream, error_level=99, priority_filt
                 if int(finding.priority) <= error_level:
                     ret += 1
 
-                stream.write(f'*{finiding_pad}{finding.priority} :: {finding.check_title} :: {finding.message_title}\n')
+                location_suffix = _format_human_location(finding.location)
+                prio = finding.priority
+                title = finding.check_title
+                msg = finding.message_title
+                stream.write(f'*{finiding_pad}{prio} :: {title} :: {msg} :: {location_suffix}\n')
 
     return 0 if ret < 1 else 1
 
