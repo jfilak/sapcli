@@ -346,10 +346,10 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
         ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output)
         self.assertEqual(output.getvalue(),
 '''FAKE/TEST/MADE_UP_OBJECT
-* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
-* 2 :: PRIO_2 :: Prio 2
-* 3 :: PRIO_3 :: Prio 3
-* 4 :: PRIO_4 :: Prio 4
+* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli :: line=24
+* 2 :: PRIO_2 :: Prio 2 :: line=24, column=32
+* 3 :: PRIO_3 :: Prio 3 :: entire object
+* 4 :: PRIO_4 :: Prio 4 :: entire object
 ''')
         self.assertEqual(1, ret)
 
@@ -358,10 +358,10 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
         ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, error_level=2, priority_filter=5)
         self.assertEqual(output.getvalue(),
 '''FAKE/TEST/MADE_UP_OBJECT
-* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
-* 2 :: PRIO_2 :: Prio 2
-* 3 :: PRIO_3 :: Prio 3
-* 4 :: PRIO_4 :: Prio 4
+* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli :: line=24
+* 2 :: PRIO_2 :: Prio 2 :: line=24, column=32
+* 3 :: PRIO_3 :: Prio 3 :: entire object
+* 4 :: PRIO_4 :: Prio 4 :: entire object
 ''')
         self.assertEqual(1, ret)
 
@@ -370,10 +370,10 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
         ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, error_level=0)
         self.assertEqual(output.getvalue(),
 '''FAKE/TEST/MADE_UP_OBJECT
-* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
-* 2 :: PRIO_2 :: Prio 2
-* 3 :: PRIO_3 :: Prio 3
-* 4 :: PRIO_4 :: Prio 4
+* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli :: line=24
+* 2 :: PRIO_2 :: Prio 2 :: line=24, column=32
+* 3 :: PRIO_3 :: Prio 3 :: entire object
+* 4 :: PRIO_4 :: Prio 4 :: entire object
 ''')
         self.assertEqual(0, ret)
 
@@ -382,7 +382,7 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
         ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, priority_filter=1)
         self.assertEqual(output.getvalue(),
 '''FAKE/TEST/MADE_UP_OBJECT
-* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli
+* 1 :: UNIT_TEST :: Unit tests for ATC module of sapcli :: line=24
 ''')
         self.assertEqual(1, ret)
 
