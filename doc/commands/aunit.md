@@ -17,7 +17,7 @@ The exit code will be determined based on test results where exit code is the
 number of failed and erroed tests if _unit_ included in the result.
 
 ```bash
-sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH] [--report-missed-lines] [--compat]
+sapcli aunit run {package,class,program,program-include,transport} NAME [--output {raw,human,junit4}] [--as4user NAME] [--result {unit,coverage,all}] [--coverage-output {raw, human, jacoco}] [--coverage-filepath PATH] [--report-missed-lines] [--skip-covered] [--compat]
 ```
 
 - _transport_ : if you use transport, NAME is Transport Number
@@ -34,6 +34,28 @@ zcx_abapgit_exception (source/main)
 - 183-185
 zcx_abapgit_exception (includes/implementations)
 - 50, 55, 60-62
+```
+- _--skip-covered_: when using `--coverage-output=human`, hide objects and their children where statement, branch, and procedure coverage are all 100%. If a parent node and all its descendants are fully covered, the entire subtree is omitted. This is useful to focus on code that still needs test coverage. Example:
+
+```bash
+sapcli aunit run package ZPACKAGE --result coverage --coverage-output human --skip-covered
+```
+
+Without `--skip-covered`:
+```
+ZPACKAGE : 75.00% : 60.00% : 80.00%
+  ZCL_FULLY_TESTED : 100.00% : 100.00% : 100.00%
+    METHOD_A : 100.00% : 100.00% : 100.00%
+    METHOD_B : 100.00% : 100.00% : 100.00%
+  ZCL_NEEDS_WORK : 50.00% : 30.00% : 60.00%
+    METHOD_C : 50.00% : 30.00% : 60.00%
+```
+
+With `--skip-covered`:
+```
+ZPACKAGE : 75.00% : 60.00% : 80.00%
+  ZCL_NEEDS_WORK : 50.00% : 30.00% : 60.00%
+    METHOD_C : 50.00% : 30.00% : 60.00%
 ```
 - _--compat_: execute AUnit via the deprecated non-public ADT HTTP endpoints
 

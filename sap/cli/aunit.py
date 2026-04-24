@@ -125,13 +125,26 @@ def print_aunit_human(run_results, console):
     return errors
 
 
-def print_acoverage_human(node, console, _indent_level=0):
+def _is_fully_covered(node):
+    """Check if a node and all its descendants have 100% coverage"""
+
+    for coverage in node.coverages:
+        if not coverage.total or coverage.executed < coverage.total:
+            return False
+
+    return all(_is_fully_covered(child) for child in node.nodes)
+
+
+def print_acoverage_human(node, console, _indent_level=0, skip_covered=False):
     """Print ACoverage results in the human readable format"""
 
     ident = '  ' * _indent_level
 
     # pylint: disable=redefined-argument-from-local
     for node in node.nodes:
+        if skip_covered and _is_fully_covered(node):
+            continue
+
         statement_coverage = 0.0
         branch_coverage = 0.0
         procedure_coverage = 0.0
@@ -151,7 +164,7 @@ def print_acoverage_human(node, console, _indent_level=0):
 
         console.printout(f'{ident}{node.name} : {statement_coverage:.2f}% : {branch_coverage:.2f}% : {procedure_coverage:.2f}%')
 
-        print_acoverage_human(node, console, _indent_level + 1)
+        print_acoverage_human(node, console, _indent_level + 1, skip_covered=skip_covered)
 
 
 # pylint: disable=too-few-public-methods
@@ -753,7 +766,7 @@ def print_acoverage_output(args, acoverage_response, root_node, statement_respon
     if args.coverage_output == 'raw':
         print_acoverage_raw(acoverage_response.text, console)
     elif args.coverage_output == 'human':
-        print_acoverage_human(root_node, console)
+        print_acoverage_human(root_node, console, skip_covered=args.skip_covered)
     elif args.coverage_output == 'jacoco':
         print_acoverage_jacoco(root_node, statement_responses, args, console)
 
@@ -839,6 +852,7 @@ def _build_objects_info(args):
 @CommandGroup.argument('--coverage-output', choices=['raw', 'human', 'jacoco'], default='human')
 @CommandGroup.argument('--coverage-filepath', default=None, type=str)
 @CommandGroup.argument('--report-missed-lines', action='store_true', default=False)
+@CommandGroup.argument('--skip-covered', action='store_true', default=False)
 @CommandGroup.argument('--compat', action='store_true', default=False,
                        help='Use the deprecated non-public ADT AUnit protocol')
 @CommandGroup.command()
