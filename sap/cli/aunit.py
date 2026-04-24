@@ -132,14 +132,24 @@ def print_acoverage_human(node, console, _indent_level=0):
 
     # pylint: disable=redefined-argument-from-local
     for node in node.nodes:
-        statement_coverage = None
+        statement_coverage = 0.0
+        branch_coverage = 0.0
+        procedure_coverage = 0.0
         for coverage in node.coverages:
             if coverage.type == 'statement':
                 statement_coverage = (
                     coverage.executed / coverage.total * 100 if coverage.total else 0
                 )
+            elif coverage.type == 'branch':
+                branch_coverage = (
+                    coverage.executed / coverage.total * 100 if coverage.total else 0
+                )
+            elif coverage.type == 'procedure':
+                procedure_coverage = (
+                    coverage.executed / coverage.total * 100 if coverage.total else 0
+                )
 
-        console.printout(f'{ident}{node.name} : {statement_coverage:.2f}%')
+        console.printout(f'{ident}{node.name} : {statement_coverage:.2f}% : {branch_coverage:.2f}% : {procedure_coverage:.2f}%')
 
         print_acoverage_human(node, console, _indent_level + 1)
 
