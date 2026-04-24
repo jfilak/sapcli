@@ -1,3 +1,29 @@
+ADT_XML_RUN_OBJECT_CHECK_RESPONSE_ERRORS = '''<?xml version="1.0" encoding="UTF-8"?>
+<chkrun:checkRunReports xmlns:chkrun="http://www.sap.com/adt/checkrun">
+  <chkrun:checkReport chkrun:reporter="abapCheckRun" chkrun:triggeringUri="/sap/bc/adt/oo/classes/cl_foo" chkrun:status="processed" chkrun:statusText="Object cl_foo has been checked">
+    <chkrun:checkMessageList>
+      <chkrun:checkMessage chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/source/main#start=27,2;end=27,15" chkrun:type="E" chkrun:shortText="Variable &quot;FOO&quot; is not type-compatible" chkrun:code="SYNTAX(001)"/>
+      <chkrun:checkMessage chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/source/main#start=45,1;end=45,10" chkrun:type="W" chkrun:shortText="Statement is deprecated" chkrun:code="DEPRECATION(002)"/>
+    </chkrun:checkMessageList>
+  </chkrun:checkReport>
+</chkrun:checkRunReports>'''
+
+ADT_XML_RUN_OBJECT_CHECK_RESPONSE_WARNINGS_ONLY = '''<?xml version="1.0" encoding="UTF-8"?>
+<chkrun:checkRunReports xmlns:chkrun="http://www.sap.com/adt/checkrun">
+  <chkrun:checkReport chkrun:reporter="abapCheckRun" chkrun:triggeringUri="/sap/bc/adt/oo/classes/cl_foo" chkrun:status="processed" chkrun:statusText="Object cl_foo has been checked">
+    <chkrun:checkMessageList>
+      <chkrun:checkMessage chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/source/main#start=10,1;end=10,5" chkrun:type="W" chkrun:shortText="Obsolete syntax" chkrun:code="OBSOLETE(001)"/>
+    </chkrun:checkMessageList>
+  </chkrun:checkReport>
+</chkrun:checkRunReports>'''
+
+ADT_XML_RUN_OBJECT_CHECK_RESPONSE_CLEAN = '''<?xml version="1.0" encoding="UTF-8"?>
+<chkrun:checkRunReports xmlns:chkrun="http://www.sap.com/adt/checkrun">
+  <chkrun:checkReport chkrun:reporter="abapCheckRun" chkrun:triggeringUri="/sap/bc/adt/oo/classes/cl_foo" chkrun:status="processed" chkrun:statusText="Object cl_foo has been checked">
+    <chkrun:checkMessageList/>
+  </chkrun:checkReport>
+</chkrun:checkRunReports>'''
+
 ADT_XML_CHECK_REPORTERS = '''<?xml version="1.0" encoding="UTF-8"?>
 <chkrun:checkReporters xmlns:chkrun="http://www.sap.com/adt/checkrun">
   <chkrun:reporter chkrun:name="abapCheckRun">
