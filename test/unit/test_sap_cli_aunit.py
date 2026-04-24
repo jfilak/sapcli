@@ -894,6 +894,7 @@ foo (source/main)
             coverage_output='human',
             coverage_filepath=None,
             report_missed_lines=True,
+            skip_covered=False,
             console_factory=lambda: output,
         )
 
@@ -1251,6 +1252,93 @@ Warnings:   1
 Errors:     3
 ''')
         self.assertEqual(exit_code, 3)
+
+
+class TestPrintACoverageHumanSkipCovered(unittest.TestCase):
+
+    def _make_node(self, name, nodes=None, coverages=None):
+        from sap.adt.acoverage import Node
+        return Node(name=name, type='', uri='', nodes=nodes or [], coverages=coverages or [], parent_node=None)
+
+    def _make_coverage(self, cov_type, executed, total):
+        from sap.adt.acoverage import CoverageNode
+        return CoverageNode(type=cov_type, executed=executed, total=total)
+
+    def _fully_covered(self):
+        return [
+            self._make_coverage('statement', 10, 10),
+            self._make_coverage('branch', 5, 5),
+            self._make_coverage('procedure', 2, 2),
+        ]
+
+    def _partially_covered(self):
+        return [
+            self._make_coverage('statement', 7, 10),
+            self._make_coverage('branch', 3, 5),
+            self._make_coverage('procedure', 2, 2),
+        ]
+
+    def test_skip_covered_skips_fully_covered_subtree(self):
+        method_a = self._make_node('METHOD_A', coverages=self._fully_covered())
+        method_b = self._make_node('METHOD_B', coverages=self._fully_covered())
+        class_node = self._make_node('CLASS_FULL', nodes=[method_a, method_b], coverages=self._fully_covered())
+
+        method_c = self._make_node('METHOD_C', coverages=self._partially_covered())
+        class_partial = self._make_node('CLASS_PARTIAL', nodes=[method_c], coverages=self._partially_covered())
+
+        root = self._make_node('ROOT', nodes=[class_node, class_partial])
+
+        output = BufferConsole()
+        sap.cli.aunit.print_acoverage_human(root, output, skip_covered=True)
+
+        self.assertEqual(output.capout,
+'''CLASS_PARTIAL : 70.00% : 60.00% : 100.00%
+  METHOD_C : 70.00% : 60.00% : 100.00%
+''')
+
+    def test_skip_covered_false_shows_all(self):
+        method_a = self._make_node('METHOD_A', coverages=self._fully_covered())
+        class_node = self._make_node('CLASS_FULL', nodes=[method_a], coverages=self._fully_covered())
+        root = self._make_node('ROOT', nodes=[class_node])
+
+        output = BufferConsole()
+        sap.cli.aunit.print_acoverage_human(root, output, skip_covered=False)
+
+        self.assertEqual(output.capout,
+'''CLASS_FULL : 100.00% : 100.00% : 100.00%
+  METHOD_A : 100.00% : 100.00% : 100.00%
+''')
+
+    def test_skip_covered_keeps_parent_with_mixed_children(self):
+        method_a = self._make_node('METHOD_A', coverages=self._fully_covered())
+        method_b = self._make_node('METHOD_B', coverages=self._partially_covered())
+        class_node = self._make_node('CLASS_MIX', nodes=[method_a, method_b], coverages=self._partially_covered())
+        root = self._make_node('ROOT', nodes=[class_node])
+
+        output = BufferConsole()
+        sap.cli.aunit.print_acoverage_human(root, output, skip_covered=True)
+
+        self.assertEqual(output.capout,
+'''CLASS_MIX : 70.00% : 60.00% : 100.00%
+  METHOD_B : 70.00% : 60.00% : 100.00%
+''')
+
+    def test_skip_covered_zero_total_is_not_covered(self):
+        """Nodes with 0 total should not be considered fully covered"""
+        coverages = [
+            self._make_coverage('statement', 0, 0),
+            self._make_coverage('branch', 0, 0),
+            self._make_coverage('procedure', 0, 0),
+        ]
+        node = self._make_node('EMPTY', coverages=coverages)
+        root = self._make_node('ROOT', nodes=[node])
+
+        output = BufferConsole()
+        sap.cli.aunit.print_acoverage_human(root, output, skip_covered=True)
+
+        self.assertEqual(output.capout,
+'''EMPTY : 0.00% : 0.00% : 0.00%
+''')
 
 
 if __name__ == '__main__':
