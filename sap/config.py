@@ -622,9 +622,36 @@ def _fetch_config_from_path(source: str) -> dict:
     return data
 
 
+_TRUTHY_ENV_VALUES = {'1', 'true', 'yes', 'on'}
+_FALSY_ENV_VALUES = {'0', 'false', 'no', 'off'}
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable.
+
+    Accepts the usual spellings (1/0, true/false, yes/no, on/off) in a
+    case-insensitive way. Unknown values fall back to ``default`` - we
+    do not fail a whole CLI invocation over a typo in an optional flag.
+    """
+
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+
+    normalised = raw.strip().lower()
+    if normalised in _TRUTHY_ENV_VALUES:
+        return True
+    if normalised in _FALSY_ENV_VALUES:
+        return False
+    return default
+
+
 def config_get(option: str, default: Any = None) -> Any:
     """Returns configuration values"""
 
-    config = {'http_timeout': float(os.environ.get('SAPCLI_HTTP_TIMEOUT', 900))}
+    config = {
+        'http_timeout': float(os.environ.get('SAPCLI_HTTP_TIMEOUT', 900)),
+        'check_before_save': _env_bool('SAPCLI_CHECK_BEFORE_SAVE', True),
+    }
 
     return config.get(option, default)

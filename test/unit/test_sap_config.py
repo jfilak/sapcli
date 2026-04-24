@@ -94,6 +94,30 @@ class TestConfigGet(unittest.TestCase):
 
         self.assertEqual(timeout, 0.777)
 
+    def test_check_before_save_default(self):
+        with patch('os.environ', {}):
+            self.assertTrue(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_truthy_spellings(self):
+        for value in ('1', 'true', 'TRUE', 'yes', 'ON', ' true '):
+            with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': value}):
+                self.assertTrue(
+                    sap.config.config_get('check_before_save'),
+                    f'truthy value {value!r} should enable the check',
+                )
+
+    def test_check_before_save_falsy_spellings(self):
+        for value in ('0', 'false', 'FALSE', 'no', 'OFF', ' false '):
+            with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': value}):
+                self.assertFalse(
+                    sap.config.config_get('check_before_save'),
+                    f'falsy value {value!r} should disable the check',
+                )
+
+    def test_check_before_save_unknown_value_falls_back_to_default(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'maybe'}):
+            self.assertTrue(sap.config.config_get('check_before_save'))
+
 
 class TestResolveConfigPath(unittest.TestCase):
 
