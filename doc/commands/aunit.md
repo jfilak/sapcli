@@ -124,14 +124,20 @@ Coverage results are printed in the form as they were returned from ADT.
 #### Human
 
 This format attempts to provide nice human readable form of the coverage results.
+Each line displays statement, branch, and procedure coverage percentages:
 
 ```
-PACKAGE FOO : 31.19%
-  CLASS BAR : 95.52%
-    METHOD A : 100.00%
-    METHOD B : 75.00%
-    METHOD C : 100.00%
+PACKAGE FOO : 31.19% : 21.64% : 19.23%
+  CLASS BAR : 95.52% : 75.86% : 100.00%
+    METHOD A : 100.00% : 60.00% : 100.00%
+    METHOD B : 75.00% : 50.00% : 100.00%
+    METHOD C : 100.00% : 100.00% : 100.00%
 ```
+
+The three percentages are:
+- **Statement coverage** — percentage of executed statements
+- **Branch coverage** — percentage of executed branches (e.g. IF/ELSE paths)
+- **Procedure coverage** — percentage of executed procedures (methods/functions)
 
 #### JaCoCo
 

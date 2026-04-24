@@ -554,12 +554,12 @@ CL_FOO======CCAU:428
         self.assertEqual(len(self.connection.execs), 2)
 
         self.assertEqual(fake_console.capout,
-'''TEST_CHECK_LIST : 29.00%
-  FOO===========================CP : 95.24%
-    FOO : 95.24%
-      METHOD_A : 100.00%
-      METHOD_B : 75.00%
-  BAR===========================CP : 0.00%
+'''TEST_CHECK_LIST : 29.00% : 21.64% : 19.23%
+  FOO===========================CP : 95.24% : 75.86% : 100.00%
+    FOO : 95.24% : 75.86% : 100.00%
+      METHOD_A : 100.00% : 60.00% : 100.00%
+      METHOD_B : 75.00% : 50.00% : 100.00%
+  BAR===========================CP : 0.00% : 0.00% : 0.00%
 ''')
 
     def test_acoverage_package_with_results_jacoco(self):
@@ -1138,13 +1138,13 @@ class TestAUnitAPIProtocol(unittest.TestCase):
         self.assertIn('LCL_STUB_DECORATOR', self.connection.execs[5].adt_uri)
 
         self.assertEqual(fake_console.capout,
-'''TEST_EXAMPLE_PACKAGE : 75.18%
-  CL_EXAMPLE_CLASS : 97.67%
-    CL_EXAMPLE_CLASS : 97.62%
-      /IWBEP/IF_MGW_REQ_COMMON~GET_SUPPORTED_RUNTIME_FEATURES : 100.00%
-      /IWBEP/IF_MGW_REQ_ENTITYSET~GET_AT : 100.00%
-    LCL_STUB_DECORATOR : 100.00%
-      CONSTRUCTOR : 100.00%
+'''TEST_EXAMPLE_PACKAGE : 75.18% : 63.18% : 69.26%
+  CL_EXAMPLE_CLASS : 97.67% : 97.67% : 97.67%
+    CL_EXAMPLE_CLASS : 97.62% : 97.62% : 97.62%
+      /IWBEP/IF_MGW_REQ_COMMON~GET_SUPPORTED_RUNTIME_FEATURES : 100.00% : 100.00% : 100.00%
+      /IWBEP/IF_MGW_REQ_ENTITYSET~GET_AT : 100.00% : 100.00% : 100.00%
+    LCL_STUB_DECORATOR : 100.00% : 100.00% : 100.00%
+      CONSTRUCTOR : 100.00% : 100.00% : 100.00%
 ''')
 
     def test_aunit_api_junit4_output(self):
