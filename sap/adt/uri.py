@@ -1,5 +1,5 @@
 """ADT URI parsing utilities"""
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from sap.adt.errors import InvalidURIError
 
@@ -76,6 +76,30 @@ def parse_statement_uri(uri: str) -> StatementPosition:
         end_line=tokens['end'][0],
         end_column=tokens['end'][1],
     )
+
+
+def format_check_location(uri: str, source_label: Optional[str] = None) -> str:
+    """Render a checkrun URI as ``<label>:<line>:<column>``.
+
+    ``source_label``, when given, replaces the object-name derived from
+    the URI path - used by checkin to show the on-disk file path. If the
+    URI cannot be parsed (no fragment / malformed), the label is returned
+    so the output still points at *something* meaningful.
+    """
+
+    try:
+        pos = parse_statement_uri(uri)
+    except InvalidURIError:
+        return source_label or (uri or '').partition('#')[0] or '<unknown>'
+
+    if source_label is not None:
+        label = source_label
+    elif pos.object_part in ('', 'source/main'):
+        label = pos.object_name
+    else:
+        label = f'{pos.object_name}/{pos.object_part}'
+
+    return f'{label}:{pos.start_line}:{pos.start_column}'
 
 
 def parse_object_implementation_start_uri(location: str) -> tuple:
