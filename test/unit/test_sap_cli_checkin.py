@@ -402,6 +402,45 @@ Activating objects ...
 ''')
         fake_activate.assert_called_once_with(None, inactive_objects, self.console)
 
+    def _resolved_check_before_save(self, *cli_args, env_value=None):
+        """Run do_checkin_directory with the given CLI args and return
+        the ``check_before_save`` value passed to _checkin_dependency_group.
+        """
+
+        captured = {}
+
+        def fake_group(connection, group, console, corrnr, check_before_save=False):
+            captured['value'] = check_before_save
+            return Mock(references=[])
+
+        env = {} if env_value is None else {'SAPCLI_CHECK_BEFORE_SAVE': env_value}
+
+        with patch('sap.cli.checkin._load_objects'), \
+             patch('sap.cli.checkin._resolve_dependencies', return_value=[Mock()]), \
+             patch('sap.cli.checkin._get_config') as fake_cfg, \
+             patch('sap.cli.checkin._checkin_dependency_group', side_effect=fake_group), \
+             patch('os.environ', env):
+            fake_cfg.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
+                FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
+            )
+
+            args = parse_args('package', '$foo', *cli_args)
+            args.execute(None, args)
+
+        return captured['value']
+
+    def test_do_checkin_default_disables_pre_check(self):
+        self.assertFalse(self._resolved_check_before_save())
+
+    def test_do_checkin_check_flag_enables_pre_check(self):
+        self.assertTrue(self._resolved_check_before_save('--check'))
+
+    def test_do_checkin_no_check_flag_overrides_env_true(self):
+        self.assertFalse(self._resolved_check_before_save('--no-check', env_value='true'))
+
+    def test_do_checkin_env_true_enables_pre_check(self):
+        self.assertTrue(self._resolved_check_before_save(env_value='true'))
+
 
 class TestActivate(ConsoleOutputTestCase, PatcherTestCase):
 
@@ -560,12 +599,6 @@ class TestCheckInClass(PatcherTestCase, ConsoleOutputTestCase):
         super().setUp()
         self.patch_console(self.console)
 
-        # Existing checkin tests pre-date the abapCheckRun guard and use
-        # MagicMock connections that cannot answer the checkrun POST.
-        # Disable the check globally for the duration of the test class.
-        self.fake_config_get = self.patch('sap.cli.checkin.config_get')
-        self.fake_config_get.return_value = False
-
         self.fake_open = self.patch('sap.cli.checkin.open')
         self.fake_core_data = self.patch('sap.adt.ADTCoreData')
         self.fake_class = self.patch('sap.adt.Class')
@@ -715,12 +748,6 @@ class TestCheckInInterface(PatcherTestCase, ConsoleOutputTestCase):
         super().setUp()
         self.patch_console(self.console)
 
-        # Existing checkin tests pre-date the abapCheckRun guard and use
-        # MagicMock connections that cannot answer the checkrun POST.
-        # Disable the check globally for the duration of the test class.
-        self.fake_config_get = self.patch('sap.cli.checkin.config_get')
-        self.fake_config_get.return_value = False
-
         self.fake_open = self.patch('sap.cli.checkin.open')
         self.fake_open.side_effect = [StringIOFile(INTF_XML), StringIOFile('test_intf_body')]
         self.fake_core_data = self.patch('sap.adt.ADTCoreData')
@@ -802,12 +829,6 @@ class TestCheckInProgram(PatcherTestCase, ConsoleOutputTestCase):
     def setUp(self):
         super().setUp()
         self.patch_console(self.console)
-
-        # Existing checkin tests pre-date the abapCheckRun guard and use
-        # MagicMock connections that cannot answer the checkrun POST.
-        # Disable the check globally for the duration of the test class.
-        self.fake_config_get = self.patch('sap.cli.checkin.config_get')
-        self.fake_config_get.return_value = False
 
         self.fake_open = self.patch('sap.cli.checkin.open')
         self.fake_core_data = self.patch('sap.adt.ADTCoreData')
@@ -1171,19 +1192,19 @@ Writing Function Module: {self.function_module.name}
 
 class TestWriteSourceFileChecks(unittest.TestCase):
 
-    def test_check_disabled_skips_run_object_check(self):
+    def test_default_skips_pre_check(self):
         adt_object = MagicMock()
         editor = MagicMock()
         editor.__enter__.return_value = editor
         adt_object.open_editor.return_value = editor
 
         with patch('sap.adt.checks.run_object_check') as fake_check:
-            sap.cli.checkin._write_source_file('CODE', adt_object, check_before_save=False)
+            sap.cli.checkin._write_source_file('CODE', adt_object)
 
         fake_check.assert_not_called()
         editor.write.assert_called_once_with('CODE')
 
-    def test_check_failure_raises_findings_with_filesystem_label(self):
+    def test_check_before_save_true_runs_pre_check(self):
         adt_object = MagicMock()
         editor = MagicMock()
         editor.__enter__.return_value = editor
@@ -1200,19 +1221,43 @@ class TestWriteSourceFileChecks(unittest.TestCase):
         self.assertEqual(cm.exception.source_label, 'src/foo.clas.abap')
         editor.write.assert_not_called()
 
-    def test_check_before_save_default_consults_config_get(self):
+    def test_failed_put_runs_check_and_raises_findings(self):
+        import sap.adt.errors
+
         adt_object = MagicMock()
         editor = MagicMock()
         editor.__enter__.return_value = editor
+        editor.write.side_effect = sap.adt.errors.ExceptionResourceSaveFailure('PUT failed')
         adt_object.open_editor.return_value = editor
 
-        with patch('sap.cli.checkin.config_get', return_value=False) as fake_cfg, \
-             patch('sap.adt.checks.run_object_check') as fake_check:
-            sap.cli.checkin._write_source_file('CODE', adt_object)
+        bad_result = SimpleNamespace(has_errors=True, messages=iter([]))
 
-        fake_cfg.assert_called_once_with('check_before_save', True)
-        fake_check.assert_not_called()
-        editor.write.assert_called_once_with('CODE')
+        with patch('sap.adt.checks.run_object_check', return_value=bad_result) as fake_check:
+            with self.assertRaises(sap.adt.checks.ObjectCheckFindings) as cm:
+                sap.cli.checkin._write_source_file('CODE', adt_object,
+                                                    source_label='src/foo.clas.abap')
+
+        # Pre-check is off (default), so the only invocation is the
+        # post-PUT recheck triggered by ExceptionResourceSaveFailure.
+        fake_check.assert_called_once()
+        self.assertEqual(cm.exception.source_label, 'src/foo.clas.abap')
+
+    def test_failed_put_with_clean_check_reraises_original(self):
+        import sap.adt.errors
+
+        adt_object = MagicMock()
+        editor = MagicMock()
+        editor.__enter__.return_value = editor
+        editor.write.side_effect = sap.adt.errors.ExceptionResourceSaveFailure('locked')
+        adt_object.open_editor.return_value = editor
+
+        clean_result = SimpleNamespace(has_errors=False, messages=iter([]))
+
+        with patch('sap.adt.checks.run_object_check', return_value=clean_result) as fake_check:
+            with self.assertRaises(sap.adt.errors.ExceptionResourceSaveFailure):
+                sap.cli.checkin._write_source_file('CODE', adt_object)
+
+        fake_check.assert_called_once()
 
 
 if __name__ == '__main__':

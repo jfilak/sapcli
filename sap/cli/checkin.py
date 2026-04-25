@@ -281,7 +281,7 @@ def _resolve_dependencies(objects):
     return [libs, bins, others]
 
 
-def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=None):
+def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
     """Checkin ADT Interface"""
 
     sap.cli.core.printout('Creating Interface:', repo_obj.name)
@@ -320,7 +320,7 @@ def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=None):
     return [interface]
 
 
-def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=None):
+def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
     """Checkin ADT Clas"""
 
     sap.cli.core.printout('Creating Class:', repo_obj.name)
@@ -382,7 +382,7 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=None):
     return [clas]
 
 
-def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=None):
+def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
     """Checkin ADT Program"""
 
     sap.cli.core.printout('Creating Program:', repo_obj.name)
@@ -453,18 +453,20 @@ def _check_fugr_source_files(repo_obj, functions, includes):
 
 
 def _write_source_file(source_code, adt_object, corrnr=None, source_label=None,
-                       check_before_save=None):
-    """Write ``source_code`` to ``adt_object``, optionally guarded by abapCheckRun.
+                       check_before_save=False):
+    """Write ``source_code`` to ``adt_object``.
 
-    When ``check_before_save`` is ``None`` the value is resolved from
-    :func:`sap.config.config_get` so that ``SAPCLI_CHECK_BEFORE_SAVE``
-    (and the checkin-level ``--skip-check`` flag passed through as
-    ``False``) act on every per-object handler without each one having
-    to repeat the same configuration lookup.
+    When ``check_before_save`` is ``True`` (because the user passed
+    ``--check`` or set ``SAPCLI_CHECK_BEFORE_SAVE=true``), abapCheckRun
+    runs first and a findings exception is raised if it reports errors.
+
+    Independently of the flag, if the PUT to ``source/main`` raises
+    :exc:`sap.adt.errors.ExceptionResourceSaveFailure`, abapCheckRun is
+    run once on the source we tried to write so the user gets a
+    readable diagnostic instead of the cryptic save error. If the
+    check has nothing to say, the original failure carries the real
+    reason (lock, missing inactive version, ...) and is re-raised.
     """
-
-    if check_before_save is None:
-        check_before_save = config_get('check_before_save', True)
 
     if check_before_save:
         result = sap.adt.checks.run_object_check(adt_object, source_code)
@@ -473,12 +475,20 @@ def _write_source_file(source_code, adt_object, corrnr=None, source_label=None,
                 adt_object, result, source_label=source_label
             )
 
-    with adt_object.open_editor(corrnr=corrnr) as editor:
-        editor.write(source_code)
+    try:
+        with adt_object.open_editor(corrnr=corrnr) as editor:
+            editor.write(source_code)
+    except sap.adt.errors.ExceptionResourceSaveFailure as save_exc:
+        result = sap.adt.checks.run_object_check(adt_object, source_code)
+        if result.has_errors:
+            raise sap.adt.checks.ObjectCheckFindings(
+                adt_object, result, source_label=source_label
+            ) from save_exc
+        raise
 
 
 def _write_adt_object_source_file(path_prefix, adt_object, corrnr=None,
-                                  check_before_save=None):
+                                  check_before_save=False):
     """Write source file for ADT object"""
 
     adt_object_file_path = path_prefix + f'.{adt_object.name.lower()}' + '.abap'
@@ -539,7 +549,7 @@ def _format_function(source_code):
 
 
 def _write_function_source_code(path_prefix, adt_object, corrnr=None,
-                                check_before_save=None):
+                                check_before_save=False):
     """Write source code for function. If function is in ababGit format, change it to ADT format"""
 
     source_file_path = path_prefix + f'.{adt_object.name.lower()}' + '.abap'
@@ -574,7 +584,7 @@ def create_function_module(connection, func, function_group, metadata, corrnr):
 
 
 # pylint: disable=too-many-locals
-def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=None):
+def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
     """Checkin ADT Function Group"""
 
     sap.cli.core.printout('Creating Function Group:', repo_obj.name)
@@ -634,7 +644,7 @@ OBJECT_CHECKIN_HANDLERS = {
 }
 
 
-def _checkin_dependency_group(connection, group, console, corrnr, check_before_save=None):
+def _checkin_dependency_group(connection, group, console, corrnr, check_before_save=False):
     inactive_objects = sap.adt.objects.ADTObjectReferences()
 
     for repo_obj in group:
@@ -660,8 +670,12 @@ def _activate(connection, inactive_objects, console):
     sap.cli.wb.activate(connection, inactive_objects, console)
 
 
-@CommandGroup.argument('--skip-check', action='store_true', default=False,
-                       help='Skip the ADT abapCheckRun before writing source code')
+@CommandGroup.argument('--no-check', dest='check', action='store_false',
+                       help='Skip abapCheckRun before writing source code'
+                            ' (overrides SAPCLI_CHECK_BEFORE_SAVE)')
+@CommandGroup.argument('--check', dest='check', action='store_true', default=None,
+                       help='Run abapCheckRun before writing source code'
+                            ' (overrides SAPCLI_CHECK_BEFORE_SAVE)')
 @CommandGroup.argument('--starting-folder', default=None)
 @CommandGroup.argument('--software-component', type=str, default='LOCAL')
 @CommandGroup.argument('--app-component', type=str, default=None)
@@ -685,9 +699,8 @@ def do_checkin_directory(connection, args):
     config = _get_config(args.starting_folder, console)
     repo = Repository(args.name, config)
 
-    # ``False`` forces a hard skip; ``None`` (the default) defers to
-    # _write_source_file which reads the env-var fallback.
-    check_before_save = False if getattr(args, 'skip_check', False) else None
+    flag = getattr(args, 'check', None)
+    check_before_save = flag if flag is not None else config_get('check_before_save', False)
 
     try:
         _load_objects(repo)
