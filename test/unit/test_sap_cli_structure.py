@@ -75,11 +75,6 @@ class TestStructureRead(unittest.TestCase):
 
 class TestStructureWrite(unittest.TestCase):
 
-    def setUp(self):
-        patcher = patch('sap.cli.object.config_get', return_value=False)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
     def structure_write_cmd(self, *args, **kwargs):
         return parse_args('write', *args, **kwargs)
 
