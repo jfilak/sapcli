@@ -23,7 +23,7 @@ sapcli structure create [--corrnr TRANSPORT] "STRUCTURE_NAME" "Description" "PAC
 Change the definition of ABAP DDIC structure.
 
 ```bash
-sapcli structure write [STRUCTURE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--activate] [--ignore-errors] [--warning-errors] [--skip-check]
+sapcli structure write [STRUCTURE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--activate] [--ignore-errors] [--warning-errors] [--check|--no-check]
 ```
 
 * _STRUCTURE\_NAME_ specifying the name of the structure or `-` to deduce it from the file name specified by FILE\_PATH
@@ -31,7 +31,10 @@ sapcli structure write [STRUCTURE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number **(optional)**
 * _--ignore-errors_ continue activating objects ignoring errors **(optional)**
 * _--warning-errors_ treat activation warnings as errors **(optional)**
-* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation **(optional)**
+* _--check_ run the ADT `abapCheckRun` before the source is written and abort with readable findings on errors **(optional, off by default)**
+* _--no-check_ skip the ADT `abapCheckRun` even when `SAPCLI_CHECK_BEFORE_SAVE=true` enables it globally **(optional)**
+
+Failed PUTs (with or without the flag) are always re-run through `abapCheckRun` so the user gets a readable diagnostic instead of the cryptic ADT save error. Set `SAPCLI_CHECK_BEFORE_SAVE=true` once to make every `write`/`checkin` invocation run the check up front - this is the agentic-workflow opt-in.
 
 ## activate
 
