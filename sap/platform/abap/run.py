@@ -4,7 +4,9 @@ import secrets
 import string
 
 import sap.adt
+import sap.adt.checks
 import sap.adt.wb
+from sap.config import config_get
 from sap.errors import SAPCliError
 
 
@@ -75,6 +77,11 @@ def execute_abap(connection, user_code, prefix=DEFAULT_PREFIX, package=DEFAULT_P
 
     try:
         clas.create()
+
+        if config_get('check_before_save', True):
+            check_result = sap.adt.checks.run_object_check(clas, class_code)
+            if check_result.has_errors:
+                raise sap.adt.checks.ObjectCheckFindings(clas, check_result)
 
         with clas.open_editor() as editor:
             editor.write(class_code)
