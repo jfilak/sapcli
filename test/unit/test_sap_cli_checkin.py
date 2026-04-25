@@ -7,6 +7,7 @@ import errno
 from types import SimpleNamespace
 from unittest.mock import mock_open, patch, Mock, MagicMock, call
 
+import sap.adt.checks
 import sap.cli.checkin
 import sap.platform.abap.abapgit
 from sap import get_logger
@@ -253,7 +254,7 @@ class TestCheckinGroup(ConsoleOutputTestCase):
 
         with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
             fake_handler.get = Mock()
-            fake_handler.get.return_value = lambda x, y, z: [adt_object]
+            fake_handler.get.return_value = lambda *_args, **_kwargs: [adt_object]
 
             inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console, None)
 
@@ -306,7 +307,7 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
 
         # open -> .abapgit.xml
 
-        def mock_object_handler(connection, repo_obj, corrnr):
+        def mock_object_handler(connection, repo_obj, corrnr, **_):
             return SimpleNamespace(full_adt_uri=repo_obj.path, name=repo_obj.name)
 
         args = parse_args('package', '$foo')
@@ -559,6 +560,12 @@ class TestCheckInClass(PatcherTestCase, ConsoleOutputTestCase):
         super().setUp()
         self.patch_console(self.console)
 
+        # Existing checkin tests pre-date the abapCheckRun guard and use
+        # MagicMock connections that cannot answer the checkrun POST.
+        # Disable the check globally for the duration of the test class.
+        self.fake_config_get = self.patch('sap.cli.checkin.config_get')
+        self.fake_config_get.return_value = False
+
         self.fake_open = self.patch('sap.cli.checkin.open')
         self.fake_core_data = self.patch('sap.adt.ADTCoreData')
         self.fake_class = self.patch('sap.adt.Class')
@@ -708,6 +715,12 @@ class TestCheckInInterface(PatcherTestCase, ConsoleOutputTestCase):
         super().setUp()
         self.patch_console(self.console)
 
+        # Existing checkin tests pre-date the abapCheckRun guard and use
+        # MagicMock connections that cannot answer the checkrun POST.
+        # Disable the check globally for the duration of the test class.
+        self.fake_config_get = self.patch('sap.cli.checkin.config_get')
+        self.fake_config_get.return_value = False
+
         self.fake_open = self.patch('sap.cli.checkin.open')
         self.fake_open.side_effect = [StringIOFile(INTF_XML), StringIOFile('test_intf_body')]
         self.fake_core_data = self.patch('sap.adt.ADTCoreData')
@@ -789,6 +802,12 @@ class TestCheckInProgram(PatcherTestCase, ConsoleOutputTestCase):
     def setUp(self):
         super().setUp()
         self.patch_console(self.console)
+
+        # Existing checkin tests pre-date the abapCheckRun guard and use
+        # MagicMock connections that cannot answer the checkrun POST.
+        # Disable the check globally for the duration of the test class.
+        self.fake_config_get = self.patch('sap.cli.checkin.config_get')
+        self.fake_config_get.return_value = False
 
         self.fake_open = self.patch('sap.cli.checkin.open')
         self.fake_core_data = self.patch('sap.adt.ADTCoreData')
@@ -946,6 +965,9 @@ class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
 
         self.connection = Mock()
         self.connection.user = 'test_user'
+
+        self.fake_config_get = self.patch('sap.cli.checkin.config_get')
+        self.fake_config_get.return_value = False
 
         self.fake_open = self.patch('sap.cli.checkin.open')
         self.fake_open.side_effect = [StringIOFile(FUNCTION_GROUP_XML)]
@@ -1145,6 +1167,52 @@ Writing Function Module: {self.function_module.name}
 
         self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
         self.function_module_editor.write.assert_called_once_with(FUNCTION_MODULE_CODE_ALL_PARAMS_ADT)
+
+
+class TestWriteSourceFileChecks(unittest.TestCase):
+
+    def test_check_disabled_skips_run_object_check(self):
+        adt_object = MagicMock()
+        editor = MagicMock()
+        editor.__enter__.return_value = editor
+        adt_object.open_editor.return_value = editor
+
+        with patch('sap.adt.checks.run_object_check') as fake_check:
+            sap.cli.checkin._write_source_file('CODE', adt_object, check_before_save=False)
+
+        fake_check.assert_not_called()
+        editor.write.assert_called_once_with('CODE')
+
+    def test_check_failure_raises_findings_with_filesystem_label(self):
+        adt_object = MagicMock()
+        editor = MagicMock()
+        editor.__enter__.return_value = editor
+        adt_object.open_editor.return_value = editor
+
+        bad_result = SimpleNamespace(has_errors=True, messages=iter([]))
+
+        with patch('sap.adt.checks.run_object_check', return_value=bad_result):
+            with self.assertRaises(sap.adt.checks.ObjectCheckFindings) as cm:
+                sap.cli.checkin._write_source_file('CODE', adt_object,
+                                                    source_label='src/foo.clas.abap',
+                                                    check_before_save=True)
+
+        self.assertEqual(cm.exception.source_label, 'src/foo.clas.abap')
+        editor.write.assert_not_called()
+
+    def test_check_before_save_default_consults_config_get(self):
+        adt_object = MagicMock()
+        editor = MagicMock()
+        editor.__enter__.return_value = editor
+        adt_object.open_editor.return_value = editor
+
+        with patch('sap.cli.checkin.config_get', return_value=False) as fake_cfg, \
+             patch('sap.adt.checks.run_object_check') as fake_check:
+            sap.cli.checkin._write_source_file('CODE', adt_object)
+
+        fake_cfg.assert_called_once_with('check_before_save', True)
+        fake_check.assert_not_called()
+        editor.write.assert_called_once_with('CODE')
 
 
 if __name__ == '__main__':
