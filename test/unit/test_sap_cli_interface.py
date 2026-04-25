@@ -64,6 +64,11 @@ class TestInterfaceActivate(unittest.TestCase):
 
 class TestInterfaceWrite(unittest.TestCase):
 
+    def setUp(self):
+        patcher = patch('sap.cli.object.config_get', return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_interface_read_from_stdin(self):
         args = parse_args('write', 'ZIF_WRITER', '-')
 

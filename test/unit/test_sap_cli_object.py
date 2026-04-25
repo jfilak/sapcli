@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch, MagicMock, Mock, call, mock_open
 from types import SimpleNamespace
 
+import sap.adt.checks
 import sap.cli.object
 
 from mock import patch_get_print_console_with_buffer
@@ -79,7 +80,7 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         act_write_cmd = self.commands.get_declaration(self.group.write_object_text)
 
         self.assertEqual(act_write_cmd, exp_write_cmd)
-        self.assertEqual(len(exp_write_cmd.arguments), 6)
+        self.assertEqual(len(exp_write_cmd.arguments), 7)
 
     def test_define_activate(self):
         exp_activate_cmd = self.group.define_activate(self.commands)
@@ -143,6 +144,18 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
     def setUp(self):
         self.group._init_mocks()
+
+        # Existing write tests pre-date the abapCheckRun feature and use
+        # MagicMock connections that cannot answer the checkrun POST.
+        # Disable the check at module level for the duration of each test
+        # so the legacy write paths still exercise editor/activator only.
+        # The tests that exercise the check explicitly set their own
+        # patches on top.
+        self._check_patcher = patch('sap.cli.object.config_get', return_value=False)
+        self._check_patcher.start()
+
+    def tearDown(self):
+        self._check_patcher.stop()
 
     def parse_args(self, *argv):
         return self.__class__.parser.parse_args(argv)
@@ -308,6 +321,79 @@ Activation has finished
 Warnings: 0
 Errors: 0
 ''')
+
+    def test_write_runs_object_check_when_enabled(self):
+        connection = MagicMock()
+
+        args = self.parse_args('write', 'myname', '-')
+
+        self._check_patcher.stop()
+        try:
+            with patch('sap.cli.object.config_get', return_value=True), \
+                 patch('sap.adt.checks.run_object_check') as fake_check, \
+                 patch('sys.stdin.readlines', return_value='source code'):
+                fake_check.return_value = SimpleNamespace(has_errors=False, messages=iter([]))
+                args.execute(connection, args)
+        finally:
+            self._check_patcher.start()
+
+        fake_check.assert_called_once()
+        self.group.open_editor_mock.write.assert_called_once_with('source code')
+
+    def test_write_skip_check_flag_bypasses_check(self):
+        connection = MagicMock()
+
+        args = self.parse_args('write', 'myname', '-', '--skip-check')
+
+        self.assertTrue(args.skip_check)
+
+        self._check_patcher.stop()
+        try:
+            with patch('sap.cli.object.config_get', return_value=True), \
+                 patch('sap.adt.checks.run_object_check') as fake_check, \
+                 patch('sys.stdin.readlines', return_value='source code'):
+                args.execute(connection, args)
+        finally:
+            self._check_patcher.start()
+
+        fake_check.assert_not_called()
+        self.group.open_editor_mock.write.assert_called_once_with('source code')
+
+    def test_write_env_disable_bypasses_check(self):
+        connection = MagicMock()
+
+        args = self.parse_args('write', 'myname', '-')
+
+        # config_get returns False (the default in setUp) - simulates the
+        # env-var disable. The check must not be called and the source
+        # must still be written.
+        with patch('sap.adt.checks.run_object_check') as fake_check, \
+             patch('sys.stdin.readlines', return_value='source code'):
+            args.execute(connection, args)
+
+        fake_check.assert_not_called()
+        self.group.open_editor_mock.write.assert_called_once_with('source code')
+
+    def test_write_check_failure_raises_and_skips_write(self):
+        connection = MagicMock()
+
+        args = self.parse_args('write', 'myname', '-')
+
+        bad_result = SimpleNamespace(has_errors=True, messages=iter([]))
+
+        self._check_patcher.stop()
+        try:
+            with patch('sap.cli.object.config_get', return_value=True), \
+                 patch('sap.adt.checks.run_object_check', return_value=bad_result), \
+                 patch('sys.stdin.readlines', return_value='source code'), \
+                 patch_get_print_console_with_buffer():
+                with self.assertRaises(sap.adt.checks.ObjectCheckFindings):
+                    args.execute(connection, args)
+        finally:
+            self._check_patcher.start()
+
+        self.group.open_editor_mock.write.assert_not_called()
+        self.group.new_object_mock.open_editor.assert_not_called()
 
     def test_delete_object(self):
         connection = MagicMock()
@@ -594,6 +680,12 @@ class TestCommandGroupObjectMaster(unittest.TestCase):
 
     def setUp(self):
         self.group._init_mocks()
+
+        self._check_patcher = patch('sap.cli.object.config_get', return_value=False)
+        self._check_patcher.start()
+
+    def tearDown(self):
+        self._check_patcher.stop()
 
     def parse_args(self, *argv):
         return self.__class__.parser.parse_args(argv)

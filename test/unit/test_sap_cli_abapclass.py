@@ -72,6 +72,13 @@ class TestClassActivate(unittest.TestCase):
 
 class TestClassWrite(unittest.TestCase):
 
+    def setUp(self):
+        # Existing write tests pre-date the abapCheckRun feature and do
+        # not script a checkrun POST response. Disable the check.
+        patcher = patch('sap.cli.object.config_get', return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_class_read_from_stdin(self):
         args = parse_args(['write', 'ZCL_WRITER', '-'])
 
@@ -131,6 +138,11 @@ class TestClassWrite(unittest.TestCase):
 
 
 class TestClassIncludes(unittest.TestCase):
+
+    def setUp(self):
+        patcher = patch('sap.cli.object.config_get', return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def read_test(self, response, typ):
         conn = Connection([response])

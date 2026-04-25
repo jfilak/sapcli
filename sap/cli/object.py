@@ -9,9 +9,11 @@ from sap.cli.core import InvalidCommandLineError
 import sap.errors
 
 import sap.adt
+import sap.adt.checks
 import sap.adt.wb
 import sap.adt.whereused
 import sap.cli.wb
+from sap.config import config_get
 
 
 _NAME_INDEX = 0
@@ -180,6 +182,8 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
                                   default=False, help='Do not stop activation in case of errors')
         write_cmd.append_argument('--warning-errors', action='store_true',
                                   default=False, help='Treat Activation warnings as errors')
+        write_cmd.append_argument('--skip-check', action='store_true', default=False,
+                                  help='Skip the ADT abapCheckRun before writing source code')
         write_cmd.declare_corrnr()
 
         return write_cmd
@@ -311,11 +315,23 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         console = args.console_factory()
         console.printout('Writing:')
 
+        check_before_save = (not getattr(args, 'skip_check', False)
+                             and config_get('check_before_save', True))
+
         for obj, text in write_args_to_objects(self, connection, args):
             console.printout('*', str(obj))
+            code = ''.join(text)
+
+            if check_before_save:
+                result = sap.adt.checks.run_object_check(obj, code)
+                if result.has_errors:
+                    findings = sap.adt.checks.ObjectCheckFindings(obj, result)
+                    for line in str(findings).splitlines():
+                        console.printerr(line)
+                    raise findings
 
             with obj.open_editor(corrnr=args.corrnr) as editor:
-                editor.write(''.join(text))
+                editor.write(code)
 
             toactivate[obj.name] = obj
 

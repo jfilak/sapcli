@@ -93,6 +93,11 @@ class TestFunctionModuleCreate(unittest.TestCase):
 
 class TestFunctionModuleWrite(unittest.TestCase):
 
+    def setUp(self):
+        patcher = patch('sap.cli.object.config_get', return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def assert_raises_for_invalid_file_name(self, invalid_name, basename=None):
         connection = MagicMock()
 
@@ -182,6 +187,11 @@ class TestFunctionGroupIncludeCreate(unittest.TestCase):
 
 
 class TestFunctionGroupIncludeWrite(unittest.TestCase):
+
+    def setUp(self):
+        patcher = patch('sap.cli.object.config_get', return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     @patch('sap.adt.objects.ADTObject.lock', return_value=FAKE_LOCK_HANDLE)
     @patch('sap.adt.objects.ADTObject.unlock')
