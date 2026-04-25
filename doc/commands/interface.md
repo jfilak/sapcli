@@ -21,7 +21,7 @@ sapcli interface create ZIF_GREETER "Interface description" '$PACKAGE'
 Changes source code of the given interfaces without activation
 
 ```bash
-sapcli interface write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli interface write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--skip-check]
 ```
 
 * _OBJECT\_NAME_ either interface name or - when it should be deduced from FILE\_PATH
@@ -30,6 +30,7 @@ sapcli interface write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--ac
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation
 
 ## activate
 

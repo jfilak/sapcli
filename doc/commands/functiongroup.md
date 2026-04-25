@@ -27,7 +27,7 @@ sapcli functiongroup create ZFG_PARENT "Class description" '$PACKAGE'
 Changes main source code of the given function group.
 
 ```
-sapcli functiongroup write [FUNCTION_GROUP_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli functiongroup write [FUNCTION_GROUP_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--skip-check]
 ```
 
 * _FUNCITON\_GROUP\_NAME_ either function group name or - when it should be deduced from FILE\_PATH
@@ -36,6 +36,7 @@ sapcli functiongroup write [FUNCTION_GROUP_NAME|-] [FILE_PATH+|-] [--corrnr TRAN
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation
 
 ## activate
 
@@ -85,7 +86,7 @@ sapcli functiongroup include create ZFG_PARENT ZFGI_HELLO_WORLD "Function Group 
 Changes main source code of the given function group.
 
 ```
-sapcli functiongroup include write [FUNCTION_GROUP_NAME] [FUNCTION_GROUP_INCLUDE_NAME] [FILE_PATH|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli functiongroup include write [FUNCTION_GROUP_NAME] [FUNCTION_GROUP_INCLUDE_NAME] [FILE_PATH|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--skip-check]
 ```
 
 * _FUNCITON\_GROUP\_NAME_ function group name
@@ -95,6 +96,7 @@ sapcli functiongroup include write [FUNCTION_GROUP_NAME] [FUNCTION_GROUP_INCLUDE
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation
 
 ### activate
 

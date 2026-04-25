@@ -20,7 +20,7 @@ sapcli include create "ZHELLOWORLD_INC" "Just a description" '$TMP'
 Change code of an executable program without activation.
 
 ```
-sapcli include write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli include write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--skip-check]
 ```
 
 * _OBJECT\_NAME_ either include name or - when it should be deduced from FILE\_PATH
@@ -29,6 +29,7 @@ sapcli include write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--acti
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation
 
 ## activate
 

@@ -22,7 +22,7 @@ sapcli table create [--corrnr TRANSPORT] "TABLE_NAME" "Description" "PACKAGE_NAM
 Change the definition of ABAP DDIC transparent table.
 
 ```bash
-saplci table write [TABLE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--activate] [--ignore-errors] [--warning-errors]
+saplci table write [TABLE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--activate] [--ignore-errors] [--warning-errors] [--skip-check]
 ```
 
 * _TABLE\_NAME_ specifying the name of the table or `-` to deduce it from the file name specified by FILE\_PATH
@@ -30,6 +30,7 @@ saplci table write [TABLE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--acti
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number **(optional)**
 * _--ignore-errors_ continue activating objects ignoring errors **(optional)**
 * _--warning-errors_ treat activation warnings as errors **(optional)**
+* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation **(optional)**
 
 ## activate
 
