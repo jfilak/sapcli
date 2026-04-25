@@ -647,11 +647,23 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 def config_get(option: str, default: Any = None) -> Any:
-    """Returns configuration values"""
+    """Returns configuration values.
 
-    config = {
-        'http_timeout': float(os.environ.get('SAPCLI_HTTP_TIMEOUT', 900)),
-        'check_before_save': _env_bool('SAPCLI_CHECK_BEFORE_SAVE', True),
-    }
+    For env-var-backed boolean options like ``check_before_save``, the
+    caller's ``default`` is used as the fallback when the env-var is
+    unset. This lets different call sites express different defaults
+    (e.g. ``abap run`` defaults to ``True`` for back-pressure on the
+    generated temporary class; ``write``/``checkin`` default to
+    ``False`` so the check is opt-in for human users and the
+    ``SAPCLI_CHECK_BEFORE_SAVE=true`` env-var is the agentic-workflow
+    opt-in).
+    """
 
-    return config.get(option, default)
+    if option == 'http_timeout':
+        return float(os.environ.get('SAPCLI_HTTP_TIMEOUT', 900))
+
+    if option == 'check_before_save':
+        fallback = True if default is None else bool(default)
+        return _env_bool('SAPCLI_CHECK_BEFORE_SAVE', fallback)
+
+    return default
