@@ -15,6 +15,18 @@ from sap.platform.abap.run import (
 from mock import Connection, Response
 from fixtures_adt import EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK
 from fixtures_adt_clas import GET_CLASS_ADT_XML
+from fixtures_adt_checks import (
+    ADT_XML_RUN_OBJECT_CHECK_RESPONSE_CLEAN,
+    ADT_XML_RUN_OBJECT_CHECK_RESPONSE_ERRORS,
+)
+
+
+def _make_check_response(text=ADT_XML_RUN_OBJECT_CHECK_RESPONSE_CLEAN):
+    return Response(
+        text=text,
+        status_code=200,
+        headers={'Content-Type': 'application/vnd.sap.adt.checkmessages+xml; charset=utf-8'},
+    )
 
 
 FIXED_CLASS_NAME = 'zcl_sapcli_run_anzeiger_abcde'
@@ -105,6 +117,7 @@ class TestExecuteAbap(unittest.TestCase):
     def _make_connection(self, execution_output='hello from abap'):
         return Connection([
             EMPTY_RESPONSE_OK,           # create
+            _make_check_response(),      # check_before_save
             LOCK_RESPONSE_OK,            # lock (open_editor)
             EMPTY_RESPONSE_OK,           # write source
             EMPTY_RESPONSE_OK,           # unlock
@@ -156,6 +169,7 @@ class TestExecuteAbap(unittest.TestCase):
     def test_deletes_class_on_exception(self):
         connection = Connection([
             EMPTY_RESPONSE_OK,           # create
+            _make_check_response(),      # check_before_save
             LOCK_RESPONSE_OK,            # lock
             EMPTY_RESPONSE_OK,           # write source
             EMPTY_RESPONSE_OK,           # unlock
@@ -201,6 +215,49 @@ class TestExecuteAbap(unittest.TestCase):
             execute_abap(connection, 'WRITE.')
 
         mock_gen.assert_called_once_with(DEFAULT_PREFIX, connection.user)
+
+    def test_check_failure_skips_write_and_activate_but_still_deletes(self):
+        from sap.adt.checks import ObjectCheckFindings
+
+        connection = Connection([
+            EMPTY_RESPONSE_OK,                                                  # create
+            _make_check_response(ADT_XML_RUN_OBJECT_CHECK_RESPONSE_ERRORS),     # checkrun finds errors
+            EMPTY_RESPONSE_OK,                                                  # delete (finally block)
+        ])
+
+        with patch('sap.platform.abap.run.generate_class_name', return_value=FIXED_CLASS_NAME):
+            with self.assertRaises(ObjectCheckFindings):
+                execute_abap(connection, 'WRITE.')
+
+        methods = connection.mock_methods()
+        # Three calls only: create, checkrun POST, delete.
+        self.assertEqual(len(methods), 3)
+        self.assertEqual(methods[1], ('POST', '/sap/bc/adt/checkruns'))
+        # No PUT to source/main, no activation request.
+        self.assertFalse(any(m == 'PUT' and uri.endswith('/source/main') for m, uri in methods))
+        self.assertFalse(any('activation' in uri for _, uri in methods))
+        # Delete still happens.
+        self.assertIn('deletion/delete', connection.execs[-1].adt_uri)
+
+    def test_check_disabled_via_env_skips_check_post(self):
+        connection = Connection([
+            EMPTY_RESPONSE_OK,           # create
+            LOCK_RESPONSE_OK,            # lock (open_editor)
+            EMPTY_RESPONSE_OK,           # write source
+            EMPTY_RESPONSE_OK,           # unlock
+            EMPTY_RESPONSE_OK,           # activate (POST)
+            _make_activate_response(),   # fetch after activate (GET)
+            Response(text='out', status_code=200,
+                     headers={'Content-Type': 'text/plain'}),
+            EMPTY_RESPONSE_OK,           # delete
+        ])
+
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'false'}):
+            with patch('sap.platform.abap.run.generate_class_name', return_value=FIXED_CLASS_NAME):
+                execute_abap(connection, 'WRITE "hi".')
+
+        methods = connection.mock_methods()
+        self.assertFalse(any(uri.startswith('/sap/bc/adt/checkruns') for _, uri in methods))
 
 
 if __name__ == '__main__':
