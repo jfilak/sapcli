@@ -34,11 +34,6 @@ class TestProgramCreate(unittest.TestCase):
 
 class TestProgramWrite(unittest.TestCase):
 
-    def setUp(self):
-        patcher = patch('sap.cli.object.config_get', return_value=False)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
     def test_read_from_stdin(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
 
