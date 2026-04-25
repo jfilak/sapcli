@@ -38,7 +38,7 @@ sapcli functionmodule create ZFG_PARENT Z_FUNCTION_MODULE "Class description"
 Changes main source code of the given function module.
 
 ```
-sapcli functionmodule write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli functionmodule write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--skip-check]
 ```
 
 * _GROUP\_NAME_ either function group name or - to resolve it automatically via search; when OBJECT\_NAME is also -, the group is deduced from FILE\_PATH
@@ -48,6 +48,7 @@ sapcli functionmodule write [GROUP_NAME|-] [OBJECT_NAME|-] [FILE_PATH+|-] [--cor
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation
 
 ## chattr
 

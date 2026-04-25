@@ -410,3 +410,12 @@ targeting different systems. It also composes well with tools like
   messages (`CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10, NOTSET=0`)
 - `SAPCLI_HTTP_TIMEOUT` : floating point number representing timeout for HTTP requests; default=900s
 - `SAPCLI_ABAP_USER_DUMMY_PASSWORD` : string representing a dummy password which is used as a temporary password when changing user's password to productive; default='DummyPwd123!'
+- `SAPCLI_CHECK_BEFORE_SAVE` : controls whether the ADT `abapCheckRun`
+  reporter is run on the candidate source before any sapcli command writes
+  it to the server. When the check is enabled (the default), errors
+  reported by `abapCheckRun` abort the write and are printed in the
+  compiler-style `<label>:<line>:<col>: <type> <code>: <text>` format.
+  Accepts `1`, `true`, `yes`, `on` (enable, the default) and `0`,
+  `false`, `no`, `off` (disable), case-insensitive. The per-invocation
+  CLI flag `--skip-check` (on every `write` and on `sapcli checkin`)
+  overrides this variable for that call only.

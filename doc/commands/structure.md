@@ -23,7 +23,7 @@ sapcli structure create [--corrnr TRANSPORT] "STRUCTURE_NAME" "Description" "PAC
 Change the definition of ABAP DDIC structure.
 
 ```bash
-sapcli structure write [STRUCTURE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--activate] [--ignore-errors] [--warning-errors]
+sapcli structure write [STRUCTURE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--activate] [--ignore-errors] [--warning-errors] [--skip-check]
 ```
 
 * _STRUCTURE\_NAME_ specifying the name of the structure or `-` to deduce it from the file name specified by FILE\_PATH
@@ -31,6 +31,7 @@ sapcli structure write [STRUCTURE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number **(optional)**
 * _--ignore-errors_ continue activating objects ignoring errors **(optional)**
 * _--warning-errors_ treat activation warnings as errors **(optional)**
+* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation **(optional)**
 
 ## activate
 

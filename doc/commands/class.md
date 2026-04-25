@@ -23,7 +23,7 @@ sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
 Changes main source code of the given class without activation
 
 ```
-sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--skip-check]
 ```
 
 * _OBJECT\_NAME_ either class name or - when it should be deduced from FILE\_PATH
@@ -32,6 +32,7 @@ sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activa
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--skip-check_ skip the ADT `abapCheckRun` performed before the source is written; the global env-var `SAPCLI_CHECK_BEFORE_SAVE=false` disables the check for every invocation
 
 Changes definitions source code of the given class without activation
 
