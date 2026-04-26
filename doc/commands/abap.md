@@ -57,7 +57,7 @@ exactly 30 characters long.
 
 Before the source is written, the ADT `abapCheckRun` reporter is run on the
 generated class so that obvious syntax errors are reported to the user with a
-human-readable location instead of the cryptic ADT `PUT` error. The check can
+human-readable location instead of the cryptic ADT save error. The check can
 be disabled globally via the environment variable
 `SAPCLI_CHECK_BEFORE_SAVE=false`. There is no per-invocation flag here on
 purpose - `abap run` is internal orchestration; if the check itself misfires
