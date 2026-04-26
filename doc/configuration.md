@@ -422,9 +422,9 @@ targeting different systems. It also composes well with tools like
       pre-check is **off by default**. Set the variable to `true` to
       turn it on for every invocation, or pass `--check` /
       `--no-check` to override on a single call. Independently of the
-      variable, a failed PUT to `source/main` is always re-run
-      through `abapCheckRun` so the user gets a readable diagnostic
-      instead of the cryptic ADT save error.
+      variable, a failed write is always re-run through
+      `abapCheckRun` so the user gets a readable diagnostic instead
+      of the cryptic ADT save error.
     - `sapcli checkin package`: same opt-in semantics; abapGit
       repositories are usually already syntactically clean so the
       pre-check is wasted work in the typical case.
