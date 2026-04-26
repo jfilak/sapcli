@@ -98,21 +98,53 @@ class TestConfigGet(unittest.TestCase):
         with patch('os.environ', {}):
             self.assertTrue(sap.config.config_get('check_before_save'))
 
-    def test_check_before_save_truthy_spellings(self):
-        for value in ('1', 'true', 'TRUE', 'yes', 'ON', ' true '):
-            with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': value}):
-                self.assertTrue(
-                    sap.config.config_get('check_before_save'),
-                    f'truthy value {value!r} should enable the check',
-                )
+    def test_check_before_save_truthy_1(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': '1'}):
+            self.assertTrue(sap.config.config_get('check_before_save'))
 
-    def test_check_before_save_falsy_spellings(self):
-        for value in ('0', 'false', 'FALSE', 'no', 'OFF', ' false '):
-            with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': value}):
-                self.assertFalse(
-                    sap.config.config_get('check_before_save'),
-                    f'falsy value {value!r} should disable the check',
-                )
+    def test_check_before_save_truthy_true(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'true'}):
+            self.assertTrue(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_truthy_TRUE(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'TRUE'}):
+            self.assertTrue(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_truthy_yes(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'yes'}):
+            self.assertTrue(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_truthy_ON(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'ON'}):
+            self.assertTrue(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_truthy_padded_true(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': ' true '}):
+            self.assertTrue(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_falsy_0(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': '0'}):
+            self.assertFalse(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_falsy_false(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'false'}):
+            self.assertFalse(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_falsy_FALSE(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'FALSE'}):
+            self.assertFalse(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_falsy_no(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'no'}):
+            self.assertFalse(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_falsy_OFF(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'OFF'}):
+            self.assertFalse(sap.config.config_get('check_before_save'))
+
+    def test_check_before_save_falsy_padded_false(self):
+        with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': ' false '}):
+            self.assertFalse(sap.config.config_get('check_before_save'))
 
     def test_check_before_save_unknown_value_falls_back_to_default(self):
         with patch('os.environ', {'SAPCLI_CHECK_BEFORE_SAVE': 'maybe'}):
