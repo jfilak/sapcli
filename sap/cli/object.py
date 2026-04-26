@@ -312,7 +312,6 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         return activator
 
-    # pylint: disable=too-many-locals
     def write_object_text(self, connection, args):
         """Changes source code of the given program include"""
 
@@ -331,10 +330,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
             if check_before_save:
                 result = sap.adt.checks.run_object_check(obj, code)
                 if result.has_errors:
-                    findings = sap.adt.checks.ObjectCheckFindings(obj, result)
-                    for line in str(findings).splitlines():
-                        console.printerr(line)
-                    raise findings
+                    raise sap.adt.checks.ObjectCheckFindings(obj, result)
 
             try:
                 with obj.open_editor(corrnr=args.corrnr) as editor:
@@ -347,10 +343,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
                 # inactive version, etc.) - re-raise it.
                 result = sap.adt.checks.run_object_check(obj, code)
                 if result.has_errors:
-                    findings = sap.adt.checks.ObjectCheckFindings(obj, result)
-                    for line in str(findings).splitlines():
-                        console.printerr(line)
-                    raise findings from save_exc
+                    raise sap.adt.checks.ObjectCheckFindings(obj, result) from save_exc
                 raise
 
             toactivate[obj.name] = obj
