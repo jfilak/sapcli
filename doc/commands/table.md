@@ -22,7 +22,7 @@ sapcli table create [--corrnr TRANSPORT] "TABLE_NAME" "Description" "PACKAGE_NAM
 Change the definition of ABAP DDIC transparent table.
 
 ```bash
-saplci table write [TABLE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--activate] [--ignore-errors] [--warning-errors]
+saplci table write [TABLE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--activate] [--ignore-errors] [--warning-errors] [--check|--no-check]
 ```
 
 * _TABLE\_NAME_ specifying the name of the table or `-` to deduce it from the file name specified by FILE\_PATH
@@ -30,6 +30,10 @@ saplci table write [TABLE_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [-a|--acti
 * _--corrnr TRANSPORT_ specifies CTS Transport Request Number **(optional)**
 * _--ignore-errors_ continue activating objects ignoring errors **(optional)**
 * _--warning-errors_ treat activation warnings as errors **(optional)**
+* _--check_ run the ADT `abapCheckRun` before the source is written and abort with readable findings on errors **(optional, off by default)**
+* _--no-check_ skip the ADT `abapCheckRun` even when `SAPCLI_CHECK_BEFORE_SAVE=true` enables it globally **(optional)**
+
+Failed PUTs (with or without the flag) are always re-run through `abapCheckRun` so the user gets a readable diagnostic instead of the cryptic ADT save error. Set `SAPCLI_CHECK_BEFORE_SAVE=true` once to make every `write`/`checkin` invocation run the check up front - this is the agentic-workflow opt-in.
 
 ## activate
 

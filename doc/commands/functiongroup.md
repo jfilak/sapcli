@@ -27,7 +27,7 @@ sapcli functiongroup create ZFG_PARENT "Class description" '$PACKAGE'
 Changes main source code of the given function group.
 
 ```
-sapcli functiongroup write [FUNCTION_GROUP_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli functiongroup write [FUNCTION_GROUP_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--check|--no-check]
 ```
 
 * _FUNCITON\_GROUP\_NAME_ either function group name or - when it should be deduced from FILE\_PATH
@@ -36,6 +36,10 @@ sapcli functiongroup write [FUNCTION_GROUP_NAME|-] [FILE_PATH+|-] [--corrnr TRAN
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--check_ run the ADT `abapCheckRun` before the source is written and abort with readable findings on errors (off by default)
+* _--no-check_ skip the ADT `abapCheckRun` even when `SAPCLI_CHECK_BEFORE_SAVE=true` enables it globally
+
+Failed PUTs (with or without the flag) are always re-run through `abapCheckRun` so the user gets a readable diagnostic instead of the cryptic ADT save error. Set `SAPCLI_CHECK_BEFORE_SAVE=true` once to make every `write`/`checkin` invocation run the check up front - this is the agentic-workflow opt-in.
 
 ## activate
 
@@ -85,7 +89,7 @@ sapcli functiongroup include create ZFG_PARENT ZFGI_HELLO_WORLD "Function Group 
 Changes main source code of the given function group.
 
 ```
-sapcli functiongroup include write [FUNCTION_GROUP_NAME] [FUNCTION_GROUP_INCLUDE_NAME] [FILE_PATH|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli functiongroup include write [FUNCTION_GROUP_NAME] [FUNCTION_GROUP_INCLUDE_NAME] [FILE_PATH|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--check|--no-check]
 ```
 
 * _FUNCITON\_GROUP\_NAME_ function group name
@@ -95,6 +99,10 @@ sapcli functiongroup include write [FUNCTION_GROUP_NAME] [FUNCTION_GROUP_INCLUDE
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--check_ run the ADT `abapCheckRun` before the source is written and abort with readable findings on errors (off by default)
+* _--no-check_ skip the ADT `abapCheckRun` even when `SAPCLI_CHECK_BEFORE_SAVE=true` enables it globally
+
+Failed PUTs (with or without the flag) are always re-run through `abapCheckRun` so the user gets a readable diagnostic instead of the cryptic ADT save error. Set `SAPCLI_CHECK_BEFORE_SAVE=true` once to make every `write`/`checkin` invocation run the check up front - this is the agentic-workflow opt-in.
 
 ### activate
 

@@ -9,9 +9,12 @@ from sap.cli.core import InvalidCommandLineError
 import sap.errors
 
 import sap.adt
+import sap.adt.checks
+import sap.adt.errors
 import sap.adt.wb
 import sap.adt.whereused
 import sap.cli.wb
+from sap.config import config_get
 
 
 _NAME_INDEX = 0
@@ -180,6 +183,12 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
                                   default=False, help='Do not stop activation in case of errors')
         write_cmd.append_argument('--warning-errors', action='store_true',
                                   default=False, help='Treat Activation warnings as errors')
+        write_cmd.append_argument('--check', dest='check', action='store_true', default=None,
+                                  help='Run abapCheckRun before writing source code'
+                                       ' (overrides SAPCLI_CHECK_BEFORE_SAVE)')
+        write_cmd.append_argument('--no-check', dest='check', action='store_false',
+                                  help='Skip abapCheckRun before writing source code'
+                                       ' (overrides SAPCLI_CHECK_BEFORE_SAVE)')
         write_cmd.declare_corrnr()
 
         return write_cmd
@@ -303,6 +312,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         return activator
 
+    # pylint: disable=too-many-locals
     def write_object_text(self, connection, args):
         """Changes source code of the given program include"""
 
@@ -311,11 +321,37 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         console = args.console_factory()
         console.printout('Writing:')
 
+        flag = getattr(args, 'check', None)
+        check_before_save = flag if flag is not None else config_get('check_before_save', False)
+
         for obj, text in write_args_to_objects(self, connection, args):
             console.printout('*', str(obj))
+            code = ''.join(text)
 
-            with obj.open_editor(corrnr=args.corrnr) as editor:
-                editor.write(''.join(text))
+            if check_before_save:
+                result = sap.adt.checks.run_object_check(obj, code)
+                if result.has_errors:
+                    findings = sap.adt.checks.ObjectCheckFindings(obj, result)
+                    for line in str(findings).splitlines():
+                        console.printerr(line)
+                    raise findings
+
+            try:
+                with obj.open_editor(corrnr=args.corrnr) as editor:
+                    editor.write(code)
+            except sap.adt.errors.ExceptionResourceSaveFailure as save_exc:
+                # The PUT to source/main rejected the source. Re-run abapCheckRun
+                # on the same source to surface a readable diagnostic instead of
+                # the cryptic ADT save error. If the check has nothing to say,
+                # the original failure carries the real reason (lock, missing
+                # inactive version, etc.) - re-raise it.
+                result = sap.adt.checks.run_object_check(obj, code)
+                if result.has_errors:
+                    findings = sap.adt.checks.ObjectCheckFindings(obj, result)
+                    for line in str(findings).splitlines():
+                        console.printerr(line)
+                    raise findings from save_exc
+                raise
 
             toactivate[obj.name] = obj
 

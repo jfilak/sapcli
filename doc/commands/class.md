@@ -23,7 +23,7 @@ sapcli class create ZCL_HELLOWORLD "Class description" '$PACKAGE'
 Changes main source code of the given class without activation
 
 ```
-sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors]
+sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activate] [--ignore-errors] [--warning-errors] [--check|--no-check]
 ```
 
 * _OBJECT\_NAME_ either class name or - when it should be deduced from FILE\_PATH
@@ -32,6 +32,10 @@ sapcli class write [OBJECT_NAME|-] [FILE_PATH+|-] [--corrnr TRANSPORT] [--activa
 * _--activate_ activate after finishing the write operation
 * _--ignore-errors_ continue activating objects ignoring errors
 * _--warning-errors_ treat activation warnings as errors
+* _--check_ run the ADT `abapCheckRun` before the source is written and abort with readable findings on errors (off by default)
+* _--no-check_ skip the ADT `abapCheckRun` even when `SAPCLI_CHECK_BEFORE_SAVE=true` enables it globally
+
+Failed PUTs (with or without the flag) are always re-run through `abapCheckRun` so the user gets a readable diagnostic instead of the cryptic ADT save error. Set `SAPCLI_CHECK_BEFORE_SAVE=true` once to make every `write`/`checkin` invocation run the check up front - this is the agentic-workflow opt-in.
 
 Changes definitions source code of the given class without activation
 

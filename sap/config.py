@@ -622,9 +622,48 @@ def _fetch_config_from_path(source: str) -> dict:
     return data
 
 
+_TRUTHY_ENV_VALUES = {'1', 'true', 'yes', 'on'}
+_FALSY_ENV_VALUES = {'0', 'false', 'no', 'off'}
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable.
+
+    Accepts the usual spellings (1/0, true/false, yes/no, on/off) in a
+    case-insensitive way. Unknown values fall back to ``default`` - we
+    do not fail a whole CLI invocation over a typo in an optional flag.
+    """
+
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+
+    normalised = raw.strip().lower()
+    if normalised in _TRUTHY_ENV_VALUES:
+        return True
+    if normalised in _FALSY_ENV_VALUES:
+        return False
+    return default
+
+
 def config_get(option: str, default: Any = None) -> Any:
-    """Returns configuration values"""
+    """Returns configuration values.
 
-    config = {'http_timeout': float(os.environ.get('SAPCLI_HTTP_TIMEOUT', 900))}
+    For env-var-backed boolean options like ``check_before_save``, the
+    caller's ``default`` is used as the fallback when the env-var is
+    unset. This lets different call sites express different defaults
+    (e.g. ``abap run`` defaults to ``True`` for back-pressure on the
+    generated temporary class; ``write``/``checkin`` default to
+    ``False`` so the check is opt-in for human users and the
+    ``SAPCLI_CHECK_BEFORE_SAVE=true`` env-var is the agentic-workflow
+    opt-in).
+    """
 
-    return config.get(option, default)
+    if option == 'http_timeout':
+        return float(os.environ.get('SAPCLI_HTTP_TIMEOUT', 900))
+
+    if option == 'check_before_save':
+        fallback = True if default is None else bool(default)
+        return _env_bool('SAPCLI_CHECK_BEFORE_SAVE', fallback)
+
+    return default

@@ -7,6 +7,7 @@ import errno
 from types import SimpleNamespace
 from unittest.mock import mock_open, patch, Mock, MagicMock, call
 
+import sap.adt.checks
 import sap.cli.checkin
 import sap.platform.abap.abapgit
 from sap import get_logger
@@ -253,7 +254,7 @@ class TestCheckinGroup(ConsoleOutputTestCase):
 
         with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
             fake_handler.get = Mock()
-            fake_handler.get.return_value = lambda x, y, z: [adt_object]
+            fake_handler.get.return_value = lambda *_args, **_kwargs: [adt_object]
 
             inactive = sap.cli.checkin._checkin_dependency_group(None, self.mock_object_group, self.console, None)
 
@@ -306,7 +307,7 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
 
         # open -> .abapgit.xml
 
-        def mock_object_handler(connection, repo_obj, corrnr):
+        def mock_object_handler(connection, repo_obj, corrnr, **_):
             return SimpleNamespace(full_adt_uri=repo_obj.path, name=repo_obj.name)
 
         args = parse_args('package', '$foo')
@@ -400,6 +401,45 @@ Creating objects ...
 Activating objects ...
 ''')
         fake_activate.assert_called_once_with(None, inactive_objects, self.console)
+
+    def _resolved_check_before_save(self, *cli_args, env_value=None):
+        """Run do_checkin_directory with the given CLI args and return
+        the ``check_before_save`` value passed to _checkin_dependency_group.
+        """
+
+        captured = {}
+
+        def fake_group(connection, group, console, corrnr, check_before_save=False):
+            captured['value'] = check_before_save
+            return Mock(references=[])
+
+        env = {} if env_value is None else {'SAPCLI_CHECK_BEFORE_SAVE': env_value}
+
+        with patch('sap.cli.checkin._load_objects'), \
+             patch('sap.cli.checkin._resolve_dependencies', return_value=[Mock()]), \
+             patch('sap.cli.checkin._get_config') as fake_cfg, \
+             patch('sap.cli.checkin._checkin_dependency_group', side_effect=fake_group), \
+             patch('os.environ', env):
+            fake_cfg.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
+                FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
+            )
+
+            args = parse_args('package', '$foo', *cli_args)
+            args.execute(None, args)
+
+        return captured['value']
+
+    def test_do_checkin_default_disables_pre_check(self):
+        self.assertFalse(self._resolved_check_before_save())
+
+    def test_do_checkin_check_flag_enables_pre_check(self):
+        self.assertTrue(self._resolved_check_before_save('--check'))
+
+    def test_do_checkin_no_check_flag_overrides_env_true(self):
+        self.assertFalse(self._resolved_check_before_save('--no-check', env_value='true'))
+
+    def test_do_checkin_env_true_enables_pre_check(self):
+        self.assertTrue(self._resolved_check_before_save(env_value='true'))
 
 
 class TestActivate(ConsoleOutputTestCase, PatcherTestCase):
@@ -947,6 +987,9 @@ class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
         self.connection = Mock()
         self.connection.user = 'test_user'
 
+        self.fake_config_get = self.patch('sap.cli.checkin.config_get')
+        self.fake_config_get.return_value = False
+
         self.fake_open = self.patch('sap.cli.checkin.open')
         self.fake_open.side_effect = [StringIOFile(FUNCTION_GROUP_XML)]
 
@@ -1145,6 +1188,76 @@ Writing Function Module: {self.function_module.name}
 
         self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
         self.function_module_editor.write.assert_called_once_with(FUNCTION_MODULE_CODE_ALL_PARAMS_ADT)
+
+
+class TestWriteSourceFileChecks(unittest.TestCase):
+
+    def test_default_skips_pre_check(self):
+        adt_object = MagicMock()
+        editor = MagicMock()
+        editor.__enter__.return_value = editor
+        adt_object.open_editor.return_value = editor
+
+        with patch('sap.adt.checks.run_object_check') as fake_check:
+            sap.cli.checkin._write_source_file('CODE', adt_object)
+
+        fake_check.assert_not_called()
+        editor.write.assert_called_once_with('CODE')
+
+    def test_check_before_save_true_runs_pre_check(self):
+        adt_object = MagicMock()
+        editor = MagicMock()
+        editor.__enter__.return_value = editor
+        adt_object.open_editor.return_value = editor
+
+        bad_result = SimpleNamespace(has_errors=True, messages=iter([]))
+
+        with patch('sap.adt.checks.run_object_check', return_value=bad_result):
+            with self.assertRaises(sap.adt.checks.ObjectCheckFindings) as cm:
+                sap.cli.checkin._write_source_file('CODE', adt_object,
+                                                    source_label='src/foo.clas.abap',
+                                                    check_before_save=True)
+
+        self.assertEqual(cm.exception.source_label, 'src/foo.clas.abap')
+        editor.write.assert_not_called()
+
+    def test_failed_put_runs_check_and_raises_findings(self):
+        import sap.adt.errors
+
+        adt_object = MagicMock()
+        editor = MagicMock()
+        editor.__enter__.return_value = editor
+        editor.write.side_effect = sap.adt.errors.ExceptionResourceSaveFailure('PUT failed')
+        adt_object.open_editor.return_value = editor
+
+        bad_result = SimpleNamespace(has_errors=True, messages=iter([]))
+
+        with patch('sap.adt.checks.run_object_check', return_value=bad_result) as fake_check:
+            with self.assertRaises(sap.adt.checks.ObjectCheckFindings) as cm:
+                sap.cli.checkin._write_source_file('CODE', adt_object,
+                                                    source_label='src/foo.clas.abap')
+
+        # Pre-check is off (default), so the only invocation is the
+        # post-PUT recheck triggered by ExceptionResourceSaveFailure.
+        fake_check.assert_called_once()
+        self.assertEqual(cm.exception.source_label, 'src/foo.clas.abap')
+
+    def test_failed_put_with_clean_check_reraises_original(self):
+        import sap.adt.errors
+
+        adt_object = MagicMock()
+        editor = MagicMock()
+        editor.__enter__.return_value = editor
+        editor.write.side_effect = sap.adt.errors.ExceptionResourceSaveFailure('locked')
+        adt_object.open_editor.return_value = editor
+
+        clean_result = SimpleNamespace(has_errors=False, messages=iter([]))
+
+        with patch('sap.adt.checks.run_object_check', return_value=clean_result) as fake_check:
+            with self.assertRaises(sap.adt.errors.ExceptionResourceSaveFailure):
+                sap.cli.checkin._write_source_file('CODE', adt_object)
+
+        fake_check.assert_called_once()
 
 
 if __name__ == '__main__':
