@@ -13,7 +13,7 @@ class Structure(ADTObject):
         'application/vnd.sap.adt.structures.v2+xml',
         {'text/plain': 'source/main'},
         'blueSource',
-        editor_factory=ADTObjectSourceEditor
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     def __init__(self, connection, name, package=None, metadata=None):

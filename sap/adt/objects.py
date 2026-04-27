@@ -845,15 +845,32 @@ class ADTObjectEditor:
 class ADTObjectSourceEditor(ADTObjectEditor):
     """Source Code actions"""
 
+    PLAIN_TEXT = 'text/plain'
+    JSON = 'application/json'
+
+    def __init__(self, instance, lock_handle=None, corrnr=None, content_type=None):
+        super().__init__(instance, lock_handle, corrnr)
+        self._content_type = content_type or self.PLAIN_TEXT
+
+    @classmethod
+    def plain_text(cls, instance, lock_handle=None, corrnr=None):
+        """Creates a plain text source editor"""
+        return cls(instance, lock_handle, corrnr, content_type=cls.PLAIN_TEXT)
+
+    @classmethod
+    def json(cls, instance, lock_handle=None, corrnr=None):
+        """Creates a JSON source editor"""
+        return cls(instance, lock_handle, corrnr, content_type=cls.JSON)
+
     def get_headers(self):
         """Returns Request HTTP headers"""
 
-        return {'Content-Type': 'text/plain; charset=utf-8'}
+        return {'Content-Type': f'{self._content_type}; charset=utf-8'}
 
     def write(self, content):
         """Changes Source Code of the source object"""
 
-        text_uri = self.uri + self.get_uri_for_type('text/plain')
+        text_uri = self.uri + self.get_uri_for_type(self._content_type)
 
         if content[-1] == '\n':
             content = content[:-1]
@@ -1198,7 +1215,7 @@ class Interface(OOADTObjectBase):
         ['application/vnd.sap.adt.oo.interfaces.v5+xml', 'application/vnd.sap.adt.oo.interfaces.v2+xml'],
         {'text/plain': 'source/main'},
         'abapInterface',
-        editor_factory=ADTObjectSourceEditor
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     def __init__(self, connection, name, package=None, metadata=None):
@@ -1472,7 +1489,7 @@ class DataDefinition(ADTObject):
         'application/vnd.sap.adt.ddlSource+xml',
         {'text/plain': 'source/main'},
         'ddlSource',
-        editor_factory=ADTObjectSourceEditor
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     def __init__(self, connection, name, package=None, metadata=None):
@@ -1491,7 +1508,7 @@ class AccessControl(ADTObject):
         'application/vnd.sap.adt.dclSource+xml',
         {'text/plain': 'source/main'},
         'dclSource',
-        editor_factory=ADTObjectSourceEditor
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     def __init__(self, connection, name, package=None, metadata=None):
@@ -1510,7 +1527,7 @@ class BehaviorDefinition(ADTObject):
         'application/vnd.sap.adt.blues.v1+xml',
         {'text/plain': 'source/main'},
         'blueSource',
-        editor_factory=ADTObjectSourceEditor
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     def __init__(self, connection, name, package=None, metadata=None):

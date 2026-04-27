@@ -49,7 +49,7 @@ class Program(BaseProgram):
         'application/vnd.sap.adt.programs.programs.v2+xml',
         {'text/plain': 'source/main'},
         'abapProgram',
-        editor_factory=ADTObjectSourceEditor
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     class LogicalDatabase(metaclass=OrderedClassMembers):
@@ -116,7 +116,7 @@ class Include(BaseProgram):
         'application/vnd.sap.adt.programs.includes.v2+xml',
         {'text/plain': 'source/main'},
         'abapInclude',
-        editor_factory=ADTObjectSourceEditor
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     def __init__(self, connection, name, package=None, metadata=None, master=None):
