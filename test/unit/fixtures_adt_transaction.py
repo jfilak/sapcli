@@ -70,6 +70,20 @@ CREATE_TRANSACTION_WITH_CONTENT_ADT_XML = f'''<?xml version="1.0" encoding="UTF-
 
 PARAMETER_TRANSACTION_NAME = 'ZJF_TEST_JAKUB'
 
+# CLI fixtures use ANZEIGER as responsible (mock Connection default user)
+CLI_CREATE_TRANSACTION_ADT_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="TRAN/T" adtcore:description="abapgit" adtcore:language="EN" adtcore:name="{TRANSACTION_NAME}" adtcore:masterLanguage="EN" adtcore:responsible="ANZEIGER">
+<adtcore:packageRef adtcore:name="$TMP"/>
+</blue:blueSource>'''
+
+CLI_CREATE_TRANSACTION_WITH_CONTENT_ADT_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="TRAN/T" adtcore:description="abapgit" adtcore:language="EN" adtcore:name="{TRANSACTION_NAME}" adtcore:masterLanguage="EN" adtcore:responsible="ANZEIGER">
+<adtcore:packageRef adtcore:name="$TMP"/>
+<blue:additionalCreationProperties>
+<adtcore:content adtcore:encoding="base64" adtcore:type="application/vnd.sap.adt.serverdriven.content.v1+json">eyJhYmFwTGFuZ3VWZXJzaW9uVGV4dCI6IlN0YW5kYXJkIEFCQVAiLCJ0cmFuc2FjdGlvblR5cGUiOiJyZXBvcnRUcmFuc2FjdGlvbiIsInJlcG9ydE5hbWUiOiJaQUJBUEdJVCIsInJlcG9ydER5bm5yIjoiMTAwMCIsInVwZGF0ZU1vZGUiOiJub3RTZXQiLCJtZXRhZGF0YSI6eyJuYW1lIjoiWkFCQVBHSVQiLCJkZXNjcmlwdGlvbiI6ImFiYXBnaXQiLCJwYWNrYWdlIjoiJFRNUCJ9fQ==</adtcore:content>
+</blue:additionalCreationProperties>
+</blue:blueSource>'''
+
 PARAMETER_TRANSACTION_CREATION_JSON = '{' \
     '"abapLanguVersionText":"Standard ABAP",' \
     '"transactionType":"parameterTransaction",' \

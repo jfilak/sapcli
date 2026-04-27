@@ -56,6 +56,7 @@ class CommandsCache:
         import sap.cli.domain
         import sap.cli.authorizationfield
         import sap.cli.abap
+        import sap.cli.transaction
         import sap.cli.config
 
         if CommandsCache.adt is None:
@@ -88,6 +89,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.badi.CommandGroup()),
                 (adt_connection_from_args, sap.cli.featuretoggle.CommandGroup()),
                 (adt_connection_from_args, sap.cli.abap.CommandGroup()),
+                (adt_connection_from_args, sap.cli.transaction.CommandGroup()),
             ]
 
         if CommandsCache.rest is None:
