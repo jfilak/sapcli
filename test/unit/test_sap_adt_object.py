@@ -504,5 +504,72 @@ class TestADTPropertyEditor(unittest.TestCase):
         editor.write('ignored')
 
 
+class TestADTObjectSourceEditorFactoryMethods(unittest.TestCase):
+
+    def test_plain_text_factory_returns_source_editor(self):
+        connection = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        obj = DummyADTObject(connection=connection, name='test_obj')
+
+        with obj.open_editor() as editor:
+            self.assertIsInstance(editor, sap.adt.objects.ADTObjectSourceEditor)
+            self.assertEqual(editor._content_type, 'text/plain')
+
+    def test_plain_text_factory_headers(self):
+        connection = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        obj = DummyADTObject(connection=connection, name='test_obj')
+
+        with obj.open_editor() as editor:
+            self.assertEqual(editor.get_headers(), {'Content-Type': 'text/plain; charset=utf-8'})
+
+    def test_plain_text_factory_strips_trailing_newline(self):
+        connection = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        obj = DummyADTObject(connection=connection, name='test_obj')
+
+        with obj.open_editor() as editor:
+            editor.write('line1\nline2\n')
+
+        put_request = connection.execs[1]
+        self.assertEqual(put_request.body, b'line1\nline2')
+
+    def test_json_factory_returns_source_editor(self):
+        editor = sap.adt.objects.ADTObjectSourceEditor.json(
+            SimpleNamespace(connection=None, uri='test', objtype=None),
+            lock_handle='handle',
+            corrnr='123'
+        )
+
+        self.assertIsInstance(editor, sap.adt.objects.ADTObjectSourceEditor)
+        self.assertEqual(editor._content_type, 'application/json')
+
+    def test_json_factory_headers(self):
+        editor = sap.adt.objects.ADTObjectSourceEditor.json(
+            SimpleNamespace(connection=None, uri='test', objtype=None),
+        )
+
+        self.assertEqual(editor.get_headers(), {'Content-Type': 'application/json; charset=utf-8'})
+
+    def test_json_factory_strips_trailing_newline(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+        obj = SimpleNamespace(
+            connection=connection,
+            uri='awesome/success/test_obj',
+            objtype=SimpleNamespace(get_uri_for_type=lambda t: '/source/main'),
+            unlock=lambda h: None,
+        )
+
+        editor = sap.adt.objects.ADTObjectSourceEditor.json(obj, lock_handle='handle')
+        editor.write('{"key": "value"}\n')
+
+        put_request = connection.execs[0]
+        self.assertEqual(put_request.body, b'{"key": "value"}')
+
+    def test_default_content_type_is_plain_text(self):
+        editor = sap.adt.objects.ADTObjectSourceEditor(
+            SimpleNamespace(connection=None, uri='test', objtype=None),
+        )
+
+        self.assertEqual(editor._content_type, 'text/plain')
+
+
 if __name__ == '__main__':
     unittest.main()

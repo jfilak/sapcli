@@ -257,7 +257,7 @@ class DummyADTObject(sap.adt.ADTObject):
         ['application/vnd.sap.super.cool.txt+xml', 'application/vnd.sap.super.cool.txt.v2+xml'],
         {'text/plain': 'no/bigdeal'},
         'dummies',
-        editor_factory=sap.adt.objects.ADTObjectSourceEditor
+        editor_factory=sap.adt.objects.ADTObjectSourceEditor.plain_text
     )
 
     def __init__(self, connection='noconnection', name='noobject', metadata=None):

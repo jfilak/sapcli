@@ -74,7 +74,7 @@ class DataElement(ADTObject):
             'application/vnd.sap.adt.dataelements.v1+xml': ''
         },
         'wbobj',
-        editor_factory=ADTObjectSourceEditor
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     definition = XmlNodeProperty('dtel:dataElement')
