@@ -447,6 +447,53 @@ class TestADTObjectType(unittest.TestCase):
         self.assertEqual(self.adt_object.all_mimetypes, ['mimetype2','mimetype1'])
 
 
+    def test_adt_object_type_source_mimetype_default(self):
+        self.assertEqual(self.adt_object.source_mimetype, 'text/plain')
+
+    def test_adt_object_type_source_mimetype_custom(self):
+        adt_object = sap.adt.objects.ADTObjectType(
+            'code',
+            'basepath',
+            sap.adt.objects.XMLNamespace(name='xmlnsname', uri='uri'),
+            'mimetype',
+            {'application/json': '/source'},
+            'xmlelementname',
+            source_mimetype='application/json')
+
+        self.assertEqual(adt_object.source_mimetype, 'application/json')
+
+
+class TestADTObjectTextWithCustomSourceMimetype(unittest.TestCase):
+
+    def test_text_uses_source_mimetype_for_accept_header(self):
+        connection = Connection([Response(status_code=200, text='{"key":"value"}')])
+
+        json_objtype = sap.adt.ADTObjectType(
+            'DUMMY/J',
+            'awesome/json',
+            sap.adt.objects.xmlns_adtcore_ancestor('win', 'http://www.example.com/never/lose'),
+            'application/vnd.sap.json+xml',
+            {'application/json': 'source/main'},
+            'dummies',
+            source_mimetype='application/json',
+        )
+
+        class JsonDummy(sap.adt.ADTObject):
+            OBJTYPE = json_objtype
+
+            def __init__(self, conn, name):
+                super().__init__(conn, name, metadata=sap.adt.ADTCoreData(description='test'))
+
+        obj = JsonDummy(connection, 'TEST_OBJ')
+        result = obj.text
+
+        self.assertEqual(result, '{"key":"value"}')
+
+        request = connection.execs[0]
+        self.assertEqual(request.headers['Accept'], 'application/json')
+        self.assertIn('source/main', request.adt_uri)
+
+
 class TestMIMEVersion(unittest.TestCase):
 
     def test_parse_out_versin_from_mime(self):
