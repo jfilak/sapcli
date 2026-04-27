@@ -281,10 +281,10 @@ class ObjectCheckFindings(SAPCliError):
         self.source_label = source_label
 
     def __str__(self):
-        lines = [f'Object check failed for {self.adt_object.name}:']
-        for msg in self.result.messages:
-            lines.append('  ' + format_check_message(msg, self.source_label))
-        return '\n'.join(lines)
+        return '\n'.join(
+            format_check_message(msg, self.source_label)
+            for msg in self.result.messages
+        )
 
 
 def run_object_check(adt_object, source, *, version='active', reporter='abapCheckRun'):

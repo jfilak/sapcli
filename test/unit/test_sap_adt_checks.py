@@ -282,7 +282,11 @@ class TestObjectCheckFindings(unittest.TestCase):
         exc = sap.adt.checks.ObjectCheckFindings(clas, result)
         rendered = str(exc)
 
-        self.assertIn('Object check failed for CL_FOO:', rendered)
+        # The rendered string is a sequence of compiler-style finding
+        # lines with no header prefix - the entry-point handler already
+        # prints "Exception (ObjectCheckFindings):", and the object name
+        # is already part of every location label.
+        self.assertNotIn('Object check failed', rendered)
         self.assertIn('cl_foo:27:2: E SYNTAX(001): Variable "FOO" is not type-compatible', rendered)
         self.assertIn('cl_foo:45:1: W DEPRECATION(002): Statement is deprecated', rendered)
         self.assertNotIn('/sap/bc/adt/', rendered)
