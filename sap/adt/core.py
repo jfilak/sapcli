@@ -230,11 +230,11 @@ class Connection:
 
         return resp
 
-    def get_text(self, relativeuri):
-        """Executes a GET HTTP request with the headers Accept = text/plain.
+    def get_text(self, relativeuri, accept='text/plain'):
+        """Executes a GET HTTP request with the given Accept header.
         """
 
-        return self.execute('GET', relativeuri, headers={'Accept': 'text/plain'}).text
+        return self.execute('GET', relativeuri, headers={'Accept': accept}).text
 
     @property
     def collection_types(self):

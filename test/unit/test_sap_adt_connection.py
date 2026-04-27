@@ -466,6 +466,25 @@ class TestADTConnection(unittest.TestCase):
         self.assertIn('took more than', str(cm.exception))
 
 
+class TestADTConnectionGetText(unittest.TestCase):
+
+    def test_get_text_default_accept_is_text_plain(self):
+        connection = Connection([Response(status_code=200, text='source code')])
+
+        result = connection.get_text('some/uri')
+
+        self.assertEqual(result, 'source code')
+        self.assertEqual(connection.execs[0].headers['Accept'], 'text/plain')
+
+    def test_get_text_custom_accept(self):
+        connection = Connection([Response(status_code=200, text='{"key":"value"}')])
+
+        result = connection.get_text('some/uri', accept='application/json')
+
+        self.assertEqual(result, '{"key":"value"}')
+        self.assertEqual(connection.execs[0].headers['Accept'], 'application/json')
+
+
 class TestADTConnectionSSLServerCert(unittest.TestCase):
     """Test ssl_server_cert parameter wiring in ADT Connection."""
 

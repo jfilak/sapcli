@@ -148,7 +148,7 @@ class ADTObjectType:
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self, code, basepath, xmlnamespace, mimetype, typeuris, xmlname, editor_factory=None):
+    def __init__(self, code, basepath, xmlnamespace, mimetype, typeuris, xmlname, editor_factory=None, source_mimetype='text/plain'):
         """Parameters:
             - code: ADT object code
             - basepath:
@@ -166,6 +166,7 @@ class ADTObjectType:
         self._typeuris = typeuris
         self._xmlname = xmlname
         self._editor_factory = editor_factory
+        self._source_mimetype = source_mimetype
 
     def open_editor(self, instance, lock_handle, corrnr=None):
         """Returns a new instance of Editor for this object type
@@ -212,6 +213,12 @@ class ADTObjectType:
             return [self._mimetype]
 
         return self._mimetype
+
+    @property
+    def source_mimetype(self):
+        """MIME type of the object's source code content"""
+
+        return self._source_mimetype
 
     @property
     def xmlnamespace(self):
@@ -641,13 +648,12 @@ class ADTObject(metaclass=OrderedClassMembers):
 
     @property
     def text(self):
-        """Downloads text representation of the SAP Object
-           if the MIME Type 'text/plain'.
-        """
+        """Downloads source code of the SAP Object."""
 
-        text_uri = self.objtype.get_uri_for_type('text/plain')
+        mime_type = self.objtype.source_mimetype
+        text_uri = self.objtype.get_uri_for_type(mime_type)
 
-        return self._connection.get_text(f'{self.uri}{text_uri}').replace('\r\n', '\n')
+        return self._connection.get_text(f'{self.uri}{text_uri}', accept=mime_type).replace('\r\n', '\n')
 
     @xml_attribute('adtcore:version')
     def active(self):
