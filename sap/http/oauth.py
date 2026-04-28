@@ -1,6 +1,5 @@
 """OAuth 2.0 password grant flow with token caching for BTP Steampunk."""
 
-import getpass
 import json
 import os
 import time
@@ -86,19 +85,15 @@ def refresh_access_token(token_url, client_id, client_secret, refresh_token):
 # Interactive password grant
 # ---------------------------------------------------------------------------
 
-def fetch_token_via_password(token_url, client_id, client_secret):
-    """Prompt for email + password once, cache the resulting token."""
-
-    print('\nBTP OAuth login required.')
-    username = input('Email: ')
-    password = getpass.getpass('Password: ')
+def fetch_token_with_credentials(token_url, client_id, client_secret, user, password):
+    """Obtain a Bearer token via OAuth 2.0 password grant using provided credentials."""
 
     response = requests.post(
         token_url.rstrip('/') + '/oauth/token',
         auth=(client_id, client_secret),
         data={
             'grant_type': 'password',
-            'username': username,
+            'username': user,
             'password': password,
         },
         timeout=30,
@@ -118,8 +113,8 @@ def fetch_token_via_password(token_url, client_id, client_secret):
 # Entry point
 # ---------------------------------------------------------------------------
 
-def get_token(token_url, client_id, client_secret):
-    """Return a valid Bearer token — from cache, refresh, or interactive login."""
+def get_token(token_url, client_id, client_secret, user=None, password=None):
+    """Return a valid Bearer token — from cache, refresh, or credentials grant."""
 
     token = get_cached_token(token_url, client_id)
     if token:
@@ -131,4 +126,4 @@ def get_token(token_url, client_id, client_secret):
         if token:
             return token
 
-    return fetch_token_via_password(token_url, client_id, client_secret)
+    return fetch_token_with_credentials(token_url, client_id, client_secret, user, password)

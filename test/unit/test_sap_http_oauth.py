@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, Mock, patch, call
 from sap.http.client import BearerAuth, HTTPClient
 from sap.http.oauth import (
     _cache_key,
-    fetch_token_via_password,
+    fetch_token_with_credentials,
     get_cached_token,
     get_cached_refresh_token,
     get_token,
@@ -61,7 +61,8 @@ class TestHTTPClientOAuthInit(unittest.TestCase):
         )
 
         mock_get_token.assert_called_once_with(
-            'https://auth.example.com', 'my-client-id', 'my-client-secret'
+            'https://auth.example.com', 'my-client-id', 'my-client-secret',
+            user='user@sap.com', password='secret'
         )
         self.assertIsInstance(client._auth, BearerAuth)
 
@@ -206,19 +207,20 @@ class TestRefreshAccessToken(unittest.TestCase):
 # Interactive password grant
 # ---------------------------------------------------------------------------
 
-class TestFetchTokenViaPassword(unittest.TestCase):
+class TestFetchTokenWithCredentials(unittest.TestCase):
 
     @patch('sap.http.oauth.save_token_response')
     @patch('sap.http.oauth.requests.post')
-    @patch('sap.http.oauth.getpass.getpass', return_value='mypassword')
-    @patch('builtins.input', return_value='user@sap.com')
-    def test_password_grant_success(self, mock_input, mock_getpass, mock_post, mock_save):
+    def test_password_grant_success(self, mock_post, mock_save):
         mock_post.return_value = Mock(
             ok=True,
             json=lambda: {'access_token': 'user-token', 'refresh_token': 'r-token', 'expires_in': 43200}
         )
 
-        token = fetch_token_via_password('https://auth.example.com', 'client-id', 'client-secret')
+        token = fetch_token_with_credentials(
+            'https://auth.example.com', 'client-id', 'client-secret',
+            'user@sap.com', 'mypassword'
+        )
 
         self.assertEqual(token, 'user-token')
         mock_post.assert_called_once_with(
@@ -234,13 +236,14 @@ class TestFetchTokenViaPassword(unittest.TestCase):
         mock_save.assert_called_once()
 
     @patch('sap.http.oauth.requests.post')
-    @patch('sap.http.oauth.getpass.getpass', return_value='wrongpass')
-    @patch('builtins.input', return_value='user@sap.com')
-    def test_password_grant_failure_raises(self, mock_input, mock_getpass, mock_post):
+    def test_password_grant_failure_raises(self, mock_post):
         mock_post.return_value = Mock(ok=False, status_code=401, text='invalid_grant')
 
         with self.assertRaises(RuntimeError) as cm:
-            fetch_token_via_password('https://auth.example.com', 'client-id', 'client-secret')
+            fetch_token_with_credentials(
+                'https://auth.example.com', 'client-id', 'client-secret',
+                'user@sap.com', 'wrongpass'
+            )
 
         self.assertIn('401', str(cm.exception))
 
@@ -257,7 +260,7 @@ class TestGetToken(unittest.TestCase):
 
         self.assertEqual(token, 'cached-token')
 
-    @patch('sap.http.oauth.fetch_token_via_password')
+    @patch('sap.http.oauth.fetch_token_with_credentials')
     @patch('sap.http.oauth.refresh_access_token', return_value='refreshed-token')
     @patch('sap.http.oauth.get_cached_refresh_token', return_value='old-refresh')
     @patch('sap.http.oauth.get_cached_token', return_value=None)
@@ -268,7 +271,7 @@ class TestGetToken(unittest.TestCase):
         self.assertEqual(token, 'refreshed-token')
         mock_password.assert_not_called()
 
-    @patch('sap.http.oauth.fetch_token_via_password', return_value='new-login-token')
+    @patch('sap.http.oauth.fetch_token_with_credentials', return_value='new-login-token')
     @patch('sap.http.oauth.refresh_access_token', return_value=None)
     @patch('sap.http.oauth.get_cached_refresh_token', return_value='stale-refresh')
     @patch('sap.http.oauth.get_cached_token', return_value=None)
@@ -278,7 +281,7 @@ class TestGetToken(unittest.TestCase):
 
         self.assertEqual(token, 'new-login-token')
 
-    @patch('sap.http.oauth.fetch_token_via_password', return_value='login-token')
+    @patch('sap.http.oauth.fetch_token_with_credentials', return_value='login-token')
     @patch('sap.http.oauth.get_cached_refresh_token', return_value=None)
     @patch('sap.http.oauth.get_cached_token', return_value=None)
     def test_prompts_login_when_no_cache_at_all(

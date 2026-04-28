@@ -107,7 +107,7 @@ class HTTPClient():
         self.timeout = config_get('http_timeout')
 
         if token_url and client_id and client_secret:
-            token = get_token(token_url, client_id, client_secret)
+            token = get_token(token_url, client_id, client_secret, user=user, password=password)
             self._auth = BearerAuth(token)
         else:
             self._auth = HTTPBasicAuth(user, password)
