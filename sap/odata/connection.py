@@ -1,11 +1,15 @@
 """OData connection helpers"""
 
 import pyodata
-import requests
-from requests.auth import HTTPBasicAuth
 
-from sap import get_logger, config_get
-from sap.odata.errors import HTTPRequestError, UnauthorizedError, TimedOutRequestError
+import sap.http
+from sap import get_logger
+
+
+def mod_log():
+    """OData Module logger"""
+
+    return get_logger()
 
 
 # pylint: disable=too-many-instance-attributes,too-few-public-methods
@@ -29,48 +33,25 @@ class Connection:
             - ssl_server_cert: optional path to a custom CA certificate file
         """
 
-        if ssl:
-            protocol = 'https'
-            if port is None:
-                port = '443'
-        else:
-            protocol = 'http'
-            if port is None:
-                port = '80'
+        sap.http.setup_keepalive()
 
-        self._base_url = f'{protocol}://{host}:{port}/sap/opu/odata/{service}'
-        self._query_args = f'sap-client={client}&saml2=disabled'
-        self._user = user
-        self._auth = HTTPBasicAuth(user, password)
-        self._timeout = config_get('http_timeout')
+        service_path = f'sap/opu/odata/{service}'
 
-        self._session = requests.Session()
-        if ssl_server_cert:
-            self._session.verify = ssl_server_cert
-        else:
-            self._session.verify = verify
-        self._session.auth = (user, password)
+        self._http_client = sap.http.HTTPClient(
+            ssl=ssl,
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            saml2=False,
+            client=client,
+            verify=verify,
+            ssl_server_cert=ssl_server_cert,
+            login_path=service_path,
+            login_method='HEAD'
+        )
 
-        # csrf token handling for all future "create" requests
-        try:
-            get_logger().info('Executing head request as part of CSRF authentication %s', self._base_url)
-            req = requests.Request('HEAD', self._base_url, headers={'x-csrf-token': 'fetch'})
-            req = self._session.prepare_request(req)
-            res = self._session.send(req, timeout=self._timeout)
+        session, _ = self._http_client.build_session()
 
-        except requests.exceptions.ConnectTimeout as ex:
-            raise TimedOutRequestError(req, self._timeout) from ex
-        except requests.exceptions.ReadTimeout as ex:
-            raise TimedOutRequestError(req, self._timeout) from ex
-
-        if res.status_code == 401:
-            raise UnauthorizedError(req, res, self._user)
-
-        if res.status_code >= 400:
-            raise HTTPRequestError(req, res)
-
-        token = res.headers.get('x-csrf-token', '')
-        self._session.headers.update({'x-csrf-token': token})
-
-        # instance of the service
-        self.client = pyodata.Client(self._base_url, self._session)
+        base_url, _ = sap.http.build_url(ssl=ssl, host=host, port=port, path=service_path)
+        self.client = pyodata.Client(base_url, session)
