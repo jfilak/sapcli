@@ -20,7 +20,8 @@ class Connection:
     client = None
 
     # pylint: disable=too-many-arguments
-    def __init__(self, service, host, port, client, user, password, ssl, verify, ssl_server_cert=None):
+    def __init__(self, service, host, port, client, user, password, ssl, verify, ssl_server_cert=None,
+                 session_initializer=None):
         """Parameters:
             - service: id of the odata service (e.g. UI5/ABAP_REPOSITORY_SRV)
             - host: string host name or IP of
@@ -31,6 +32,8 @@ class Connection:
             - ssl: boolean to switch between http and https
             - verify: boolean to switch SSL validation on/off
             - ssl_server_cert: optional path to a custom CA certificate file
+            - session_initializer: optional HTTPSessionInitializer; when None,
+                    BasicAuth with the given user/password is used
         """
 
         sap.http.setup_keepalive()
@@ -48,7 +51,8 @@ class Connection:
             verify=verify,
             ssl_server_cert=ssl_server_cert,
             login_path=service_path,
-            login_method='HEAD'
+            login_method='HEAD',
+            session_initializer=session_initializer,
         )
 
         session, _ = self._http_client.build_session()

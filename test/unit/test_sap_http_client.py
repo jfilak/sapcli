@@ -4,12 +4,15 @@ import unittest
 from unittest.mock import Mock, patch, MagicMock
 
 import requests.exceptions
+from requests.auth import HTTPBasicAuth
 
 from sap.http.client import (
     build_query_args,
     build_url,
     default_http_error_handler,
+    BasicAuthHTTPSessionInitializer,
     HTTPClient,
+    HTTPSessionInitializer,
 )
 from sap.http.errors import (
     HTTPRequestError,
@@ -82,17 +85,17 @@ class TestDefaultHttpErrorHandler(unittest.TestCase):
 
     def test_raises_unauthorized_for_401(self):
         client = Mock()
-        client.user = 'SAP*'
         req = Mock()
         res = Mock()
         res.status_code = 401
+        unauth = UnauthorizedError(req, res, 'SAP*')
+        client.build_unauthorized_error = Mock(return_value=unauth)
 
         with self.assertRaises(UnauthorizedError) as cm:
             default_http_error_handler(client, req, res)
 
-        self.assertIs(cm.exception.request, req)
-        self.assertIs(cm.exception.response, res)
-        self.assertEqual(cm.exception.user, 'SAP*')
+        self.assertIs(cm.exception, unauth)
+        client.build_unauthorized_error.assert_called_once_with(req, res)
 
     def test_raises_http_request_error_for_non_401(self):
         client = Mock()
@@ -292,8 +295,11 @@ class TestHTTPClientSetConnectionErrorHandler(unittest.TestCase):
 
 class TestHTTPClientRetrieve(unittest.TestCase):
 
+    fixture_user = 'SAP*'
+    fixture_password = 'pass'
+
     def _make_client(self, **kwargs):
-        defaults = dict(host='example.com', user='SAP*', password='pass', client='100')
+        defaults = dict(host='example.com', user=self.fixture_user, password=self.fixture_password, client='100')
         defaults.update(kwargs)
         return HTTPClient(**defaults)
 
@@ -596,17 +602,34 @@ class TestHTTPClientExecuteWithSession(unittest.TestCase):
 
         client.retrieve.assert_called_once()
 
-    def test_no_error_on_status_below_400(self):
+    def _assert_no_error_for_status(self, status):
         client = self._make_client()
         session = Mock()
+        response = Mock()
+        response.status_code = status
+        client.retrieve = Mock(return_value=(Mock(), response))
 
-        for status in [200, 201, 204, 301, 302, 399]:
-            response = Mock()
-            response.status_code = status
-            client.retrieve = Mock(return_value=(Mock(), response))
+        result = client.execute_with_session(session, 'GET', 'path')
 
-            result = client.execute_with_session(session, 'GET', 'path')
-            self.assertIs(result, response)
+        self.assertIs(result, response)
+
+    def test_no_error_on_status_200(self):
+        self._assert_no_error_for_status(200)
+
+    def test_no_error_on_status_201(self):
+        self._assert_no_error_for_status(201)
+
+    def test_no_error_on_status_204(self):
+        self._assert_no_error_for_status(204)
+
+    def test_no_error_on_status_301(self):
+        self._assert_no_error_for_status(301)
+
+    def test_no_error_on_status_302(self):
+        self._assert_no_error_for_status(302)
+
+    def test_no_error_on_status_399(self):
+        self._assert_no_error_for_status(399)
 
     def test_csrf_refetch_with_empty_headers(self):
         """403 with no headers at all should trigger CSRF refetch."""
@@ -645,8 +668,11 @@ class TestHTTPClientExecuteWithSession(unittest.TestCase):
 
 class TestHTTPClientBuildSession(unittest.TestCase):
 
+    fixture_user = 'SAP*'
+    fixture_password = 'pass'
+
     def _make_client(self, **kwargs):
-        defaults = dict(host='example.com', user='SAP*', password='pass', client='100',
+        defaults = dict(host='example.com', user=self.fixture_user, password=self.fixture_password, client='100',
                         login_path='login', login_method='HEAD')
         defaults.update(kwargs)
         return HTTPClient(**defaults)
@@ -771,7 +797,35 @@ class TestHTTPClientBuildSession(unittest.TestCase):
 
         session, _ = client.build_session()
 
-        self.assertEqual(mock_session.auth, client._auth)
+        self.assertEqual(mock_session.auth, HTTPBasicAuth(self.fixture_user, self.fixture_password))
+
+    @patch('sap.http.client.requests.Session')
+    def test_build_session_uses_initializer_returned_session(self, mock_session_cls):
+        """build_session must use whatever session the initializer returns."""
+
+        replacement_session = MagicMock()
+        replacement_session.headers = {}
+
+        initializer = Mock()
+        initializer.initialize_session = Mock(return_value=replacement_session)
+
+        client = self._make_client(session_initializer=initializer)
+
+        # The Session() constructor is still called, but its result is passed
+        # through the initializer which may return a different object.
+        original_session = MagicMock()
+        original_session.headers = {}
+        mock_session_cls.return_value = original_session
+
+        login_response = Mock()
+        login_response.status_code = 200
+        login_response.headers = {'x-csrf-token': 'token'}
+        client.execute_with_session = Mock(return_value=login_response)
+
+        session, _ = client.build_session()
+
+        self.assertIs(session, replacement_session)
+        initializer.initialize_session.assert_called_once_with(original_session)
 
     @patch('sap.http.client.requests.Session')
     def test_build_session_login_request(self, mock_session_cls):
@@ -791,6 +845,74 @@ class TestHTTPClientBuildSession(unittest.TestCase):
         client.execute_with_session.assert_called_once_with(
             mock_session, 'GET', 'my/login', headers={'x-csrf-token': 'Fetch'}
         )
+
+
+class TestBasicAuthHTTPSessionInitializer(unittest.TestCase):
+
+    fixture_user = 'SAP*'
+    fixture_password = 'pass'
+
+    def test_initialize_session_sets_basic_auth(self):
+        initializer = BasicAuthHTTPSessionInitializer(self.fixture_user, self.fixture_password)
+        session = MagicMock()
+
+        initializer.initialize_session(session)
+
+        self.assertEqual(session.auth, HTTPBasicAuth(self.fixture_user, self.fixture_password))
+
+    def test_initialize_session_returns_same_session(self):
+        initializer = BasicAuthHTTPSessionInitializer(self.fixture_user, self.fixture_password)
+        session = MagicMock()
+
+        returned = initializer.initialize_session(session)
+
+        self.assertIs(returned, session)
+
+    def test_build_unauthorized_error(self):
+        initializer = BasicAuthHTTPSessionInitializer(self.fixture_user, self.fixture_password)
+        req = Mock()
+        res = Mock()
+
+        err = initializer.build_unauthorized_error(req, res)
+
+        self.assertIsInstance(err, UnauthorizedError)
+        self.assertIs(err.request, req)
+        self.assertIs(err.response, res)
+        self.assertEqual(err.user, self.fixture_user)
+
+    def test_satisfies_protocol(self):
+        initializer = BasicAuthHTTPSessionInitializer(self.fixture_user, self.fixture_password)
+
+        self.assertIsInstance(initializer, HTTPSessionInitializer)
+
+
+class TestHTTPClientSessionInitializer(unittest.TestCase):
+
+    def test_default_initializer_is_basic_auth(self):
+        client = HTTPClient(host='h', user='SAP*', password='pass')
+
+        self.assertIsInstance(client._session_initializer, BasicAuthHTTPSessionInitializer)
+
+    def test_custom_initializer_is_used(self):
+        custom = Mock(spec=HTTPSessionInitializer)
+
+        client = HTTPClient(host='h', user='SAP*', password='pass', session_initializer=custom)
+
+        self.assertIs(client._session_initializer, custom)
+
+    def test_build_unauthorized_error_delegates_to_initializer(self):
+        custom = Mock(spec=HTTPSessionInitializer)
+        unauth = UnauthorizedError(Mock(), Mock(), 'someone')
+        custom.build_unauthorized_error = Mock(return_value=unauth)
+
+        client = HTTPClient(host='h', user='SAP*', password='pass', session_initializer=custom)
+        req = Mock()
+        res = Mock()
+
+        result = client.build_unauthorized_error(req, res)
+
+        self.assertIs(result, unauth)
+        custom.build_unauthorized_error.assert_called_once_with(req, res)
 
 
 if __name__ == '__main__':
