@@ -66,7 +66,7 @@ class TestHTTPClientOAuthInit(unittest.TestCase):
         )
         self.assertIsInstance(client._auth, BearerAuth)
 
-    @patch('sap.http.oauth.get_token')
+    @patch('sap.http.client.get_token')
     def test_uses_basic_auth_when_no_token_url(self, mock_get_token):
         from requests.auth import HTTPBasicAuth
         client = HTTPClient(host='c50.example.com', user='ELBEZI', password='pass')
@@ -74,7 +74,7 @@ class TestHTTPClientOAuthInit(unittest.TestCase):
         mock_get_token.assert_not_called()
         self.assertIsInstance(client._auth, HTTPBasicAuth)
 
-    @patch('sap.http.oauth.get_token')
+    @patch('sap.http.client.get_token')
     def test_uses_basic_auth_when_token_url_missing(self, mock_get_token):
         from requests.auth import HTTPBasicAuth
         client = HTTPClient(
