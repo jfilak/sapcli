@@ -2,7 +2,7 @@
 
 import requests
 import requests.exceptions
-from requests.auth import HTTPBasicAuth
+from requests.auth import AuthBase, HTTPBasicAuth
 
 from sap import get_logger, config_get
 from sap.http.errors import (
@@ -10,6 +10,18 @@ from sap.http.errors import (
     UnauthorizedError,
     TimedOutRequestError,
 )
+from sap.http.oauth import get_token
+
+
+class BearerAuth(AuthBase):
+    """Requests auth handler that injects an OAuth 2.0 Bearer token."""
+
+    def __init__(self, token):
+        self._token = token
+
+    def __call__(self, r):
+        r.headers['Authorization'] = f'Bearer {self._token}'
+        return r
 
 
 def build_query_args(client=None, saml2=None):
@@ -63,7 +75,10 @@ class HTTPClient():
                  verify=None,
                  ssl_server_cert=None,
                  login_path='',
-                 login_method='HEAD'
+                 login_method='HEAD',
+                 token_url=None,
+                 client_id=None,
+                 client_secret=None,
                  ):
 
         self.ssl = ssl
@@ -91,7 +106,11 @@ class HTTPClient():
 
         self.timeout = config_get('http_timeout')
 
-        self._auth = HTTPBasicAuth(user, password)
+        if token_url and client_id and client_secret:
+            token = get_token(token_url, client_id, client_secret)
+            self._auth = BearerAuth(token)
+        else:
+            self._auth = HTTPBasicAuth(user, password)
 
         self.error_handlers = [default_http_error_handler]
         self._connection_error_handler = None

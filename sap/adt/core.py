@@ -101,7 +101,8 @@ class Connection:
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self, host, client, user, password, port=None, ssl=True, verify=True, ssl_server_cert=None):
+    def __init__(self, host, client, user, password, port=None, ssl=True, verify=True, ssl_server_cert=None,
+                 token_url=None, client_id=None, client_secret=None):
         """Parameters:
             - host: string host name
             - client: string SAP client
@@ -124,10 +125,13 @@ class Connection:
             port=port,
             user=user,
             password=password,
-            saml2=False,
+            saml2=None if (token_url and client_id and client_secret) else False,
             client=client,
             verify=verify,
             ssl_server_cert=ssl_server_cert,
+            token_url=token_url,
+            client_id=client_id,
+            client_secret=client_secret,
             # This must be the default login path because newer ABAP systems
             # did not return cookies and CSRF token with the old default login
             # path (GET /sap/bc/adt/discovery) and thus did not work with

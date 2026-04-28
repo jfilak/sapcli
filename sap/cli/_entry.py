@@ -157,7 +157,7 @@ def parse_command_line(argv):
         if not args.user:
             args.user = input('Login:')
 
-        if not args.password:
+        if not args.password and not getattr(args, 'token_url', None):
             args.password = getpass.getpass()
 
     return args

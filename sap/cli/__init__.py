@@ -129,7 +129,10 @@ def adt_connection_from_args(args):
     return sap.adt.Connection(
         args.ashost, args.client, args.user, args.password,
         port=args.port, ssl=args.ssl, verify=args.verify,
-        ssl_server_cert=args.ssl_server_cert)
+        ssl_server_cert=args.ssl_server_cert,
+        token_url=getattr(args, 'token_url', None),
+        client_id=getattr(args, 'client_id', None),
+        client_secret=getattr(args, 'client_secret', None))
 
 
 def rfc_connection_from_args(args):
@@ -202,6 +205,9 @@ def build_empty_connection_values():
         ssl_server_cert=None,
         user=None,
         password=None,
+        token_url=None,
+        client_id=None,
+        client_secret=None,
     )
 
 
@@ -284,6 +290,15 @@ def resolve_default_connection_values(args):
 
     if not args.password:
         args.password = os.getenv('SAP_PASSWORD') or config_values.get('password')
+
+    if not getattr(args, 'token_url', None):
+        args.token_url = os.getenv('SAP_TOKEN_URL') or config_values.get('token_url')
+
+    if not getattr(args, 'client_id', None):
+        args.client_id = os.getenv('SAP_CLIENT_ID') or config_values.get('client_id')
+
+    if not getattr(args, 'client_secret', None):
+        args.client_secret = os.getenv('SAP_CLIENT_SECRET') or config_values.get('client_secret')
 
     if hasattr(args, 'corrnr') and args.corrnr is None:
         args.corrnr = os.getenv('SAP_CORRNR')
