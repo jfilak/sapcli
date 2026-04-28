@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-import json
 import time
 import unittest
-from unittest.mock import MagicMock, Mock, patch, call
+from unittest.mock import Mock, patch
 
 from sap.http.client import BearerAuth, HTTPClient
 from sap.http.oauth import (
