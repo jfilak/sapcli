@@ -101,7 +101,8 @@ class Connection:
     """
 
     # pylint: disable=too-many-arguments
-    def __init__(self, host, client, user, password, port=None, ssl=True, verify=True, ssl_server_cert=None):
+    def __init__(self, host, client, user, password, port=None, ssl=True, verify=True, ssl_server_cert=None,
+                 session_initializer=None):
         """Parameters:
             - host: string host name
             - client: string SAP client
@@ -112,6 +113,8 @@ class Connection:
             - ssl: boolean to switch between http and https
             - verify: boolean to switch SSL validation on/off
             - ssl_server_cert: optional path to a custom CA certificate file
+            - session_initializer: optional HTTPSessionInitializer; when None,
+                    BasicAuth with the given user/password is used
         """
 
         sap.http.setup_keepalive()
@@ -133,7 +136,8 @@ class Connection:
             # path (GET /sap/bc/adt/discovery) and thus did not work with
             # the default login method of HTTPClient.
             login_path=f'{self._base_adt_path}/core/discovery',
-            login_method='GET'
+            login_method='GET',
+            session_initializer=session_initializer,
         )
 
         self._http_client.add_error_handler(_adt_http_error_handler)

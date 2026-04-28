@@ -1,5 +1,7 @@
 """HTTP client for SAP ABAP systems built on top of Python requests."""
 
+from typing import Protocol, runtime_checkable
+
 import requests
 import requests.exceptions
 from requests.auth import HTTPBasicAuth
@@ -42,9 +44,47 @@ def default_http_error_handler(client, req, res):
     """Default error handler that raises UnauthorizedError for 401 and HTTPRequestError otherwise."""
 
     if res.status_code == 401:
-        raise UnauthorizedError(req, res, client.user)
+        raise client.build_unauthorized_error(req, res)
 
     raise HTTPRequestError(req, res)
+
+
+@runtime_checkable
+class HTTPSessionInitializer(Protocol):
+    """Protocol for HTTP Session initializers that prepare a requests.Session
+       for whatever authentication and transport configuration is needed.
+
+       Implementations populate (or replace) the given session and return the
+       session that HTTPClient should use for subsequent requests.
+    """
+
+    # If needed, add named args (host, port, client, etc.) to initialize_session.
+    def initialize_session(self, session: requests.Session) -> requests.Session:
+        """Initialize the given Request.Session and return the session to use."""
+
+    def build_unauthorized_error(self, req, res) -> UnauthorizedError:
+        """Build an UnauthorizedError describing the failed authentication."""
+
+
+class BasicAuthHTTPSessionInitializer:
+    """Populates sessions with the HTTP Authentication: BasicAuth"""
+
+    def __init__(self, user: str, password: str):
+        """Accepts user and password credentials"""
+
+        self._user = user
+        self._password = password
+
+    def initialize_session(self, session: requests.Session) -> requests.Session:
+        """Sets the Authentication header"""
+
+        session.auth = HTTPBasicAuth(self._user, self._password)
+        return session
+
+    def build_unauthorized_error(self, req, res) -> UnauthorizedError:
+        """Builds the UnauthorizedError with the configured user."""
+
+        return UnauthorizedError(req, res, self._user)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -63,7 +103,8 @@ class HTTPClient():
                  verify=None,
                  ssl_server_cert=None,
                  login_path='',
-                 login_method='HEAD'
+                 login_method='HEAD',
+                 session_initializer=None,
                  ):
 
         self.ssl = ssl
@@ -91,10 +132,17 @@ class HTTPClient():
 
         self.timeout = config_get('http_timeout')
 
-        self._auth = HTTPBasicAuth(user, password)
+        if session_initializer is None:
+            session_initializer = BasicAuthHTTPSessionInitializer(user, password)
+        self._session_initializer = session_initializer
 
         self.error_handlers = [default_http_error_handler]
         self._connection_error_handler = None
+
+    def build_unauthorized_error(self, req, res):
+        """Build an UnauthorizedError using the configured session initializer."""
+
+        return self._session_initializer.build_unauthorized_error(req, res)
 
     def add_error_handler(self, handler):
         """Add an error handler to the client.
@@ -196,7 +244,7 @@ class HTTPClient():
         """Build the HTTP session for the ABAP HTTP request."""
 
         session = requests.Session()
-        session.auth = self._auth
+        session = self._session_initializer.initialize_session(session)
 
         # requests.session.verify is either boolean or path to CA to use!
         if self.ssl_server_cert:

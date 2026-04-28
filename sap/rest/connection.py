@@ -26,7 +26,7 @@ class Connection:
 
     # pylint: disable=too-many-arguments
     def __init__(self, icf_path, login_path, host, client, user, password, port=None, ssl=True, verify=True,
-                 ssl_server_cert=None):
+                 ssl_server_cert=None, session_initializer=None):
         """Parameters:
             - host: string host name
             - client: string SAP client
@@ -37,6 +37,8 @@ class Connection:
             - ssl: boolean to switch between http and https
             - verify: boolean to switch SSL validation on/off
             - ssl_server_cert: optional path to a custom CA certificate file
+            - session_initializer: optional HTTPSessionInitializer; when None,
+                    BasicAuth with the given user/password is used
         """
 
         sap.http.setup_keepalive()
@@ -54,7 +56,8 @@ class Connection:
             verify=verify,
             ssl_server_cert=ssl_server_cert,
             login_path=f'{icf_path}/{login_path.lstrip("/")}',
-            login_method='GET'
+            login_method='GET',
+            session_initializer=session_initializer,
         )
 
         self._http_client.set_connection_error_handler(_gcts_http_connection_error_handler)
