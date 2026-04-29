@@ -16,6 +16,7 @@ import sap.adt
 import sap.rfc
 from sap.config import ConfigFile
 from sap.http import TimedOutRequestError as HttpTimedOutRequestError
+from sap.http.oauth import get_cached_token, get_cached_refresh_token
 from sap.odata.errors import TimedOutRequestError as ODataTimedOutRequestError
 
 # pylint: disable=invalid-name
@@ -157,7 +158,15 @@ def parse_command_line(argv):
         if not args.user:
             args.user = input('Login:')
 
-        if not args.password:
+        token_url = getattr(args, 'token_url', None)
+        client_id = getattr(args, 'client_id', None)
+        has_valid_token = (
+            token_url and client_id and (
+                get_cached_token(token_url, client_id)
+                or get_cached_refresh_token(token_url, client_id)
+            )
+        )
+        if not args.password and not has_valid_token:
             args.password = getpass.getpass()
 
     return args

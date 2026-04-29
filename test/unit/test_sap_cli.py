@@ -727,5 +727,68 @@ class TestNoConnection(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class TestAdtConnectionFromArgs(unittest.TestCase):
+    """adt_connection_from_args wires OAuth via session_initializer
+       when args.token_url is set, BasicAuth otherwise.
+    """
+
+    def _make_args(self, **overrides):
+        defaults = dict(
+            ashost='h.example.com',
+            client='100',
+            user='USR',
+            password='pwd',
+            port=443,
+            ssl=True,
+            verify=True,
+            ssl_server_cert=None,
+            token_url=None,
+            client_id=None,
+            client_secret=None,
+        )
+        defaults.update(overrides)
+        return SimpleNamespace(**defaults)
+
+    def test_basic_auth_when_no_token_url(self):
+        args = self._make_args()
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        _, kwargs = mock_connection.call_args
+        self.assertIsNone(kwargs.get('session_initializer'))
+
+    def test_oauth_initializer_when_token_url_present(self):
+        from sap.http.oauth import OAuthHTTPSessionInitializer
+        args = self._make_args(
+            token_url='https://auth.example.com',
+            client_id='cid',
+            client_secret='csec',
+        )
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        _, kwargs = mock_connection.call_args
+        initializer = kwargs.get('session_initializer')
+        self.assertIsInstance(initializer, OAuthHTTPSessionInitializer)
+
+    def test_oauth_kwargs_not_passed_to_connection(self):
+        """token_url/client_id/client_secret must not appear on Connection ctor."""
+        args = self._make_args(
+            token_url='https://auth.example.com',
+            client_id='cid',
+            client_secret='csec',
+        )
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        _, kwargs = mock_connection.call_args
+        self.assertNotIn('token_url', kwargs)
+        self.assertNotIn('client_id', kwargs)
+        self.assertNotIn('client_secret', kwargs)
+
+
 if __name__ == '__main__':
     unittest.main()
