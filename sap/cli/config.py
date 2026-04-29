@@ -182,6 +182,12 @@ def _collect_fields(args, field_names):
 
 # -- set-connection -----------------------------------------------------------
 
+@CommandGroup.argument('--client-secret', dest='client_secret', default=None,
+                       help='OAuth 2.0 client secret')
+@CommandGroup.argument('--client-id', dest='client_id', default=None,
+                       help='OAuth 2.0 client ID')
+@CommandGroup.argument('--token-url', dest='token_url', default=None,
+                       help='OAuth 2.0 authorization server base URL')
 @CommandGroup.argument('--snc-lib', dest='snc_lib', default=None,
                        help='Path to SNC library')
 @CommandGroup.argument('--snc-partnername', dest='snc_partnername', default=None,

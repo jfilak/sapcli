@@ -7,7 +7,7 @@ a configuration file. The priority order from highest to lowest is:
 2. **Environment variables** - override config file values
 3. **Configuration file** (active context) - overrides defaults
 4. **Built-in defaults** - used when nothing else is specified
-5. **Interactive prompt** - fallback for mandatory values (user, password) when no SNC config is present
+5. **Interactive prompt** - fallback for mandatory values (user, password) when no SNC config is present and no valid OAuth token is cached
 
 ## Parameters
 
@@ -188,6 +188,23 @@ contexts:
     password: prod-secret              # overrides user
 ```
 
+A connection that uses OAuth 2.0 instead of a password is defined the same
+way, with three additional fields:
+
+```yaml
+connections:
+  my-cloud-system:
+    ashost: my-tenant.abap.eu10.hana.ondemand.com
+    client: "100"
+    port: 443
+    ssl: true
+    token_url: https://my-tenant.authentication.eu10.hana.ondemand.com
+    client_id: sb-abap!t12345
+    client_secret: my-client-secret
+```
+
+See [OAuth 2.0 authentication](#oauth-20-authentication) below for details.
+
 ### Field reference
 
 #### `connections.<name>`
@@ -209,8 +226,14 @@ contexts:
 | `snc_myname` | string | no | - | `SNC_MYNAME` |
 | `snc_partnername` | string | no | - | `SNC_PARTNERNAME` |
 | `snc_lib` | string | no | - | `SNC_LIB` |
+| `token_url` | string | no | - | `SAP_TOKEN_URL` |
+| `client_id` | string | no | - | `SAP_CLIENT_ID` |
+| `client_secret` | string | no | - | `SAP_CLIENT_SECRET` |
 
 (*) Either `ashost` or `mshost` must be provided.
+
+The `token_url`, `client_id`, and `client_secret` fields enable OAuth 2.0
+authentication. See [OAuth 2.0 authentication](#oauth-20-authentication) below.
 
 #### `users.<name>`
 
@@ -249,11 +272,76 @@ fields (e.g. hostname). Define one base connection and override per context.
 Storing passwords in plain text configuration files is a security concern.
 The recommended approaches, in order of preference:
 
-1. **Omit the password from config** - sapcli will prompt interactively
-2. **Use environment variables** - `SAP_PASSWORD` overrides the config file; suitable for CI/CD pipelines
-3. **Store in config file** - acceptable for local development if the file has restrictive permissions (`chmod 600`)
+1. **Use OAuth 2.0** - if your system supports it (e.g. SAP cloud systems),
+   prefer OAuth over a stored password. See
+   [OAuth 2.0 authentication](#oauth-20-authentication) below.
+2. **Omit the password from config** - sapcli will prompt interactively
+3. **Use environment variables** - `SAP_PASSWORD` overrides the config file; suitable for CI/CD pipelines
+4. **Store in config file** - acceptable for local development if the file has restrictive permissions (`chmod 600`)
 
 sapcli will warn if the config file is world-readable and contains passwords.
+
+The same caveats apply to `client_secret` when OAuth is used.
+
+### OAuth 2.0 authentication
+
+Some SAP systems — most notably SAP cloud systems such as SAP BTP ABAP
+Environment ("Steampunk") — require OAuth 2.0 instead of a username/password
+pair. sapcli can authenticate with OAuth and caches the obtained token
+between commands so you do not need to log in every time.
+
+#### Enabling OAuth
+
+OAuth is enabled by setting three values on the connection definition, in
+addition to your usual `--user`/`SAP_USER`:
+
+| Field on `connections.<name>` | Env var | Description |
+|---|---|---|
+| `token_url` | `SAP_TOKEN_URL` | Base URL of the OAuth authorization server. sapcli appends `/oauth/token` automatically — provide the base, not the full endpoint. |
+| `client_id` | `SAP_CLIENT_ID` | OAuth client ID issued by the system administrator. |
+| `client_secret` | `SAP_CLIENT_SECRET` | OAuth client secret issued by the system administrator. |
+
+These three values are not exposed as **global** command-line flags. They can
+be provided via environment variables, written directly into the configuration
+file under `connections.<name>` (see the YAML example in [Schema](#schema)),
+or set with `sapcli config set-connection`:
+
+```bash
+sapcli config set-connection my-cloud-system \
+    --token-url https://my-tenant.authentication.eu10.hana.ondemand.com \
+    --client-id sb-abap!t12345 \
+    --client-secret <secret>
+```
+
+These fields describe the OAuth **application** registration on the target
+system, not the individual user — that is why they sit under `connections:`
+alongside `ashost`/`port`, while your user name still belongs under `users:`.
+A typical setup has one OAuth client per tenant, shared by all team members,
+each with their own `users.<name>.user`.
+
+#### How sapcli obtains a token
+
+The first time you run a command against an OAuth-enabled connection, sapcli
+asks the OAuth server for a token using your user name and password. This is
+the only step that needs your password. After that, the token is cached in
+`~/.sapcli/tokens.json` (file permissions `0600`) and reused by all subsequent
+commands. When the token approaches expiration, sapcli refreshes it
+transparently using a refresh token — no password is needed for the refresh.
+
+If a valid cached token exists, sapcli does **not** prompt for a password,
+even if `SAP_PASSWORD` is unset and the configuration file contains none.
+
+If the OAuth server rejects your credentials or is unreachable, sapcli prints
+an `OAuthTokenError` with the HTTP status code and the server's response
+body. Verify `token_url`, `client_id`, `client_secret`, your user name, and
+your password.
+
+To force a fresh login (e.g. after rotating credentials), delete the cache
+file:
+
+```bash
+rm ~/.sapcli/tokens.json
+```
 
 ## Config management commands
 
@@ -294,6 +382,12 @@ sapcli config set-connection dev-server --ashost dev.example.com --client 100 --
 
 # Update an existing connection (only specified fields change, others preserved)
 sapcli config set-connection dev-server --port 8443
+
+# Add OAuth 2.0 credentials to a connection (see "OAuth 2.0 authentication" below)
+sapcli config set-connection cloud-srv \
+    --token-url https://auth.example.com \
+    --client-id sb-app!t12345 \
+    --client-secret my-client-secret
 
 # List all connections
 sapcli config get-connections
@@ -403,6 +497,9 @@ targeting different systems. It also composes well with tools like
 - `SAP_PASSWORD` : default value for the command line parameter --password
 - `SAP_SSL_SERVER_CERT` : path to the public unencrypted server SSL certificate
 - `SAP_SSL_VERIFY` : if "no", SSL server certificate is no validated - this works only when SAP_SSL_SERVER_CERT is not configured
+- `SAP_TOKEN_URL` : base URL of the OAuth 2.0 authorization server; corresponds to `connections.<name>.token_url` (enables OAuth authentication; see [OAuth 2.0 authentication](#oauth-20-authentication))
+- `SAP_CLIENT_ID` : OAuth 2.0 client ID; corresponds to `connections.<name>.client_id`
+- `SAP_CLIENT_SECRET` : OAuth 2.0 client secret; corresponds to `connections.<name>.client_secret`
 - `SAP_CORRNR` : if a sapcli command accepts parameter '--corrnr', you can provide default value via this environment variable
 - `SAPCLI_CONFIG` : path to the configuration file (overrides the default `~/.sapcli/config.yml`)
 - `SAPCLI_CONTEXT` : name of the context to use (overrides `current-context` in the config file; overridden by `--context` CLI flag)
