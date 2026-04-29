@@ -631,6 +631,49 @@ class TestConfigSetConnection(unittest.TestCase):
 
             self.assertFalse(saved['connections']['no-ssl-srv']['ssl'])
 
+    def test_set_connection_persists_oauth_fields(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'config.yml')
+            args = SimpleNamespace(
+                config=path, name='cloud-srv',
+                ashost='cloud.example.com', client='100', port=443,
+                ssl=True, ssl_verify=None, ssl_server_cert=None,
+                sysnr=None, mshost=None, msserv=None, sysid=None,
+                group=None, snc_qop=None, snc_myname=None,
+                snc_partnername=None, snc_lib=None,
+                token_url='https://auth.example.com',
+                client_id='sb-app!t12345',
+                client_secret='secret-value',
+            )
+            console = MagicMock()
+            with patch('sap.cli.core.get_console', return_value=console):
+                retval = sap.cli.config.set_connection(None, args)
+
+            self.assertEqual(retval, 0)
+
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = yaml.safe_load(f)
+
+            self.assertEqual(saved['connections']['cloud-srv']['token_url'], 'https://auth.example.com')
+            self.assertEqual(saved['connections']['cloud-srv']['client_id'], 'sb-app!t12345')
+            self.assertEqual(saved['connections']['cloud-srv']['client_secret'], 'secret-value')
+
+    def test_set_connection_argparse_exposes_oauth_flags(self):
+        from argparse import ArgumentParser
+        parser = ArgumentParser()
+        sap.cli.config.CommandGroup().install_parser(parser)
+
+        args = parser.parse_args([
+            'set-connection', 'cloud-srv',
+            '--token-url', 'https://auth.example.com',
+            '--client-id', 'sb-app!t12345',
+            '--client-secret', 'secret-value',
+        ])
+
+        self.assertEqual(args.token_url, 'https://auth.example.com')
+        self.assertEqual(args.client_id, 'sb-app!t12345')
+        self.assertEqual(args.client_secret, 'secret-value')
+
 
 # ---------------------------------------------------------------------------
 # delete-connection
