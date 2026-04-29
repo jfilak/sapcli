@@ -128,10 +128,33 @@ def adt_connection_from_args(args):
 
     import sap.adt
 
+    session_initializer = _build_session_initializer(args)
+
     return sap.adt.Connection(
         args.ashost, args.client, args.user, args.password,
         port=args.port, ssl=args.ssl, verify=args.verify,
-        ssl_server_cert=args.ssl_server_cert)
+        ssl_server_cert=args.ssl_server_cert,
+        session_initializer=session_initializer)
+
+
+def _build_session_initializer(args):
+    """Build an OAuthHTTPSessionInitializer when args.token_url is set,
+       otherwise return None so HTTPClient falls back to BasicAuth.
+    """
+
+    token_url = getattr(args, 'token_url', None)
+    if not token_url:
+        return None
+
+    from sap.http.oauth import OAuthHTTPSessionInitializer
+
+    return OAuthHTTPSessionInitializer(
+        token_url,
+        getattr(args, 'client_id', None),
+        getattr(args, 'client_secret', None),
+        args.user,
+        args.password,
+    )
 
 
 def rfc_connection_from_args(args):
@@ -204,6 +227,9 @@ def build_empty_connection_values():
         ssl_server_cert=None,
         user=None,
         password=None,
+        token_url=None,
+        client_id=None,
+        client_secret=None,
     )
 
 
@@ -287,12 +313,27 @@ def resolve_default_connection_values(args):
     if not args.password:
         args.password = os.getenv('SAP_PASSWORD') or config_values.get('password')
 
+    _resolve_oauth_defaults(args, config_values)
+
     if hasattr(args, 'corrnr') and args.corrnr is None:
         args.corrnr = os.getenv('SAP_CORRNR')
 
     # Apply config file values for message server / SNC params
     # that may not have been set by env vars in parse_command_line
     _apply_config_extra_params(args, config_values)
+
+
+def _resolve_oauth_defaults(args, config_values):
+    """Resolve OAuth-specific connection defaults from env vars and config file."""
+
+    if not getattr(args, 'token_url', None):
+        args.token_url = os.getenv('SAP_TOKEN_URL') or config_values.get('token_url')
+
+    if not getattr(args, 'client_id', None):
+        args.client_id = os.getenv('SAP_CLIENT_ID') or config_values.get('client_id')
+
+    if not getattr(args, 'client_secret', None):
+        args.client_secret = os.getenv('SAP_CLIENT_SECRET') or config_values.get('client_secret')
 
 
 def _get_config_context_values(args):
