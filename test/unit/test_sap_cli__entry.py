@@ -159,6 +159,35 @@ class TestParseCommandLine(unittest.TestCase):
 
         self.assertEqual(args.password, 'Down1oad')
 
+    def test_args_skip_password_prompt_when_token_cached(self):
+        """When OAuth has a usable cached token, getpass must not be called
+           even if --password was not supplied."""
+
+        test_params = get_tested_parameters()
+        remove_cmd_param_from_list(test_params, '--password')
+
+        getpass_mock = Mock(return_value='should-not-be-used')
+
+        with patch('sap.http.oauth.password_required', return_value=False) as mock_pwd_req, \
+             patch('getpass.getpass', getpass_mock):
+            args = entry.parse_command_line(test_params)
+
+        mock_pwd_req.assert_called_once()
+        getpass_mock.assert_not_called()
+        self.assertIsNone(args.password)
+
+    def test_args_prompt_password_when_token_required(self):
+        """password_required returning True must trigger getpass prompt."""
+
+        test_params = get_tested_parameters()
+        remove_cmd_param_from_list(test_params, '--password')
+
+        with patch('sap.http.oauth.password_required', return_value=True), \
+             patch('getpass.getpass', lambda: 'prompted-pwd'):
+            args = entry.parse_command_line(test_params)
+
+        self.assertEqual(args.password, 'prompted-pwd')
+
     def test_args_ask_user_and_password(self):
         test_params = get_tested_parameters()
         remove_cmd_param_from_list(test_params, '--password')

@@ -9,6 +9,7 @@ from unittest.mock import patch, MagicMock
 import sap.cli
 import sap.cli.core
 from sap.config import ConfigFile, SAPCliConfigError
+from sap.errors import SAPCliError
 
 from pathlib import Path
 
@@ -788,6 +789,31 @@ class TestAdtConnectionFromArgs(unittest.TestCase):
         self.assertNotIn('token_url', kwargs)
         self.assertNotIn('client_id', kwargs)
         self.assertNotIn('client_secret', kwargs)
+
+    def test_partial_oauth_config_only_token_url_raises(self):
+        args = self._make_args(token_url='https://auth.example.com')
+
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.adt_connection_from_args(args)
+
+        self.assertIn('token_url', str(cm.exception))
+        self.assertIn('client_id', str(cm.exception))
+        self.assertIn('client_secret', str(cm.exception))
+
+    def test_partial_oauth_config_only_client_id_raises(self):
+        args = self._make_args(client_id='cid')
+
+        with self.assertRaises(SAPCliError):
+            sap.cli.adt_connection_from_args(args)
+
+    def test_partial_oauth_config_missing_secret_raises(self):
+        args = self._make_args(
+            token_url='https://auth.example.com',
+            client_id='cid',
+        )
+
+        with self.assertRaises(SAPCliError):
+            sap.cli.adt_connection_from_args(args)
 
 
 if __name__ == '__main__':

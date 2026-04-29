@@ -11,6 +11,7 @@ from functools import partial
 from types import SimpleNamespace
 from sap import rfc
 from sap.config import SAPCliConfigError
+from sap.errors import SAPCliError
 
 
 class CommandsCache:
@@ -142,16 +143,21 @@ def _build_session_initializer(args):
        otherwise return None so HTTPClient falls back to BasicAuth.
     """
 
-    token_url = getattr(args, 'token_url', None)
-    if not token_url:
+    token_url = args.token_url
+    client_id = args.client_id
+    client_secret = args.client_secret
+    if not token_url and not client_id and not client_secret:
         return None
+
+    if not token_url or not client_id or not client_secret:
+        raise SAPCliError('Invalid OAuth configuration: must set all three: token_url, client_id, client_secret')
 
     from sap.http.oauth import OAuthHTTPSessionInitializer
 
     return OAuthHTTPSessionInitializer(
         token_url,
-        getattr(args, 'client_id', None),
-        getattr(args, 'client_secret', None),
+        client_id,
+        client_secret,
         args.user,
         args.password,
     )
