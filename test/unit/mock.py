@@ -1,7 +1,7 @@
 import copy
 import json
 import types
-from typing import Dict, NamedTuple
+from typing import Dict, NamedTuple, Optional
 from io import StringIO
 from argparse import ArgumentParser
 from contextlib import AbstractContextManager, contextmanager
@@ -11,6 +11,7 @@ from unittest.mock import patch, MagicMock, Mock
 
 import sap.adt
 import sap.http
+import sap.http.token_cache
 import sap.rest
 import sap.cli.core
 
@@ -573,3 +574,25 @@ class StringIOFile(StringIO, AbstractContextManager):
 
     def __exit__(self, exc_type, exc_value, traceback):
         return False
+
+
+class InMemoryTokenStore(sap.http.token_cache.TokenStore):
+
+    def __init__(self, content: dict = None):
+        self.content = content or {}
+
+    def get(self, key: str) -> Optional[sap.http.token_cache.Token]:
+        """Return the stored token for `key`, or None if absent."""
+
+        return self.content.get(key)
+
+    def set(self, key: str, token: sap.http.token_cache.Token) -> None:
+        """Store `token` under `key`, overwriting any existing entry."""
+
+        self.content[key] = token
+
+    def delete(self, key: str) -> None:
+        """Remove the entry for `key`. No-op if it doesn't exist."""
+
+        if key in self.content:
+            del self.content[key]

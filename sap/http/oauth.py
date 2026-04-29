@@ -1,17 +1,17 @@
 """OAuth 2.0 password grant flow with token caching for BTP Steampunk."""
 
-import json
-import os
-import time
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import requests
 from requests.auth import AuthBase
 
 from sap.errors import SAPCliError
 from sap.http.errors import UnauthorizedError
+from sap.http.token_cache import get_token_store, Token
 
-TOKEN_CACHE_PATH = Path('~/.sapcli/tokens.json').expanduser()
+DEFAULT_EXPIRES_IN = 3600
+
 REFRESH_MARGIN = 60
 
 
@@ -34,60 +34,57 @@ class BearerAuth(AuthBase):
 # Token cache
 # ---------------------------------------------------------------------------
 
-def _load_token_cache():
-    try:
-        with open(TOKEN_CACHE_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        # Missing or corrupt cache files are not fatal: we simply have no
-        # cached tokens and will fetch fresh ones.
-        return {}
+def _load_token(token_key: str) -> Optional[Token]:
+    return get_token_store().get(token_key)
 
 
-def _save_token_cache(cache):
-    TOKEN_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(TOKEN_CACHE_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, 'w', encoding='utf-8') as f:
-        json.dump(cache, f, indent=2)
+def _save_token(token_key: str, token: Token) -> None:
+    get_token_store().set(token_key, token)
 
 
-def _cache_key(token_url, client_id):
+def _cache_key(token_url: str, client_id: str) -> str:
     return f'{token_url}|{client_id}'
 
 
-def get_cached_token(token_url, client_id):
+def get_cached_token(token_url: str, client_id: str) -> Optional[str]:
     """Return a non-expired cached access token, or None."""
 
-    cache = _load_token_cache()
-    entry = cache.get(_cache_key(token_url, client_id))
-    if not entry:
+    token = _load_token(_cache_key(token_url, client_id))
+
+    if not token:
         return None
-    if time.time() > entry.get('expires_at', 0) - REFRESH_MARGIN:
+
+    if token.is_expired(leeway_seconds=REFRESH_MARGIN):
         return None
-    return entry['access_token']
+
+    return token.access_token
 
 
-def get_cached_refresh_token(token_url, client_id):
+def get_cached_refresh_token(token_url: str, client_id: str):
     """Return the cached refresh token, or None."""
 
-    cache = _load_token_cache()
-    entry = cache.get(_cache_key(token_url, client_id))
-    if not entry:
+    token = _load_token(_cache_key(token_url, client_id))
+
+    if not token:
         return None
-    return entry.get('refresh_token')
+
+    return token.refresh_token
 
 
-def save_token_response(token_url, client_id, token_response):
+def save_token_response(token_url: str, client_id: str, token_response: dict) -> None:
     """Persist an access/refresh token pair into the token cache."""
 
-    cache = _load_token_cache()
-    expires_in = token_response.get('expires_in', 3600)
-    cache[_cache_key(token_url, client_id)] = {
-        'access_token': token_response['access_token'],
-        'refresh_token': token_response.get('refresh_token'),
-        'expires_at': time.time() + expires_in,
-    }
-    _save_token_cache(cache)
+    expires_in = token_response.get('expires_in', DEFAULT_EXPIRES_IN)
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+
+    new_token = Token(
+        access_token=token_response['access_token'],
+        token_type=token_response.get('token_type', 'Bearer'),
+        expires_at=expires_at,
+        refresh_token=token_response.get('refresh_token'),
+        scope=token_response.get('scope'),
+    )
+    _save_token(_cache_key(token_url, client_id), new_token)
 
 
 # ---------------------------------------------------------------------------
@@ -191,3 +188,20 @@ class OAuthHTTPSessionInitializer:
         """Build an UnauthorizedError carrying the configured user."""
 
         return UnauthorizedError(req, res, self._user)
+
+
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
+
+def password_required(token_url: Optional[str], client_id: Optional[str]) -> bool:
+    """Returns true if user must provide password"""
+
+    has_valid_token = (
+        token_url and client_id and (
+            get_cached_token(token_url, client_id)
+            or get_cached_refresh_token(token_url, client_id)
+        )
+    )
+
+    return not has_valid_token
