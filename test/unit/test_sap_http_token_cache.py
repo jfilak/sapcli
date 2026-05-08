@@ -4,26 +4,26 @@
 
 All filesystem and platformdirs interaction is mocked. No real file is opened,
 created, chmod'd, or replaced anywhere in this module — patches on
-pathlib.Path methods, sap.http.token_cache.os, and PlatformDirs guarantee that.
+pathlib.Path methods, sap.http.json_store.os, and PlatformDirs guarantee that.
+
+Generic JSONFileStore behaviour (atomic write, permission hardening, key
+sanitization, path-for resolution, default cache dir) is exercised in
+test_sap_http_json_store.py. This file focuses on the Token-specific specialization:
+Token (de)serialization and the FileTokenStore wiring.
 """
 
 import json
-import stat
 import unittest
 from dataclasses import FrozenInstanceError
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import sap.http.token_cache as token_cache
 from sap.http.token_cache import (
     FileTokenStore,
     Token,
     TokenStore,
-    _default_cache_dir,
-    _harden_dir,
-    _harden_file,
-    _sanitize,
     get_token_store,
 )
 
@@ -32,9 +32,9 @@ from sap.http.token_cache import (
 # Disk-write guard
 #
 # Patches every Path method that could touch the filesystem at module scope, so
-# any path that forgets a per-test patch still cannot reach disk. Per-test
-# decorators override these guards within their scope and the originals are
-# restored automatically on teardown.
+# any path that forgets a per-test patch still cannot reach disk. os.replace is
+# now invoked from sap.http.json_store (where JSONFileStore lives), so the patch
+# targets that module.
 # ---------------------------------------------------------------------------
 
 _module_patchers = []
@@ -48,7 +48,7 @@ def setUpModule():
         ('pathlib.Path.unlink', None),
         ('pathlib.Path.read_text', ''),
         ('pathlib.Path.write_text', None),
-        ('sap.http.token_cache.os.replace', None),
+        ('sap.http.json_store.os.replace', None),
     ]
     for target, return_value in targets:
         patcher = patch(target, return_value=return_value)
@@ -210,24 +210,6 @@ class TestFileTokenStoreInit(unittest.TestCase):
 
         mock_default.assert_called_once()
 
-    @patch.object(Path, 'chmod')
-    @patch.object(Path, 'mkdir')
-    def test_hardens_tokens_directory_on_posix(self, _mock_mkdir, mock_chmod):
-        with patch.object(token_cache, 'os') as mock_os:
-            mock_os.name = 'posix'
-            FileTokenStore(base_dir=Path('/fake/base'))
-
-        mock_chmod.assert_called_once_with(stat.S_IRWXU)
-
-    @patch.object(Path, 'chmod')
-    @patch.object(Path, 'mkdir')
-    def test_does_not_chmod_on_non_posix(self, _mock_mkdir, mock_chmod):
-        with patch.object(token_cache, 'os') as mock_os:
-            mock_os.name = 'nt'
-            FileTokenStore(base_dir=Path('/fake/base'))
-
-        mock_chmod.assert_not_called()
-
 
 # ---------------------------------------------------------------------------
 # FileTokenStore.get
@@ -279,7 +261,7 @@ class TestFileTokenStoreSet(unittest.TestCase):
     def setUp(self):
         self.store = FileTokenStore(base_dir=Path('/fake/base'))
 
-    @patch('sap.http.token_cache.os.replace')
+    @patch('sap.http.json_store.os.replace')
     @patch.object(Path, 'write_text')
     def test_writes_token_then_renames_atomically(self, mock_write, mock_replace):
         token = Token(access_token='abc')
@@ -293,7 +275,7 @@ class TestFileTokenStoreSet(unittest.TestCase):
         self.assertTrue(str(tmp_path).endswith('.tmp'))
         self.assertFalse(str(final_path).endswith('.tmp'))
 
-    @patch('sap.http.token_cache.os.replace')
+    @patch('sap.http.json_store.os.replace')
     @patch.object(Path, 'write_text')
     def test_writes_serialized_json(self, mock_write, _mock_replace):
         token = Token(access_token='hello-world', refresh_token='r-1')
@@ -304,7 +286,7 @@ class TestFileTokenStoreSet(unittest.TestCase):
         self.assertIn('hello-world', written_payload)
         self.assertIn('r-1', written_payload)
 
-    @patch('sap.http.token_cache.os.replace')
+    @patch('sap.http.json_store.os.replace')
     @patch.object(Path, 'write_text')
     def test_uses_utf8_encoding(self, mock_write, _mock_replace):
         token = Token(access_token='abc')
@@ -312,19 +294,6 @@ class TestFileTokenStoreSet(unittest.TestCase):
         self.store.set('mykey', token)
 
         self.assertEqual(mock_write.call_args.kwargs['encoding'], 'utf-8')
-
-    @patch('sap.http.token_cache.os.replace')
-    @patch.object(Path, 'chmod')
-    @patch.object(Path, 'write_text')
-    def test_hardens_tmp_file_on_posix(self, _mock_write, mock_chmod, _mock_replace):
-        with patch.object(token_cache, 'os') as mock_os:
-            # set() also calls os.replace — keep it as a mock call we don't care about
-            mock_os.name = 'posix'
-            self.store.set('mykey', Token(access_token='abc'))
-
-        # The write_text path's chmod (file 0600). The dir's chmod happened in
-        # __init__ before this test, where it was patched away separately.
-        mock_chmod.assert_called_once_with(stat.S_IRUSR | stat.S_IWUSR)
 
 
 # ---------------------------------------------------------------------------
@@ -349,32 +318,8 @@ class TestFileTokenStoreDelete(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# _path_for / _sanitize
+# FileTokenStore.path_for
 # ---------------------------------------------------------------------------
-
-class TestSanitize(unittest.TestCase):
-
-    def test_alphanumeric_passes_through(self):
-        self.assertEqual(_sanitize('abcXYZ123'), 'abcXYZ123')
-
-    def test_dash_dot_underscore_pass_through(self):
-        self.assertEqual(_sanitize('a-b.c_d'), 'a-b.c_d')
-
-    def test_special_chars_become_underscore(self):
-        self.assertEqual(_sanitize('a/b\\c|d:e'), 'a_b_c_d_e')
-
-    def test_pipe_replaced_with_underscore(self):
-        # OAuth helpers key by '<token_url>|<client_id>'.
-        self.assertEqual(_sanitize('https://x.example.com|client-1'),
-                         'https___x.example.com_client-1')
-
-    def test_empty_input_returns_default(self):
-        self.assertEqual(_sanitize(''), 'default')
-
-    def test_only_special_chars_does_not_collapse_to_default(self):
-        # The 'default' fallback only fires for empty input.
-        self.assertEqual(_sanitize('!!!'), '___')
-
 
 class TestFileTokenStorePathFor(unittest.TestCase):
 
@@ -383,11 +328,8 @@ class TestFileTokenStorePathFor(unittest.TestCase):
 
     def test_path_lives_under_tokens_subdir(self):
         path = self.store._path_for('mykey')
-        self.assertEqual(path, Path('/fake/base/tokens/mykey.json'))
 
-    def test_path_sanitizes_special_chars(self):
-        path = self.store._path_for('https://x|client-1')
-        self.assertEqual(path, Path('/fake/base/tokens/https___x_client-1.json'))
+        self.assertEqual(path, Path('/fake/base/tokens/mykey.json'))
 
 
 # ---------------------------------------------------------------------------
@@ -424,116 +366,6 @@ class TestGetTokenStore(unittest.TestCase):
         get_token_store()
 
         mock_ctor.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# _default_cache_dir
-# ---------------------------------------------------------------------------
-
-class TestDefaultCacheDir(unittest.TestCase):
-
-    def _patch_platform(self, platform_name, dirs_attrs):
-        """Patch sys.platform and PlatformDirs; return the mock so callers can assert."""
-
-        platform_dirs_mock = Mock(**dirs_attrs)
-        return (
-            patch.object(token_cache.sys, 'platform', platform_name),
-            patch('sap.http.token_cache.PlatformDirs', return_value=platform_dirs_mock),
-            platform_dirs_mock,
-        )
-
-    def test_uses_user_state_dir_on_linux(self):
-        sys_p, pd_p, _pd_mock = self._patch_platform(
-            'linux', {'user_state_dir': '/state', 'user_data_dir': '/data'}
-        )
-        with sys_p, pd_p:
-            self.assertEqual(_default_cache_dir(), Path('/state'))
-
-    def test_uses_user_data_dir_on_darwin(self):
-        sys_p, pd_p, _pd_mock = self._patch_platform(
-            'darwin', {'user_state_dir': '/state', 'user_data_dir': '/data'}
-        )
-        with sys_p, pd_p:
-            self.assertEqual(_default_cache_dir(), Path('/data'))
-
-    def test_uses_user_data_dir_on_win32(self):
-        sys_p, pd_p, _pd_mock = self._patch_platform(
-            'win32', {'user_state_dir': '/state', 'user_data_dir': '/data'}
-        )
-        with sys_p, pd_p:
-            self.assertEqual(_default_cache_dir(), Path('/data'))
-
-    def test_falls_back_to_user_state_dir_on_unknown_platform(self):
-        sys_p, pd_p, _pd_mock = self._patch_platform(
-            'something-exotic', {'user_state_dir': '/state', 'user_data_dir': '/data'}
-        )
-        with sys_p, pd_p:
-            self.assertEqual(_default_cache_dir(), Path('/state'))
-
-    @patch.object(Path, 'mkdir')
-    def test_creates_directory(self, mock_mkdir):
-        sys_p, pd_p, _pd_mock = self._patch_platform(
-            'linux', {'user_state_dir': '/state', 'user_data_dir': '/data'}
-        )
-        with sys_p, pd_p:
-            _default_cache_dir()
-
-        mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
-
-
-# ---------------------------------------------------------------------------
-# _harden_dir / _harden_file
-# ---------------------------------------------------------------------------
-
-class TestHardenHelpers(unittest.TestCase):
-
-    def test_harden_dir_chmods_0700_on_posix(self):
-        path = Mock()
-        with patch.object(token_cache, 'os') as mock_os:
-            mock_os.name = 'posix'
-            _harden_dir(path)
-
-        path.chmod.assert_called_once_with(stat.S_IRWXU)
-
-    def test_harden_dir_is_noop_on_non_posix(self):
-        path = Mock()
-        with patch.object(token_cache, 'os') as mock_os:
-            mock_os.name = 'nt'
-            _harden_dir(path)
-
-        path.chmod.assert_not_called()
-
-    def test_harden_dir_swallows_oserror(self):
-        path = Mock()
-        path.chmod.side_effect = OSError('permission denied')
-        with patch.object(token_cache, 'os') as mock_os:
-            mock_os.name = 'posix'
-            # Must not raise.
-            _harden_dir(path)
-
-    def test_harden_file_chmods_0600_on_posix(self):
-        path = Mock()
-        with patch.object(token_cache, 'os') as mock_os:
-            mock_os.name = 'posix'
-            _harden_file(path)
-
-        path.chmod.assert_called_once_with(stat.S_IRUSR | stat.S_IWUSR)
-
-    def test_harden_file_is_noop_on_non_posix(self):
-        path = Mock()
-        with patch.object(token_cache, 'os') as mock_os:
-            mock_os.name = 'nt'
-            _harden_file(path)
-
-        path.chmod.assert_not_called()
-
-    def test_harden_file_swallows_oserror(self):
-        path = Mock()
-        path.chmod.side_effect = OSError('readonly')
-        with patch.object(token_cache, 'os') as mock_os:
-            mock_os.name = 'posix'
-            # Must not raise.
-            _harden_file(path)
 
 
 if __name__ == '__main__':
