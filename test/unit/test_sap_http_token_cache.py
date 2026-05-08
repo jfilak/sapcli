@@ -41,19 +41,33 @@ _module_patchers = []
 
 
 def setUpModule():
-    targets = [
-        ('pathlib.Path.mkdir', None),
-        ('pathlib.Path.chmod', None),
-        ('pathlib.Path.exists', False),
-        ('pathlib.Path.unlink', None),
-        ('pathlib.Path.read_text', ''),
-        ('pathlib.Path.write_text', None),
-        ('sap.http.json_store.os.replace', None),
-    ]
-    for target, return_value in targets:
-        patcher = patch(target, return_value=return_value)
-        patcher.start()
-        _module_patchers.append(patcher)
+    patcher_mkdir = patch('pathlib.Path.mkdir', return_value=None)
+    patcher_mkdir.start()
+    _module_patchers.append(patcher_mkdir)
+
+    patcher_chmod = patch('pathlib.Path.chmod', return_value=None)
+    patcher_chmod.start()
+    _module_patchers.append(patcher_chmod)
+
+    patcher_exists = patch('pathlib.Path.exists', return_value=False)
+    patcher_exists.start()
+    _module_patchers.append(patcher_exists)
+
+    patcher_unlink = patch('pathlib.Path.unlink', return_value=None)
+    patcher_unlink.start()
+    _module_patchers.append(patcher_unlink)
+
+    patcher_read = patch('pathlib.Path.read_text', return_value='')
+    patcher_read.start()
+    _module_patchers.append(patcher_read)
+
+    patcher_write = patch('pathlib.Path.write_text', return_value=None)
+    patcher_write.start()
+    _module_patchers.append(patcher_write)
+
+    patcher_replace = patch('sap.http.json_store.os.replace', return_value=None)
+    patcher_replace.start()
+    _module_patchers.append(patcher_replace)
 
 
 def tearDownModule():
