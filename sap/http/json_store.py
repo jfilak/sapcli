@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import stat
 import sys
+import uuid
 from pathlib import Path
 from typing import Generic, Optional, TypeVar
 
@@ -56,20 +57,30 @@ class JSONFileStore(Generic[T]):
             return None
         try:
             return self._deserialize(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError, TypeError):
             # Corrupt or unreadable - treat as absent rather than crash.
+            # TypeError covers schema drift (e.g. cached JSON is now a list
+            # instead of the expected mapping, so dict-style access blows up).
             return None
 
     def set(self, key: str, value: T) -> None:
         """Store `value` under `key`, overwriting any existing entry atomically."""
 
         path = self._path_for(key)
-        # Write to a temp file and rename, so we never leave a half-written
-        # file behind if the process is killed mid-write.
-        tmp = path.with_suffix(path.suffix + '.tmp')
-        tmp.write_text(self._serialize(value), encoding='utf-8')
-        _harden_file(tmp)
-        os.replace(tmp, path)
+        # Unique tmp filename per write so concurrent writers (different
+        # processes or threads sharing the same cache dir) never trample each
+        # other's in-flight files. Atomic os.replace at the end gives the
+        # "no half-written file on disk if killed mid-write" guarantee.
+        tmp = path.parent / f'{path.name}.{uuid.uuid4().hex}.tmp'
+        try:
+            tmp.write_text(self._serialize(value), encoding='utf-8')
+            _harden_file(tmp)
+            os.replace(tmp, path)
+        except Exception:
+            # On serialize/IO failure, drop the unique tmp so we do not
+            # accumulate stale .tmp garbage in the cache directory.
+            tmp.unlink(missing_ok=True)
+            raise
 
     def delete(self, key: str) -> None:
         """Remove the entry for `key`. No-op if it doesn't exist."""
@@ -110,6 +121,11 @@ def _harden_dir(path: Path) -> None:
         try:
             path.chmod(stat.S_IRWXU)  # 0o700
         except OSError:
+            # Best-effort hardening: chmod can fail on read-only or sandboxed
+            # filesystems (containers, NFS mounts, mandatory-access-control
+            # setups). The caller already placed the directory inside the
+            # user's per-user cache root, so the OS-level isolation is the
+            # real defense; the explicit 0700 is belt-and-braces.
             pass
 
 
@@ -118,6 +134,8 @@ def _harden_file(path: Path) -> None:
         try:
             path.chmod(stat.S_IRUSR | stat.S_IWUSR)  # 0o600
         except OSError:
+            # Same rationale as _harden_dir: best-effort hardening, the
+            # surrounding directory's perms are the actual access boundary.
             pass
 
 

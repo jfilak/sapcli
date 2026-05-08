@@ -31,19 +31,33 @@ _module_patchers = []
 
 
 def setUpModule():
-    targets = [
-        ('pathlib.Path.mkdir', None),
-        ('pathlib.Path.chmod', None),
-        ('pathlib.Path.exists', False),
-        ('pathlib.Path.unlink', None),
-        ('pathlib.Path.read_text', ''),
-        ('pathlib.Path.write_text', None),
-        ('sap.http.json_store.os.replace', None),
-    ]
-    for target, return_value in targets:
-        patcher = patch(target, return_value=return_value)
-        patcher.start()
-        _module_patchers.append(patcher)
+    patcher_mkdir = patch('pathlib.Path.mkdir', return_value=None)
+    patcher_mkdir.start()
+    _module_patchers.append(patcher_mkdir)
+
+    patcher_chmod = patch('pathlib.Path.chmod', return_value=None)
+    patcher_chmod.start()
+    _module_patchers.append(patcher_chmod)
+
+    patcher_exists = patch('pathlib.Path.exists', return_value=False)
+    patcher_exists.start()
+    _module_patchers.append(patcher_exists)
+
+    patcher_unlink = patch('pathlib.Path.unlink', return_value=None)
+    patcher_unlink.start()
+    _module_patchers.append(patcher_unlink)
+
+    patcher_read = patch('pathlib.Path.read_text', return_value='')
+    patcher_read.start()
+    _module_patchers.append(patcher_read)
+
+    patcher_write = patch('pathlib.Path.write_text', return_value=None)
+    patcher_write.start()
+    _module_patchers.append(patcher_write)
+
+    patcher_replace = patch('sap.http.json_store.os.replace', return_value=None)
+    patcher_replace.start()
+    _module_patchers.append(patcher_replace)
 
 
 def tearDownModule():
@@ -189,6 +203,16 @@ class TestJSONFileStoreGet(unittest.TestCase):
 
         self.assertIsNone(result)
 
+    @patch.object(Path, 'read_text', return_value='[1, 2, 3]')
+    @patch.object(Path, 'exists', return_value=True)
+    def test_returns_none_when_deserialize_raises_typeerror(self, _mock_exists, _mock_read):
+        # Cached payload deserializes into a list (schema drift). _Sample
+        # then indexes it with string keys, which raises TypeError. get()
+        # must treat that as a corrupt-cache miss too.
+        result = self.store.get('mykey')
+
+        self.assertIsNone(result)
+
 
 # ---------------------------------------------------------------------------
 # JSONFileStore.set
@@ -240,6 +264,36 @@ class TestJSONFileStoreSet(unittest.TestCase):
             self.store.set('mykey', _Sample(name='n', value=1))
 
         mock_chmod.assert_called_once_with(stat.S_IRUSR | stat.S_IWUSR)
+
+    @patch('sap.http.json_store.os.replace')
+    @patch.object(Path, 'write_text')
+    def test_uses_unique_tmp_filename_per_write(self, _mock_write, mock_replace):
+        # Two writes to the same key must use distinct tmp paths so concurrent
+        # writers cannot collide on a fixed '<key>.json.tmp' name.
+        self.store.set('mykey', _Sample(name='n', value=1))
+        self.store.set('mykey', _Sample(name='n', value=2))
+
+        self.assertEqual(mock_replace.call_count, 2)
+        first_tmp = mock_replace.call_args_list[0].args[0]
+        second_tmp = mock_replace.call_args_list[1].args[0]
+        self.assertNotEqual(first_tmp, second_tmp)
+
+        # Both still target the same final path.
+        first_final = mock_replace.call_args_list[0].args[1]
+        second_final = mock_replace.call_args_list[1].args[1]
+        self.assertEqual(first_final, second_final)
+
+    @patch('sap.http.json_store.os.replace')
+    @patch.object(Path, 'unlink')
+    @patch.object(Path, 'write_text', side_effect=OSError('disk full'))
+    def test_cleans_up_tmp_on_write_failure(self, _mock_write, mock_unlink, mock_replace):
+        with self.assertRaises(OSError):
+            self.store.set('mykey', _Sample(name='n', value=1))
+
+        # The unique tmp must be removed so it does not pile up as garbage.
+        mock_unlink.assert_called_once()
+        # And the failed write must NOT be promoted to the final path.
+        mock_replace.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
