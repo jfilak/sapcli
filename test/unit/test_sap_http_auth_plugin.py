@@ -49,7 +49,16 @@ class TestConnectionInfo(unittest.TestCase):
             'type': 'adt',
             'path': '/sap/bc/adt/core/systeminformation',
             'sysnr': None,
+            'verify': True,
+            'ssl_server_cert': None,
         })
+
+    def test_verify_defaults_to_true(self):
+        # Safe default. Forwarded explicitly by sapcli when the user has
+        # ssl_verify: false, so plugins do not need to read SAP_SSL_VERIFY
+        # from env.
+        self.assertIs(_connection().verify, True)
+        self.assertIsNone(_connection().ssl_server_cert)
 
     def test_sysnr_defaults_to_none(self):
         # sysnr is only meaningful for RFC-based plugins; HTTP plugins can
@@ -98,6 +107,8 @@ class TestAuthPluginRequest(unittest.TestCase):
                 'type': 'adt',
                 'path': '/sap/bc/adt/core/systeminformation',
                 'sysnr': '00',
+                'verify': True,
+                'ssl_server_cert': None,
             },
             'parameters': {'channel': 'msedge'},
         })

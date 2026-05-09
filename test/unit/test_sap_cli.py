@@ -816,5 +816,224 @@ class TestAdtConnectionFromArgs(unittest.TestCase):
             sap.cli.adt_connection_from_args(args)
 
 
+class TestBuildEmptyConnectionValuesAuthPlugin(unittest.TestCase):
+
+    def test_empty_values_include_auth_plugin(self):
+        values = sap.cli.build_empty_connection_values()
+
+        self.assertTrue(hasattr(values, 'auth_plugin'))
+        self.assertIsNone(values.auth_plugin)
+
+
+class TestResolveDefaultConnectionValuesAuthPlugin(unittest.TestCase):
+    """auth_plugin is propagated from the resolved config context onto args
+       so that the connection factory can construct an
+       HTTPExternalSessionInitializer.
+    """
+
+    def _make_args(self, **kwargs):
+        defaults = dict(
+            ashost=None, sysnr=None, client=None, port=None,
+            ssl=None, verify=None, ssl_server_cert=None,
+            user=None, password=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin=None,
+        )
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def test_auth_plugin_propagated_from_config(self):
+        config_data = {
+            'current-context': 'plugin-ctx',
+            'connections': {
+                'server': {'ashost': 'h.example.com', 'client': '100'},
+            },
+            'users': {
+                'plug-user': {
+                    'auth_plugin': {'command': '/p', 'parameters': {'k': 'v'}},
+                },
+            },
+            'contexts': {
+                'plugin-ctx': {'connection': 'server', 'user': 'plug-user'},
+            },
+        }
+        config_file = ConfigFile(config_data, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.auth_plugin, {
+            'command': '/p', 'parameters': {'k': 'v'},
+        })
+
+    def test_auth_plugin_absent_when_not_in_config(self):
+        config_data = {
+            'current-context': 'basic-ctx',
+            'connections': {
+                'server': {'ashost': 'h.example.com', 'client': '100'},
+            },
+            'users': {'u': {'user': 'USR', 'password': 'pwd'}},
+            'contexts': {
+                'basic-ctx': {'connection': 'server', 'user': 'u'},
+            },
+        }
+        config_file = ConfigFile(config_data, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIsNone(args.auth_plugin)
+
+
+class TestAuthPluginSessionInitializer(unittest.TestCase):
+    """adt_connection_from_args must construct an
+       HTTPExternalSessionInitializer when args.auth_plugin is set.
+    """
+
+    def _make_args(self, **overrides):
+        defaults = dict(
+            ashost='h.example.com',
+            client='100',
+            user=None,
+            password=None,
+            port=443,
+            ssl=True,
+            verify=True,
+            ssl_server_cert=None,
+            token_url=None,
+            client_id=None,
+            client_secret=None,
+            auth_plugin=None,
+        )
+        defaults.update(overrides)
+        return SimpleNamespace(**defaults)
+
+    def test_external_initializer_when_auth_plugin_set(self):
+        from sap.http.auth_plugin import ConnectionInfo
+        from sap.http.external_session_initializer import (
+            HTTPExternalSessionInitializer,
+        )
+
+        args = self._make_args(
+            auth_plugin={'command': '/path/to/plugin', 'parameters': {'k': 'v'}},
+            user='ELBEZI',
+        )
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        _, kwargs = mock_connection.call_args
+        initializer = kwargs.get('session_initializer')
+        self.assertIsInstance(initializer, HTTPExternalSessionInitializer)
+        # The initializer must carry the user (for UnauthorizedError messages)
+        # and the connection details the plugin needs to build its URL.
+        self.assertEqual(initializer._user, 'ELBEZI')
+        self.assertEqual(initializer._command, '/path/to/plugin')
+        self.assertEqual(initializer._parameters, {'k': 'v'})
+        self.assertIsInstance(initializer._connection, ConnectionInfo)
+        self.assertEqual(initializer._connection.proto, 'https')
+        self.assertEqual(initializer._connection.ashost, 'h.example.com')
+        self.assertEqual(initializer._connection.port, '443')
+        self.assertEqual(initializer._connection.client, '100')
+        self.assertEqual(initializer._connection.type, 'adt')
+        # Path points to the ADT login endpoint sapcli's built-in flow uses.
+        self.assertIn('discovery', initializer._connection.path)
+
+    def test_auth_plugin_missing_command_raises(self):
+        args = self._make_args(auth_plugin={'parameters': {}})
+
+        with self.assertRaises(SAPCliError) as cm:
+            sap.cli.adt_connection_from_args(args)
+
+        self.assertIn('command', str(cm.exception).lower())
+
+    def test_auth_plugin_with_args_password_is_fine(self):
+        # Mutual exclusivity is enforced at config-resolution time, not on
+        # args. SAP_PASSWORD env populates args.password so the plugin's
+        # subprocess can inherit it - this is by design and must not
+        # trigger an error here.
+        args = self._make_args(
+            auth_plugin={'command': '/p'},
+            user='ELBEZI',
+            password='from-env',
+        )
+
+        with patch('sap.adt.Connection'):
+            sap.cli.adt_connection_from_args(args)
+
+
+class TestResolveAuthPluginMutualExclusivity(unittest.TestCase):
+    """auth_plugin must conflict with password / OAuth fields at the
+       config level (when they appear together in a resolved context),
+       not at the args level. This lets users set SAP_PASSWORD as an env
+       var for the plugin to inherit without tripping the check.
+    """
+
+    def _make_args(self, **kwargs):
+        defaults = dict(
+            ashost=None, sysnr=None, client=None, port=None,
+            ssl=None, verify=None, ssl_server_cert=None,
+            user=None, password=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin=None,
+        )
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def _config_with(self, user_def):
+        return ConfigFile({
+            'current-context': 'ctx',
+            'connections': {'srv': {'ashost': 'h', 'client': '100'}},
+            'users': {'u': user_def},
+            'contexts': {'ctx': {'connection': 'srv', 'user': 'u'}},
+        }, TEST_CONFIG_PATH)
+
+    def test_password_with_auth_plugin_in_user_raises(self):
+        config_file = self._config_with({
+            'password': 'secret',
+            'auth_plugin': {'command': '/p'},
+        })
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True), \
+             self.assertRaises(SAPCliConfigError) as cm:
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIn('mutually exclusive', str(cm.exception).lower())
+
+    def test_oauth_fields_with_auth_plugin_raises(self):
+        config_file = self._config_with({
+            'auth_plugin': {'command': '/p'},
+        })
+        # OAuth fields live on the connection, but they end up in the
+        # same flat resolved-context dict as auth_plugin - the conflict
+        # is real even if they live in different config sections.
+        config_file.connections['srv']['token_url'] = 'https://t'
+        config_file.connections['srv']['client_id'] = 'cid'
+        config_file.connections['srv']['client_secret'] = 'csec'
+
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True), \
+             self.assertRaises(SAPCliConfigError) as cm:
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIn('mutually exclusive', str(cm.exception).lower())
+
+    def test_env_sap_password_does_not_trigger_mutex(self):
+        # Setting SAP_PASSWORD in the env (e.g. so the plugin's
+        # subprocess inherits it) must not collide with auth_plugin.
+        config_file = self._config_with({'auth_plugin': {'command': '/p'}})
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {'SAP_PASSWORD': 'env-pwd'}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.auth_plugin, {'command': '/p'})
+        self.assertEqual(args.password, 'env-pwd')
+
+
 if __name__ == '__main__':
     unittest.main()

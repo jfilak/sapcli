@@ -129,7 +129,14 @@ def adt_connection_from_args(args):
 
     import sap.adt
 
-    session_initializer = _build_session_initializer(args)
+    # ADT's built-in login is GET on /sap/bc/adt/core/discovery (see
+    # sap.adt.core.Connection); plugins use the same endpoint so the
+    # cookies they collect are the ones sapcli would have collected.
+    session_initializer = _build_session_initializer(
+        args,
+        conn_type='adt',
+        conn_path='/sap/bc/adt/core/discovery',
+    )
 
     return sap.adt.Connection(
         args.ashost, args.client, args.user, args.password,
@@ -138,14 +145,26 @@ def adt_connection_from_args(args):
         session_initializer=session_initializer)
 
 
-def _build_session_initializer(args):
-    """Build an OAuthHTTPSessionInitializer when args.token_url is set,
-       otherwise return None so HTTPClient falls back to BasicAuth.
+def _build_session_initializer(args, conn_type=None, conn_path=None):
+    """Pick the HTTPSessionInitializer for the given args.
+
+    Precedence: auth_plugin > OAuth > None (HTTPClient falls back to
+    BasicAuth). The three are mutually exclusive - the spec for
+    auth_plugin says so explicitly, and OAuth+plugin would be
+    nonsensical anyway since both want to own the session's auth.
     """
 
-    token_url = args.token_url
-    client_id = args.client_id
-    client_secret = args.client_secret
+    if getattr(args, 'auth_plugin', None):
+        # Mutual exclusivity with user/password and OAuth is enforced at
+        # config-resolution time - see _resolve_auth_plugin_default. By the
+        # time we get here, args.password may have been populated from env
+        # (the plugin's subprocess inherits it), and that is fine.
+        return _build_plugin_initializer(args, conn_type, conn_path)
+
+    token_url = getattr(args, 'token_url', None)
+    client_id = getattr(args, 'client_id', None)
+    client_secret = getattr(args, 'client_secret', None)
+
     if not token_url and not client_id and not client_secret:
         return None
 
@@ -160,6 +179,50 @@ def _build_session_initializer(args):
         client_secret,
         args.user,
         args.password,
+    )
+
+
+def _build_plugin_initializer(args, conn_type, conn_path):
+    """Construct an HTTPExternalSessionInitializer from args.auth_plugin."""
+
+    from sap.http.auth_plugin import ConnectionInfo
+    from sap.http.external_session_initializer import (
+        HTTPExternalSessionInitializer,
+    )
+
+    plugin_config = args.auth_plugin
+    if not isinstance(plugin_config, dict):
+        raise SAPCliError(
+            "auth_plugin must be a mapping with a 'command' field"
+        )
+
+    command = plugin_config.get('command')
+    if not command:
+        raise SAPCliError("auth_plugin is missing required field 'command'")
+
+    parameters = plugin_config.get('parameters') or {}
+
+    proto = 'https' if args.ssl else 'http'
+    # ConnectionInfo.port is str (matches the wire format the plugin sees).
+    # args.port is int from argparse, so we coerce here rather than mutate
+    # the user-facing args namespace.
+    connection = ConnectionInfo(
+        proto=proto,
+        ashost=args.ashost,
+        port=str(args.port),
+        client=args.client,
+        type=conn_type,
+        path=conn_path,
+        sysnr=getattr(args, 'sysnr', None),
+        verify=bool(args.verify),
+        ssl_server_cert=getattr(args, 'ssl_server_cert', None),
+    )
+
+    return HTTPExternalSessionInitializer(
+        command=command,
+        parameters=parameters,
+        connection=connection,
+        user=args.user,
     )
 
 
@@ -236,6 +299,7 @@ def build_empty_connection_values():
         token_url=None,
         client_id=None,
         client_secret=None,
+        auth_plugin=None,
     )
 
 
@@ -321,6 +385,8 @@ def resolve_default_connection_values(args):
 
     _resolve_oauth_defaults(args, config_values)
 
+    _resolve_auth_plugin_default(args, config_values)
+
     if hasattr(args, 'corrnr') and args.corrnr is None:
         args.corrnr = os.getenv('SAP_CORRNR')
 
@@ -340,6 +406,46 @@ def _resolve_oauth_defaults(args, config_values):
 
     if not getattr(args, 'client_secret', None):
         args.client_secret = os.getenv('SAP_CLIENT_SECRET') or config_values.get('client_secret')
+
+
+def _resolve_auth_plugin_default(args, config_values):
+    """Resolve the auth_plugin definition from the config file and enforce
+    its mutual exclusivity with password / OAuth at the *config* level.
+
+    The plugin is configured purely in the config file (not via CLI flags
+    or env vars) - it is a structured value, not a scalar, and its
+    presence flips the whole authentication mode. Picking it up only from
+    config keeps the precedence rules simple.
+
+    Mutual exclusivity is checked against config_values rather than args
+    because the plugin typically needs SAP_USER/SAP_PASSWORD env vars to
+    be set so its subprocess can read them; those would land on
+    args.password and trip a runtime check that has nothing to do with
+    what the user actually configured.
+    """
+
+    if getattr(args, 'auth_plugin', None) is not None:
+        return
+
+    plugin = config_values.get('auth_plugin')
+    if not plugin:
+        args.auth_plugin = None
+        return
+
+    if config_values.get('password'):
+        raise SAPCliConfigError(
+            "auth_plugin and 'password' are mutually exclusive in the same "
+            "user definition. Remove 'password' from the user (set "
+            "SAP_PASSWORD via env if your plugin reads it)."
+        )
+
+    if any(config_values.get(k) for k in ('token_url', 'client_id', 'client_secret')):
+        raise SAPCliConfigError(
+            "auth_plugin and OAuth fields (token_url/client_id/client_secret) "
+            "are mutually exclusive."
+        )
+
+    args.auth_plugin = plugin
 
 
 def _get_config_context_values(args):

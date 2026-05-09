@@ -24,6 +24,7 @@ class AuthPluginError(SAPCliError):
 
 
 @dataclass(frozen=True)
+# pylint: disable=too-many-instance-attributes
 class ConnectionInfo:
     """Connection details forwarded to the plugin in the request payload."""
 
@@ -37,6 +38,14 @@ class ConnectionInfo:
     # plugins (and by ABAP RFC SDK callers in general) since sysnr selects
     # the application-server instance (gateway port = 33<sysnr>).
     sysnr: Optional[str] = None
+    # Whether the plugin should verify the server's TLS certificate.
+    # Defaults to True (the safe default); sapcli forwards args.verify here
+    # so a user with ssl_verify: false in config doesn't have to teach
+    # every plugin about SAP_SSL_VERIFY independently.
+    verify: bool = True
+    # Optional path to a custom CA bundle, mirroring sapcli's
+    # SAP_SSL_SERVER_CERT / ssl_server_cert config knob.
+    ssl_server_cert: Optional[str] = None
 
     def to_dict(self) -> dict:
         """Return the JSON-serializable form."""
