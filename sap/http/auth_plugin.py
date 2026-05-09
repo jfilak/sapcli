@@ -1,0 +1,158 @@
+"""Plugin protocol for external authentication helpers.
+
+sapcli runs an external command (the auth plugin) as a subprocess, writes a
+JSON authentication request to its stdin, and parses the JSON response from
+its stdout. This module defines the request/response shape and the
+``run_plugin`` driver. Interpretation of the response payload (cookies,
+Authorization header, client certificate) is the responsibility of the
+caller - see ``sap.http.external_session_initializer``.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from typing import Optional
+
+from sap.errors import SAPCliError
+
+
+class AuthPluginError(SAPCliError):
+    """Raised when the auth plugin cannot be invoked or returns invalid output."""
+
+
+@dataclass(frozen=True)
+class ConnectionInfo:
+    """Connection details forwarded to the plugin in the request payload."""
+
+    proto: str
+    ashost: str
+    port: str
+    client: str
+    type: str
+    path: str
+    # Optional because HTTP-only plugins have no use for it; required by RFC
+    # plugins (and by ABAP RFC SDK callers in general) since sysnr selects
+    # the application-server instance (gateway port = 33<sysnr>).
+    sysnr: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        """Return the JSON-serializable form."""
+
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class AuthPluginRequest:
+    """Request sent to the plugin on stdin."""
+
+    connection: ConnectionInfo
+    parameters: dict
+
+    def to_dict(self) -> dict:
+        """Return the JSON-serializable form."""
+
+        return {
+            'connection': self.connection.to_dict(),
+            'parameters': dict(self.parameters),
+        }
+
+    def to_json(self) -> str:
+        """Return the JSON string ready for stdin."""
+
+        return json.dumps(self.to_dict())
+
+
+@dataclass(frozen=True)
+class AuthPluginResponse:
+    """Response received from the plugin on stdout."""
+
+    message: str
+    content: dict
+    expiration: Optional[datetime] = None
+
+    @classmethod
+    def from_dict(cls, data) -> 'AuthPluginResponse':
+        """Build a response from a parsed JSON object, validating required fields."""
+
+        if not isinstance(data, dict):
+            raise ValueError(
+                f'response is not a JSON object, got {type(data).__name__}'
+            )
+
+        if 'message' not in data:
+            raise ValueError("response missing required field 'message'")
+
+        if 'content' not in data:
+            raise ValueError("response missing required field 'content'")
+
+        return cls(
+            message=data['message'],
+            content=data['content'],
+            expiration=_parse_expiration(data.get('expiration')),
+        )
+
+    @classmethod
+    def from_json(cls, raw: str) -> 'AuthPluginResponse':
+        """Build a response from a JSON string."""
+
+        return cls.from_dict(json.loads(raw))
+
+
+def _parse_expiration(value) -> Optional[datetime]:
+    if not value:
+        return None
+
+    if not isinstance(value, str):
+        raise ValueError(
+            f'expiration must be an ISO 8601 string, got {type(value).__name__}'
+        )
+
+    # datetime.fromisoformat in 3.10 does not understand the trailing Z;
+    # rewriting it to +00:00 keeps the parser portable across versions.
+    normalized = value[:-1] + '+00:00' if value.endswith('Z') else value
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError as ex:
+        raise ValueError(f'invalid expiration {value!r}: {ex}') from ex
+
+
+def run_plugin(command: str, parameters, connection: ConnectionInfo) -> AuthPluginResponse:
+    """Run the external auth plugin and return its parsed response.
+
+    Raises ``AuthPluginError`` if the plugin cannot be started, exits non-zero,
+    or returns output that is not a valid response.
+    """
+
+    request = AuthPluginRequest(connection=connection, parameters=parameters or {})
+
+    try:
+        completed = subprocess.run(
+            [command],
+            input=request.to_json(),
+            capture_output=True,
+            check=False,
+            encoding='utf-8',
+        )
+    except OSError as ex:
+        raise AuthPluginError(
+            f"Failed to start auth plugin '{command}': {ex}"
+        ) from ex
+
+    if completed.returncode != 0:
+        raise AuthPluginError(
+            f"Auth plugin '{command}' exited with code {completed.returncode}\n"
+            f"stdout: {completed.stdout}\n"
+            f"stderr: {completed.stderr}"
+        )
+
+    try:
+        return AuthPluginResponse.from_json(completed.stdout)
+    except (ValueError, TypeError) as ex:
+        raise AuthPluginError(
+            f"Auth plugin '{command}' returned invalid response: {ex}\n"
+            f"stdout: {completed.stdout}\n"
+            f"stderr: {completed.stderr}"
+        ) from ex
