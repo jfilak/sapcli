@@ -1591,5 +1591,60 @@ class TestConfigFileDeleteContext(unittest.TestCase):
         self.assertIn('not found', str(cm.exception))
 
 
+class TestResolveContextAuthPlugin(unittest.TestCase):
+    """auth_plugin is a dict carried verbatim from the user definition into
+       the resolved context, so the CLI layer can construct an
+       HTTPExternalSessionInitializer without further parsing.
+    """
+
+    def test_auth_plugin_surfaced_from_user(self):
+        data = {
+            'connections': {
+                'server': {'ashost': 'host.example.com', 'client': '100'},
+            },
+            'users': {
+                'plugin-user': {
+                    'auth_plugin': {
+                        'command': '/path/to/plugin',
+                        'parameters': {'channel': 'msedge'},
+                    },
+                },
+            },
+            'contexts': {
+                'ctx': {'connection': 'server', 'user': 'plugin-user'},
+            },
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        result = config.resolve_context('ctx')
+
+        self.assertEqual(result['auth_plugin'], {
+            'command': '/path/to/plugin',
+            'parameters': {'channel': 'msedge'},
+        })
+
+    def test_auth_plugin_overridden_at_context_level(self):
+        data = {
+            'connections': {
+                'server': {'ashost': 'host.example.com', 'client': '100'},
+            },
+            'users': {
+                'plugin-user': {
+                    'auth_plugin': {'command': '/base/plugin'},
+                },
+            },
+            'contexts': {
+                'ctx': {
+                    'connection': 'server',
+                    'user': 'plugin-user',
+                    'auth_plugin': {'command': '/override/plugin'},
+                },
+            },
+        }
+        config = ConfigFile(data, TEST_CONFIG_PATH)
+        result = config.resolve_context('ctx')
+
+        self.assertEqual(result['auth_plugin'], {'command': '/override/plugin'})
+
+
 if __name__ == '__main__':
     unittest.main()

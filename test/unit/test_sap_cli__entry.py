@@ -188,6 +188,51 @@ class TestParseCommandLine(unittest.TestCase):
 
         self.assertEqual(args.password, 'prompted-pwd')
 
+    def test_args_skip_user_and_password_prompt_when_auth_plugin_set(self):
+        """When the resolved context configures an auth_plugin, the user
+           prompt and the password prompt must both be suppressed - the
+           plugin is responsible for credentials.
+        """
+
+        config_data = {
+            'current-context': 'plugin-ctx',
+            'connections': {
+                'server': {'ashost': 'h.example.com', 'client': '100'},
+            },
+            'users': {
+                'plug-user': {
+                    'auth_plugin': {'command': '/p'},
+                },
+            },
+            'contexts': {
+                'plugin-ctx': {'connection': 'server', 'user': 'plug-user'},
+            },
+        }
+        self._config_patcher.stop()
+        self._config_patcher = patch(
+            'sap.cli._entry.ConfigFile.load',
+            return_value=ConfigFile(config_data, TEST_CONFIG_PATH),
+        )
+        self._config_patcher.start()
+
+        test_params = get_tested_parameters()
+        remove_cmd_param_from_list(test_params, '--password')
+        remove_cmd_param_from_list(test_params, '--user')
+        remove_cmd_param_from_list(test_params, '--ashost')
+        remove_cmd_param_from_list(test_params, '--client')
+
+        getpass_mock = Mock(return_value='should-not-be-used')
+        input_mock = Mock(return_value='should-not-be-used')
+
+        with patch('getpass.getpass', getpass_mock), \
+             patch('builtins.input', input_mock):
+            args = entry.parse_command_line(test_params)
+
+        getpass_mock.assert_not_called()
+        input_mock.assert_not_called()
+        self.assertIsNone(args.password)
+        self.assertEqual(args.auth_plugin, {'command': '/p'})
+
     def test_args_ask_user_and_password(self):
         test_params = get_tested_parameters()
         remove_cmd_param_from_list(test_params, '--password')

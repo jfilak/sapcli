@@ -155,13 +155,17 @@ def parse_command_line(argv):
             )))
 
     if not (args.snc_qop or args.snc_myname or args.snc_partnername):
-        if not args.user:
-            args.user = input('Login:')
+        # auth_plugin owns credential acquisition - do not prompt for either
+        # user or password. The plugin reads what it needs from its own
+        # source (env vars, browser, cert store, ...).
+        if not args.auth_plugin:
+            if not args.user:
+                args.user = input('Login:')
 
-        oauth_needs_password = sap.http.oauth.password_required(args.token_url, args.client_id)
+            oauth_needs_password = sap.http.oauth.password_required(args.token_url, args.client_id)
 
-        if not args.password and oauth_needs_password:
-            args.password = getpass.getpass()
+            if not args.password and oauth_needs_password:
+                args.password = getpass.getpass()
 
     return args
 
