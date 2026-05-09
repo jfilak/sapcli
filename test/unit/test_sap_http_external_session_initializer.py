@@ -1,0 +1,350 @@
+#!/usr/bin/env python3
+
+import unittest
+from unittest.mock import Mock, patch
+
+import requests
+
+from sap.http.auth_plugin import (
+    AuthPluginError,
+    AuthPluginResponse,
+    ConnectionInfo,
+)
+from sap.http.client import HTTPClient, HTTPSessionInitializer
+from sap.http.errors import UnauthorizedError
+from sap.http.external_session_initializer import HTTPExternalSessionInitializer
+
+
+def _connection():
+    return ConnectionInfo(
+        proto='https',
+        ashost='abap.example.org',
+        port='44300',
+        client='100',
+        type='adt',
+        path='/sap/bc/adt/core/systeminformation',
+    )
+
+
+def _response(content, message='ok', expiration=None):
+    return AuthPluginResponse(
+        message=message,
+        content=content,
+        expiration=expiration,
+    )
+
+
+class TestConstruction(unittest.TestCase):
+
+    def test_satisfies_session_initializer_protocol(self):
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='u'
+        )
+
+        self.assertIsInstance(initializer, HTTPSessionInitializer)
+
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_does_not_run_plugin_at_construction(self, mock_run):
+        HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='u'
+        )
+
+        mock_run.assert_not_called()
+
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_initialize_session_returns_same_session(self, mock_run):
+        mock_run.return_value = _response({'type': 'cookie', 'cookies': []})
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='u'
+        )
+        session = requests.Session()
+
+        returned = initializer.initialize_session(session)
+
+        self.assertIs(returned, session)
+
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_initialize_session_invokes_plugin_with_configured_args(self, mock_run):
+        mock_run.return_value = _response({'type': 'cookie', 'cookies': []})
+        connection = _connection()
+        parameters = {'channel': 'msedge'}
+        initializer = HTTPExternalSessionInitializer(
+            command='sapcli-windows-cert-auth',
+            parameters=parameters,
+            connection=connection,
+            user='u',
+        )
+
+        initializer.initialize_session(requests.Session())
+
+        mock_run.assert_called_once_with(
+            'sapcli-windows-cert-auth', parameters, connection
+        )
+
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_initialize_session_propagates_plugin_error(self, mock_run):
+        mock_run.side_effect = AuthPluginError('plugin crashed')
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='u'
+        )
+
+        with self.assertRaisesRegex(AuthPluginError, 'plugin crashed'):
+            initializer.initialize_session(requests.Session())
+
+    def test_build_unauthorized_error_carries_user(self):
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='alice'
+        )
+        req = Mock()
+        res = Mock()
+
+        err = initializer.build_unauthorized_error(req, res)
+
+        self.assertIsInstance(err, UnauthorizedError)
+        self.assertIs(err.request, req)
+        self.assertIs(err.response, res)
+        self.assertEqual(err.user, 'alice')
+
+
+class TestCookieDispatch(unittest.TestCase):
+
+    def _initialize(self, content):
+        with patch(
+            'sap.http.external_session_initializer.run_plugin',
+            return_value=_response(content),
+        ):
+            initializer = HTTPExternalSessionInitializer(
+                command='cmd', parameters={}, connection=_connection(), user='u'
+            )
+            session = requests.Session()
+            initializer.initialize_session(session)
+            return session
+
+    def test_minimal_cookie_sets_name_and_value(self):
+        session = self._initialize({
+            'type': 'cookie',
+            'cookies': [{'name': 'SAP_SESSIONID', 'value': 'abc123'}],
+        })
+
+        self.assertEqual(session.cookies.get('SAP_SESSIONID'), 'abc123')
+
+    def test_multiple_cookies_all_set(self):
+        session = self._initialize({
+            'type': 'cookie',
+            'cookies': [
+                {'name': 'A', 'value': '1'},
+                {'name': 'B', 'value': '2'},
+            ],
+        })
+
+        self.assertEqual(session.cookies.get('A'), '1')
+        self.assertEqual(session.cookies.get('B'), '2')
+
+    def test_cookie_with_domain_and_path(self):
+        session = self._initialize({
+            'type': 'cookie',
+            'cookies': [{
+                'name': 'SAP_SESSIONID',
+                'value': 'abc',
+                'domain': 'abap.example.org',
+                'path': '/sap',
+            }],
+        })
+
+        # Read back via get with the same domain/path filter we passed in.
+        self.assertEqual(
+            session.cookies.get('SAP_SESSIONID', domain='abap.example.org', path='/sap'),
+            'abc',
+        )
+
+    def test_missing_cookies_field_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "cookies"):
+            self._initialize({'type': 'cookie'})
+
+    def test_cookies_not_a_list_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "cookies"):
+            self._initialize({'type': 'cookie', 'cookies': 'not-a-list'})
+
+    def test_cookie_without_name_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "name"):
+            self._initialize({
+                'type': 'cookie',
+                'cookies': [{'value': 'abc'}],
+            })
+
+    def test_cookie_without_value_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "value"):
+            self._initialize({
+                'type': 'cookie',
+                'cookies': [{'name': 'X'}],
+            })
+
+    def test_cookie_entry_not_object_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "object"):
+            self._initialize({
+                'type': 'cookie',
+                'cookies': ['name=value; Path=/'],
+            })
+
+
+class TestHeaderDispatch(unittest.TestCase):
+
+    def _initialize(self, content):
+        with patch(
+            'sap.http.external_session_initializer.run_plugin',
+            return_value=_response(content),
+        ):
+            initializer = HTTPExternalSessionInitializer(
+                command='cmd', parameters={}, connection=_connection(), user='u'
+            )
+            session = requests.Session()
+            initializer.initialize_session(session)
+            return session
+
+    def test_authorization_header_set(self):
+        session = self._initialize({
+            'type': 'http_authorization_header',
+            'headers': {'Authorization': 'Basic abc123'},
+        })
+
+        self.assertEqual(session.headers.get('Authorization'), 'Basic abc123')
+
+    def test_multiple_headers_set(self):
+        session = self._initialize({
+            'type': 'http_authorization_header',
+            'headers': {
+                'Authorization': 'Bearer xyz',
+                'X-Custom': 'value',
+            },
+        })
+
+        self.assertEqual(session.headers.get('Authorization'), 'Bearer xyz')
+        self.assertEqual(session.headers.get('X-Custom'), 'value')
+
+    def test_missing_headers_field_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "headers"):
+            self._initialize({'type': 'http_authorization_header'})
+
+    def test_empty_headers_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "headers"):
+            self._initialize({
+                'type': 'http_authorization_header',
+                'headers': {},
+            })
+
+    def test_headers_not_a_dict_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "headers"):
+            self._initialize({
+                'type': 'http_authorization_header',
+                'headers': ['Authorization: Basic abc'],
+            })
+
+
+class TestCertificatesDispatch(unittest.TestCase):
+
+    def _initialize(self, content):
+        with patch(
+            'sap.http.external_session_initializer.run_plugin',
+            return_value=_response(content),
+        ):
+            initializer = HTTPExternalSessionInitializer(
+                command='cmd', parameters={}, connection=_connection(), user='u'
+            )
+            session = requests.Session()
+            initializer.initialize_session(session)
+            return session
+
+    def test_certificate_and_key_set_session_cert(self):
+        session = self._initialize({
+            'type': 'certificates',
+            'certificate': '/etc/ssl/client.pem',
+            'key': '/etc/ssl/client.key',
+        })
+
+        self.assertEqual(session.cert, ('/etc/ssl/client.pem', '/etc/ssl/client.key'))
+
+    def test_issuer_certificate_sets_session_verify(self):
+        session = self._initialize({
+            'type': 'certificates',
+            'certificate': '/etc/ssl/client.pem',
+            'key': '/etc/ssl/client.key',
+            'issuer_certificate': '/etc/ssl/ca.pem',
+        })
+
+        self.assertEqual(session.verify, '/etc/ssl/ca.pem')
+
+    def test_missing_certificate_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "certificate"):
+            self._initialize({
+                'type': 'certificates',
+                'key': '/etc/ssl/client.key',
+            })
+
+    def test_missing_key_raises(self):
+        with self.assertRaisesRegex(AuthPluginError, "key"):
+            self._initialize({
+                'type': 'certificates',
+                'certificate': '/etc/ssl/client.pem',
+            })
+
+
+class TestUnknownContentType(unittest.TestCase):
+
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_unknown_type_raises(self, mock_run):
+        mock_run.return_value = _response({'type': 'oauth_token'})
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='u'
+        )
+
+        with self.assertRaisesRegex(AuthPluginError, 'oauth_token'):
+            initializer.initialize_session(requests.Session())
+
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_missing_type_raises(self, mock_run):
+        mock_run.return_value = _response({'cookies': []})
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='u'
+        )
+
+        with self.assertRaisesRegex(AuthPluginError, 'type'):
+            initializer.initialize_session(requests.Session())
+
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_content_not_a_dict_raises(self, mock_run):
+        mock_run.return_value = _response('not-an-object')
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='u'
+        )
+
+        with self.assertRaisesRegex(AuthPluginError, 'content'):
+            initializer.initialize_session(requests.Session())
+
+
+class TestHTTPClientWithExternalInitializer(unittest.TestCase):
+
+    def test_external_initializer_is_used_when_provided(self):
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='u'
+        )
+
+        client = HTTPClient(host='h', user='u', password=None, session_initializer=initializer)
+
+        self.assertIs(client._session_initializer, initializer)
+
+    def test_build_unauthorized_error_delegates_to_initializer(self):
+        initializer = HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(), user='alice'
+        )
+        client = HTTPClient(host='h', user='u', password=None, session_initializer=initializer)
+        req = Mock()
+        res = Mock()
+
+        err = client.build_unauthorized_error(req, res)
+
+        self.assertIsInstance(err, UnauthorizedError)
+        self.assertEqual(err.user, 'alice')
+
+
+if __name__ == '__main__':
+    unittest.main()
