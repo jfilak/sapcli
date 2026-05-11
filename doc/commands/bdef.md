@@ -6,6 +6,7 @@
 4. [activate](#activate)
 5. [delete](#delete)
 6. [whereused](#whereused)
+7. [listinterfaces](#listinterfaces)
 
 ## create
 
@@ -104,4 +105,21 @@ Find objects that reference the given behavior definition
 
 ```bash
 sapcli bdef whereused ZMYBDEF
+```
+
+## listinterfaces
+
+List BO interfaces assigned to a behavior definition. This is useful for
+discovering valid interface names when creating behavior extensions.
+
+```bash
+sapcli bdef listinterfaces BDEF_NAME
+```
+
+### Examples
+
+List interfaces for a behavior definition:
+
+```bash
+sapcli bdef listinterfaces R_PRODUCTTP
 ```
