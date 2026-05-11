@@ -3,6 +3,13 @@
 
 from xml.etree import ElementTree
 
+from sap.adt.annotations import (
+    xml_text,
+    XmlListNodeProperty,
+    XmlNodeAttributeProperty,
+    OrderedClassMembers
+)
+
 
 XMLNS_NAMEDITEM = '{http://www.sap.com/adt/nameditem}'
 
@@ -48,3 +55,32 @@ class NamedItemList:
             items.append(NamedItem(name, description, data))
 
         return NamedItemList(total_count, items)
+
+
+class ADTTemplateProperty(metaclass=OrderedClassMembers):
+    """A single property in an ADT template"""
+
+    key = XmlNodeAttributeProperty('adtcore:key')
+
+    def __init__(self, key=None, value=None):
+        self.key = key
+        self._value = value
+
+    @xml_text()
+    def value(self):
+        """The property value (text content of the element)"""
+        return self._value
+
+    @value.setter
+    def value(self, val):
+        self._value = val
+
+
+class ADTTemplate(metaclass=OrderedClassMembers):
+    """ADT template containing a list of properties"""
+
+    properties = XmlListNodeProperty('adtcore:adtProperty', value=[], factory=ADTTemplateProperty)
+
+    def __init__(self, properties=None):
+        if properties:
+            self.__dict__['_adtcore_adtProperty'] = list(properties)
