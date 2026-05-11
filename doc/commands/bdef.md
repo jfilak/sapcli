@@ -1,12 +1,13 @@
 # BehaviorDefinition (BDEF)
 
 1. [create](#create)
-2. [read](#read)
-3. [write](#write)
-4. [activate](#activate)
-5. [delete](#delete)
-6. [whereused](#whereused)
-7. [listinterfaces](#listinterfaces)
+2. [extend](#extend)
+3. [read](#read)
+4. [write](#write)
+5. [activate](#activate)
+6. [delete](#delete)
+7. [whereused](#whereused)
+8. [listinterfaces](#listinterfaces)
 
 ## create
 
@@ -15,6 +16,48 @@ description in the given package.
 
 ```bash
 sapcli bdef create ZMYBDEF "Behavior definition description" '$PACKAGE'
+```
+
+### Examples
+
+Create a regular behavior definition:
+
+```bash
+sapcli bdef create ZMYBDEF "My behavior definition" MYPACKAGE
+```
+
+## extend
+
+Creates a behavior extension for an existing behavior definition. A behavior
+extension is a special kind of behavior definition that extends a base behavior
+definition with new behavior implementations.
+
+```bash
+sapcli bdef extend NAME DESCRIPTION PACKAGE BASE_BDEF [--interface-bdef INTERFACE] [--corrnr TRANSPORT]
+```
+
+* _NAME_ name of the new behavior extension
+* _DESCRIPTION_ description of the new behavior extension
+* _PACKAGE_ package in which the extension should be created
+* _BASE\_BDEF_ the behavior definition to extend
+* _--interface-bdef INTERFACE_ BO interface to assign the extension to (validated against existing interfaces)
+* _--corrnr TRANSPORT_ specifies CTS Transport Request Number if needed
+
+When `--interface-bdef` is provided, the command validates that the interface
+exists on the base behavior definition or any of its extensions before creating.
+
+### Examples
+
+Create a behavior extension without specifying an interface:
+
+```bash
+sapcli bdef extend R_PRODUCTTP_EXT "Product extension" MYPACKAGE R_PRODUCTTP
+```
+
+Create a behavior extension with a specific BO interface:
+
+```bash
+sapcli bdef extend R_PRODUCTTP_EXT "Product extension" MYPACKAGE R_PRODUCTTP --interface-bdef I_PRODUCTTP_2
 ```
 
 ## read
