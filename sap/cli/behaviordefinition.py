@@ -4,6 +4,7 @@ import sap.adt
 import sap.adt.wb
 import sap.cli.core
 import sap.cli.object
+from sap.adt.behaviordefinition import BehaviorDefinition
 
 
 class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
@@ -22,3 +23,14 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
             package = args.package
 
         return sap.adt.BehaviorDefinition(connection, name.upper(), package=package, metadata=metadata)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def listinterfaces(connection, args):
+    """Lists BO interfaces assigned to the given behavior definition"""
+
+    console = args.console_factory()
+    result = BehaviorDefinition.list_interfaces(connection, args.name)
+    for item in result:
+        console.printout(item.name)

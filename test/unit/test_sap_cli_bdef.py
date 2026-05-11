@@ -80,5 +80,40 @@ class TestBDEFRead(unittest.TestCase):
         self.assertEqual(fake_console.capout, 'source code\n')
 
 
+class TestBDEFListInterfaces(unittest.TestCase):
+
+    @patch('sap.adt.behaviordefinition.BehaviorDefinition.list_interfaces')
+    def test_cli_bdef_listinterfaces(self, fake_list):
+        fake_conn = Mock()
+
+        fake_item = Mock()
+        fake_item.name = 'I_PRODUCTTP_2'
+
+        fake_result = Mock()
+        fake_result.__iter__ = Mock(return_value=iter([fake_item]))
+        fake_list.return_value = fake_result
+
+        args = parse_args('listinterfaces', 'R_PRODUCTTP')
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(fake_conn, args)
+
+        fake_list.assert_called_once_with(fake_conn, 'R_PRODUCTTP')
+        self.assertEqual(fake_console.capout, 'I_PRODUCTTP_2\n')
+
+    @patch('sap.adt.behaviordefinition.BehaviorDefinition.list_interfaces')
+    def test_cli_bdef_listinterfaces_empty(self, fake_list):
+        fake_conn = Mock()
+
+        fake_result = Mock()
+        fake_result.__iter__ = Mock(return_value=iter([]))
+        fake_list.return_value = fake_result
+
+        args = parse_args('listinterfaces', 'R_PRODUCTTP')
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(fake_conn, args)
+
+        self.assertEqual(fake_console.capout, '')
+
+
 if __name__ == '__main__':
     unittest.main()
