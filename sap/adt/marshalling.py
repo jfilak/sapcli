@@ -8,7 +8,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 from sap import get_logger
 from sap.errors import FatalError
-from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty, XmlElementKind
+from sap.adt.annotations import XmlAttributeProperty, XmlElementProperty, XmlElementKind, XmlTextProperty
 
 
 def _attr_supports_version(attr, version):
@@ -112,6 +112,7 @@ def factory_with_setter(factory, setter, obj):
     return product
 
 
+# pylint: disable=too-many-instance-attributes
 class ElementHandler:
     """XML element desirialization"""
 
@@ -121,6 +122,7 @@ class ElementHandler:
         self.factory = factory
         self.attributes = None
         self.obj = None
+        self._init_textproperty = textproperty
         self.textproperty = textproperty
         self._textvalue = None
 
@@ -128,18 +130,20 @@ class ElementHandler:
         """Returns a new object"""
 
         self.obj = self.factory()
+        # self.textproperty is not initialized only via the constructor
+        # but also via load_definitions, so we need to keep the initial
+        # value to be able to reset it because everytime we call new() we parse
+        # the same Python object and we need to reset the text property to the
+        # initial value because load_definitions fails if self.textproperty is
+        # not None and we encounter another text property in the same class
+        self.textproperty = self._init_textproperty
 
-        if self.textproperty is None:
-            self.attributes = ElementHandler.load_definitions(self, self.obj)
+        self.attributes = ElementHandler.load_definitions(self, self.obj)
 
     def set(self, attr_name, value):
         """Sets object's property value"""
 
         get_logger().debug('Going to set XML attribute property: %s', attr_name)
-
-        if self.textproperty is not None:
-            # TODO: potentially programming error
-            raise MarshallingError()
 
         try:
             # pylint: disable=unnecessary-dunder-call
@@ -237,6 +241,16 @@ class ElementHandler:
 
                 get_logger().debug('Found XML attribute property: %s -> %s', attr_name, attr.name)
                 attributes[attr.name] = attr
+            elif isinstance(attr, XmlTextProperty):
+                if not attr.deserialize:
+                    get_logger().debug('Found readonly XML text property: %s -> %s', attr_name, attr.name)
+                    continue
+
+                get_logger().debug('Found XML text property: %s -> %s', attr_name, attr.name)
+                if self.elements[self.my_xpath].textproperty is not None:
+                    raise MarshallingError(f'Only one xml_text property is allowed per class, '
+                                           f'found duplicate: {attr_name}')
+                self.elements[self.my_xpath].textproperty = attr
 
         return attributes
 
@@ -392,6 +406,7 @@ class Marshal:
             else:
                 raise MarshallingError()
 
+    # pylint: disable=too-many-branches
     def _build_tree(self, root, obj, declared_ns):
         """Convert ADT Object members to XML elements"""
 
@@ -428,6 +443,18 @@ class Marshal:
                 value = getattr(obj, attr_name)
                 if value is not None:
                     root.add_attribute(attr.name, value)
+            elif isinstance(attr, XmlTextProperty):
+                if not _attr_supports_version(attr, self.version):
+                    get_logger().debug('Skipping class attribute %s for not supported version %s',
+                                       attr.name, self.version)
+                    continue
+
+                value = getattr(obj, attr_name)
+                if value is not None:
+                    if root.text is not None:
+                        raise MarshallingError(f'Only one xml_text property is allowed per class, '
+                                               f'found duplicate: {attr_name}')
+                    root.text = value
 
     def _tree_to_xml(self, tree):
         """Turn the given abstract XML tree to XML string"""
