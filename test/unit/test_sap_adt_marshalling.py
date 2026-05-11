@@ -6,8 +6,8 @@ from sap import get_logger
 from sap.adt import ADTObject, ADTObjectType, ADTCoreData, OrderedClassMembers
 from sap.adt.objects import XMLNamespace, ADTRootObject
 from sap.adt.annotations import xml_element, xml_attribute, XmlElementProperty, XmlElementKind, XmlNodeProperty, \
-                                XmlNodeAttributeProperty, XmlContainer, XmlListNodeProperty
-from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler
+                                XmlNodeAttributeProperty, XmlContainer, XmlListNodeProperty, xml_text
+from sap.adt.marshalling import Marshal, Element, adt_object_to_element_name, ElementHandler, MarshallingError
 
 
 class Dummy(ADTObject):
@@ -895,6 +895,373 @@ class TestADTRootObject(unittest.TestCase):
 <elem1>fixture_elem</elem1>
 </myxmlns:namespaced>
 </topns:root>''')
+
+
+class ContentWithTextAndAttribute(metaclass=OrderedClassMembers):
+
+    attr_prop = XmlNodeAttributeProperty('mock:attr')
+
+    def __init__(self, attr_value=None, text_value=None):
+        self._text_prop = text_value
+        self.attr_prop = attr_value
+
+    @xml_text()
+    def text_prop(self):
+        return self._text_prop
+
+    @text_prop.setter
+    def text_prop(self, value):
+        self._text_prop = value
+
+
+class DummyObjectWithTextPropertyAndAttribute(metaclass=OrderedClassMembers):
+
+    data = XmlNodeProperty('mock:data', factory=ContentWithTextAndAttribute)
+
+    def __init__(self, attr_value=None, text_value=None):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'text_and_attr')
+        self.data = ContentWithTextAndAttribute(attr_value, text_value)
+
+
+class TestADTTextProperty(unittest.TestCase):
+
+    def test_serialize_with_text_property_and_attribute(self):
+        obj = DummyObjectWithTextPropertyAndAttribute(attr_value='attrvalue', text_value='textvalue')
+        marshal = Marshal()
+        xml = marshal.serialize(obj)
+
+        self.assertEqual(xml, '<?xml version="1.0" encoding="UTF-8"?>\n'
+                              '<mock:text_and_attr xmlns:mock="https://example.org/mock">\n'
+                              '<mock:data mock:attr="attrvalue">textvalue</mock:data>\n'
+                              '</mock:text_and_attr>')
+
+    def test_deserialize_with_text_property_and_attribute(self):
+        obj = DummyObjectWithTextPropertyAndAttribute()
+        marshal = Marshal()
+        marshal.deserialize('<?xml version="1.0" encoding="UTF-8"?>\n'
+                            '<mock:text_and_attr xmlns:mock="https://example.org/mock">\n'
+                            '<mock:data mock:attr="attrvalue">textvalue</mock:data>\n'
+                            '</mock:text_and_attr>', obj)
+
+        self.assertEqual(obj.data.attr_prop, 'attrvalue')
+        self.assertEqual(obj.data.text_prop, 'textvalue')
+
+    def test_serialize_text_property_with_version_filter(self):
+        """Text property with version mismatch should be skipped during serialization"""
+
+        class VersionedTextContent(metaclass=OrderedClassMembers):
+
+            def __init__(self, text_value=None):
+                self._text = text_value
+
+            @xml_text(version='V1')
+            def text_prop(self):
+                return self._text
+
+            @text_prop.setter
+            def text_prop(self, value):
+                self._text = value
+
+        class VersionedTextWrapper(metaclass=OrderedClassMembers):
+
+            data = XmlNodeProperty('mock:data', factory=VersionedTextContent)
+
+            def __init__(self, text_value=None):
+                self.objtype = ADTObjectType(None, None,
+                                             XMLNamespace('mock', 'https://example.org/mock'),
+                                             'application/xml',
+                                             None,
+                                             'versioned_text')
+                self.data = VersionedTextContent(text_value)
+
+        obj = VersionedTextWrapper(text_value='hello')
+        marshal = Marshal(object_schema_version='V2')
+        xml = marshal.serialize(obj)
+
+        self.assertEqual(xml, '<?xml version="1.0" encoding="UTF-8"?>\n'
+                              '<mock:versioned_text xmlns:mock="https://example.org/mock">\n'
+                              '<mock:data/>\n'
+                              '</mock:versioned_text>')
+
+    def test_deserialize_readonly_text_property(self):
+        """Text property with deserialize=False should be skipped during deserialization"""
+
+        class ReadonlyTextContent(metaclass=OrderedClassMembers):
+
+            attr_prop = XmlNodeAttributeProperty('mock:attr')
+
+            def __init__(self, attr_value=None):
+                self._text = 'default'
+                self.attr_prop = attr_value
+
+            @xml_text(deserialize=False)
+            def text_prop(self):
+                return self._text
+
+        class ReadonlyTextWrapper(metaclass=OrderedClassMembers):
+
+            data = XmlNodeProperty('mock:data', factory=ReadonlyTextContent)
+
+            def __init__(self):
+                self.objtype = ADTObjectType(None, None,
+                                             XMLNamespace('mock', 'https://example.org/mock'),
+                                             'application/xml',
+                                             None,
+                                             'readonly_text')
+                self.data = ReadonlyTextContent()
+
+        obj = ReadonlyTextWrapper()
+        marshal = Marshal()
+        marshal.deserialize('<?xml version="1.0" encoding="UTF-8"?>\n'
+                            '<mock:readonly_text xmlns:mock="https://example.org/mock">\n'
+                            '<mock:data mock:attr="attrvalue"/>\n'
+                            '</mock:readonly_text>', obj)
+
+        self.assertEqual(obj.data.attr_prop, 'attrvalue')
+        self.assertEqual(obj.data.text_prop, 'default')
+
+    def test_duplicate_xml_text_property_raises_error(self):
+        """Only one xml_text property is allowed per class"""
+
+        class DuplicateTextContent(metaclass=OrderedClassMembers):
+
+            def __init__(self):
+                self._text1 = None
+                self._text2 = None
+
+            @xml_text()
+            def text1(self):
+                return self._text1
+
+            @text1.setter
+            def text1(self, value):
+                self._text1 = value
+
+            @xml_text()
+            def text2(self):
+                return self._text2
+
+            @text2.setter
+            def text2(self, value):
+                self._text2 = value
+
+        class DuplicateTextWrapper(metaclass=OrderedClassMembers):
+
+            data = XmlNodeProperty('mock:data', factory=DuplicateTextContent)
+
+            def __init__(self):
+                self.objtype = ADTObjectType(None, None,
+                                             XMLNamespace('mock', 'https://example.org/mock'),
+                                             'application/xml',
+                                             None,
+                                             'dup_text')
+                self.data = DuplicateTextContent()
+
+        obj = DuplicateTextWrapper()
+        marshal = Marshal()
+
+        with self.assertRaises(MarshallingError):
+            marshal.deserialize('<?xml version="1.0" encoding="UTF-8"?>\n'
+                                '<mock:dup_text xmlns:mock="https://example.org/mock">\n'
+                                '<mock:data>text</mock:data>\n'
+                                '</mock:dup_text>', obj)
+
+    def test_duplicate_xml_text_property_raises_error_on_serialize(self):
+        """Only one xml_text property is allowed per class during serialization"""
+
+        class DuplicateTextContent(metaclass=OrderedClassMembers):
+
+            def __init__(self):
+                self._text1 = 'one'
+                self._text2 = 'two'
+
+            @xml_text()
+            def text1(self):
+                return self._text1
+
+            @text1.setter
+            def text1(self, value):
+                self._text1 = value
+
+            @xml_text()
+            def text2(self):
+                return self._text2
+
+            @text2.setter
+            def text2(self, value):
+                self._text2 = value
+
+        class DuplicateTextWrapper(metaclass=OrderedClassMembers):
+
+            data = XmlNodeProperty('mock:data', factory=DuplicateTextContent)
+
+            def __init__(self):
+                self.objtype = ADTObjectType(None, None,
+                                             XMLNamespace('mock', 'https://example.org/mock'),
+                                             'application/xml',
+                                             None,
+                                             'dup_text')
+                self.data = DuplicateTextContent()
+
+        obj = DuplicateTextWrapper()
+        marshal = Marshal()
+
+        with self.assertRaises(MarshallingError) as cm:
+            marshal.serialize(obj)
+
+        self.assertIn('Only one xml_text property is allowed per class', str(cm.exception))
+        self.assertIn('text2', str(cm.exception))
+
+
+# ── Regression test for ElementHandler.new() textproperty reset ──────────
+#
+# BUG: When deserializing a list of objects that have xml_text properties
+# (e.g. XmlListNodeProperty with factory producing objects with @xml_text),
+# the ElementHandler is REUSED for every list item. The handler's new()
+# method calls load_definitions() which discovers the @xml_text property
+# and sets handler.textproperty. On the SECOND list item, new() calls
+# load_definitions() again, which finds handler.textproperty already set
+# from the first item and raises MarshallingError("duplicate xml_text").
+#
+# PSEUDOCODE of the bug:
+#
+#   handler = ElementHandler(xpath, elements, factory=ItemWithText)
+#   # handler.textproperty = None  (from constructor)
+#
+#   # --- First <item> encountered ---
+#   handler.new()
+#     obj = factory()            # creates ItemWithText instance
+#     load_definitions(obj)
+#       # finds @xml_text → sets handler.textproperty = XmlTextProperty
+#       #                    (was None, so OK)
+#
+#   # --- Second <item> encountered ---
+#   handler.new()
+#     obj = factory()            # creates new ItemWithText instance
+#     load_definitions(obj)
+#       # finds @xml_text → handler.textproperty is ALREADY SET!
+#       # → raises MarshallingError("duplicate xml_text")  ← BUG!
+#
+# VISUALIZATION:
+#
+#   XML input:
+#     <root>
+#       <item attr="a">text1</item>   ← 1st call: handler.new() OK
+#       <item attr="b">text2</item>   ← 2nd call: handler.new() BOOM!
+#     </root>
+#
+#   ElementHandler lifecycle (same handler instance for all <item> tags):
+#
+#     ┌──────────────────────────────────────────────────────┐
+#     │ handler created: textproperty = None                 │
+#     ├──────────────────────────────────────────────────────┤
+#     │ new() for item 1:                                    │
+#     │   textproperty = None → load_definitions finds       │
+#     │   @xml_text → sets textproperty = <descriptor>  ✓    │
+#     ├──────────────────────────────────────────────────────┤
+#     │ new() for item 2 (WITHOUT fix):                      │
+#     │   textproperty = <descriptor> (stale from item 1!)   │
+#     │   → load_definitions finds @xml_text                 │
+#     │   → textproperty is not None → ERROR!           ✗    │
+#     ├──────────────────────────────────────────────────────┤
+#     │ new() for item 2 (WITH fix):                         │
+#     │   textproperty reset to None (initial value)         │
+#     │   → load_definitions finds @xml_text                 │
+#     │   → textproperty is None → sets it again        ✓    │
+#     └──────────────────────────────────────────────────────┘
+#
+# FIX: ElementHandler.__init__ saves the constructor textproperty as
+# _init_textproperty, and new() resets textproperty to _init_textproperty
+# before calling load_definitions().
+
+
+class ListItemWithTextAndAttribute(metaclass=OrderedClassMembers):
+    """A list item that has both an xml_attribute and an xml_text property.
+       This combination triggers the bug when the same ElementHandler
+       is reused for multiple list items during deserialization."""
+
+    label = XmlNodeAttributeProperty('mock:label')
+
+    def __init__(self, label=None, content=None):
+        self.label = label
+        self._content = content
+
+    @xml_text()
+    def content(self):
+        return self._content
+
+    @content.setter
+    def content(self, value):
+        self._content = value
+
+
+class ObjectWithListOfTextItems(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'listoftextitems')
+
+    items = XmlListNodeProperty('mock:entry', value=[], factory=ListItemWithTextAndAttribute)
+
+
+class TestElementHandlerTextPropertyReset(unittest.TestCase):
+    """Regression tests for the bug where ElementHandler.new() did not reset
+       textproperty, causing deserialization of a list with 2+ items having
+       @xml_text to fail with MarshallingError('duplicate xml_text')."""
+
+    def test_deserialize_list_with_multiple_text_items(self):
+        obj = ObjectWithListOfTextItems()
+
+        Marshal.deserialize('''<?xml version="1.0" encoding="UTF-8"?>
+<mock:listoftextitems xmlns:mock="https://example.org/mock">
+<mock:entry mock:label="first">content1</mock:entry>
+<mock:entry mock:label="second">content2</mock:entry>
+<mock:entry mock:label="third">content3</mock:entry>
+</mock:listoftextitems>''', obj)
+
+        self.assertEqual(len(obj.items), 3)
+        self.assertEqual(obj.items[0].label, 'first')
+        self.assertEqual(obj.items[0].content, 'content1')
+        self.assertEqual(obj.items[1].label, 'second')
+        self.assertEqual(obj.items[1].content, 'content2')
+        self.assertEqual(obj.items[2].label, 'third')
+        self.assertEqual(obj.items[2].content, 'content3')
+
+    def test_serialize_list_with_multiple_text_items(self):
+        obj = ObjectWithListOfTextItems()
+        obj.items = ListItemWithTextAndAttribute('first', 'content1')
+        obj.items = ListItemWithTextAndAttribute('second', 'content2')
+
+        act = Marshal().serialize(obj)
+
+        self.assertEqual(act, '''<?xml version="1.0" encoding="UTF-8"?>
+<mock:listoftextitems xmlns:mock="https://example.org/mock">
+<mock:entry mock:label="first">content1</mock:entry>
+<mock:entry mock:label="second">content2</mock:entry>
+</mock:listoftextitems>''')
+
+    def test_roundtrip_list_with_text_items(self):
+        original = ObjectWithListOfTextItems()
+        original.items = ListItemWithTextAndAttribute('a', 'alpha')
+        original.items = ListItemWithTextAndAttribute('b', 'beta')
+
+        xml = Marshal().serialize(original)
+
+        restored = ObjectWithListOfTextItems()
+        Marshal.deserialize(xml, restored)
+
+        self.assertEqual(len(restored.items), 2)
+        self.assertEqual(restored.items[0].label, 'a')
+        self.assertEqual(restored.items[0].content, 'alpha')
+        self.assertEqual(restored.items[1].label, 'b')
+        self.assertEqual(restored.items[1].content, 'beta')
 
 
 if __name__ == '__main__':

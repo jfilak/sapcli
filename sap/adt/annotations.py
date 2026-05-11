@@ -11,7 +11,7 @@ class SampleObject(metaclass=OrderedClassMembers):
     def __init__(self):
         self._void = None
 
-    xml_attribute("attr_one")
+    @xml_attribute("attr_one")
     def read_only_attr(self) -> str:
         return 'something'
 
@@ -28,16 +28,19 @@ so.read_write_attr = 'success'
 
 class RootObject(metaclass=OrderedClassMembers):
 
-    config = XmlNodeProperty('child_element')
+    config = XmlNodeProperty('child_element', factory=SampleObject)
+
+    def __init__(self):
+        self.config = None
 
 ro = RootObject()
 ro.config.read_write_attr = 'test_two'
 
 # Lists:
-
-<parent>
-  <item foo="bar"/>
-</parent>
+#
+# <parent>
+#   <item foo="bar"/>
+# </parent>
 
 class SampleItem(metaclass=OrderedClassMembers):
 
@@ -53,6 +56,43 @@ class SampleList(metaclass=OrderedClassMembers):
 
 sl = SampleList()
 sl.items.apped(SampleItem("bar"))
+
+# Text element:
+# <parent>
+#   <child>text data</child>
+# </parent>
+
+class SampleTextElement(metaclass=OrderedClassMembers):
+
+    child = xml_text_node_property('child')
+
+    def __init__(self, text):
+        self.child = text
+
+sample = SampleTextElement('text data')
+
+# Text and attributes:
+# <parent>
+#   <child demo="value">text data</child>
+# </parent>
+
+class SampleTextWithAttrElement(metaclass=OrderedClassMembers):
+
+    demo = XmlNodeAttributeProperty('demo')
+
+    def __init__(self, text):
+        self.demo = 'value'
+        self._text = text
+
+    @xml_text()
+    def text(self):
+        return self._text
+
+    @text.setter
+    def text(self, value):
+        self._text = value
+
+sample = SampleTextWithAttrElement('text data')
 """
 
 from enum import Enum
@@ -133,6 +173,24 @@ class XmlAttributeProperty(property):
 
     def setter(self, fset):
         return type(self)(self.name, self.fget, fset, deserialize=self.deserialize)
+
+
+# pylint: disable=too-few-public-methods
+class XmlTextProperty(property):
+    """XML Annotation marking the property as a text node of an XML element. A
+    class can have only 1 such property.
+    """
+
+    def __init__(self, fget, fset=None, deserialize=True, version=None):
+        super().__init__(fget, fset)
+
+        # Used by marshaller in debug logs
+        self.name = '#text'
+        self.deserialize = deserialize
+        self.version = version
+
+    def setter(self, fset):
+        return type(self)(self.fget, fset, deserialize=self.deserialize, version=self.version)
 
 
 # pylint: disable=too-few-public-methods,too-many-arguments
@@ -325,12 +383,24 @@ class XmlContainer(metaclass=XmlContainerMeta):
 
 
 def xml_text_node_property(name, value=None, deserialize=True, version=None, ignore_empty=False):
-    """A factory method returning a descriptor property XML Element holding
+    """A factory method returning a descriptor property XML Element without attributes and holding
        the value in a text node.
     """
 
     return XmlNodeProperty(name, value=value, deserialize=deserialize, factory=None, kind=XmlElementKind.TEXT,
                            version=version, ignore_empty=ignore_empty)
+
+
+def xml_text(deserialize=True, version=None):
+    """A factory method returning a descriptor property marking the text node.
+    """
+
+    def decorator(meth):
+        """Creates a property object"""
+
+        return XmlTextProperty(meth, deserialize=deserialize, version=version)
+
+    return decorator
 
 
 def xml_attribute(name, deserialize=True, version=None):
