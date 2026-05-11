@@ -5,6 +5,7 @@ from sap.adt.objects import (
     ADTObject,
     ADTObjectType,
     ADTObjectSourceEditor,
+    NamedItemList,
 )
 
 
@@ -25,3 +26,16 @@ class BehaviorDefinition(ADTObject):
         super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
+
+    @staticmethod
+    def list_interfaces(connection, bdef_name: str) -> 'NamedItemList':
+        """List BO interfaces assigned to the given behavior definition"""
+
+        resp = connection.execute(
+            'GET',
+            'bo/behaviordefinitions/interfaces',
+            params={'name': bdef_name.upper()},
+            accept=['application/vnd.sap.adt.nameditems.v1+xml', 'application/xml'],
+        )
+
+        return NamedItemList.from_xml(resp.text)

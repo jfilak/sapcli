@@ -4,6 +4,7 @@ import unittest
 
 import sap.adt
 import sap.adt.wb
+from sap.adt.behaviordefinition import BehaviorDefinition
 
 from mock import Connection, Response
 
@@ -98,6 +99,54 @@ class TestADTBehaviorDefinition(unittest.TestCase):
         self.assertEqual(get_request.params['preauditRequested'], 'true')
 
         self.assertEqual(get_request.body, FIXTURE_ACTIVATION_REQUEST_XML)
+
+
+FIXTURE_LIST_INTERFACES_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<nameditem:namedItemList xmlns:nameditem="http://www.sap.com/adt/nameditem">
+  <nameditem:totalItemCount>1</nameditem:totalItemCount>
+  <nameditem:namedItem>
+    <nameditem:name>I_PRODUCTTP_2</nameditem:name>
+    <nameditem:description/>
+    <nameditem:data/>
+  </nameditem:namedItem>
+</nameditem:namedItemList>'''
+
+FIXTURE_LIST_INTERFACES_EMPTY_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<nameditem:namedItemList xmlns:nameditem="http://www.sap.com/adt/nameditem">
+  <nameditem:totalItemCount>0</nameditem:totalItemCount>
+</nameditem:namedItemList>'''
+
+
+class TestBehaviorDefinitionListInterfaces(unittest.TestCase):
+
+    def test_list_interfaces(self):
+        conn = Connection([Response(text=FIXTURE_LIST_INTERFACES_XML,
+                                    status_code=200,
+                                    headers={'Content-Type': 'application/vnd.sap.adt.nameditems.v1+xml; charset=utf-8'})])
+
+        result = BehaviorDefinition.list_interfaces(conn, 'r_producttp')
+
+        self.assertEqual(conn.mock_methods(), [
+            ('GET', '/sap/bc/adt/bo/behaviordefinitions/interfaces')
+        ])
+
+        get_request = conn.execs[0]
+        self.assertEqual(get_request.params, {'name': 'R_PRODUCTTP'})
+        self.assertEqual(get_request.headers['Accept'],
+                         'application/vnd.sap.adt.nameditems.v1+xml, application/xml')
+
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].name, 'I_PRODUCTTP_2')
+
+    def test_list_interfaces_empty(self):
+        conn = Connection([Response(text=FIXTURE_LIST_INTERFACES_EMPTY_XML,
+                                    status_code=200,
+                                    headers={'Content-Type': 'application/vnd.sap.adt.nameditems.v1+xml; charset=utf-8'})])
+
+        result = BehaviorDefinition.list_interfaces(conn, 'R_PRODUCTTP')
+
+        self.assertEqual(len(result.items), 0)
+
 
 if __name__ == '__main__':
     unittest.main()
