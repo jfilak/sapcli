@@ -5,6 +5,9 @@ from sap.adt.objects import (
     ADTObject,
     ADTObjectType,
     ADTObjectSourceEditor,
+)
+
+from sap.adt.common_types import (
     NamedItemList,
 )
 
