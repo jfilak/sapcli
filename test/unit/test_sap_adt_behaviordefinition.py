@@ -5,6 +5,7 @@ import unittest
 import sap.adt
 import sap.adt.wb
 from sap.adt.behaviordefinition import BehaviorDefinition
+from sap.adt.common_types import ADTTemplate, ADTTemplateProperty
 
 from mock import Connection, Response
 
@@ -146,6 +147,143 @@ class TestBehaviorDefinitionListInterfaces(unittest.TestCase):
         result = BehaviorDefinition.list_interfaces(conn, 'R_PRODUCTTP')
 
         self.assertEqual(len(result.items), 0)
+
+
+class TestBehaviorDefinitionWithTemplate(unittest.TestCase):
+
+    def test_bdef_template_default_none(self):
+        bdef = sap.adt.BehaviorDefinition('CONNECTION', name='ZMYBDEF')
+        self.assertIsNone(bdef.template)
+
+    def test_bdef_set_template(self):
+        bdef = sap.adt.BehaviorDefinition('CONNECTION', name='ZMYBDEF')
+        template = ADTTemplate([
+            ADTTemplateProperty('base_bdef', 'R_PRODUCTTP'),
+            ADTTemplateProperty('interface_bdef'),
+        ])
+        bdef.template = template
+        self.assertEqual(bdef.template, template)
+
+    def test_bdef_create_without_template(self):
+        conn = Connection([Response(text='', status_code=201)])
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN',
+                                        package='MYPACKAGE', responsible='DEVELOPER')
+        bdef = sap.adt.BehaviorDefinition(conn, name='R_PRODUCTTP_EXT',
+                                           package='MYPACKAGE', metadata=metadata)
+        bdef.description = 'test ext'
+        bdef.create()
+
+        body = conn.execs[0].body.decode('utf-8')
+        self.assertNotIn('adtcore:adtTemplate', body)
+
+    def test_bdef_create_with_template_no_interface(self):
+        conn = Connection([Response(text='', status_code=201)])
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN',
+                                        package='MYPACKAGE', responsible='DEVELOPER')
+        bdef = sap.adt.BehaviorDefinition(conn, name='R_PRODUCTTP_EXT',
+                                           package='MYPACKAGE', metadata=metadata)
+        bdef.description = 'test ext'
+        bdef.template = ADTTemplate([
+            ADTTemplateProperty('base_bdef', 'R_PRODUCTTP'),
+            ADTTemplateProperty('interface_bdef'),
+        ])
+        bdef.create(corrnr='C50K000066')
+
+        self.assertEqual(conn.execs[0].method, 'POST')
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/bo/behaviordefinitions')
+        self.assertEqual(conn.execs[0].params, {'corrNr': 'C50K000066'})
+
+        body = conn.execs[0].body.decode('utf-8')
+        self.assertIn('<adtcore:adtTemplate>', body)
+        self.assertIn('<adtcore:adtProperty adtcore:key="base_bdef">R_PRODUCTTP</adtcore:adtProperty>', body)
+        self.assertIn('<adtcore:adtProperty adtcore:key="interface_bdef"/>', body)
+
+    def test_bdef_create_with_template_with_interface(self):
+        conn = Connection([Response(text='', status_code=201)])
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN',
+                                        package='MYPACKAGE', responsible='DEVELOPER')
+        bdef = sap.adt.BehaviorDefinition(conn, name='R_PRODUCTTP_EXT',
+                                           package='MYPACKAGE', metadata=metadata)
+        bdef.description = 'test ext'
+        bdef.template = ADTTemplate([
+            ADTTemplateProperty('base_bdef', 'R_PRODUCTTP'),
+            ADTTemplateProperty('interface_bdef', 'I_PRODUCTTP_2'),
+        ])
+        bdef.create()
+
+        body = conn.execs[0].body.decode('utf-8')
+        self.assertIn('<adtcore:adtProperty adtcore:key="interface_bdef">I_PRODUCTTP_2</adtcore:adtProperty>', body)
+
+
+FIXTURE_BDEF_CREATE_WITH_TEMPLATE_XML = '<?xml version="1.0" encoding="UTF-8"?>\n' \
+    '<blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" xmlns:adtcore="http://www.sap.com/adt/core"' \
+    ' adtcore:type="BDEF/BDO" adtcore:description="test ext" adtcore:language="EN"' \
+    ' adtcore:name="R_PRODUCTTP_EXT" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER">\n' \
+    '<adtcore:adtTemplate>\n' \
+    '<adtcore:adtProperty adtcore:key="base_bdef">R_PRODUCTTP</adtcore:adtProperty>\n' \
+    '<adtcore:adtProperty adtcore:key="interface_bdef"/>\n' \
+    '</adtcore:adtTemplate>\n' \
+    '<adtcore:packageRef adtcore:name="MYPACKAGE"/>\n' \
+    '</blue:blueSource>'
+
+
+class TestBehaviorDefinitionSerialization(unittest.TestCase):
+
+    def test_bdef_serialize_with_template(self):
+        conn = Connection([Response(text='', status_code=201)])
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN',
+                                        package='MYPACKAGE', responsible='DEVELOPER')
+        bdef = sap.adt.BehaviorDefinition(conn, name='R_PRODUCTTP_EXT',
+                                           package='MYPACKAGE', metadata=metadata)
+        bdef.description = 'test ext'
+        bdef.template = ADTTemplate([
+            ADTTemplateProperty('base_bdef', 'R_PRODUCTTP'),
+            ADTTemplateProperty('interface_bdef'),
+        ])
+        bdef.create()
+
+        body = conn.execs[0].body.decode('utf-8')
+        self.maxDiff = None
+        self.assertEqual(body, FIXTURE_BDEF_CREATE_WITH_TEMPLATE_XML)
+
+
+class TestBehaviorDefinitionExtend(unittest.TestCase):
+
+    def test_extend_without_interface(self):
+        bdef = BehaviorDefinition.extend(
+            'CONNECTION', 'R_PRODUCTTP_EXT', base_bdef='R_PRODUCTTP',
+            package='MYPACKAGE', description="jakub's extension"
+        )
+
+        self.assertIsInstance(bdef, BehaviorDefinition)
+        self.assertEqual(bdef.name, 'R_PRODUCTTP_EXT')
+        self.assertEqual(bdef.reference.name, 'MYPACKAGE')
+        self.assertEqual(bdef.description, "jakub's extension")
+        self.assertIsNotNone(bdef.template)
+        self.assertEqual(len(bdef.template.properties), 2)
+        self.assertEqual(bdef.template.properties[0].key, 'base_bdef')
+        self.assertEqual(bdef.template.properties[0].value, 'R_PRODUCTTP')
+        self.assertEqual(bdef.template.properties[1].key, 'interface_bdef')
+        self.assertIsNone(bdef.template.properties[1].value)
+
+    def test_extend_with_interface(self):
+        bdef = BehaviorDefinition.extend(
+            'CONNECTION', 'R_PRODUCTTP_EXT', base_bdef='R_PRODUCTTP',
+            package='MYPACKAGE', description='test ext',
+            interface_bdef='I_PRODUCTTP_2'
+        )
+
+        self.assertEqual(bdef.template.properties[1].key, 'interface_bdef')
+        self.assertEqual(bdef.template.properties[1].value, 'I_PRODUCTTP_2')
+
+    def test_extend_without_optional_params(self):
+        bdef = BehaviorDefinition.extend(
+            'CONNECTION', 'R_PRODUCTTP_EXT', base_bdef='R_PRODUCTTP'
+        )
+
+        self.assertIsNone(bdef.reference.name)
+        self.assertIsNone(bdef.description)
+        self.assertIsNotNone(bdef.template)
 
 
 if __name__ == '__main__':
