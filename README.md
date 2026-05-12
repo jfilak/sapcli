@@ -200,6 +200,40 @@ sapcli config use-context dev
 The tool asks only for user and password if missing. All other parameters
 either have own default value or causes fatal error if not provided.
 
+### Authentication strategies
+
+In addition to HTTP Basic Auth and OAuth 2.0 (for SAP BTP ABAP
+Environment / "Steampunk"), sapcli supports **kubectl-style auth
+plugins** for cases neither covers: SAML2 single sign-on, Windows
+client certificates pulled from the Windows Certificate Store, or any
+corporate IdP that needs a browser. The plugin is an external command
+that you point sapcli at:
+
+```yaml
+users:
+  sso-user:
+    auth_plugin:
+      command: /path/to/your-plugin
+      parameters:
+        channel: msedge
+```
+
+sapcli runs the plugin once, caches the cookies (or token, or cert
+reference) it returns under `~/.local/state/sapcli/` (or
+`~/Library/Application Support/sapcli/` on macOS,
+`%LOCALAPPDATA%\sapcli\` on Windows), and reuses them across ADT, gCTS,
+and OData commands until they expire.
+`sapcli --auth-plugin-invalidate-cache` forces a re-authentication.
+
+The plugin can be implemented in any language and pull in whatever
+dependencies it needs (playwright for browser SSO, pywin32 for the
+Windows cert store, ...) without polluting sapcli's installation. A
+reference plugin that wraps Basic Auth lives at
+`plugins/auth/basic-auth-cookies.py`. See the
+[Auth plugins section](doc/configuration.md#auth-plugins) of the
+configuration documentation for the protocol and writing-your-own
+guide.
+
 Find the complete documentation in [doc/configuration.md](doc/configuration.md)
 
 ### RFC usage

@@ -7,7 +7,7 @@ a configuration file. The priority order from highest to lowest is:
 2. **Environment variables** - override config file values
 3. **Configuration file** (active context) - overrides defaults
 4. **Built-in defaults** - used when nothing else is specified
-5. **Interactive prompt** - fallback for mandatory values (user, password) when no SNC config is present and no valid OAuth token is cached
+5. **Interactive prompt** - fallback for mandatory values (user, password) when no SNC config is present, no valid OAuth token is cached, and no auth plugin is configured
 
 ## Parameters
 
@@ -107,6 +107,17 @@ Overrides the `SAPCLI_CONTEXT` environment variable and `current-context` in the
 
 ```bash
 sapcli --context prod program read ZREPORT
+```
+
+### --auth-plugin-invalidate-cache
+
+Drop any cached auth-plugin response for the active context before
+authenticating. The next command will re-run the configured plugin. Has
+no effect unless an [auth plugin](#auth-plugins) is configured for the
+active user.
+
+```bash
+sapcli --auth-plugin-invalidate-cache abap systeminfo
 ```
 
 ## Configuration file
@@ -241,6 +252,11 @@ authentication. See [OAuth 2.0 authentication](#oauth-20-authentication) below.
 |---|---|---|---|---|
 | `user` | string | yes | - | `SAP_USER` |
 | `password` | string | no | - | `SAP_PASSWORD` |
+| `auth_plugin` | mapping | no | - | (config only) |
+
+`auth_plugin` is mutually exclusive with `password` and with OAuth fields
+on the same logical session. See [Auth plugins](#auth-plugins) for the
+plugin contract and configuration shape.
 
 #### `contexts.<name>`
 
@@ -275,9 +291,12 @@ The recommended approaches, in order of preference:
 1. **Use OAuth 2.0** - if your system supports it (e.g. SAP cloud systems),
    prefer OAuth over a stored password. See
    [OAuth 2.0 authentication](#oauth-20-authentication) below.
-2. **Omit the password from config** - sapcli will prompt interactively
-3. **Use environment variables** - `SAP_PASSWORD` overrides the config file; suitable for CI/CD pipelines
-4. **Store in config file** - acceptable for local development if the file has restrictive permissions (`chmod 600`)
+2. **Use an auth plugin** - for SAML2 SSO, Windows client certificates,
+   or any other method that does not fit OAuth or BasicAuth. See
+   [Auth plugins](#auth-plugins) below.
+3. **Omit the password from config** - sapcli will prompt interactively
+4. **Use environment variables** - `SAP_PASSWORD` overrides the config file; suitable for CI/CD pipelines
+5. **Store in config file** - acceptable for local development if the file has restrictive permissions (`chmod 600`)
 
 sapcli will warn if the config file is world-readable and contains passwords.
 
@@ -342,6 +361,186 @@ file:
 ```bash
 rm ~/.sapcli/tokens.json
 ```
+
+### Auth plugins
+
+Some authentication methods cannot reasonably be implemented inside
+sapcli itself — SAML2 SSO requires running a browser, Windows client
+certificates live in the Windows Certificate Store and cannot be
+exported to a file, and a long tail of corporate IdPs each have their
+own quirks. sapcli takes the kubectl approach for these cases: an
+external command — the **auth plugin** — performs the authentication and
+returns either cookies, an `Authorization` header, or a client
+certificate. sapcli applies the result to the HTTP session and proceeds.
+
+The plugin is invoked as a subprocess. sapcli writes a JSON request to
+its stdin and reads a JSON response from its stdout. The plugin can be
+implemented in any language and can pull in whatever dependencies it
+needs — playwright for browser SSO, pywin32 for the Windows certificate
+store, openssl shelled out from a bash script — without any of those
+leaking into sapcli's installation.
+
+The same auth plugin handles ADT, gCTS (REST), and OData commands. ABAP
+session cookies are server-wide, so authenticating once primes the
+cache for all three.
+
+#### Enabling an auth plugin
+
+Configure the plugin on a user definition:
+
+```yaml
+users:
+  sso-user:
+    auth_plugin:
+      command: /absolute/path/to/your/plugin
+      parameters:
+        channel: msedge    # optional, plugin-specific key/value pairs
+```
+
+`auth_plugin` is **mutually exclusive** with `password` and with the
+OAuth fields on the same logical session — the plugin is the one source
+of truth for credentials. sapcli rejects the configuration if both are
+present.
+
+`auth_plugin` is configured **only** in the config file, not via CLI
+flags or environment variables. It is a structured value, not a scalar,
+and its presence flips the entire authentication mode.
+
+#### Response caching
+
+The first call to a plugin can be slow — browser-based SSO routinely
+takes 20+ seconds while the user clicks through the IdP. sapcli caches
+the response between invocations so subsequent commands run at sapcli's
+native speed.
+
+| Aspect | Value |
+|---|---|
+| Cache location (Linux) | `~/.local/state/sapcli/auth_plugin_responses/` |
+| Cache location (macOS) | `~/Library/Application Support/sapcli/auth_plugin_responses/` |
+| Cache location (Windows) | `%LOCALAPPDATA%\sapcli\auth_plugin_responses\` |
+| Cache key | `<context>\|<connection>\|<user>` triple. Changing any of the three mints a new entry; identical triples share one entry across ADT, gCTS, and OData commands. |
+| File permissions | Directory `0700`, file `0600` on POSIX. |
+| Expiration | Honoured when the plugin's response includes an `expiration` ISO 8601 timestamp (with a 30 s leeway to avoid racing the server's clock). Plugins that omit it cache indefinitely; the server eventually invalidates the cached cookies and the next command falls back to a fresh plugin run. |
+
+To force a fresh plugin run, pass `--auth-plugin-invalidate-cache` on
+the command line:
+
+```bash
+sapcli --auth-plugin-invalidate-cache abap systeminfo
+```
+
+You can also delete the cache file directly — useful for scripted
+cleanup.
+
+#### The plugin protocol
+
+##### Request (stdin)
+
+```json
+{
+  "connection": {
+    "proto": "https",
+    "ashost": "abap.example.org",
+    "port": "44300",
+    "client": "100",
+    "type": "adt",
+    "path": "/sap/bc/adt/core/discovery",
+    "sysnr": null,
+    "verify": true,
+    "ssl_server_cert": null
+  },
+  "parameters": {
+    "channel": "msedge"
+  }
+}
+```
+
+- `type` is one of `adt`, `rest`, `odata` — set by sapcli based on which
+  command is running, so a plugin that supports multiple endpoints can
+  pick the right one.
+- `path` is the endpoint that sapcli's built-in flow uses for the same
+  connection type. Use it unchanged unless your auth flow needs a
+  different one.
+- `verify` and `ssl_server_cert` mirror the `ssl_verify` and
+  `ssl_server_cert` connection settings. Plugins must honour them when
+  making HTTPS calls so they do not bypass the user's TLS policy.
+- `parameters` is the verbatim `parameters:` map from the configuration
+  — pass plugin-specific knobs through here.
+
+##### Response (stdout)
+
+```json
+{
+  "message": "Authentication successful",
+  "expiration": "2026-05-08T23:59:59Z",
+  "content": {
+    "type": "cookie",
+    "cookies": [
+      {"name": "SAP_SESSIONID_X01_100", "value": "...", "domain": "abap.example.org", "path": "/", "secure": true}
+    ]
+  }
+}
+```
+
+`content.type` selects the authentication mechanism applied to the HTTP
+session. Three values are supported:
+
+| `content.type` | Other fields | Effect on the session |
+|---|---|---|
+| `cookie` | `cookies: [{name, value, domain?, path?, expires?, secure?}, ...]` | Adds the cookies to `requests.Session.cookies`. |
+| `http_authorization_header` | `headers: {<name>: <value>, ...}` | Sets the headers on the session (typically `Authorization`). |
+| `certificates` | `certificate: <path>`, `key: <path>`, `issuer_certificate: <path>?` | Sets `session.cert` and optionally `session.verify` to the supplied file paths. |
+
+`expiration` is optional. If present and ISO 8601, sapcli stops using
+the cached response when the timestamp comes within 30 s of now and
+re-runs the plugin. If absent, the response is cached indefinitely (the
+server is the source of truth for invalidation).
+
+##### Failure
+
+A non-zero exit code from the plugin means authentication failed.
+sapcli prints the plugin's `message` field (if it emitted valid JSON on
+stdout), along with the captured stdout and stderr, and stops. A plugin
+that prints invalid JSON on stdout is treated the same way.
+
+#### Reference plugin
+
+sapcli ships a proof-of-concept plugin at
+`plugins/auth/basic-auth-cookies.py` that performs HTTP Basic auth and
+returns the resulting session cookies. It exists primarily to exercise
+the protocol end-to-end against a real ABAP system without needing a
+browser-automation plugin set up, and to serve as a template for
+writing your own. Credentials are read from `SAP_USER` and
+`SAP_PASSWORD` environment variables so they never appear in the config
+file.
+
+```yaml
+users:
+  basic-auth-via-plugin:
+    auth_plugin:
+      command: /absolute/path/to/sapcli/plugins/auth/basic-auth-cookies.py
+```
+
+```bash
+SAP_USER=DEVELOPER SAP_PASSWORD=secret \
+    sapcli --context my-system abap systeminfo
+```
+
+#### Writing your own plugin
+
+A plugin is any executable that:
+
+1. Reads a single JSON object from stdin (the request shape above).
+2. Performs authentication using whatever mechanism it needs.
+3. Writes a single JSON object to stdout (the response shape above).
+4. Exits 0 on success or non-zero on failure.
+
+There is no required language, library, or interface to import — the
+contract is the JSON envelope on stdin/stdout, full stop. Look at
+`plugins/auth/basic-auth-cookies.py` for a minimal Python example. A
+browser-based SSO plugin would replace the `requests.get` call with a
+`playwright.sync_api` flow that opens a window, waits for the user to
+log in, and reads cookies out of the resulting browser context.
 
 ## Config management commands
 
