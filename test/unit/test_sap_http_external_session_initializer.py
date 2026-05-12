@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import requests
@@ -344,6 +345,96 @@ class TestHTTPClientWithExternalInitializer(unittest.TestCase):
 
         self.assertIsInstance(err, UnauthorizedError)
         self.assertEqual(err.user, 'alice')
+
+
+class TestCacheIntegration(unittest.TestCase):
+    """When cache_key is set, initialize_session must:
+       1. consult the cache first;
+       2. on miss/expired, run the plugin and store the result;
+       3. never read or write the cache when cache_key is None (back-compat
+          for callers that did not opt in to caching).
+    """
+
+    def _make(self, cache_key=None):
+        return HTTPExternalSessionInitializer(
+            command='cmd', parameters={}, connection=_connection(),
+            user='u', cache_key=cache_key,
+        )
+
+    @patch('sap.http.external_session_initializer.get_response_store')
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_no_cache_key_skips_cache_entirely(self, mock_run, mock_store):
+        mock_run.return_value = _response({'type': 'cookie', 'cookies': []})
+
+        self._make(cache_key=None).initialize_session(requests.Session())
+
+        mock_run.assert_called_once()
+        mock_store.assert_not_called()
+
+    @patch('sap.http.external_session_initializer.get_response_store')
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_cache_miss_runs_plugin_and_stores(self, mock_run, mock_store):
+        store = Mock()
+        store.get.return_value = None
+        mock_store.return_value = store
+        plugin_response = _response({'type': 'cookie', 'cookies': []})
+        mock_run.return_value = plugin_response
+
+        self._make(cache_key='ctx|conn|u').initialize_session(requests.Session())
+
+        store.get.assert_called_once_with('ctx|conn|u')
+        mock_run.assert_called_once()
+        store.set.assert_called_once_with('ctx|conn|u', plugin_response)
+
+    @patch('sap.http.external_session_initializer.get_response_store')
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_cache_hit_skips_plugin(self, mock_run, mock_store):
+        store = Mock()
+        cached = _response(
+            {'type': 'cookie', 'cookies': [{'name': 'X', 'value': 'cached'}]},
+        )
+        store.get.return_value = cached
+        mock_store.return_value = store
+        session = requests.Session()
+
+        self._make(cache_key='k').initialize_session(session)
+
+        mock_run.assert_not_called()
+        store.set.assert_not_called()
+        # Cookies from the cached response must land on the session.
+        self.assertEqual(session.cookies.get('X'), 'cached')
+
+    @patch('sap.http.external_session_initializer.get_response_store')
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_expired_cache_entry_is_refreshed(self, mock_run, mock_store):
+        store = Mock()
+        # is_expired() returning True makes the initializer treat it as a miss.
+        expired = AuthPluginResponse(
+            message='stale', content={'type': 'cookie', 'cookies': []},
+            expiration=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        store.get.return_value = expired
+        mock_store.return_value = store
+        fresh = _response({'type': 'cookie', 'cookies': []})
+        mock_run.return_value = fresh
+
+        self._make(cache_key='k').initialize_session(requests.Session())
+
+        mock_run.assert_called_once()
+        store.set.assert_called_once_with('k', fresh)
+
+    @patch('sap.http.external_session_initializer.get_response_store')
+    @patch('sap.http.external_session_initializer.run_plugin')
+    def test_plugin_error_does_not_poison_cache(self, mock_run, mock_store):
+        store = Mock()
+        store.get.return_value = None
+        mock_store.return_value = store
+        mock_run.side_effect = AuthPluginError('plugin crashed')
+
+        with self.assertRaises(AuthPluginError):
+            self._make(cache_key='k').initialize_session(requests.Session())
+
+        store.set.assert_not_called()
 
 
 if __name__ == '__main__':

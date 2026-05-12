@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import subprocess
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sap.errors import SAPCliError
@@ -108,6 +108,41 @@ class AuthPluginResponse:
         """Build a response from a JSON string."""
 
         return cls.from_dict(json.loads(raw))
+
+    def to_dict(self) -> dict:
+        """Return the JSON-serializable form, omitting absent expiration."""
+
+        data: dict = {'message': self.message, 'content': self.content}
+        if self.expiration is not None:
+            # Naive datetimes are interpreted as UTC; better than crashing
+            # or silently round-tripping them as local time.
+            ts = self.expiration
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            data['expiration'] = ts.astimezone(timezone.utc).isoformat()
+        return data
+
+    def to_json(self) -> str:
+        """Return the JSON string, suitable for cache storage."""
+
+        return json.dumps(self.to_dict())
+
+    def is_expired(self, *, leeway_seconds: int = 30) -> bool:
+        """Return True when the response is at or past its expiration.
+
+        Mirrors Token.is_expired: missing expiration means "never expires"
+        - the server is responsible for ultimately invalidating the
+        session. Plugins that know their token lifetime should set
+        expiration explicitly.
+        """
+
+        if self.expiration is None:
+            return False
+
+        ts = self.expiration
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return (ts - datetime.now(timezone.utc)).total_seconds() <= leeway_seconds
 
 
 def _parse_expiration(value) -> Optional[datetime]:

@@ -17,6 +17,7 @@ from sap.http.auth_plugin import (
     ConnectionInfo,
     run_plugin,
 )
+from sap.http.auth_plugin_cache import get_response_store
 from sap.http.errors import UnauthorizedError
 
 
@@ -34,24 +35,46 @@ class HTTPExternalSessionInitializer:
     subprocess I/O.
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         command: str,
         parameters: Optional[dict],
         connection: ConnectionInfo,
         user: Optional[str] = None,
+        cache_key: Optional[str] = None,
     ):
         self._command = command
         self._parameters = parameters or {}
         self._connection = connection
         self._user = user
+        # When cache_key is None, the cache is bypassed entirely - both
+        # reads and writes. That keeps cache-less callers (tests, ad-hoc
+        # invocations) from accidentally writing a response to disk.
+        self._cache_key = cache_key
 
     def initialize_session(self, session):
-        """Invoke the plugin and apply its response to ``session``."""
+        """Invoke the plugin (or reuse a cached response) and apply it to ``session``."""
 
-        response = run_plugin(self._command, self._parameters, self._connection)
+        response = self._fetch_response()
         _apply_response(session, response)
         return session
+
+    def _fetch_response(self) -> AuthPluginResponse:
+        if self._cache_key:
+            cached = get_response_store().get(self._cache_key)
+            if cached is not None and not cached.is_expired():
+                return cached
+
+        # Plugin error must propagate without touching the cache - storing
+        # half-built or failed responses would mask the problem on the
+        # next run and make 'something is broken' harder to diagnose.
+        response = run_plugin(self._command, self._parameters, self._connection)
+
+        if self._cache_key:
+            get_response_store().set(self._cache_key, response)
+
+        return response
 
     def build_unauthorized_error(self, req, res):
         """Build an UnauthorizedError carrying the configured user."""

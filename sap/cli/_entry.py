@@ -66,6 +66,10 @@ def parse_command_line(argv):
         '--context', dest='context', type=str, default=None,
         help='Configuration context to use (overrides current-context in config file)')
     arg_parser.add_argument(
+        '--auth-plugin-invalidate-cache', dest='auth_plugin_invalidate_cache',
+        default=False, action='store_true',
+        help='Drop the cached auth-plugin response before authenticating')
+    arg_parser.add_argument(
         '--ashost', dest='ashost', type=str, default=None,
         help='Application Server address (DNS or IP)')
     arg_parser.add_argument(

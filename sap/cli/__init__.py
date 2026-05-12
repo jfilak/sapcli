@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from sap import rfc
 from sap.config import SAPCliConfigError
 from sap.errors import SAPCliError
+from sap.http.auth_plugin_cache import cache_key_for, get_response_store
 
 
 class CommandsCache:
@@ -218,11 +219,20 @@ def _build_plugin_initializer(args, conn_type, conn_path):
         ssl_server_cert=getattr(args, 'ssl_server_cert', None),
     )
 
+    cache_key = getattr(args, 'auth_plugin_cache_key', None)
+
+    # --auth-plugin-invalidate-cache drops the entry before the initializer
+    # runs. The subsequent initialize_session call will then take the
+    # cache-miss path and store a fresh response.
+    if cache_key and getattr(args, 'auth_plugin_invalidate_cache', False):
+        get_response_store().delete(cache_key)
+
     return HTTPExternalSessionInitializer(
         command=command,
         parameters=parameters,
         connection=connection,
         user=args.user,
+        cache_key=cache_key,
     )
 
 
@@ -300,6 +310,8 @@ def build_empty_connection_values():
         client_id=None,
         client_secret=None,
         auth_plugin=None,
+        auth_plugin_cache_key=None,
+        auth_plugin_invalidate_cache=False,
     )
 
 
@@ -425,11 +437,13 @@ def _resolve_auth_plugin_default(args, config_values):
     """
 
     if getattr(args, 'auth_plugin', None) is not None:
+        args.auth_plugin_cache_key = _derive_cache_key(args)
         return
 
     plugin = config_values.get('auth_plugin')
     if not plugin:
         args.auth_plugin = None
+        args.auth_plugin_cache_key = None
         return
 
     if config_values.get('password'):
@@ -446,6 +460,41 @@ def _resolve_auth_plugin_default(args, config_values):
         )
 
     args.auth_plugin = plugin
+    args.auth_plugin_cache_key = _derive_cache_key(args)
+
+
+def _derive_cache_key(args):
+    """Build the (context|connection|user) cache key for the active context.
+
+    Returns None if any piece is missing - we never want to mint a key that
+    would collide with a different (or anonymous) session. auth_plugin is
+    config-only, so reaching this code means we came through a context;
+    the triple is always available in normal usage.
+    """
+
+    config_file = getattr(args, 'config_file', None)
+    if config_file is None:
+        return None
+
+    context_name = (
+        getattr(args, 'context', None)
+        or os.environ.get('SAPCLI_CONTEXT')
+        or config_file.current_context
+    )
+    if not context_name:
+        return None
+
+    try:
+        ctx = config_file.get_context(context_name)
+    except SAPCliConfigError:
+        return None
+
+    connection = ctx.get('connection')
+    user = ctx.get('user')
+    if not connection or not user:
+        return None
+
+    return cache_key_for(context_name, connection, user)
 
 
 def _get_config_context_values(args):
