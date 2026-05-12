@@ -3,7 +3,7 @@
 import json
 import subprocess
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from sap.errors import SAPCliError
@@ -223,6 +223,96 @@ class TestAuthPluginResponseFromJSON(unittest.TestCase):
     def test_invalid_json_raises_value_error(self):
         with self.assertRaises(ValueError):
             AuthPluginResponse.from_json('this is not json')
+
+
+class TestAuthPluginResponseSerialize(unittest.TestCase):
+
+    def test_to_dict_no_expiration_omits_field(self):
+        response = AuthPluginResponse(message='ok', content={'type': 'cookie'})
+
+        self.assertEqual(response.to_dict(), {
+            'message': 'ok',
+            'content': {'type': 'cookie'},
+        })
+
+    def test_to_dict_with_expiration_emits_iso_utc(self):
+        response = AuthPluginResponse(
+            message='ok',
+            content={'type': 'cookie'},
+            expiration=datetime(2026, 5, 8, 12, 30, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(response.to_dict()['expiration'], '2026-05-08T12:30:00+00:00')
+
+    def test_to_dict_normalizes_naive_datetime_to_utc(self):
+        # Naive datetimes are interpreted as UTC. Better than crashing or
+        # silently treating them as local time, which would round-trip
+        # differently in different timezones.
+        response = AuthPluginResponse(
+            message='ok',
+            content={'type': 'cookie'},
+            expiration=datetime(2026, 5, 8, 12, 30),
+        )
+
+        self.assertTrue(response.to_dict()['expiration'].endswith('+00:00'))
+
+    def test_to_json_round_trips_through_from_json(self):
+        response = AuthPluginResponse(
+            message='ok',
+            content={'type': 'cookie', 'cookies': [{'name': 'X', 'value': 'y'}]},
+            expiration=datetime(2026, 5, 8, 12, 30, tzinfo=timezone.utc),
+        )
+
+        restored = AuthPluginResponse.from_json(response.to_json())
+
+        self.assertEqual(restored.message, response.message)
+        self.assertEqual(restored.content, response.content)
+        self.assertEqual(restored.expiration, response.expiration)
+
+    def test_to_json_without_expiration_round_trips(self):
+        response = AuthPluginResponse(message='ok', content={'type': 'cookie'})
+
+        restored = AuthPluginResponse.from_json(response.to_json())
+
+        self.assertEqual(restored, response)
+
+
+class TestAuthPluginResponseIsExpired(unittest.TestCase):
+
+    def test_no_expiration_means_never_expired(self):
+        # Spec lets sapcli choose; we mirror Token.is_expired semantics so
+        # plugins that omit expiration get cached indefinitely (which is
+        # what most session-cookie plugins want - the server invalidates).
+        response = AuthPluginResponse(message='ok', content={})
+
+        self.assertFalse(response.is_expired())
+
+    def test_future_expiration_not_expired(self):
+        future = datetime.now(timezone.utc) + timedelta(hours=1)
+        response = AuthPluginResponse(
+            message='ok', content={}, expiration=future,
+        )
+
+        self.assertFalse(response.is_expired())
+
+    def test_past_expiration_is_expired(self):
+        past = datetime.now(timezone.utc) - timedelta(seconds=1)
+        response = AuthPluginResponse(
+            message='ok', content={}, expiration=past,
+        )
+
+        self.assertTrue(response.is_expired())
+
+    def test_within_leeway_is_expired(self):
+        # Refresh slightly early to avoid races where the token expires
+        # mid-flight between our check and the server's validation.
+        soon = datetime.now(timezone.utc) + timedelta(seconds=10)
+        response = AuthPluginResponse(
+            message='ok', content={}, expiration=soon,
+        )
+
+        self.assertTrue(response.is_expired(leeway_seconds=30))
+        self.assertFalse(response.is_expired(leeway_seconds=5))
 
 
 class TestAuthPluginError(unittest.TestCase):

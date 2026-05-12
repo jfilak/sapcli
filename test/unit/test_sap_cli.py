@@ -10,6 +10,7 @@ import sap.cli
 import sap.cli.core
 from sap.config import ConfigFile, SAPCliConfigError
 from sap.errors import SAPCliError
+import sap.http.auth_plugin_cache
 
 from pathlib import Path
 
@@ -1033,6 +1034,144 @@ class TestResolveAuthPluginMutualExclusivity(unittest.TestCase):
 
         self.assertEqual(args.auth_plugin, {'command': '/p'})
         self.assertEqual(args.password, 'env-pwd')
+
+
+class TestAuthPluginCacheKeyDerivation(unittest.TestCase):
+    """The (context, connection, user) triple is the cache-isolation
+       contract: changing any of the three must mint a different cache
+       key so cookies do not leak across logical sessions.
+    """
+
+    def _make_args(self, **kwargs):
+        defaults = dict(
+            ashost=None, sysnr=None, client=None, port=None,
+            ssl=None, verify=None, ssl_server_cert=None,
+            user=None, password=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin=None,
+            context=None,
+        )
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def _config(self):
+        return ConfigFile({
+            'current-context': 'dev',
+            'connections': {
+                'dev-srv': {'ashost': 'h', 'client': '100'},
+                'prod-srv': {'ashost': 'p', 'client': '200'},
+            },
+            'users': {
+                'plug-user': {'auth_plugin': {'command': '/p'}},
+                'other-user': {'auth_plugin': {'command': '/p'}},
+            },
+            'contexts': {
+                'dev': {'connection': 'dev-srv', 'user': 'plug-user'},
+                'prod': {'connection': 'prod-srv', 'user': 'plug-user'},
+                'dev-other': {'connection': 'dev-srv', 'user': 'other-user'},
+            },
+        }, TEST_CONFIG_PATH)
+
+    def test_cache_key_built_from_context_triple(self):
+        args = self._make_args(config_file=self._config())
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        key = sap.http.auth_plugin_cache.cache_key_for('dev', 'dev-srv', 'plug-user')
+        self.assertEqual(args.auth_plugin_cache_key, key)
+
+    def test_cache_key_changes_with_connection(self):
+        args = self._make_args(config_file=self._config(), context='prod')
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        key = sap.http.auth_plugin_cache.cache_key_for('prod', 'prod-srv', 'plug-user')
+        self.assertEqual(args.auth_plugin_cache_key, key)
+
+    def test_cache_key_changes_with_user(self):
+        args = self._make_args(config_file=self._config(), context='dev-other')
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        key = sap.http.auth_plugin_cache.cache_key_for('dev-other', 'dev-srv', 'other-user')
+        self.assertEqual(args.auth_plugin_cache_key, key)
+
+    def test_cache_key_none_when_no_auth_plugin(self):
+        # auth_plugin not configured → cache key is None (caching disabled).
+        config = ConfigFile({
+            'current-context': 'basic',
+            'connections': {'srv': {'ashost': 'h', 'client': '100'}},
+            'users': {'u': {'user': 'USR', 'password': 'pwd'}},
+            'contexts': {'basic': {'connection': 'srv', 'user': 'u'}},
+        }, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIsNone(args.auth_plugin_cache_key)
+
+
+class TestAuthPluginInitializerCacheKey(unittest.TestCase):
+    """adt_connection_from_args must forward the cache key onto the
+       constructed HTTPExternalSessionInitializer; --auth-plugin-invalidate-cache
+       must drop the existing entry before the initializer runs.
+    """
+
+    def _make_args(self, **overrides):
+        defaults = dict(
+            ashost='h.example.com', client='100',
+            user=None, password=None,
+            port=443, ssl=True, verify=True, ssl_server_cert=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin={'command': '/p'},
+            auth_plugin_cache_key='ctx|conn|user',
+            auth_plugin_invalidate_cache=False,
+        )
+        defaults.update(overrides)
+        return SimpleNamespace(**defaults)
+
+    def test_cache_key_forwarded_to_initializer(self):
+        args = self._make_args()
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        initializer = mock_connection.call_args.kwargs['session_initializer']
+        self.assertEqual(initializer._cache_key, 'ctx|conn|user')
+
+    def test_invalidate_cache_drops_entry_before_run(self):
+        args = self._make_args(auth_plugin_invalidate_cache=True)
+
+        with patch('sap.cli.get_response_store') as mock_store, \
+             patch('sap.adt.Connection'):
+            sap.cli.adt_connection_from_args(args)
+
+        mock_store.return_value.delete.assert_called_once_with('ctx|conn|user')
+
+    def test_invalidate_cache_without_key_is_noop(self):
+        args = self._make_args(
+            auth_plugin_cache_key=None,
+            auth_plugin_invalidate_cache=True,
+        )
+
+        with patch('sap.cli.get_response_store') as mock_store, \
+             patch('sap.adt.Connection'):
+            sap.cli.adt_connection_from_args(args)
+
+        mock_store.return_value.delete.assert_not_called()
+
+    def test_no_invalidate_does_not_touch_cache(self):
+        args = self._make_args(auth_plugin_invalidate_cache=False)
+
+        with patch('sap.cli.get_response_store') as mock_store, \
+             patch('sap.adt.Connection'):
+            sap.cli.adt_connection_from_args(args)
+
+        mock_store.return_value.delete.assert_not_called()
 
 
 if __name__ == '__main__':
