@@ -1115,6 +1115,126 @@ class TestAuthPluginCacheKeyDerivation(unittest.TestCase):
         self.assertIsNone(args.auth_plugin_cache_key)
 
 
+class TestGctsConnectionFromArgs(unittest.TestCase):
+    """gcts_connection_from_args must respect auth_plugin and OAuth the
+       same way adt_connection_from_args does - all three CLI auth
+       strategies should reach the REST connection.
+    """
+
+    def _make_args(self, **overrides):
+        defaults = dict(
+            ashost='h.example.com', client='100',
+            user='USR', password='pwd',
+            port=443, ssl=True, verify=True, ssl_server_cert=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin=None, auth_plugin_cache_key=None,
+            auth_plugin_invalidate_cache=False,
+        )
+        defaults.update(overrides)
+        return SimpleNamespace(**defaults)
+
+    def test_basic_auth_when_no_strategy_configured(self):
+        args = self._make_args()
+
+        with patch('sap.rest.Connection') as mock_connection:
+            sap.cli.gcts_connection_from_args(args)
+
+        self.assertIsNone(mock_connection.call_args.kwargs.get('session_initializer'))
+
+    def test_auth_plugin_initializer_when_plugin_configured(self):
+        from sap.http.external_session_initializer import (
+            HTTPExternalSessionInitializer,
+        )
+        args = self._make_args(
+            password=None,
+            auth_plugin={'command': '/p'},
+            auth_plugin_cache_key='ctx|conn|user',
+        )
+
+        with patch('sap.rest.Connection') as mock_connection:
+            sap.cli.gcts_connection_from_args(args)
+
+        initializer = mock_connection.call_args.kwargs.get('session_initializer')
+        self.assertIsInstance(initializer, HTTPExternalSessionInitializer)
+        # Plugin receives 'rest' as the type so it can pick a REST-specific
+        # auth endpoint if it cares; cookies are server-wide on ABAP, but
+        # 'type' is still the documented signal.
+        self.assertEqual(initializer._connection.type, 'rest')
+
+    def test_oauth_initializer_when_oauth_configured(self):
+        from sap.http.oauth import OAuthHTTPSessionInitializer
+        args = self._make_args(
+            token_url='https://t', client_id='cid', client_secret='csec',
+        )
+
+        with patch('sap.rest.Connection') as mock_connection:
+            sap.cli.gcts_connection_from_args(args)
+
+        initializer = mock_connection.call_args.kwargs.get('session_initializer')
+        self.assertIsInstance(initializer, OAuthHTTPSessionInitializer)
+
+
+class TestOdataConnectionFromArgs(unittest.TestCase):
+    """odata_connection_from_args must respect auth_plugin and OAuth the
+       same way adt_connection_from_args does.
+    """
+
+    def _make_args(self, **overrides):
+        defaults = dict(
+            ashost='h.example.com', client='100',
+            user='USR', password='pwd',
+            port=443, ssl=True, verify=True, ssl_server_cert=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin=None, auth_plugin_cache_key=None,
+            auth_plugin_invalidate_cache=False,
+        )
+        defaults.update(overrides)
+        return SimpleNamespace(**defaults)
+
+    def test_basic_auth_when_no_strategy_configured(self):
+        args = self._make_args()
+
+        with patch('sap.odata.Connection') as mock_connection:
+            sap.cli.odata_connection_from_args('UI5/SOMESERVICE', args)
+
+        self.assertIsNone(mock_connection.call_args.kwargs.get('session_initializer'))
+
+    def test_auth_plugin_initializer_carries_odata_service_path(self):
+        from sap.http.external_session_initializer import (
+            HTTPExternalSessionInitializer,
+        )
+        args = self._make_args(
+            password=None,
+            auth_plugin={'command': '/p'},
+            auth_plugin_cache_key='ctx|conn|user',
+        )
+
+        with patch('sap.odata.Connection') as mock_connection:
+            sap.cli.odata_connection_from_args('UI5/SOMESERVICE', args)
+
+        initializer = mock_connection.call_args.kwargs.get('session_initializer')
+        self.assertIsInstance(initializer, HTTPExternalSessionInitializer)
+        self.assertEqual(initializer._connection.type, 'odata')
+        # The OData service path lets a plugin authenticate against the
+        # service the command will actually call.
+        self.assertEqual(
+            initializer._connection.path,
+            '/sap/opu/odata/UI5/SOMESERVICE',
+        )
+
+    def test_oauth_initializer_when_oauth_configured(self):
+        from sap.http.oauth import OAuthHTTPSessionInitializer
+        args = self._make_args(
+            token_url='https://t', client_id='cid', client_secret='csec',
+        )
+
+        with patch('sap.odata.Connection') as mock_connection:
+            sap.cli.odata_connection_from_args('UI5/SOMESERVICE', args)
+
+        initializer = mock_connection.call_args.kwargs.get('session_initializer')
+        self.assertIsInstance(initializer, OAuthHTTPSessionInitializer)
+
+
 class TestAuthPluginInitializerCacheKey(unittest.TestCase):
     """adt_connection_from_args must forward the cache key onto the
        constructed HTTPExternalSessionInitializer; --auth-plugin-invalidate-cache

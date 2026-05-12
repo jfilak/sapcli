@@ -260,19 +260,38 @@ def gcts_connection_from_args(args):
 
     import sap.rest
 
+    # gCTS REST login lives at /sap/bc/cts_abapvcs/system. ABAP session
+    # cookies are server-wide, so a plugin that authenticates here also
+    # works for ADT/OData against the same system - cache reuse is the
+    # whole point of the shared (context, connection, user) key.
+    session_initializer = _build_session_initializer(
+        args,
+        conn_type='rest',
+        conn_path='/sap/bc/cts_abapvcs/system',
+    )
+
     return sap.rest.Connection('sap/bc/cts_abapvcs', 'system', args.ashost, args.client,
                                args.user, args.password, port=args.port, ssl=args.ssl,
-                               verify=args.verify, ssl_server_cert=args.ssl_server_cert)
+                               verify=args.verify, ssl_server_cert=args.ssl_server_cert,
+                               session_initializer=session_initializer)
 
 
 def odata_connection_from_args(service_name, args):
-    """Returns RFC connection constructed from the passed args (Namespace)
+    """Returns OData connection constructed from the passed args (Namespace).
     """
 
     import sap.odata
+
+    session_initializer = _build_session_initializer(
+        args,
+        conn_type='odata',
+        conn_path=f'/sap/opu/odata/{service_name}',
+    )
+
     return sap.odata.Connection(service_name, args.ashost, args.port,
                                 args.client, args.user, args.password, args.ssl,
-                                args.verify, ssl_server_cert=args.ssl_server_cert)
+                                args.verify, ssl_server_cert=args.ssl_server_cert,
+                                session_initializer=session_initializer)
 
 
 def no_connection(_args):
