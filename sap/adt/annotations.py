@@ -145,8 +145,16 @@ class OrderedClassMembers(type):
             if hasattr(parent, '__ordered__'):
                 members.extend(parent.__ordered__)
 
-        members.extend([key for key in classdict.keys()
-                        if key not in ('__module__', '__qualname__')])
+        child_keys = [key for key in classdict.keys()
+                      if key not in ('__module__', '__qualname__')]
+
+        # Remove parent members that the child class redefines
+        # so that the child's declaration order takes precedence.
+        redefined = set(child_keys) & set(members)
+        if redefined:
+            members = [m for m in members if m not in redefined]
+
+        members.extend(child_keys)
 
         classdict['__ordered__'] = members
 
