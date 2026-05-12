@@ -1117,6 +1117,50 @@ class TestADTTextProperty(unittest.TestCase):
         self.assertIn('text2', str(cm.exception))
 
 
+class ParentWithElements(metaclass=OrderedClassMembers):
+
+    def __init__(self):
+        self.objtype = ADTObjectType(None, None,
+                                     XMLNamespace('mock', 'https://example.org/mock'),
+                                     'application/xml',
+                                     None,
+                                     'parent')
+
+    @xml_element('mock:first', kind=XmlElementKind.TEXT)
+    def first(self):
+        return 'first_value'
+
+    @xml_element('mock:second', kind=XmlElementKind.TEXT)
+    def second(self):
+        return 'second_value'
+
+
+class ChildWithRedefinedElement(ParentWithElements):
+
+    @xml_element('mock:new_child', kind=XmlElementKind.TEXT)
+    def new_child(self):
+        return 'new_child_value'
+
+    @xml_element('mock:first', kind=XmlElementKind.TEXT)
+    def first(self):
+        return 'redefined_first_value'
+
+
+class TestSerializeWithRedefinedMemberOrder(unittest.TestCase):
+
+    def test_redefined_member_serialized_in_child_position(self):
+        obj = ChildWithRedefinedElement()
+        marshal = Marshal()
+        xml = marshal.serialize(obj)
+
+        self.assertEqual(xml, '<?xml version="1.0" encoding="UTF-8"?>\n'
+                              '<mock:parent xmlns:mock="https://example.org/mock">\n'
+                              '<mock:second>second_value</mock:second>\n'
+                              '<mock:new_child>new_child_value</mock:new_child>\n'
+                              '<mock:first>redefined_first_value</mock:first>\n'
+                              '</mock:parent>')
+
+
 # ── Regression test for ElementHandler.new() textproperty reset ──────────
 #
 # BUG: When deserializing a list of objects that have xml_text properties

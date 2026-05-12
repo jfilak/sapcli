@@ -4,7 +4,8 @@ import unittest
 
 import sap.adt
 from sap.adt.annotations import xml_attribute, xml_element, XmlElementKind, XmlNodeProperty, XmlElementProperty, \
-                                XmlAttributeProperty, XmlNodeAttributeProperty, XmlContainer, XmlListNodeProperty
+                                XmlAttributeProperty, XmlNodeAttributeProperty, XmlContainer, XmlListNodeProperty, \
+                                OrderedClassMembers
 
 
 class DummyClass:
@@ -265,6 +266,58 @@ class TestADTAnnotation(unittest.TestCase):
     def test_xml_list_node_property_default_no_list(self):
         with self.assertRaises(RuntimeError) as caught:
             node = XmlListNodeProperty('element', value=1)
+
+
+class TestOrderedClassMembersRedefinition(unittest.TestCase):
+
+    def test_child_redefining_parent_member_moves_it_to_child_position(self):
+
+        class Parent(metaclass=OrderedClassMembers):
+
+            @xml_attribute('parent_first')
+            def first(self):
+                return 'parent_first'
+
+            @xml_attribute('parent_second')
+            def second(self):
+                return 'parent_second'
+
+        class Child(Parent):
+
+            @xml_attribute('child_new')
+            def new_member(self):
+                return 'child_new'
+
+            @xml_attribute('parent_first')
+            def first(self):
+                return 'child_first'
+
+        parent_members = [m for m in Parent.__ordered__ if not m.startswith('__')]
+        child_members = [m for m in Child.__ordered__ if not m.startswith('__')]
+
+        self.assertEqual(parent_members, ['first', 'second'])
+        self.assertEqual(child_members, ['second', 'new_member', 'first'])
+
+    def test_child_without_redefinition_preserves_parent_order(self):
+
+        class Parent(metaclass=OrderedClassMembers):
+
+            @xml_attribute('a')
+            def alpha(self):
+                return 'a'
+
+            @xml_attribute('b')
+            def beta(self):
+                return 'b'
+
+        class Child(Parent):
+
+            @xml_attribute('c')
+            def gamma(self):
+                return 'c'
+
+        child_members = [m for m in Child.__ordered__ if not m.startswith('__')]
+        self.assertEqual(child_members, ['alpha', 'beta', 'gamma'])
 
 
 if __name__ == '__main__':
