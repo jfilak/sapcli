@@ -296,7 +296,7 @@ class TestApiStateSet(unittest.TestCase):
 
         with self.assertRaises(sap.cli.core.InvalidCommandLineError) as cm:
             args.execute(Mock(), args)
-        self.assertIn('at least one of --state, --comment, --cloud-dev, --key-user-apps is required',
+        self.assertIn('at least one of --state, --comment, --cloud-dev, --key-user-apps, --auth-values is required',
                        str(cm.exception))
 
     def test_set_contract_not_supported(self):
@@ -341,7 +341,8 @@ class TestApiStateSet(unittest.TestCase):
         group = _make_group()
         console = BufferConsole()
         args = _parse(group, 'apistate', 'set', 'c1', 'I_STATISTICALKEYFIGURECAT',
-                       '--state', 'Released', '--cloud-dev', 'No', '--key-user-apps', 'Yes')
+                       '--state', 'Released', '--cloud-dev', 'No', '--key-user-apps', 'Yes',
+                       '--auth-values', 'No')
         args.console_factory = Mock(return_value=console)
 
         result = args.execute(conn, args)
@@ -406,6 +407,18 @@ class TestApiStateSet(unittest.TestCase):
         with self.assertRaises(sap.errors.SAPCliError) as cm:
             args.execute(conn, args)
         self.assertIn('does not support API release management', str(cm.exception))
+
+    def test_set_auth_values_disabled(self):
+        """Test error when auth_values is not enabled for the contract"""
+        conn = Connection([_resp(API_RELEASE_READONLY_XML)])
+        group = _make_group()
+        args = _parse(group, 'apistate', 'set', 'c0', 'I_STATISTICALKEYFIGURECAT',
+                       '--auth-values', 'Yes')
+        args.console_factory = Mock(return_value=BufferConsole())
+
+        with self.assertRaises(sap.errors.SAPCliError) as cm:
+            args.execute(conn, args)
+        self.assertIn('Authorization Default Value is not enabled', str(cm.exception))
 
 
 class TestEnhanceCommandGroup(unittest.TestCase):
@@ -518,9 +531,17 @@ class TestHelperFunctions(unittest.TestCase):
         target = sap.adt.apirelease.Contract()
         target.contract = 'C1'
         # status is None - no existing status
-        args = Mock(state='Released', comment=None, cloud_dev=None, key_user_apps=None)
+        args = Mock(state='Released', comment=None, cloud_dev=None, key_user_apps=None, auth_values=None)
         sap.cli.apirelease._apply_args_to_contract(target, args)
         self.assertEqual(target.status.state, 'RELEASED')
+
+    # def test_apply_args_auth_values(self):
+    #     """Test applying auth_values argument"""
+    #     target = sap.adt.apirelease.Contract()
+    #     target.contract = 'C1'
+    #     args = Mock(state=None, comment=None, cloud_dev=None, key_user_apps=None, auth_values='Yes')
+    #     sap.cli.apirelease._apply_args_to_contract(target, args)
+    #     self.assertEqual(target.create_auth_values, 'true')
 
     def test_handle_validation_no_messages(self):
         """Cover line 176: no validation messages"""
@@ -544,6 +565,8 @@ class TestHelperFunctions(unittest.TestCase):
         self.assertEqual(sap.cli.apirelease._normalize_yes_no('Yes', '--cloud-dev'), 'true')
         self.assertEqual(sap.cli.apirelease._normalize_yes_no('no', '--cloud-dev'), 'false')
         self.assertEqual(sap.cli.apirelease._normalize_yes_no('YES', '--key-user-apps'), 'true')
+        self.assertEqual(sap.cli.apirelease._normalize_yes_no('No', '--auth-values'), 'false')
+        self.assertEqual(sap.cli.apirelease._normalize_yes_no('yes', '--auth-values'), 'true')
 
     def test_normalize_yes_no_invalid(self):
         from sap.errors import SAPCliError
@@ -555,7 +578,7 @@ class TestHelperFunctions(unittest.TestCase):
         from sap.errors import SAPCliError
         target = sap.adt.apirelease.Contract()
         target.contract = 'C1'
-        args = Mock(state=None, comment=None, cloud_dev='invalid', key_user_apps=None)
+        args = Mock(state=None, comment=None, cloud_dev='invalid', key_user_apps=None, auth_values=None)
         with self.assertRaises(SAPCliError):
             sap.cli.apirelease._apply_args_to_contract(target, args)
 
@@ -566,7 +589,7 @@ class TestHelperFunctions(unittest.TestCase):
         # Force status to None on the existing contract
         api_release.c1_release.status = None
 
-        args = Mock(state='Released', comment=None, cloud_dev=None, key_user_apps=None)
+        args = Mock(state='Released', comment=None, cloud_dev=None, key_user_apps=None, auth_values=None)
         payload = sap.cli.apirelease._build_payload(api_release, ContractKey.C1, args)
 
         contract = payload.get_contract(ContractKey.C1)
