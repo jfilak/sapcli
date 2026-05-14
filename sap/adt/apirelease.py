@@ -202,6 +202,7 @@ class ApiRelease(metaclass=OrderedClassMembers):
             target.use_in_key_user_apps = existing.use_in_key_user_apps
             target.use_in_sap_cloud_platform = existing.use_in_sap_cloud_platform
             target.comment = existing.comment
+            target.create_auth_values = existing.create_auth_values
             if existing.status is not None:
                 target.status = ContractStatus()
                 target.status.state = existing.status.state

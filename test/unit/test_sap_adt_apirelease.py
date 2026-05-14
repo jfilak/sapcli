@@ -342,6 +342,7 @@ class TestSetApiRelease(unittest.TestCase):
         self.assertEqual(result.behaviour.create, 'true')
         self.assertEqual(result.c1_release.use_in_key_user_apps, 'true')
         self.assertEqual(result.c1_release.use_in_sap_cloud_platform, 'true')
+        self.assertEqual(result.c1_release.create_auth_values, 'true')
         self.assertEqual(result.c1_release.use_concept_as_successor, 'false')
         self.assertEqual(result.api_catalog_data.is_any_contract_released, 'true')
 
@@ -381,6 +382,7 @@ class TestApiReleaseGetContract(unittest.TestCase):
         self.assertEqual(copy.use_in_key_user_apps, 'true')
         self.assertEqual(copy.use_in_sap_cloud_platform, 'false')
         self.assertEqual(copy.comment, '')
+        self.assertEqual(copy.create_auth_values, 'false')
         self.assertEqual(copy.status.state, 'RELEASED')
         self.assertEqual(copy.status.state_description, 'Released')
 
