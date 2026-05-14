@@ -535,14 +535,6 @@ class TestHelperFunctions(unittest.TestCase):
         sap.cli.apirelease._apply_args_to_contract(target, args)
         self.assertEqual(target.status.state, 'RELEASED')
 
-    # def test_apply_args_auth_values(self):
-    #     """Test applying auth_values argument"""
-    #     target = sap.adt.apirelease.Contract()
-    #     target.contract = 'C1'
-    #     args = Mock(state=None, comment=None, cloud_dev=None, key_user_apps=None, auth_values='Yes')
-    #     sap.cli.apirelease._apply_args_to_contract(target, args)
-    #     self.assertEqual(target.create_auth_values, 'true')
-
     def test_handle_validation_no_messages(self):
         """Cover line 176: no validation messages"""
         console = BufferConsole()
