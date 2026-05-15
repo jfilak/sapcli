@@ -2,6 +2,7 @@
 
 import secrets
 import string
+import warnings
 
 import sap.adt
 import sap.adt.checks
@@ -90,6 +91,10 @@ def execute_abap(connection, user_code, prefix=DEFAULT_PREFIX, package=DEFAULT_P
 
         result = clas.execute()
     finally:
-        clas.delete()
+        try:
+            clas.delete()
+        except SAPCliError as delete_exception:
+            warn_message = f'Warning: failed to delete temporary class {class_name}: {str(delete_exception)}'
+            warnings.warn(warn_message, stacklevel=2)
 
     return result
