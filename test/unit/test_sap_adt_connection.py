@@ -312,6 +312,24 @@ class TestADTConnection(unittest.TestCase):
         self.assertIsNotNone(collection_types)
         self.assertIsNotNone(self.connection._collection_types)
 
+        self.assertEqual(list(self.connection.collection_types.keys()), [
+              '/sap/bc/adt/bopf/businessobjects',
+              '/sap/bc/adt/packages',
+              '/sap/bc/adt/functions/groups/{groupname}/fmodules',
+              '/sap/bc/adt/functions/groups/{groupname}/includes',
+              '/sap/bc/adt/functions/groups',
+              '/sap/bc/adt/ddic/ddl/formatter/identifiers',
+              '/sap/bc/adt/sadl/gw/mde',
+              '/sap/bc/adt/quickfixes/evaluation',
+              '/sap/bc/adt/wdy/views',
+              '/sap/bc/adt/stub/test_accept',
+        ])
+
+        mime_stub_empty = self.connection.collection_types.get('/sap/bc/adt/stub/test_empty')
+        self.assertIsNone(mime_stub_empty)
+
+        mime_stub_accept = self.connection.collection_types.get('/sap/bc/adt/stub/test_accept')
+        self.assertEqual(mime_stub_accept, ['application/sapcli.test'])
 
     def test_property_collection_cache(self):
         fake_value = Mock()

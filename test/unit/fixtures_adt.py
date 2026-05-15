@@ -236,6 +236,20 @@ DISCOVERY_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
       </adtcomp:templateLinks>
     </app:collection>
   </app:workspace>
+  <app:workspace>
+    <atom:title>Stub Object With Empty Accept</atom:title>
+    <app:collection href="/sap/bc/adt/stub/test_empty">
+      <atom:title>Stub Test Object</atom:title>
+      <app:accept></app:accept>
+    </app:collection>
+  </app:workspace>
+  <app:workspace>
+    <atom:title>Stub Object With Empty Accept</atom:title>
+    <app:collection href="/sap/bc/adt/stub/test_accept">
+      <atom:title>Stub Test Object</atom:title>
+      <app:accept>application/sapcli.test</app:accept>
+    </app:collection>
+  </app:workspace>
 </app:service>
 '''
 
