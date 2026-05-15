@@ -1293,6 +1293,197 @@ class TestAuthPluginInitializerCacheKey(unittest.TestCase):
 
         mock_store.return_value.delete.assert_not_called()
 
+    def test_disable_cache_nulls_cache_key_on_initializer(self):
+        """When auth_plugin_disable_cache is True, the initializer must
+           be constructed with cache_key=None - the existing 'no cache'
+           code path in HTTPExternalSessionInitializer does the rest
+           (skips reads AND writes)."""
+
+        args = self._make_args(auth_plugin_disable_cache=True)
+
+        with patch('sap.cli.get_response_store'), \
+             patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        initializer = mock_connection.call_args.kwargs['session_initializer']
+        self.assertIsNone(initializer._cache_key)
+
+    def test_disable_cache_deletes_existing_entry(self):
+        """Disabling the cache also scrubs any pre-existing on-disk
+           entry - defense in depth, the user just told us they do not
+           want secrets persisted."""
+
+        args = self._make_args(auth_plugin_disable_cache=True)
+
+        with patch('sap.cli.get_response_store') as mock_store, \
+             patch('sap.adt.Connection'):
+            sap.cli.adt_connection_from_args(args)
+
+        mock_store.return_value.delete.assert_called_once_with('ctx|conn|user')
+
+    def test_disable_cache_without_cache_key_is_noop(self):
+        """No derived cache key (e.g. no auth_plugin / no context) plus
+           disable_cache must not call delete - nothing to clean up."""
+
+        args = self._make_args(
+            auth_plugin_cache_key=None,
+            auth_plugin_disable_cache=True,
+        )
+
+        with patch('sap.cli.get_response_store') as mock_store, \
+             patch('sap.adt.Connection'):
+            sap.cli.adt_connection_from_args(args)
+
+        mock_store.return_value.delete.assert_not_called()
+
+    def test_disable_cache_false_leaves_cache_key(self):
+        """The default (disable_cache=False) preserves the derived cache
+           key on the initializer."""
+
+        args = self._make_args(auth_plugin_disable_cache=False)
+
+        with patch('sap.cli.get_response_store'), \
+             patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        initializer = mock_connection.call_args.kwargs['session_initializer']
+        self.assertEqual(initializer._cache_key, 'ctx|conn|user')
+
+
+class TestResolveAuthPluginDisableCache(unittest.TestCase):
+    """The disable_cache value is resolved with the standard precedence:
+       CLI flag > SAPCLI_AUTH_PLUGIN_DISABLE_CACHE env var > config file
+       (under auth_plugin.disable_cache) > built-in default of False.
+    """
+
+    def _make_args(self, **kwargs):
+        defaults = dict(
+            ashost=None, sysnr=None, client=None, port=None,
+            ssl=None, verify=None, ssl_server_cert=None,
+            user=None, password=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin=None,
+            auth_plugin_disable_cache=None,
+        )
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def _config_with_plugin(self, plugin_dict):
+        return ConfigFile({
+            'current-context': 'ctx',
+            'connections': {'srv': {'ashost': 'h', 'client': '100'}},
+            'users': {'u': {'auth_plugin': plugin_dict}},
+            'contexts': {'ctx': {'connection': 'srv', 'user': 'u'}},
+        }, TEST_CONFIG_PATH)
+
+    def test_default_is_false_without_signal(self):
+        config_file = self._config_with_plugin({'command': '/p'})
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        # Strict bool: the resolver must normalize None to False so the
+        # downstream `getattr(args, 'auth_plugin_disable_cache', False)`
+        # branch is a real boolean check, not a None-vs-True check.
+        self.assertIs(args.auth_plugin_disable_cache, False)
+
+    def test_config_disable_cache_true(self):
+        config_file = self._config_with_plugin({
+            'command': '/p', 'disable_cache': True,
+        })
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertTrue(args.auth_plugin_disable_cache)
+
+    def test_config_disable_cache_string_true_normalized(self):
+        """YAML quoted 'true' / 'yes' must be treated as True."""
+
+        config_file = self._config_with_plugin({
+            'command': '/p', 'disable_cache': 'yes',
+        })
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertTrue(args.auth_plugin_disable_cache)
+
+    def test_env_overrides_config_false(self):
+        config_file = self._config_with_plugin({
+            'command': '/p', 'disable_cache': False,
+        })
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ',
+                        {'SAPCLI_AUTH_PLUGIN_DISABLE_CACHE': 'true'},
+                        clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertTrue(args.auth_plugin_disable_cache)
+
+    def test_env_false_token_keeps_cache(self):
+        """Env var false-token must NOT silently disable the cache - it
+           must override a config-level True back to False."""
+
+        config_file = self._config_with_plugin({
+            'command': '/p', 'disable_cache': True,
+        })
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ',
+                        {'SAPCLI_AUTH_PLUGIN_DISABLE_CACHE': 'no'},
+                        clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertFalse(args.auth_plugin_disable_cache)
+
+    def test_cli_true_overrides_env_and_config(self):
+        config_file = self._config_with_plugin({
+            'command': '/p', 'disable_cache': False,
+        })
+        args = self._make_args(
+            config_file=config_file,
+            auth_plugin_disable_cache=True,
+        )
+
+        with patch.dict('os.environ',
+                        {'SAPCLI_AUTH_PLUGIN_DISABLE_CACHE': 'no'},
+                        clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertTrue(args.auth_plugin_disable_cache)
+
+    def test_no_auth_plugin_defaults_false(self):
+        """Without an auth_plugin in the resolved context, disable_cache
+           still resolves to a bool (False) - the field is always set so
+           getattr(...False) in the connection factory is consistent."""
+
+        config = ConfigFile({
+            'current-context': 'basic',
+            'connections': {'srv': {'ashost': 'h', 'client': '100'}},
+            'users': {'u': {'user': 'USR', 'password': 'pwd'}},
+            'contexts': {'basic': {'connection': 'srv', 'user': 'u'}},
+        }, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIs(args.auth_plugin_disable_cache, False)
+
+
+class TestBuildEmptyConnectionValuesDisableCache(unittest.TestCase):
+
+    def test_empty_values_include_auth_plugin_disable_cache(self):
+        values = sap.cli.build_empty_connection_values()
+
+        self.assertTrue(hasattr(values, 'auth_plugin_disable_cache'))
+        self.assertIsNone(values.auth_plugin_disable_cache)
+
 
 if __name__ == '__main__':
     unittest.main()

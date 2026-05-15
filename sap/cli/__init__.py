@@ -220,12 +220,21 @@ def _build_plugin_initializer(args, conn_type, conn_path):
     )
 
     cache_key = getattr(args, 'auth_plugin_cache_key', None)
+    disable_cache = getattr(args, 'auth_plugin_disable_cache', False)
 
     # --auth-plugin-invalidate-cache drops the entry before the initializer
     # runs. The subsequent initialize_session call will then take the
-    # cache-miss path and store a fresh response.
-    if cache_key and getattr(args, 'auth_plugin_invalidate_cache', False):
+    # cache-miss path and store a fresh response. --auth-plugin-disable-cache
+    # piggy-backs on the same delete: when the user opts out of on-disk
+    # caching, any pre-existing entry must be scrubbed (defense in depth
+    # - the on-disk file is the credential they want gone).
+    if cache_key and (getattr(args, 'auth_plugin_invalidate_cache', False) or disable_cache):
         get_response_store().delete(cache_key)
+
+    if disable_cache:
+        # cache_key=None tells HTTPExternalSessionInitializer to skip both
+        # reads and writes (see test_no_cache_key_skips_cache_entirely).
+        cache_key = None
 
     return HTTPExternalSessionInitializer(
         command=command,
@@ -330,6 +339,7 @@ def build_empty_connection_values():
         client_secret=None,
         auth_plugin=None,
         auth_plugin_cache_key=None,
+        auth_plugin_disable_cache=None,
         auth_plugin_invalidate_cache=False,
     )
 
@@ -457,12 +467,14 @@ def _resolve_auth_plugin_default(args, config_values):
 
     if getattr(args, 'auth_plugin', None) is not None:
         args.auth_plugin_cache_key = _derive_cache_key(args)
+        _resolve_disable_cache(args, args.auth_plugin)
         return
 
     plugin = config_values.get('auth_plugin')
     if not plugin:
         args.auth_plugin = None
         args.auth_plugin_cache_key = None
+        _resolve_disable_cache(args, None)
         return
 
     if config_values.get('password'):
@@ -480,6 +492,36 @@ def _resolve_auth_plugin_default(args, config_values):
 
     args.auth_plugin = plugin
     args.auth_plugin_cache_key = _derive_cache_key(args)
+    _resolve_disable_cache(args, plugin)
+
+
+def _resolve_disable_cache(args, plugin_config):
+    """Normalize args.auth_plugin_disable_cache to a strict bool.
+
+    Precedence: CLI flag > SAPCLI_AUTH_PLUGIN_DISABLE_CACHE env var >
+    auth_plugin.disable_cache in the resolved config > False.
+
+    The config value lives *inside* the auth_plugin mapping rather than
+    on the user definition - it is an auth-plugin-specific knob, not a
+    generic user field, and grouping it with command/parameters keeps
+    the plugin config self-contained.
+    """
+
+    cli_value = getattr(args, 'auth_plugin_disable_cache', None)
+    if cli_value is not None:
+        args.auth_plugin_disable_cache = _normalize_bool(cli_value)
+        return
+
+    env_value = os.environ.get('SAPCLI_AUTH_PLUGIN_DISABLE_CACHE')
+    if env_value is not None:
+        args.auth_plugin_disable_cache = _normalize_bool(env_value)
+        return
+
+    if isinstance(plugin_config, dict) and 'disable_cache' in plugin_config:
+        args.auth_plugin_disable_cache = _normalize_bool(plugin_config['disable_cache'])
+        return
+
+    args.auth_plugin_disable_cache = False
 
 
 def _derive_cache_key(args):
