@@ -348,6 +348,57 @@ class TestParseCommandLine(unittest.TestCase):
 
         self.assertIsNone(args.ssl_server_cert)
 
+    def test_args_auth_plugin_disable_cache_default_false(self):
+        """Without the flag and without env, the resolved value is False
+           - the cache is on by default (the on-disk store is opt-out)."""
+
+        test_params = get_tested_parameters()
+
+        with patch.dict(os.environ, {}, clear=False) as _env:
+            os.environ.pop('SAPCLI_AUTH_PLUGIN_DISABLE_CACHE', None)
+            args = entry.parse_command_line(test_params)
+
+        self.assertFalse(args.auth_plugin_disable_cache)
+
+    def test_args_auth_plugin_disable_cache_flag(self):
+        """--auth-plugin-disable-cache flips the value to True."""
+
+        test_params = get_tested_parameters()
+        test_params.insert(1, '--auth-plugin-disable-cache')
+
+        args = entry.parse_command_line(test_params)
+
+        self.assertTrue(args.auth_plugin_disable_cache)
+
+    def test_args_auth_plugin_disable_cache_env_var_true(self):
+        """SAPCLI_AUTH_PLUGIN_DISABLE_CACHE in the env enables it without
+           a CLI flag."""
+
+        test_params = get_tested_parameters()
+
+        os.environ['SAPCLI_AUTH_PLUGIN_DISABLE_CACHE'] = 'true'
+        try:
+            args = entry.parse_command_line(test_params)
+        finally:
+            del os.environ['SAPCLI_AUTH_PLUGIN_DISABLE_CACHE']
+
+        self.assertTrue(args.auth_plugin_disable_cache)
+
+    def test_args_auth_plugin_disable_cache_env_var_false_tokens(self):
+        """False tokens (no/off/false/n) keep the cache enabled. Same
+           normalization rules as SAP_SSL / SAP_SSL_VERIFY."""
+
+        test_params = get_tested_parameters()
+
+        for variant in ('n', 'no', 'No', 'NO', 'false', 'FALSE', 'off', 'Off'):
+            os.environ['SAPCLI_AUTH_PLUGIN_DISABLE_CACHE'] = variant
+            try:
+                args = entry.parse_command_line(test_params)
+            finally:
+                del os.environ['SAPCLI_AUTH_PLUGIN_DISABLE_CACHE']
+
+            self.assertFalse(args.auth_plugin_disable_cache, msg=variant)
+
 
 class TestParseCommandLineNoCommand(unittest.TestCase):
 

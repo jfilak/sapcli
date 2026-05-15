@@ -70,6 +70,12 @@ def parse_command_line(argv):
         default=False, action='store_true',
         help='Drop the cached auth-plugin response before authenticating')
     arg_parser.add_argument(
+        '--auth-plugin-disable-cache', dest='auth_plugin_disable_cache',
+        default=None, action='store_true',
+        help='Do not read or write the auth-plugin response cache on disk '
+             '(also drops any pre-existing entry). '
+             'Env: SAPCLI_AUTH_PLUGIN_DISABLE_CACHE')
+    arg_parser.add_argument(
         '--ashost', dest='ashost', type=str, default=None,
         help='Application Server address (DNS or IP)')
     arg_parser.add_argument(

@@ -120,6 +120,22 @@ active user.
 sapcli --auth-plugin-invalidate-cache abap systeminfo
 ```
 
+### --auth-plugin-disable-cache
+
+Disable on-disk caching of the auth-plugin response entirely: sapcli
+neither reads from nor writes to the cache, and any pre-existing entry
+for the active context is deleted before the plugin runs.
+
+Same behaviour can be achieved by setting the environment variable
+`SAPCLI_AUTH_PLUGIN_DISABLE_CACHE` (to any non-false token), or by
+adding `disable_cache: true` inside the `auth_plugin` mapping in the
+config file. Precedence: CLI flag > env var > config file. The
+[Response caching](#response-caching) section discusses the trade-off.
+
+```bash
+sapcli --auth-plugin-disable-cache abap systeminfo
+```
+
 ## Configuration file
 
 ### File location
@@ -395,7 +411,14 @@ users:
       command: /absolute/path/to/your/plugin
       parameters:
         channel: msedge    # optional, plugin-specific key/value pairs
+      disable_cache: false # optional, opt out of on-disk response caching
 ```
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `command` | string | yes | - | Absolute path to the plugin executable. |
+| `parameters` | mapping | no | `{}` | Verbatim key/value pairs forwarded to the plugin as `parameters` in its stdin JSON. |
+| `disable_cache` | bool | no | `false` | When true, sapcli does not write the plugin response to disk and ignores any existing entry. See [Response caching](#response-caching) for the env var and CLI flag overrides. |
 
 `auth_plugin` is **mutually exclusive** with `password` and with the
 OAuth fields on the same logical session — the plugin is the one source
@@ -404,7 +427,9 @@ present.
 
 `auth_plugin` is configured **only** in the config file, not via CLI
 flags or environment variables. It is a structured value, not a scalar,
-and its presence flips the entire authentication mode.
+and its presence flips the entire authentication mode. (The
+`disable_cache` knob inside it is the one exception — it can also be
+set via `--auth-plugin-disable-cache` or `SAPCLI_AUTH_PLUGIN_DISABLE_CACHE`.)
 
 #### Response caching
 
@@ -431,6 +456,31 @@ sapcli --auth-plugin-invalidate-cache abap systeminfo
 
 You can also delete the cache file directly — useful for scripted
 cleanup.
+
+##### Disabling the cache entirely
+
+Some deployments cannot tolerate session credentials being written to
+disk at all (corporate DLP policies, shared jump hosts, compliance
+regimes that forbid at-rest persistence of bearer material). For those
+cases, caching can be turned off altogether through any of the
+following — in precedence order:
+
+| Layer | How |
+|---|---|
+| CLI | `--auth-plugin-disable-cache` |
+| Env var | `SAPCLI_AUTH_PLUGIN_DISABLE_CACHE=true` (any non-false token; `no`/`off`/`false`/`n` switch it back off) |
+| Config | `auth_plugin.disable_cache: true` on the user definition |
+
+When in effect, sapcli (1) does not read from the cache, (2) does not
+write to it, and (3) deletes any pre-existing entry for the active
+context before the plugin runs.
+
+The trade-off: every sapcli invocation re-runs the plugin from scratch.
+For browser-based SSO that is the difference between a sub-second
+command and a 20-second one. Within a single sapcli invocation that
+hits more than one connection type (ADT + gCTS + OData), the plugin is
+re-invoked per connection — there is no in-process fallback today; this
+is a known limitation when disabling the cache.
 
 #### The plugin protocol
 
