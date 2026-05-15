@@ -115,9 +115,9 @@ def _validate_set_args(args) -> ContractKey:
 
     contract_key = _parse_contract_key(args.contract)
 
-    if not any([args.state, args.comment is not None, args.cloud_dev, args.key_user_apps]):
+    if not any([args.state, args.comment is not None, args.cloud_dev, args.key_user_apps, args.auth_values]):
         raise InvalidCommandLineError(
-            'at least one of --state, --comment, --cloud-dev, --key-user-apps is required'
+            'at least one of --state, --comment, --cloud-dev, --key-user-apps, --auth-values is required'
         )
 
     return contract_key
@@ -141,6 +141,9 @@ def _check_behaviour(api_release, contract_key, args):
     if args.cloud_dev and contract_behaviour.use_in_sap_cloud_platform_read_only == 'true':
         raise SAPCliError('Use in Cloud Development is read-only for this contract')
 
+    if args.auth_values and contract_behaviour.auth_values_enabled != 'true':
+        raise SAPCliError('Authorization Default Value is not enabled for this contract')
+
 
 def _apply_args_to_contract(target, args):
     """Apply user-provided options to the target contract"""
@@ -159,6 +162,9 @@ def _apply_args_to_contract(target, args):
 
     if args.key_user_apps:
         target.use_in_key_user_apps = _normalize_yes_no(args.key_user_apps, '--key-user-apps')
+
+    if args.auth_values:
+        target.create_auth_values = _normalize_yes_no(args.auth_values, '--auth-values')
 
 
 def _build_payload(api_release, contract_key, args):
@@ -278,6 +284,8 @@ def enhance_command_group(command_group):
                                 help='Use in Cloud Development: Yes or No')
         set_parser.add_argument('--key-user-apps', default=None, dest='key_user_apps',
                                 help='Use in Key User Apps: Yes or No')
+        set_parser.add_argument('--auth-values', default=None, dest='auth_values',
+                                help='Authorization Default Value: Yes or No')
         set_parser.add_argument('--corrnr', default=None, help='Transport request number')
         set_parser.add_argument('--force', action='store_true', default=False,
                                 help='Skip confirmation on validation warnings')

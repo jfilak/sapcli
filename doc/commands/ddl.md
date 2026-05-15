@@ -70,7 +70,7 @@ change with the server before applying it. If validation returns warnings, the
 user is prompted for confirmation unless `--force` is specified.
 
 ```bash
-sapcli ddl apistate set CONTRACT NAME [--state STATE] [--comment COMMENT] [--cloud-dev YES|NO] [--key-user-apps YES|NO] [--corrnr TRANSPORT] [--force]
+sapcli ddl apistate set CONTRACT NAME [--state STATE] [--comment COMMENT] [--cloud-dev YES|NO] [--key-user-apps YES|NO] [--auth-values YES|NO] [--corrnr TRANSPORT] [--force]
 ```
 
 - **CONTRACT** - contract level: c0, c1, c2, c3, c4
@@ -79,5 +79,6 @@ sapcli ddl apistate set CONTRACT NAME [--state STATE] [--comment COMMENT] [--clo
 - **--comment** - free-text comment
 - **--cloud-dev** - use in Cloud Development: Yes or No
 - **--key-user-apps** - use in Key User Apps: Yes or No
+- **--auth-values** - authorization Default Value: Yes or No
 - **--corrnr** - transport request number
 - **--force** - skip confirmation on validation warnings
