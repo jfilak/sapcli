@@ -63,8 +63,8 @@ def find_mime_version(connection, objtype):
     seri_mime = next((mime for mime in mimes if mime in objtype.all_mimetypes), None)
     if seri_mime is None:
         # pylint: disable=consider-using-f-string
-        raise SAPCliError('Not supported mimes: {} not in {}'
-                          .format(';'.join(mimes), ';'.join(objtype.all_mimetypes)))
+        raise SAPCliError('Not supported mimes for {}: "{}" not in "{}"'
+                          .format(objtype.basepath, ';'.join(mimes), ';'.join(objtype.all_mimetypes)))
 
     version = mimetype_to_version(seri_mime)
     return (seri_mime, version)

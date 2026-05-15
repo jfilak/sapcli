@@ -239,7 +239,8 @@ class TestADTObject(unittest.TestCase):
         with self.assertRaises(sap.errors.SAPCliError) as caught:
             victory.create()
 
-        self.assertEqual(str(caught.exception), 'Not supported mimes: application/something.else+xml not in application/vnd.sap.super.cool.txt+xml;application/vnd.sap.super.cool.txt.v2+xml')
+        self.assertEqual(str(caught.exception),
+            'Not supported mimes for awesome/success: "application/something.else+xml" not in "application/vnd.sap.super.cool.txt+xml;application/vnd.sap.super.cool.txt.v2+xml"')
 
     def test_delete(self):
         conn = Connection([EMPTY_RESPONSE_OK])
