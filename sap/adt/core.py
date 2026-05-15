@@ -52,6 +52,9 @@ class _DiscoveryHandler(ContentHandler):
             self._collection = None
             self._mimetypes = None
         elif name == 'app:accept':
+            if not self._accept:
+                return
+
             self._mimetypes.append(self._accept)
             self._accept = None
 
