@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import unittest
+import warnings
 from unittest.mock import patch, call
 
 from sap.errors import SAPCliError
@@ -238,6 +239,44 @@ class TestExecuteAbap(unittest.TestCase):
         self.assertFalse(any('activation' in uri for _, uri in methods))
         # Delete still happens.
         self.assertIn('deletion/delete', connection.execs[-1].adt_uri)
+
+    def test_delete_failure_emits_warning_instead_of_exception(self):
+        connection = Connection([
+            EMPTY_RESPONSE_OK,           # create
+            _make_check_response(),      # check_before_save
+            LOCK_RESPONSE_OK,            # lock
+            EMPTY_RESPONSE_OK,           # write source
+            EMPTY_RESPONSE_OK,           # unlock
+            EMPTY_RESPONSE_OK,           # activate (POST)
+            _make_activate_response(),   # fetch after activate (GET)
+            Response(text='output', status_code=200,
+                     headers={'Content-Type': 'text/plain'}),  # execute
+            Response(text='Not found', status_code=404, headers={}),  # delete fails
+        ])
+
+        with patch('sap.platform.abap.run.generate_class_name', return_value=FIXED_CLASS_NAME):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter('always')
+                result = execute_abap(connection, 'WRITE "hello".')
+
+        self.assertEqual(result, 'output')
+        self.assertEqual(len(caught), 1)
+        self.assertIn(FIXED_CLASS_NAME, str(caught[0].message))
+
+    def test_delete_failure_after_create_failure_emits_warning(self):
+        connection = Connection([
+            Response(text='Create failed', status_code=500, headers={}),  # create fails
+            Response(text='Not found', status_code=404, headers={}),      # delete fails too
+        ])
+
+        with patch('sap.platform.abap.run.generate_class_name', return_value=FIXED_CLASS_NAME):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter('always')
+                with self.assertRaises(Exception):
+                    execute_abap(connection, 'WRITE "hello".')
+
+        self.assertEqual(len(caught), 1)
+        self.assertIn(FIXED_CLASS_NAME, str(caught[0].message))
 
     def test_check_disabled_via_env_skips_check_post(self):
         connection = Connection([
