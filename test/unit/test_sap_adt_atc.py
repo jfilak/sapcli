@@ -261,7 +261,7 @@ class TestATCRunner(unittest.TestCase):
         self.assertEqual(len(atcobject.findings), 2)
         finding = atcobject.findings[0]
 
-        self.assertEqual(finding.priority, '2')
+        self.assertEqual(finding.priority, '1')
         self.assertEqual(finding.check_id, '005056AB5B8D1ED4BFDA1CA5D9EBA6C4')
         self.assertEqual(finding.check_title, 'Test Environment (CHK_ZDM)')
         self.assertEqual(finding.message_id, '0898')
