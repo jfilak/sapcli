@@ -180,3 +180,8 @@ as a template for the documentation.
 The documentation must contain all commands and options returned by the new
 command help. Run `sapcli my-object --help` to get the list of commands and
 options.
+
+## Checklist:
+- [ ] ADT object class has serilization and deserialization implemented and tested
+- [ ] Command line iterface documentation matches output of the command help
+- [ ] The command `make check` runs without errors
