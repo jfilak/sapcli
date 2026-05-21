@@ -91,7 +91,7 @@ system-test:
 	export PATH=$$(pwd):$$PATH; cd test/system && ./run.sh
 
 .PHONY: check
-check: lint report-coverage
+check: lint test report-coverage
 
 .PHONY: release
 release: _toml_version _version
