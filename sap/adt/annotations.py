@@ -308,7 +308,51 @@ class XmlNodeAttributeProperty(XmlAttributeProperty, XmlPropertyImpl):
 
 
 class XmlListNodeProperty(XmlElementProperty):
-    """Many repetitions of the same tag"""
+    """Many repetitions of the same tag:
+
+        <the-name-arg value=foo/>
+        <the-name-arg value=bar/>
+        <the-name-arg value=grc/>
+
+        The property member has a magic side effect: the setter is the method append
+        and it does not set the list but appends the given value to the list of items.
+
+        class SampleList(metaclass=OrderedClassMembers):
+            items = XmlListNodeProperty('item')
+
+        sl = SampleList()
+
+        # To append to an empty list, you can either assign the value to the property:
+        sl.items = SampleItem("bar")
+
+        # Or define the list with a default value and then append to it:
+        class SampleList(metaclass=OrderedClassMembers):
+            items = XmlListNodeProperty('item', value=[])
+
+        # and then append to the list:
+        sl.items.append(SampleItem("bar"))
+
+        The reason behind the appending setter is to keep the marshaller simple.
+
+        The serialization of the list is straightforward: each item is
+        serialized as a child XML element of the same name. The marshaller
+        does not generated anything if the list is empty or None - because
+        during deserialization, the marshaller does not need to remember
+        whether the element is a list item or a single object - the marshaller
+        just deserializes the element an sets the property to the deserialized value,
+        and the setter takes care of appending the value to the list if needed.
+
+        Some ADT objects simply mixes single and multiple occurrences of elements
+        instead of wrapping lists in a container element.
+
+        <adt-object>
+            <some-other-data/>
+            <the-name-arg value=foo/>
+            <the-name-arg value=bar/>
+            <the-name-arg value=grc/>
+            <yet-another-object/>
+        </adt-object>
+    """
 
     def __init__(self, name, value=None, deserialize=True, factory=None, kind=XmlElementKind.OBJECT, version=None):
         super().__init__(name, self.get, fset=self.append, deserialize=deserialize,
@@ -369,7 +413,36 @@ class XmlContainerMeta(OrderedClassMembers):
 
 
 class XmlContainer(metaclass=XmlContainerMeta):
-    """A template class with the property items which is annotated as XmlElement."""
+    """A template class with the property items which is annotated as XmlElement.
+    The resulting class provides a list-like interface to the items:
+        - append(value) to append an item to the list
+        - __iter__() to iterate over the items
+        - __getitem__(index) to get an item by index
+        - __len__() to get the number of items
+
+    Usage:
+        If you need to parse something like this:
+
+        <adt-object>
+            <the-xml-container-name>
+                <the-item-element-name value=foo/>
+                <the-item-element-name value=bar/>
+                <the-item-element-name value=grc/>
+            </the-xml-container-name>
+        </adt-object>
+
+        # Then you can define a class for the container like this:
+
+        class TheItem:
+            xml_attr = XmlNodeAttributeProperty('value')
+
+        MyItemsContainer = XmlContainer.define('the-item-element-name', TheItem)
+
+        # and then use it in the ADT object class:
+
+        class MyAdtObject(ADTObject):
+            items = XmlNodeProperty('the-xml-container-name', factory=MyItemsContainer)
+    """
 
     def append(self, value):
         """Appends the give value to the XML container"""
