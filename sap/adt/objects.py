@@ -21,7 +21,11 @@ from sap.adt.annotations import (
 )
 
 
+LOCK_ACTION_LOCK = 'LOCK'
+LOCK_ACTION_LOCK_MSG = 'LOCK_MSG'
 LOCK_ACCESS_MODE_MODIFY = 'MODIFY'
+UNLOCK_ACTION_UNLOCK = 'UNLOCK'
+UNLOCK_ACTION_UNLOCK_ALL = 'UNLOCK_ALL'
 
 ADT_OBJECT_VERSION_ACTIVE = 'active'
 
@@ -70,16 +74,19 @@ def find_mime_version(connection, objtype):
     return (seri_mime, version)
 
 
-def lock_params(access_mode):
+def lock_params(access_mode, action='LOCK'):
     """Returns parameters for Action Lock"""
 
-    return {'_action': 'LOCK', 'accessMode': access_mode}
+    return {'_action': action, 'accessMode': access_mode}
 
 
-def unlock_params(lock_handle):
+def unlock_params(lock_handle, action='UNLOCK'):
     """Returns parameters for Action Unlock"""
 
-    return {'_action': 'UNLOCK', 'lockHandle': lock_handle}
+    if action == UNLOCK_ACTION_UNLOCK_ALL:
+        return {'_action': action}
+
+    return {'_action': action, 'lockHandle': lock_handle}
 
 
 def create_params(corrnr):
@@ -495,6 +502,66 @@ def adt_object_delete(connection, uri, corrnr=None):
     return resp
 
 
+def adt_object_lock(connection, uri, parameters: dict, body=None):
+    """Lock an ADT object by its full URI."""
+
+    action = parameters.get('_action', 'LOCK')
+
+    headers = {
+        'X-sap-adt-sessiontype': 'stateful',
+    }
+
+    if action == 'LOCK_MSG':
+        headers['Content-Type'] = 'text/plain'
+        headers['Accept'] = 'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.StatusMessage'
+    else:
+        headers['Accept'] = ', '.join([
+            'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8',
+            'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9'
+        ])
+
+    resp = connection.execute(
+        'POST',
+        uri,
+        headers=headers,
+        params=parameters,
+        body=body,
+    )
+
+    if 'dataname=com.sap.adt.lock.Result' not in resp.headers.get('Content-Type', ''):
+        raise SAPCliError(f'Object {uri}: lock response does not have lock result\n' + resp.text)
+
+    mod_log().debug(resp.text)
+
+    match = re.match('.*<LOCK_HANDLE>(.*)</LOCK_HANDLE>.*', resp.text, re.DOTALL)
+    if match is None:
+        raise SAPCliError(f'Object {uri}: lock response does not contain LOCK_HANDLE\n' + resp.text)
+
+    lock_handle = match[1]
+    mod_log().debug('LockHandle=%s', lock_handle)
+
+    return lock_handle
+
+
+def adt_object_unlock(connection, uri, parameters: dict, content_type: Optional[str] = None, body=None):
+    """Unlock an ADT object by its full URI."""
+
+    headers = {
+        'X-sap-adt-sessiontype': 'stateful',
+    }
+
+    if content_type:
+        headers['Content-Type'] = content_type
+
+    connection.execute(
+        'POST',
+        uri,
+        params=parameters,
+        headers=headers,
+        body=body,
+    )
+
+
 # pylint: disable=too-many-public-methods
 class ADTObject(metaclass=OrderedClassMembers):
     """Abstract base class for ADT objects
@@ -719,44 +786,31 @@ class ADTObject(metaclass=OrderedClassMembers):
         marshal = sap.adt.marshalling.Marshal()
         marshal.deserialize(resp.text, self)
 
+    def _build_lock_params(self, access_mode):
+        """Builds parameters for lock action"""
+
+        return lock_params(access_mode)
+
+    def _build_unlock_params(self, lock_handle):
+        """Builds parameters for unlock action"""
+
+        return unlock_params(lock_handle)
+
     def lock(self):
         """Locks the object"""
 
-        resp = self.connection.execute(
-            'POST',
-            self.uri,
-            params=lock_params(LOCK_ACCESS_MODE_MODIFY),
-            headers={
-                'X-sap-adt-sessiontype': 'stateful',
-                'Accept': ', '.join([
-                    'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8',
-                    'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9'
-                ])
-            }
-        )
+        object_path = self.uri
+        params = self._build_lock_params(LOCK_ACCESS_MODE_MODIFY)
 
-        if 'dataname=com.sap.adt.lock.Result' not in resp.headers['Content-Type']:
-            raise SAPCliError(f'Object {self.uri}: lock response does not have lock result\n' + resp.text)
-
-        mod_log().debug(resp.text)
-
-        # TODO: check encoding
-        lock_handle = re.match('.*<LOCK_HANDLE>(.*)</LOCK_HANDLE>.*', resp.text)[1]
-        mod_log().debug('LockHandle=%s', lock_handle)
-
-        return lock_handle
+        return adt_object_lock(self.connection, object_path, parameters=params)
 
     def unlock(self, lock_handle):
         """Unlocks the object"""
 
-        self.connection.execute(
-            'POST',
-            self.uri,
-            params=unlock_params(lock_handle),
-            headers={
-                'X-sap-adt-sessiontype': 'stateful',
-            }
-        )
+        object_path = self.uri
+        params = self._build_unlock_params(lock_handle)
+
+        return adt_object_unlock(self.connection, object_path, parameters=params)
 
     def open_editor(self, lock_handle=None, corrnr=None):
         """Creates editor and returns its instance

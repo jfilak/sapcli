@@ -552,6 +552,118 @@ class TestADTPropertyEditor(unittest.TestCase):
         editor.write('ignored')
 
 
+class TestAdtObjectLockFunction(unittest.TestCase):
+
+    def test_lock_ok(self):
+        connection = Connection([LOCK_RESPONSE_OK])
+
+        params = sap.adt.objects.lock_params(sap.adt.objects.LOCK_ACCESS_MODE_MODIFY)
+        handle = sap.adt.objects.adt_object_lock(connection, 'programs/programs/ztest', parameters=params)
+
+        self.assertEqual(handle, 'win')
+
+        request = connection.execs[0]
+        self.assertEqual(request.method, 'POST')
+        self.assertEqual(request.adt_uri, '/sap/bc/adt/programs/programs/ztest')
+        self.assertEqual(request.params['_action'], 'LOCK')
+        self.assertEqual(request.params['accessMode'], 'MODIFY')
+        self.assertEqual(request.headers['X-sap-adt-sessiontype'], 'stateful')
+        self.assertIn('dataname=com.sap.adt.lock.result', request.headers['Accept'])
+
+    def test_lock_invalid_response(self):
+        response = Response(text='invalid', status_code=200, headers={'Content-Type': 'text/plain'})
+        connection = Connection([response])
+
+        params = sap.adt.objects.lock_params(sap.adt.objects.LOCK_ACCESS_MODE_MODIFY)
+
+        with self.assertRaises(SAPCliError) as cm:
+            sap.adt.objects.adt_object_lock(connection, 'programs/programs/ztest', parameters=params)
+
+        self.assertIn('lock response does not have lock result', str(cm.exception))
+
+    def test_lock_msg_action(self):
+        connection = Connection([LOCK_RESPONSE_OK])
+
+        params = sap.adt.objects.lock_params(sap.adt.objects.LOCK_ACCESS_MODE_MODIFY, action='LOCK_MSG')
+        handle = sap.adt.objects.adt_object_lock(
+            connection, 'programs/programs/ztest', parameters=params, body=b'message')
+
+        self.assertEqual(handle, 'win')
+
+        request = connection.execs[0]
+        self.assertEqual(request.params['_action'], 'LOCK_MSG')
+        self.assertEqual(request.headers['Content-Type'], 'text/plain')
+        self.assertIn('dataname=com.sap.adt.StatusMessage', request.headers['Accept'])
+        self.assertEqual(request.body, b'message')
+
+
+class TestAdtObjectUnlockFunction(unittest.TestCase):
+
+    def test_unlock_ok(self):
+        connection = Connection([None])
+
+        params = sap.adt.objects.unlock_params('my_handle')
+        sap.adt.objects.adt_object_unlock(connection, 'programs/programs/ztest', parameters=params)
+
+        request = connection.execs[0]
+        self.assertEqual(request.method, 'POST')
+        self.assertEqual(request.adt_uri, '/sap/bc/adt/programs/programs/ztest')
+        self.assertEqual(request.params['_action'], 'UNLOCK')
+        self.assertEqual(request.params['lockHandle'], 'my_handle')
+        self.assertEqual(request.headers['X-sap-adt-sessiontype'], 'stateful')
+        self.assertNotIn('Content-Type', request.headers)
+
+    def test_unlock_with_content_type_and_body(self):
+        connection = Connection([None])
+
+        params = sap.adt.objects.unlock_params(None, action=sap.adt.objects.UNLOCK_ACTION_UNLOCK_ALL)
+        sap.adt.objects.adt_object_unlock(
+            connection, 'programs/programs/ztest', parameters=params,
+            content_type='text/plain', body=b'payload')
+
+        request = connection.execs[0]
+        self.assertEqual(request.params['_action'], 'UNLOCK_ALL')
+        self.assertNotIn('lockHandle', request.params)
+        self.assertEqual(request.headers['Content-Type'], 'text/plain')
+        self.assertEqual(request.body, b'payload')
+
+    def test_unlock_all_params(self):
+        params = sap.adt.objects.unlock_params(None, action=sap.adt.objects.UNLOCK_ACTION_UNLOCK_ALL)
+        self.assertEqual(params, {'_action': 'UNLOCK_ALL'})
+
+    def test_unlock_params(self):
+        params = sap.adt.objects.unlock_params('handle123')
+        self.assertEqual(params, {'_action': 'UNLOCK', 'lockHandle': 'handle123'})
+
+
+class TestLockUnlockParams(unittest.TestCase):
+
+    def test_lock_params_default_action(self):
+        params = sap.adt.objects.lock_params('MODIFY')
+        self.assertEqual(params, {'_action': 'LOCK', 'accessMode': 'MODIFY'})
+
+    def test_lock_params_custom_action(self):
+        params = sap.adt.objects.lock_params('MODIFY', action='LOCK_MSG')
+        self.assertEqual(params, {'_action': 'LOCK_MSG', 'accessMode': 'MODIFY'})
+
+    def test_lock_params_custom_access_mode(self):
+        params = sap.adt.objects.lock_params('READ')
+        self.assertEqual(params, {'_action': 'LOCK', 'accessMode': 'READ'})
+
+    def test_unlock_params_default_action(self):
+        params = sap.adt.objects.unlock_params('handle123')
+        self.assertEqual(params, {'_action': 'UNLOCK', 'lockHandle': 'handle123'})
+
+    def test_unlock_params_unlock_all_omits_lock_handle(self):
+        params = sap.adt.objects.unlock_params(None, action=sap.adt.objects.UNLOCK_ACTION_UNLOCK_ALL)
+        self.assertEqual(params, {'_action': 'UNLOCK_ALL'})
+        self.assertNotIn('lockHandle', params)
+
+    def test_unlock_params_with_explicit_unlock_action(self):
+        params = sap.adt.objects.unlock_params('abc', action=sap.adt.objects.UNLOCK_ACTION_UNLOCK)
+        self.assertEqual(params, {'_action': 'UNLOCK', 'lockHandle': 'abc'})
+
+
 class TestADTObjectSourceEditorFactoryMethods(unittest.TestCase):
 
     def test_plain_text_factory_returns_source_editor(self):
