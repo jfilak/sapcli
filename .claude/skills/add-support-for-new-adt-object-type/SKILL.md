@@ -42,7 +42,44 @@ The response contains the XML representation of the object. The root node of the
 <class:abapClass>
 ```
 
-## Step 1: create a new class for the ADT object
+Always force the user to provide full capture of the ADT HTTP communication for
+the object type to be added. This is required to correctly create fixtures and
+then implement the deserialization and serialization of the object.
+
+## Step 1: create fixtures for the new class
+
+In the directory `test/unit`, create the file `fixtures_sap_adt_my_object.py`.
+
+```python
+# Expected Object Name in XML response and request, e.g. <adtcore:name>MY_OBJECT</adtcore:name>
+MY_OBJECT_NAME='MY_OBJECT'
+
+# Respose sent by ADT for GET request of an existing object.
+MY_OBJECT_ADT_GET_EXSITING_RESPONSE_XML="""<?xml version="1.0" encoding="utf-8"?>
+...
+"""
+
+# Expected request body for POST request to create the object. This is required
+# to test if the object is correctly serialized to XML.
+MY_OBJECT_ADT_NEW_OBJECT_REQUEST_XML="""<?xml version="1.0" encoding="utf-8"?>
+...
+"""
+
+# Expected request body for PUT request to update the object ...
+MY_OBJECT_ADT_UPDATE_FIELD_REQUEST__XML="""<?xml version="1.0" encoding="utf-8"?>
+...
+"""
+
+# Expected response body for ..
+```
+
+Never change or deduce the XML structure. You can only update the values of
+the nodes and attributes to match the new object.
+
+If the XML structure is not clear. Ask the user to clarify and provide full XML
+response and request examples for the object type to be added.
+
+## Step 2: create a new class for the ADT object
 
 Either create a new file or place into a file with objects of the same category
 in the directory `sap/adt/`.
@@ -74,32 +111,12 @@ class MyObject(ADTObject):
         self._metadata.package_reference.name = package
 ```
 
-## Step 2: create fixtures for the new class
+## Step 3: export the new class
 
 Export the new type MyObject in the file @sap/adt/__init__.py.
 
 ```python
 from sap.adt.my_object import MyObject
-```
-
-## Step 3: create fixtures for the new class
-
-In the directory `test/unit`, crate the file `fixtures_sap_adt_my_object.py`.
-
-```python
-# Expected Object Name in XML response and request, e.g. <adtcore:name>MY_OBJECT</adtcore:name>
-MY_OBJECT_NAME='MY_OBJECT'
-
-# Respose sent by ADT for GET request
-MY_OBJECT_ADT_GET_RESPONSE_XML="""<?xml version="1.0" encoding="utf-8"?>
-...
-"""
-
-# Expected request body for POST request to create the object. This is required
-# to test if the object is correctly serialized to XML.
-MY_OBJECT_ADT_POST_REQUEST_XML="""<?xml version="1.0" encoding="utf-8"?>
-...
-"""
 ```
 
 ## Step 4: create tests for the new class
