@@ -30,3 +30,4 @@
 28. [featuretoggle](commands/featuretoggles.md) - Feature Toggles
 29. [authorizations](commands/authorizations.md) - Authorization Fields, Objects, Transactions, and Defaults
 30. [abap](commands/abap.md) - ABAP utilities like run or find
+31. [messageclass](commands/messageclass.md) - Message Classes
