@@ -13,3 +13,5 @@
   command line entry point intercepts them and prints nice error message instead
   of stacktrace
 - avoid silent swallowing caught exceptions - if you need it, add a comment explaining why it is needed
+- use context managers with the `with` statement for non-trivial resource management such as file handling, database connections, locks, etc.
+- consult the file [doc/architecture.md](doc/architecture.md) when working with ADT Object XML to Python object mapping
