@@ -12,9 +12,13 @@ from sap.cli.gcts_utils import (
     print_gcts_message,
     dump_gcts_messages,
     gcts_exception_handler,
+    print_process_messages,
 )
 from sap.rest.errors import HTTPRequestError
-from sap.rest.gcts.errors import SAPCliError, GCTSRequestError
+from sap.rest.gcts.errors import SAPCliError, GCTSRequestError, GCTSProcessError
+from sap.rest.gcts.log_messages import ProcessMessage
+
+from test.unit.fixtures_sap_rest_gcts import CLONE_ERROR_PROCESS_MESSAGES_RAW
 
 
 class TestPrintGCTSTaskInfo(ConsoleOutputTestCase, unittest.TestCase):
@@ -260,4 +264,60 @@ class TestGCTSExceptionHandler(unittest.TestCase):
         result = test_func(Mock(), types.SimpleNamespace(console_factory=test_console_factory))
         self.assertEqual(result, 1)
         self.assertEqual(console.caperr, 'SAP CLI error message\n')
+
+
+class TestGCTSExceptionHandlerProcessError(ConsoleOutputTestCase, unittest.TestCase):
+
+    def test_gcts_exception_handler_catches_process_error(self):
+
+        process_messages = [ProcessMessage(msg) for msg in CLONE_ERROR_PROCESS_MESSAGES_RAW]
+        process_error = GCTSProcessError(process_messages)
+
+        console = BufferConsole()
+        def test_console_factory():
+            return console
+
+        @gcts_exception_handler
+        def test_func(connection, args):
+            raise process_error
+
+        result = test_func(Mock(), types.SimpleNamespace(console_factory=test_console_factory))
+        self.assertEqual(result, 1)
+        self.assertIn('Date', console.capout)
+        self.assertIn('Action', console.capout)
+        self.assertIn('Application', console.capout)
+        self.assertIn('Severity', console.capout)
+        self.assertIn('FINISH_JOB', console.capout)
+        self.assertIn('gCTS', console.capout)
+        self.assertIn('ERROR', console.capout)
+        self.assertIn('2026-06-04 16:43:23', console.capout)
+        self.assertIn('Job GCTS_CLONE_REPO finished but the action failed', console.capout)
+        self.assertIn('GET_SOURCE_FROM_REMOTE', console.capout)
+        self.assertIn('Transport Tools', console.capout)
+        self.assertIn('This is tp version 381.742.08 (release 920) (Patch level:4)', console.capout)
+        self.assertIn('CLONE', console.capout)
+        self.assertIn('Error when cloning repository.', console.capout)
+        self.assertIn('EXECUTE_JOB', console.capout)
+        self.assertIn('RUNNING', console.capout)
+        self.assertIn('LOG_LEVEL', console.capout)
+        self.assertIn('SCHEDULE_JOB', console.capout)
+        self.assertIn('SCHEDULED', console.capout)
+
+    @patch('sap.cli.gcts_utils.print_process_messages')
+    @patch('sap.cli.core.get_console')
+    def test_gcts_exception_handler_process_error_calls_print_process_messages(self, mock_get_console, mock_print):
+        mock_console = Mock()
+        mock_get_console.return_value = mock_console
+
+        process_messages = [ProcessMessage({'action': 'CLONE', 'severity': 'ERROR', 'application': 'gCTS', 'applInfo': 'Error', 'time': 20260604164322})]
+        process_error = GCTSProcessError(process_messages)
+
+        @gcts_exception_handler
+        def test_func(connection, args):
+            raise process_error
+
+        result = test_func(Mock(), types.SimpleNamespace())
+        self.assertEqual(result, 1)
+        mock_get_console.assert_called_once()
+        mock_print.assert_called_once_with(mock_console, process_messages)
 

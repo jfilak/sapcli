@@ -7,11 +7,15 @@ from typing import Optional
 from sap import get_logger
 from sap.errors import OperationTimeoutError
 from sap.http import HTTPRequestError
-from sap.rest.gcts.remote_repo import Repository
+from sap.rest.gcts.remote_repo import (
+    Repository,
+    RepoMessagesQueryParams,
+)
 from sap.rest.gcts.repo_task import RepositoryTask
 from sap.rest.gcts.errors import (
     exception_from_http_error,
     GCTSRepoAlreadyExistsError,
+    GCTSProcessError,
     SAPCliError,
 )
 from sap.rest.gcts.sugar import (
@@ -152,6 +156,17 @@ def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_toke
             wait_for_task_execution(task, wait_for_ready, poll_period, _poll_cb)
             if progress_consumer:
                 progress_consumer.progress_message(f'CLONE task "{task.tid}" has finished successfully.')
+                progress_consumer.progress_message(f'Checking Job Log "{task.log}" ...')
+
+            repo_messages = repo.messages(RepoMessagesQueryParams().set_process(task.log))
+
+            if len(repo_messages) != 1:
+                raise SAPCliError(f'Expected just 1 log message: {len(repo_messages)}')
+
+            process_messages = repo_messages[0].process_messages
+            for message in process_messages:
+                if message.severity == 'ERROR':
+                    raise GCTSProcessError(process_messages=process_messages)
         else:
             raise OperationTimeoutError
 

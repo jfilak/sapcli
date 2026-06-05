@@ -51,6 +51,15 @@ class GCTSRepoCloneTaskDeleteError(GCTSRequestError):
         self.messages['exception'] = 'Task unable to delete. Already performed clone operation.'
 
 
+class GCTSProcessError(SAPCliError):
+    """Process error raised by a code watching gCTS background tasks"""
+
+    def __init__(self, process_messages):
+        super().__init__()
+
+        self.process_messages = process_messages
+
+
 def exception_from_http_error(http_error):
     """Converts HTTPRequestError to proper instance"""
 
