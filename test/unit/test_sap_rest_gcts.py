@@ -5,7 +5,9 @@ import unittest
 import time
 from unittest.mock import Mock, MagicMock, ANY, call, patch
 
+import sap.errors
 from sap.rest.errors import HTTPRequestError, UnauthorizedError
+from sap.rest.gcts.errors import GCTSProcessError
 from sap.rest.gcts.repo_task import RepositoryTask
 import sap.rest.gcts
 import sap.rest.gcts.remote_repo
@@ -15,6 +17,11 @@ import sap.rest.gcts.log_messages
 
 from mock import Request, Response, RESTConnection, make_gcts_log_error
 from mock import GCTSLogBuilder as LogBuilder
+
+from test.unit.fixtures_sap_rest_gcts import (
+    CLONE_ERROR_PROCESS_MESSAGES_RESPONSE,
+    CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE
+)
 
 
 class TestgCTSUtils(unittest.TestCase):
@@ -37,6 +44,22 @@ class TestGCSTRequestError(unittest.TestCase):
 
         self.assertEqual(str(ex), 'gCTS exception: Message')
         self.assertEqual(repr(ex), json.dumps(messages, indent=2))
+
+
+class TestGCTSProcessError(unittest.TestCase):
+
+    def test_stores_process_messages(self):
+        messages = [{'action': 'CLONE', 'severity': 'ERROR'}]
+        ex = sap.rest.gcts.errors.GCTSProcessError(messages)
+        self.assertIs(ex.process_messages, messages)
+
+    def test_is_sap_cli_error(self):
+        ex = sap.rest.gcts.errors.GCTSProcessError([])
+        self.assertIsInstance(ex, sap.errors.SAPCliError)
+
+    def test_empty_process_messages(self):
+        ex = sap.rest.gcts.errors.GCTSProcessError([])
+        self.assertEqual(ex.process_messages, [])
 
 
 class TestGCTSExceptionFactory(unittest.TestCase):
@@ -1885,13 +1908,16 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         mock_create.return_value = repo
 
         task_id = '123'
-        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
         mock_schedule_clone.return_value = task
 
         mock_context_stub.return_value = MagicMock()
 
         refresh_response = {'result': repo_data}
-        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+        self.conn.set_responses([
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            Response.with_json(json=refresh_response, status_code=200)
+        ])
 
         with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
             result = sap.rest.gcts.simple.clone_with_task(
@@ -1937,7 +1963,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         mock_create.return_value = repo
 
         task_id = '123'
-        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
         mock_schedule_clone.return_value = task
 
         mock_context_stub.return_value = MagicMock()
@@ -1947,7 +1973,10 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         progress_consumer.update_task = Mock()
 
         refresh_response = {'result': repo_data}
-        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+        self.conn.set_responses([
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            Response.with_json(json=refresh_response, status_code=200)
+        ])
 
         with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
             result = sap.rest.gcts.simple.clone_with_task(
@@ -1986,13 +2015,16 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         mock_create.return_value = repo
 
         task_id = '123'
-        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
         mock_schedule_clone.return_value = task
 
         mock_context_stub.return_value = MagicMock()
         mock_abap_modifications_added_only_to_buffer.return_value = MagicMock()
         refresh_response = {'result': repo_data}
-        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+        self.conn.set_responses([
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            Response.with_json(json=refresh_response, status_code=200)
+        ])
         with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
             result = sap.rest.gcts.simple.clone_with_task(
                 connection=self.conn,
@@ -2028,13 +2060,16 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         mock_create.return_value = repo
 
         task_id = '123'
-        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id})
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
         mock_schedule_clone.return_value = task
 
         mock_context_stub.return_value = MagicMock()
         mock_abap_modifications_disabled.return_value = MagicMock()
         refresh_response = {'result': repo_data}
-        self.conn.set_responses([Response.with_json(json=refresh_response, status_code=200)])
+        self.conn.set_responses([
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            Response.with_json(json=refresh_response, status_code=200)
+        ])
         with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
             result = sap.rest.gcts.simple.clone_with_task(
                 connection=self.conn,
@@ -2166,6 +2201,58 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
             mock_schedule_clone.assert_called_once_with(self.conn, repo)
             spy_refresh.assert_not_called()
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_raises_process_error_on_error_messages(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task_log = '9617D6AFE539F5AF388E74AA8EE92196'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': task_log})
+        mock_schedule_clone.return_value = task
+
+        mock_context_stub.return_value = MagicMock()
+
+        progress_consumer = Mock()
+        progress_consumer.progress_message = Mock()
+        progress_consumer.update_task = Mock()
+
+        messages_response = Response.with_json(json=CLONE_ERROR_PROCESS_MESSAGES_RESPONSE, status_code=200)
+        self.conn.set_responses([messages_response])
+
+        with self.assertRaises(GCTSProcessError) as cm:
+            sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                vsid=self.repo_vsid,
+                start_dir=self.repo_start_dir,
+                vcs_token=self.repo_vcs_token,
+                error_exists=True,
+                role='SOURCE',
+                typ='GITHUB',
+                no_import=False,
+                buffer_only=False,
+                wait_for_ready=600,
+                poll_period=30,
+                progress_consumer=progress_consumer
+            )
+
+        self.assertEqual(len(cm.exception.process_messages), 7)
+        self.assertEqual(cm.exception.process_messages[0].severity, 'ERROR')
+        self.assertEqual(cm.exception.process_messages[0].action, 'FINISH_JOB')
+
+        mock_create.assert_called_once()
+        mock_schedule_clone.assert_called_once_with(self.conn, repo)
+        mock_wait_for_task_execution.assert_called_once()
+        progress_consumer.progress_message.assert_any_call(f'Checking Jog Log "{task_log}" ...')
 
     def test_simple_schedule_clone_success(self):
         repo_data = dict(self.repo_server_data)

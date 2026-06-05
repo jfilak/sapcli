@@ -5,7 +5,7 @@ import sap.cli.core
 from sap.cli.core import PrintConsole
 import sap.cli.helpers
 
-from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
+from sap.rest.gcts.errors import GCTSRequestError, GCTSProcessError, SAPCliError
 from sap.rest.gcts.sugar import LogTaskOperationProgress, SugarOperationProgress
 from sap.rest.gcts.log_messages import ProcessMessage
 
@@ -100,6 +100,9 @@ def gcts_exception_handler(func):
             return func(connection, args)
         except GCTSRequestError as ex:
             dump_gcts_messages(console_factory(), ex.messages)
+            return 1
+        except GCTSProcessError as ex:
+            print_process_messages(console_factory(), ex.process_messages)
             return 1
         except SAPCliError as ex:
             console_factory().printerr(str(ex))
