@@ -35,6 +35,7 @@ from sap.cli.gcts_utils import (
     dump_gcts_messages,
     gcts_exception_handler,
     gcts_activity_rc_handler,
+    print_process_messages,
     TaskOperationProgress,
     ConsoleSugarOperationProgress,
 )
@@ -427,17 +428,7 @@ def messages(connection, args):
         else:
             console.printout(sap.cli.core.json_dumps([pm.json_object for pm in repo_messages[0].process_messages]))
     elif args.process is not None:
-        columns = (
-            sap.cli.helpers.TableWriter.Columns()
-            ('time', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate)
-            ('action', 'Action')
-            ('application', 'Application')
-            ('severity', 'Severity')
-            .done()
-        )
-
-        tw = sap.cli.helpers.TableWriter(repo_messages[0].process_messages, columns)
-        tw.printout(console, line_callback=sap.cli.gcts_utils.print_process_message_details)
+        print_process_messages(console, repo_messages[0].process_messages)
     else:
         columns = (
             sap.cli.helpers.TableWriter.Columns()
