@@ -1077,6 +1077,74 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
         responce = repo.objects()
         self.assertEqual(responce, [])
 
+    def test_get_layout_ok(self):
+        layout_data = {'subdirectory': 'src/', 'objectStorage': 'plain'}
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'layout': layout_data})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        layout = repo.get_layout()
+
+        self.assertIsInstance(layout, sap.rest.gcts.remote_repo.RepositoryLayout)
+        self.assertEqual(layout.starting_folder, 'src/')
+        self.assertEqual(layout.to_json(), layout_data)
+
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/layout'), self)
+
+    def test_get_layout_error(self):
+        messages = LogBuilder(exception='Get Layout Error').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            repo.get_layout()
+
+        self.assertEqual(str(caught.exception), 'gCTS exception: Get Layout Error')
+
+    def test_get_layout_raises_when_response_has_no_layout_member(self):
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'something': 'else'})
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            repo.get_layout()
+
+        self.assertEqual(str(caught.exception), 'A successful gCTS layout request did not return the layout member')
+
+    def test_set_layout_ok(self):
+        layout_data = {'subdirectory': 'src/'}
+        layout = sap.rest.gcts.remote_repo.RepositoryLayout(layout_data)
+
+        self.conn.set_responses(Response.ok())
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        repo.set_layout(layout)
+
+        self.assertIsNone(repo._data)
+
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[0].assertEqual(
+            Request.post_json(uri=f'repository/{self.repo_rid}/layout', body={'subdirectory': 'src/'}),
+            self
+        )
+
+    def test_set_layout_error(self):
+        layout_data = {'subdirectory': 'src/'}
+        layout = sap.rest.gcts.remote_repo.RepositoryLayout(layout_data)
+
+        messages = LogBuilder(exception='Set Layout Error').get_contents()
+        self.conn.set_responses(Response.with_json(status_code=500, json=messages))
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as caught:
+            repo.set_layout(layout)
+
+        self.assertIsNotNone(repo._data)
+        self.assertEqual(str(caught.exception), 'gCTS exception: Set Layout Error')
+
 
 class TestRepositoryTask(unittest.TestCase):
 
@@ -1916,7 +1984,11 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         refresh_response = {'result': repo_data}
         self.conn.set_responses([
             Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
-            Response.with_json(json=refresh_response, status_code=200)
+            Response.with_json(json=refresh_response, status_code=200),
+            # GET Layout
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST Layout
+            Response.ok(),
         ])
 
         with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
@@ -1975,7 +2047,11 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         refresh_response = {'result': repo_data}
         self.conn.set_responses([
             Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
-            Response.with_json(json=refresh_response, status_code=200)
+            Response.with_json(json=refresh_response, status_code=200),
+            # GET Layout
+            Response.with_json(json={'layout':{}}, status_code=200),
+            # POST Layout - can be empty as layout import is not the focus of this test
+            Response.ok(),
         ])
 
         with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
@@ -2003,6 +2079,9 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             spy_refresh.assert_called_once()
             self.assertEqual(result, repo)
 
+        self.conn.execs[2].assertEqual(Request.get_json(uri=f'repository/{repo.rid}/layout'), self)
+        self.conn.execs[3].assertEqual(Request.post_json(uri=f'repository/{repo.rid}/layout', body={'subdirectory': self.repo_start_dir}), self)
+
     @patch('sap.rest.gcts.simple.wait_for_task_execution')
     @patch('sap.rest.gcts.simple.schedule_clone')
     @patch('sap.rest.gcts.simple.create')
@@ -2023,7 +2102,11 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         refresh_response = {'result': repo_data}
         self.conn.set_responses([
             Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
-            Response.with_json(json=refresh_response, status_code=200)
+            Response.with_json(json=refresh_response, status_code=200),
+            # GET Layout
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST Layout
+            Response.ok(),
         ])
         with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
             result = sap.rest.gcts.simple.clone_with_task(
@@ -2068,7 +2151,11 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         refresh_response = {'result': repo_data}
         self.conn.set_responses([
             Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
-            Response.with_json(json=refresh_response, status_code=200)
+            Response.with_json(json=refresh_response, status_code=200),
+            # GET Layout
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST Layout
+            Response.ok(),
         ])
         with patch.object(repo, 'refresh', wraps=repo.refresh) as spy_refresh:
             result = sap.rest.gcts.simple.clone_with_task(
@@ -2252,7 +2339,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         mock_create.assert_called_once()
         mock_schedule_clone.assert_called_once_with(self.conn, repo)
         mock_wait_for_task_execution.assert_called_once()
-        progress_consumer.progress_message.assert_any_call(f'Checking Jog Log "{task_log}" ...')
+        progress_consumer.progress_message.assert_any_call(f'Checking Job Log "{task_log}" ...')
 
     def test_simple_schedule_clone_success(self):
         repo_data = dict(self.repo_server_data)
@@ -2324,7 +2411,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             fake_mod_log.return_value.info.assert_called_once_with('Repository "%s" cloning not scheduled: already performed or repository is not created.', self.repo_rid)
 
     @patch('sap.rest.gcts.simple.create')
-    def test_simple_clone_success_sync(self, fake_create):
+    @patch('sap.rest.gcts.simple._ensure_start_dir')
+    def test_simple_clone_success_sync(self, fake_ensure_start_dir, fake_create):
         repo_data = dict(self.repo_server_data)
         repo_data['status'] = 'CREATED'
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
@@ -2360,6 +2448,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 typ='GITHUB'
             )
 
+            fake_ensure_start_dir.assert_called_once_with(returned_repo, self.repo_start_dir)
+
             spy_clone.assert_called_once()
 
             self.assertEqual(len(self.conn.execs), 1)
@@ -2367,7 +2457,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             self.assertEqual(returned_repo, repo)
 
     @patch('sap.rest.gcts.simple.create')
-    def test_simple_clone_default_parameters(self, fake_create):
+    @patch('sap.rest.gcts.simple._ensure_start_dir')
+    def test_simple_clone_default_parameters(self, fake_ensure_start_dir, fake_create):
         repo_data = dict(self.repo_server_data)
         repo_data['status'] = 'CREATED'
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
@@ -2397,6 +2488,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
             # default sync way
             spy_clone.assert_called_once()
+
+            fake_ensure_start_dir.assert_called_once_with(returned_repo, 'src/')
 
             self.assertEqual(len(self.conn.execs), 1)
             self.conn.execs[0].assertEqual(Request.post(uri=f'repository/{self.repo_rid}/clone'), self)
@@ -3225,6 +3318,474 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             ),
             self
         )
+
+
+class TestCloneStartingFolder(GCTSTestSetUp, unittest.TestCase):
+    """Tests for ensuring starting folder (start_dir) is configured properly
+       during clone and clone_with_task operations.
+    """
+
+    @patch('sap.rest.gcts.simple.create')
+    def test_clone_sets_starting_folder_when_layout_has_none(self, fake_create):
+        """When layout.starting_folder is None, clone should set it to start_dir"""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = repo
+
+        self.conn.set_responses([
+            # POST clone
+            Response.ok(),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout (get_layout in _ensure_start_dir) - no subdirectory set
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST layout (set_layout in _ensure_start_dir)
+            Response.ok(),
+        ])
+
+        result = sap.rest.gcts.simple.clone(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir='src/',
+        )
+
+        self.assertEqual(result, repo)
+        self.assertEqual(len(self.conn.execs), 4)
+        self.conn.execs[0].assertEqual(Request.post(uri=f'repository/{self.repo_rid}/clone'), self)
+        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+        self.conn.execs[2].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/layout'), self)
+        self.conn.execs[3].assertEqual(Request.post_json(uri=f'repository/{self.repo_rid}/layout', body={'subdirectory': 'src/'}), self)
+
+    @patch('sap.rest.gcts.simple.create')
+    def test_clone_does_nothing_when_layout_starting_folder_matches(self, fake_create):
+        """When layout.starting_folder matches start_dir, clone should not update layout"""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = repo
+
+        self.conn.set_responses([
+            # POST clone
+            Response.ok(),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout (get_layout in _ensure_start_dir) - already set to matching value
+            Response.with_json(json={'layout': {'subdirectory': 'src/'}}, status_code=200),
+        ])
+
+        result = sap.rest.gcts.simple.clone(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir='src/',
+        )
+
+        self.assertEqual(result, repo)
+        # No POST layout call - only clone + refresh + get_layout
+        self.assertEqual(len(self.conn.execs), 3)
+        self.conn.execs[0].assertEqual(Request.post(uri=f'repository/{self.repo_rid}/clone'), self)
+        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+        self.conn.execs[2].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/layout'), self)
+
+    @patch('sap.rest.gcts.simple._mod_log')
+    @patch('sap.rest.gcts.simple.create')
+    def test_clone_warns_when_layout_starting_folder_does_not_match(self, fake_create, fake_mod_log):
+        """When layout.starting_folder differs from start_dir, clone should log a warning"""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = repo
+
+        self.conn.set_responses([
+            # POST clone
+            Response.ok(),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout (get_layout in _ensure_start_dir) - set to different value
+            Response.with_json(json={'layout': {'subdirectory': 'other/'}}, status_code=200),
+        ])
+
+        result = sap.rest.gcts.simple.clone(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir='src/',
+        )
+
+        self.assertEqual(result, repo)
+        # No POST layout call - only clone + refresh + get_layout
+        self.assertEqual(len(self.conn.execs), 3)
+        fake_mod_log.return_value.warning.assert_any_call(
+            'Starting directory "%s" is expected to be set in the repository layout, but it is set to "%s".'
+            'Please check the repository layout and change the starting directory manually if needed.',
+            'src/',
+            'other/'
+        )
+
+    @patch('sap.rest.gcts.simple.create')
+    def test_clone_with_start_dir_none_and_layout_none(self, fake_create):
+        """When start_dir is None and layout has no starting folder, _ensure_start_dir
+           sets layout.starting_folder to None which removes the subdirectory key and
+           posts empty layout back."""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = repo
+
+        self.conn.set_responses([
+            # POST clone
+            Response.ok(),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout (get_layout in _ensure_start_dir) - no subdirectory
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST layout (set_layout in _ensure_start_dir) - empty layout
+            Response.ok(),
+        ])
+
+        result = sap.rest.gcts.simple.clone(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir=None,
+        )
+
+        self.assertEqual(result, repo)
+        self.assertEqual(len(self.conn.execs), 4)
+        self.conn.execs[3].assertEqual(Request.post_json(uri=f'repository/{self.repo_rid}/layout', body={}), self)
+
+    @patch('sap.rest.gcts.simple._mod_log')
+    @patch('sap.rest.gcts.simple.create')
+    def test_clone_with_start_dir_none_warns_when_layout_has_value(self, fake_create, fake_mod_log):
+        """When start_dir is None but layout.starting_folder is set, clone should
+           warn about mismatch because the existing value differs from None."""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = repo
+
+        self.conn.set_responses([
+            # POST clone
+            Response.ok(),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout - has a starting folder configured
+            Response.with_json(json={'layout': {'subdirectory': 'src/'}}, status_code=200),
+        ])
+
+        result = sap.rest.gcts.simple.clone(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir=None,
+        )
+
+        self.assertEqual(result, repo)
+        self.assertEqual(len(self.conn.execs), 3)
+        fake_mod_log.return_value.warning.assert_any_call(
+            'Starting directory "%s" is expected to be set in the repository layout, but it is set to "%s".'
+            'Please check the repository layout and change the starting directory manually if needed.',
+            None,
+            'src/'
+        )
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_sets_starting_folder_when_layout_has_none(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        """When layout.starting_folder is None, clone_with_task should set it to start_dir"""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
+        mock_schedule_clone.return_value = task
+        mock_context_stub.return_value = MagicMock()
+
+        self.conn.set_responses([
+            # GET messages
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout - no subdirectory set
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST layout
+            Response.ok(),
+        ])
+
+        result = sap.rest.gcts.simple.clone_with_task(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir='src/',
+            wait_for_ready=600,
+            poll_period=30
+        )
+
+        self.assertEqual(result, repo)
+        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+        self.conn.execs[2].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/layout'), self)
+        self.conn.execs[3].assertEqual(Request.post_json(uri=f'repository/{self.repo_rid}/layout', body={'subdirectory': 'src/'}), self)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_does_nothing_when_layout_starting_folder_matches(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        """When layout.starting_folder matches start_dir, clone_with_task should not update layout"""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
+        mock_schedule_clone.return_value = task
+        mock_context_stub.return_value = MagicMock()
+
+        self.conn.set_responses([
+            # GET messages
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout - already set to matching value
+            Response.with_json(json={'layout': {'subdirectory': 'src/'}}, status_code=200),
+        ])
+
+        result = sap.rest.gcts.simple.clone_with_task(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir='src/',
+            wait_for_ready=600,
+            poll_period=30
+        )
+
+        self.assertEqual(result, repo)
+        # Only 3 HTTP calls: messages + refresh + get_layout (no POST layout)
+        self.assertEqual(len(self.conn.execs), 3)
+        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}'), self)
+        self.conn.execs[2].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/layout'), self)
+
+    @patch('sap.rest.gcts.simple._mod_log')
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_warns_when_layout_starting_folder_does_not_match(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution, fake_mod_log):
+        """When layout.starting_folder differs from start_dir, clone_with_task should log a warning"""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
+        mock_schedule_clone.return_value = task
+        mock_context_stub.return_value = MagicMock()
+
+        self.conn.set_responses([
+            # GET messages
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout - set to different value
+            Response.with_json(json={'layout': {'subdirectory': 'other/'}}, status_code=200),
+        ])
+
+        result = sap.rest.gcts.simple.clone_with_task(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir='src/',
+            wait_for_ready=600,
+            poll_period=30
+        )
+
+        self.assertEqual(result, repo)
+        # Only 3 HTTP calls: messages + refresh + get_layout (no POST layout)
+        self.assertEqual(len(self.conn.execs), 3)
+        fake_mod_log.return_value.warning.assert_any_call(
+            'Starting directory "%s" is expected to be set in the repository layout, but it is set to "%s".'
+            'Please check the repository layout and change the starting directory manually if needed.',
+            'src/',
+            'other/'
+        )
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_start_dir_none_and_layout_none(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        """When start_dir is None and layout has no starting folder, clone_with_task
+           sets layout.starting_folder to None and posts empty layout back."""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
+        mock_schedule_clone.return_value = task
+        mock_context_stub.return_value = MagicMock()
+
+        self.conn.set_responses([
+            # GET messages
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout - no subdirectory
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST layout - empty layout
+            Response.ok(),
+        ])
+
+        result = sap.rest.gcts.simple.clone_with_task(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir=None,
+            wait_for_ready=600,
+            poll_period=30
+        )
+
+        self.assertEqual(result, repo)
+        self.assertEqual(len(self.conn.execs), 4)
+        self.conn.execs[3].assertEqual(Request.post_json(uri=f'repository/{self.repo_rid}/layout', body={}), self)
+
+    @patch('sap.rest.gcts.simple._mod_log')
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_start_dir_none_warns_when_layout_has_value(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution, fake_mod_log):
+        """When start_dir is None but layout.starting_folder is set, clone_with_task
+           should warn about mismatch."""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
+        mock_schedule_clone.return_value = task
+        mock_context_stub.return_value = MagicMock()
+
+        self.conn.set_responses([
+            # GET messages
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout - has a starting folder configured
+            Response.with_json(json={'layout': {'subdirectory': 'src/'}}, status_code=200),
+        ])
+
+        result = sap.rest.gcts.simple.clone_with_task(
+            connection=self.conn,
+            url=self.repo_url,
+            rid=self.repo_rid,
+            start_dir=None,
+            wait_for_ready=600,
+            poll_period=30
+        )
+
+        self.assertEqual(result, repo)
+        self.assertEqual(len(self.conn.execs), 3)
+        fake_mod_log.return_value.warning.assert_any_call(
+            'Starting directory "%s" is expected to be set in the repository layout, but it is set to "%s".'
+            'Please check the repository layout and change the starting directory manually if needed.',
+            None,
+            'src/'
+        )
+
+    @patch('sap.rest.gcts.simple.create')
+    def test_clone_raises_when_set_layout_returns_error(self, fake_create):
+        """When set_layout POST returns HTTP 500, clone should raise GCTSRequestError"""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        fake_create.return_value = repo
+
+        error_json = {
+            'errorLog': [{'severity': 'ERROR', 'message': 'Repository is in a checked out state or detached head', 'code': 'GCTS.API.823'}],
+            'log': [{'user': 'FILAK', 'section': 'REPOSITORY', 'action': 'IS_COMMIT_POSSIBLE', 'severity': 'ERROR', 'message': 'Repository empty is in a checked out state or detached head'}],
+            'exception': 'Repository empty is in a checked out state or detached head'
+        }
+
+        self.conn.set_responses([
+            # POST clone
+            Response.ok(),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout - no subdirectory set
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST layout - error response
+            Response.with_json(json=error_json, status_code=500),
+        ])
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as cm:
+            sap.rest.gcts.simple.clone(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                start_dir='src/',
+            )
+
+        self.assertEqual(str(cm.exception), 'gCTS exception: Repository empty is in a checked out state or detached head')
+        self.assertEqual(len(self.conn.execs), 4)
+        self.conn.execs[3].assertEqual(Request.post_json(uri=f'repository/{self.repo_rid}/layout', body={'subdirectory': 'src/'}), self)
+
+    @patch('sap.rest.gcts.simple.wait_for_task_execution')
+    @patch('sap.rest.gcts.simple.schedule_clone')
+    @patch('sap.rest.gcts.simple.create')
+    @patch('sap.rest.gcts.simple.context_stub')
+    def test_clone_with_task_raises_when_set_layout_returns_error(self, mock_context_stub, mock_create, mock_schedule_clone, mock_wait_for_task_execution):
+        """When set_layout POST returns HTTP 500, clone_with_task should raise GCTSRequestError"""
+        repo_data = dict(self.repo_server_data)
+        repo_data['status'] = 'CREATED'
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+        mock_create.return_value = repo
+
+        task_id = '123'
+        task = sap.rest.gcts.repo_task.RepositoryTask(self.conn, self.repo_rid, data={'tid': task_id, 'log': '123ABC'})
+        mock_schedule_clone.return_value = task
+        mock_context_stub.return_value = MagicMock()
+
+        error_json = {
+            'errorLog': [{'severity': 'ERROR', 'message': 'Repository is in a checked out state or detached head', 'code': 'GCTS.API.823'}],
+            'log': [{'user': 'FILAK', 'section': 'REPOSITORY', 'action': 'IS_COMMIT_POSSIBLE', 'severity': 'ERROR', 'message': 'Repository empty is in a checked out state or detached head'}],
+            'exception': 'Repository empty is in a checked out state or detached head'
+        }
+
+        self.conn.set_responses([
+            # GET messages
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+            # GET repository (refresh in _ensure_start_dir)
+            Response.with_json(json={'result': repo_data}, status_code=200),
+            # GET layout - no subdirectory set
+            Response.with_json(json={'layout': {}}, status_code=200),
+            # POST layout - error response
+            Response.with_json(json=error_json, status_code=500),
+        ])
+
+        with self.assertRaises(sap.rest.gcts.errors.GCTSRequestError) as cm:
+            sap.rest.gcts.simple.clone_with_task(
+                connection=self.conn,
+                url=self.repo_url,
+                rid=self.repo_rid,
+                start_dir='src/',
+                wait_for_ready=600,
+                poll_period=30
+            )
+
+        self.assertEqual(str(cm.exception), 'gCTS exception: Repository empty is in a checked out state or detached head')
+        self.assertEqual(len(self.conn.execs), 4)
+        self.conn.execs[3].assertEqual(Request.post_json(uri=f'repository/{self.repo_rid}/layout', body={'subdirectory': 'src/'}), self)
 
 
 class TestgCTSSugar(GCTSTestSetUp, unittest.TestCase):

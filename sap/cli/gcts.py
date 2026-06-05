@@ -359,6 +359,21 @@ def set_role_source(connection, args):
     return 0
 
 
+@RepoCommandGroup.argument('package')
+@RepoCommandGroup.command()
+def layout(connection, args):
+    """gCTS repository layout
+    """
+
+    console = args.console_factory()
+
+    repo = get_repository(connection, args.package)
+    for k, v in repo.get_layout().items():
+        console.printout(f'{k}: {v}')
+
+    return 0
+
+
 @RepoCommandGroup.argument('--columns', type=str, default=None, help='Visible columns in CSV')
 @RepoCommandGroup.argument('--noheadings', action='store_true', default=False)
 @RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
@@ -696,7 +711,12 @@ def repolist(connection, args):
 @CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=600)
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--vsid', type=str, nargs='?', default='6IT')
-@CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/')
+@CommandGroup.argument('--starting-folder', type=str, nargs='?', default='src/',
+                       help='The directory inside the repository where ABAP files are stored;'
+                            ' configured in the repository layout.'
+                            ' The layout is only updated if not yet set for the repository.'
+                            ' The deprecated VCS_TARGET_DIR property is also set for backward compatibility.'
+                            ' Default: src/')
 @CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
 @CommandGroup.argument('--sync-clone', default=False, action='store_true')
 @CommandGroup.argument('--poll-period', type=int, nargs='?', default=30,

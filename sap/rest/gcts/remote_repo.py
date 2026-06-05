@@ -1,6 +1,7 @@
 """gCTS Remote repo wrapper"""
 
 from enum import Enum
+from typing import Optional
 
 from sap import get_logger
 
@@ -223,6 +224,47 @@ class RepoActivitiesQueryParams:
         """Get the query parameters"""
 
         return self._params
+
+
+class RepositoryLayout:
+    """Wrapper for repository layout. Currently only supports subdirectory
+       layout which is the only one supported by gCTS.
+
+       The layout data is stored in the git repository in the file .gcts.properties.json
+       under the key 'repositoryLayout'.
+    """
+
+    def __init__(self, layout_data):
+        self._data = layout_data
+
+    def to_json(self) -> dict:
+        """Returns the layout data as JSON"""
+
+        return self._data
+
+    def items(self) -> dict:
+        """Returns the layout data items"""
+
+        return self._data.items()
+
+    @property
+    def starting_folder(self) -> str:
+        """Returns the starting folder of the repository layout"""
+
+        return self._data.get('subdirectory', None)
+
+    @starting_folder.setter
+    def starting_folder(self, value: Optional[str]) -> None:
+        """Sets the starting folder of the repository layout.
+           If value is None, the subdirectory key will be removed from the
+           layout.
+        """
+
+        if value is None:
+            self._data.pop('subdirectory', None)
+            return
+
+        self._data['subdirectory'] = value
 
 
 # pylint: disable=R0904
@@ -505,6 +547,24 @@ class Repository:
         """Deletes the repo from the configured system"""
 
         response = self._http.delete()
+
+        self.wipe_data()
+        return response
+
+    def get_layout(self) -> RepositoryLayout:
+        """Returns the repository layout"""
+
+        json_body = self._http.get_json('layout')
+        layout_data = json_body.get('layout', None)
+        if layout_data is None:
+            raise SAPCliError('A successful gCTS layout request did not return the layout member')
+
+        return RepositoryLayout(layout_data)
+
+    def set_layout(self, layout: RepositoryLayout):
+        """Sets the repository layout"""
+
+        response = self._http.post_obj_as_json('layout', layout.to_json())
 
         self.wipe_data()
         return response

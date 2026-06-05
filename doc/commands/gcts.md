@@ -73,7 +73,7 @@ sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-ex
 - `--no-import`: Skip importing objects after clone
 - `--buffer-only`: Only buffer objects without importing them
 - `--vsid VSID`: Virtual System ID of the repository; default is **6IT**
-- `--starting-folder FOLDER`: The directory inside the repository where to store ABAP files; default is **src/**.
+- `--starting-folder FOLDER`: The directory inside the repository where ABAP files are stored; configured in the repository layout. The layout is only updated if not yet set for the repository. The deprecated `VCS_TARGET_DIR` property is also set for backward compatibility. Default is **src/**.
 - `--role ROLE`: Either SOURCE (Development) or TARGET (Provided); default is **SOURCE**
 - `--type TYPE`: Either GIT or GITHUB; default is **GITHUB**
 - `--vcs-token TOKEN`: Authentication token
@@ -233,6 +233,17 @@ sapcli gcts repo set-url PACKAGE URL
 **Parameters:**:
 - `PACKAGE`: The repository name
 - `URL`: The new url
+
+## repo layout
+
+Display the repository layout configuration (e.g. the starting folder).
+
+```bash
+sapcli gcts repo layout PACKAGE
+```
+
+**Parameters:**:
+- `PACKAGE`: The repository name
 
 ## repo property get
 
