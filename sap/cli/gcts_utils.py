@@ -1,9 +1,13 @@
 """gCTS CLI utilities"""
+from typing import List
+
 import sap.cli.core
 from sap.cli.core import PrintConsole
+import sap.cli.helpers
 
 from sap.rest.gcts.errors import GCTSRequestError, SAPCliError
 from sap.rest.gcts.sugar import LogTaskOperationProgress, SugarOperationProgress
+from sap.rest.gcts.log_messages import ProcessMessage
 
 
 def print_gcts_message(console, log, prefix=' '):
@@ -60,10 +64,26 @@ def dump_gcts_messages(console, messages):
         console.printerr(str(messages))
 
 
-def print_process_message_details(console, message):
+def print_process_message_details(console, message: ProcessMessage) -> None:
     """Print details of a process message (applInfo content)"""
 
     console.printout(message.appl_info.formatted_str(indent=4))
+
+
+def print_process_messages(console, messages: List[ProcessMessage]) -> None:
+    """Print gCTS list of ProcessMessage in a table format"""
+
+    columns = (
+        sap.cli.helpers.TableWriter.Columns()
+        ('time', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate)
+        ('action', 'Action')
+        ('application', 'Application')
+        ('severity', 'Severity')
+        .done()
+    )
+
+    tw = sap.cli.helpers.TableWriter(messages, columns)
+    tw.printout(console, line_callback=print_process_message_details)
 
 
 def gcts_exception_handler(func):
