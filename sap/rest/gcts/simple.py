@@ -82,6 +82,27 @@ def wait_for_task_execution(task: RepositoryTask, wait_for_ready, poll_period=30
     raise OperationTimeoutError(f'Waiting for the task execution timed out: task {task.tid} for repository {task.rid}.')
 
 
+def _ensure_start_dir(repo, start_dir):
+    repo.refresh()
+
+    layout = repo.get_layout()
+    current_starting_folder = layout.starting_folder
+    if current_starting_folder is not None:
+        if current_starting_folder != start_dir:
+            # Changing layout in clone if it was already set to a different
+            # value is dangerous because gCTS probably already exported data into the different starting folder,
+            # if user really wants to change starting folder than, they must do it manually.
+            _mod_log().warning('Starting directory "%s" is expected to be set in the repository layout, but it is set to "%s".'
+                               'Please check the repository layout and change the starting directory manually if needed.',
+                               start_dir, current_starting_folder)
+        # else:
+        #   starting folder is already set to the expected value, nothing to do
+    else:
+        _mod_log().info('Not configured starting folder yet, setting it to "%s" in the repository layout ...', start_dir)
+        layout.starting_folder = start_dir
+        repo.set_layout(layout)
+
+
 def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
           error_exists=True, role='SOURCE', typ='GITHUB', no_import=False,
           buffer_only=False, progress_consumer: Optional[SugarOperationProgress] = None) -> Repository:
@@ -107,6 +128,10 @@ def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
         abap_modifications_added_only_to_buffer(repo, progress_consumer) if buffer_only else context_stub()
     ):
         repo.clone()
+
+    _mod_log().info('Repository has been cloned, ensuring the starting directory is set to "%s" ...', start_dir)
+    _ensure_start_dir(repo, start_dir)
+
     return repo
 
 
@@ -170,7 +195,10 @@ def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_toke
         else:
             raise OperationTimeoutError
 
-    repo.refresh()
+    if progress_consumer:
+        progress_consumer.progress_message(f'CLONE operation finished, ensuring the starting directory is set to "{start_dir}" ...')
+
+    _ensure_start_dir(repo, start_dir)
 
     return repo
 
@@ -197,6 +225,7 @@ def create(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, e
     config = {}
 
     if start_dir:
+        _mod_log().warning('Setting deprecated VCS_TARGET_DIR to "%s" in the repository configuration ...', start_dir)
         config['VCS_TARGET_DIR'] = start_dir
 
     if vcs_token:
