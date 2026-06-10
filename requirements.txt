@@ -2,3 +2,4 @@ requests>=2.20.0
 pyodata==1.7.0
 PyYAML==6.0.1
 platformdirs>=4.5.1
+truststore>=0.10.4

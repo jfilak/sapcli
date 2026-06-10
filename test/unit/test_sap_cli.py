@@ -120,6 +120,7 @@ class TestResolveDefaultConnectionValuesWithConfigFile(unittest.TestCase):
         defaults = dict(
             ashost=None, sysnr=None, client=None, port=None,
             ssl=None, verify=None, ssl_server_cert=None,
+            ssl_use_system_certs=None,
             user=None, password=None,
         )
         defaults.update(kwargs)
@@ -720,6 +721,76 @@ class TestResolveDefaultConnectionValuesWithConfigFile(unittest.TestCase):
             sap.cli.resolve_default_connection_values(args)
 
         self.assertIsNone(args.ssl_server_cert)
+
+    def test_ssl_use_system_certs_default_true(self):
+        """ssl_use_system_certs defaults to True when not provided anywhere."""
+        args = self._make_args()
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertTrue(args.ssl_use_system_certs)
+
+    def test_ssl_use_system_certs_disabled_via_config_file(self):
+        """Config file can opt out by setting ssl_use_system_certs to False."""
+        config_data = {
+            'current-context': 'dev',
+            'connections': {
+                'dev-server': {
+                    'ashost': 'host.example.com',
+                    'client': '100',
+                    'ssl_use_system_certs': False,
+                },
+            },
+            'users': {
+                'dev-user': {'user': 'USR', 'password': 'PWD'},
+            },
+            'contexts': {
+                'dev': {'connection': 'dev-server', 'user': 'dev-user'},
+            },
+        }
+        config_file = ConfigFile(config_data, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertFalse(args.ssl_use_system_certs)
+
+    def test_ssl_use_system_certs_env_overrides_config(self):
+        """SAP_SSL_USE_SYSTEM_CERTS env var takes precedence over config file."""
+        config_data = {
+            'current-context': 'dev',
+            'connections': {
+                'dev-server': {
+                    'ashost': 'host.example.com',
+                    'client': '100',
+                    'ssl_use_system_certs': True,
+                },
+            },
+            'users': {
+                'dev-user': {'user': 'USR', 'password': 'PWD'},
+            },
+            'contexts': {
+                'dev': {'connection': 'dev-server', 'user': 'dev-user'},
+            },
+        }
+        config_file = ConfigFile(config_data, TEST_CONFIG_PATH)
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {'SAP_SSL_USE_SYSTEM_CERTS': 'no'}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertFalse(args.ssl_use_system_certs)
+
+    def test_ssl_use_system_certs_cli_overrides_env(self):
+        """CLI --ssl-no-system-certs takes precedence over env var."""
+        args = self._make_args(ssl_use_system_certs=False)
+
+        with patch.dict('os.environ', {'SAP_SSL_USE_SYSTEM_CERTS': 'yes'}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertFalse(args.ssl_use_system_certs)
 
 
 class TestNoConnection(unittest.TestCase):
