@@ -16,6 +16,7 @@ import sap.adt
 import sap.rfc
 from sap.config import ConfigFile
 from sap.http import TimedOutRequestError as HttpTimedOutRequestError
+from sap.http.truststore_support import enable_system_cert_store, TruststoreNotAvailableError
 import sap.http.oauth
 from sap.odata.errors import TimedOutRequestError as ODataTimedOutRequestError
 
@@ -43,6 +44,23 @@ def report_args_error_and_exit(args, error):
     print(error, file=sys.stderr)
     args.print_help(sys.stderr)
     sys.exit(ExitCodes.INVALID_CONFIGURATION)
+
+
+def _system_cert_store_applies(args):
+    """Whether the operating system trust store should back TLS verification.
+
+    True only when sapcli actually verifies a server certificate over TLS and no
+    explicit CA bundle was supplied - otherwise enabling the OS trust store is
+    either a no-op (plain HTTP or validation disabled) or would override the
+    user's explicit --ssl-server-cert choice.
+    """
+
+    return bool(
+        args.ssl_use_system_certs
+        and args.ssl
+        and args.verify
+        and not args.ssl_server_cert
+    )
 
 
 # pylint: disable=too-many-statements
@@ -93,6 +111,10 @@ def parse_command_line(argv):
     arg_parser.add_argument(
         '--ssl-server-cert', dest='ssl_server_cert', type=str, default=None,
         help='Path to a custom CA certificate file for SSL verification')
+    arg_parser.add_argument(
+        '--ssl-no-system-certs', dest='ssl_use_system_certs', default=None, action='store_false',
+        help='Verify SSL server certificates against the bundled certifi CA list instead '
+             'of the operating system trust store (used by default). Env: SAP_SSL_USE_SYSTEM_CERTS')
     arg_parser.add_argument(
         '--port', dest='port', type=int, default=None,
         help='ADT HTTP port; default = 443')
@@ -147,6 +169,16 @@ def parse_command_line(argv):
         return args
 
     sap.cli.resolve_default_connection_values(args)
+
+    if _system_cert_store_applies(args):
+        try:
+            enable_system_cert_store()
+        except TruststoreNotAvailableError as ex:
+            # truststore is a regular sapcli dependency, so a failed import means
+            # a broken installation. The operating system trust store is the
+            # default, so do not fail every connection over it - warn and fall
+            # back to the bundled certifi CA list.
+            log.warning('%s', ex)
 
     if not args.ashost and not args.mshost:
         report_args_error_and_exit(

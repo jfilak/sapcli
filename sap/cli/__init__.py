@@ -417,8 +417,7 @@ def resolve_default_connection_values(args):
         else:
             args.verify = True
 
-    if not args.ssl_server_cert:
-        args.ssl_server_cert = os.getenv('SAP_SSL_SERVER_CERT') or config_values.get('ssl_server_cert')
+    _resolve_ssl_cert_defaults(args, config_values)
 
     if not args.user:
         args.user = os.getenv('SAP_USER') or config_values.get('user')
@@ -436,6 +435,22 @@ def resolve_default_connection_values(args):
     # Apply config file values for message server / SNC params
     # that may not have been set by env vars in parse_command_line
     _apply_config_extra_params(args, config_values)
+
+
+def _resolve_ssl_cert_defaults(args, config_values):
+    """Resolve SSL certificate source defaults from env vars and config file."""
+
+    if not args.ssl_server_cert:
+        args.ssl_server_cert = os.getenv('SAP_SSL_SERVER_CERT') or config_values.get('ssl_server_cert')
+
+    if getattr(args, 'ssl_use_system_certs', None) is None:
+        use_system_certs = os.getenv('SAP_SSL_USE_SYSTEM_CERTS')
+        if use_system_certs is not None:
+            args.ssl_use_system_certs = use_system_certs.lower() not in _FALSE_TOKENS
+        elif 'ssl_use_system_certs' in config_values:
+            args.ssl_use_system_certs = _normalize_bool(config_values['ssl_use_system_certs'])
+        else:
+            args.ssl_use_system_certs = True
 
 
 def _resolve_oauth_defaults(args, config_values):

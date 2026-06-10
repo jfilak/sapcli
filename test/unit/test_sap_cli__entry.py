@@ -8,6 +8,7 @@ from io import StringIO
 import sap
 import sap.cli._entry as entry
 from sap.config import ConfigFile
+from sap.http.truststore_support import TruststoreNotAvailableError
 from sap.rest.errors import TimedOutRequestError as RestTimedOutRequestError
 from sap.odata.errors import TimedOutRequestError as ODataTimedOutRequestError
 
@@ -50,6 +51,19 @@ def get_tested_parameters():
     """Return ALL_PARAMETERS with the mock command and subcommand appended."""
 
     return ALL_PARAMETERS + [MOCK_COMMAND_NAME, MOCK_SUBCOMMAND_NAME]
+
+
+def get_tls_verifying_parameters():
+    """Tested parameters with TLS enabled and certificate validation on.
+
+    ALL_PARAMETERS disables both (--no-ssl, --skip-ssl-validation); drop them so
+    the operating system trust store is actually consulted.
+    """
+
+    params = get_tested_parameters()
+    params.remove('--no-ssl')
+    params.remove('--skip-ssl-validation')
+    return params
 
 
 class TestParseCommandLine(unittest.TestCase):
@@ -347,6 +361,63 @@ class TestParseCommandLine(unittest.TestCase):
         args = entry.parse_command_line(test_params)
 
         self.assertIsNone(args.ssl_server_cert)
+
+    def test_args_system_certs_enabled_by_default(self):
+        """Without any flag the operating system trust store is used."""
+        test_params = get_tls_verifying_parameters()
+
+        with patch('sap.cli._entry.enable_system_cert_store') as fake_enable:
+            args = entry.parse_command_line(test_params)
+
+        self.assertTrue(args.ssl_use_system_certs)
+        fake_enable.assert_called_once_with()
+
+    def test_args_ssl_no_system_certs_flag(self):
+        """--ssl-no-system-certs opts out of the operating system trust store."""
+        test_params = get_tls_verifying_parameters()
+        test_params.insert(1, '--ssl-no-system-certs')
+
+        with patch('sap.cli._entry.enable_system_cert_store') as fake_enable:
+            args = entry.parse_command_line(test_params)
+
+        self.assertFalse(args.ssl_use_system_certs)
+        fake_enable.assert_not_called()
+
+    def test_args_system_certs_skipped_when_validation_disabled(self):
+        """With --skip-ssl-validation there is nothing to verify against."""
+        test_params = get_tls_verifying_parameters()
+        test_params.insert(1, '--skip-ssl-validation')
+
+        with patch('sap.cli._entry.enable_system_cert_store') as fake_enable:
+            args = entry.parse_command_line(test_params)
+
+        self.assertTrue(args.ssl_use_system_certs)
+        fake_enable.assert_not_called()
+
+    def test_args_system_certs_skipped_with_custom_ca(self):
+        """An explicit --ssl-server-cert takes precedence over the OS store."""
+        test_params = get_tls_verifying_parameters()
+        test_params.insert(1, '/path/to/ca.pem')
+        test_params.insert(1, '--ssl-server-cert')
+
+        with patch('sap.cli._entry.enable_system_cert_store') as fake_enable:
+            args = entry.parse_command_line(test_params)
+
+        self.assertTrue(args.ssl_use_system_certs)
+        fake_enable.assert_not_called()
+
+    def test_args_system_certs_missing_truststore_warns_and_continues(self):
+        """A broken truststore install must not break every connection."""
+        test_params = get_tls_verifying_parameters()
+
+        with patch('sap.cli._entry.enable_system_cert_store',
+                   side_effect=TruststoreNotAvailableError()) as fake_enable, \
+                patch('sap.cli._entry.log') as fake_log:
+            args = entry.parse_command_line(test_params)
+
+        self.assertTrue(args.ssl_use_system_certs)
+        fake_enable.assert_called_once_with()
+        fake_log.warning.assert_called_once()
 
     def test_args_auth_plugin_disable_cache_default_false(self):
         """Without the flag and without env, the resolved value is False

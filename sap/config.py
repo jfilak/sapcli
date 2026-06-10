@@ -21,7 +21,7 @@ class SAPCliConfigError(SAPCliError):
 
 CONNECTION_FIELDS = (
     'ashost', 'sysnr', 'client', 'port', 'ssl', 'ssl_verify',
-    'ssl_server_cert', 'mshost', 'msserv', 'sysid', 'group',
+    'ssl_server_cert', 'ssl_use_system_certs', 'mshost', 'msserv', 'sysid', 'group',
     'snc_qop', 'snc_myname', 'snc_partnername', 'snc_lib',
     'token_url', 'client_id', 'client_secret',
 )

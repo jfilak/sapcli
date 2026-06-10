@@ -65,6 +65,36 @@ can use the switch `--skip-ssl-validation` to suppress all certificate checks
 when connecting to your server. Same behavior can be achieved by setting the
 environment variable `SAP_SSL_VERIFY` to `no`.
 
+### --ssl-no-system-certs
+
+By default sapcli validates server certificates against the operating system
+trust store, so a root CA added via `update-ca-certificates` (see above), the
+Windows Certificate Store or the macOS Keychain is honoured automatically. This
+covers the sapcli HTTP traffic that targets the SAP system (ADT, REST/gCTS,
+OData and OAuth token retrieval). It does not affect downloading a remote
+configuration file (`--config <URL>`), because that download happens before the
+connection options are resolved.
+
+The switch `--ssl-no-system-certs` opts out and validates certificates against
+the CA bundle shipped with the `certifi` package instead. The same behavior can
+be achieved by setting the environment variable `SAP_SSL_USE_SYSTEM_CERTS` to a
+false value (`no`, `false`, `off`) or the connection setting
+`ssl_use_system_certs` to `false`.
+
+The operating system trust store is not consulted when validation is disabled
+(`--skip-ssl-validation`) or when an explicit CA bundle is supplied with
+`--ssl-server-cert`; the explicit bundle then takes precedence.
+
+This behavior relies on the
+[truststore](https://pypi.org/project/truststore/) package, which is installed
+automatically as a regular sapcli dependency. Should it ever be missing (an
+incomplete installation), sapcli logs a warning and falls back to the bundled
+certifi CA list.
+
+Unlike `--skip-ssl-validation`, the operating system trust store keeps
+certificate validation enabled - it only changes where the trusted CAs are read
+from.
+
 ### --port
 
 TCP PORT where your SAP Application Server accepts connection for ICF services.
@@ -245,6 +275,7 @@ See [OAuth 2.0 authentication](#oauth-20-authentication) below for details.
 | `ssl` | bool | no | `true` | `SAP_SSL` |
 | `ssl_verify` | bool | no | `true` | `SAP_SSL_VERIFY` |
 | `ssl_server_cert` | string | no | - | `SAP_SSL_SERVER_CERT` |
+| `ssl_use_system_certs` | bool | no | `true` | `SAP_SSL_USE_SYSTEM_CERTS` |
 | `mshost` | string | no (*) | - | `SAP_MSHOST` |
 | `msserv` | string | no | - | `SAP_MSSERV` |
 | `sysid` | string | no | - | `SAP_SYSID` |
@@ -746,6 +777,9 @@ targeting different systems. It also composes well with tools like
 - `SAP_PASSWORD` : default value for the command line parameter --password
 - `SAP_SSL_SERVER_CERT` : path to the public unencrypted server SSL certificate
 - `SAP_SSL_VERIFY` : if "no", SSL server certificate is no validated - this works only when SAP_SSL_SERVER_CERT is not configured
+- `SAP_SSL_USE_SYSTEM_CERTS` : SSL server certificates are validated against the
+   operating system trust store by default; set this to a false value (no, false,
+   off - case insensitive) to fall back to the bundled certifi CA list
 - `SAP_TOKEN_URL` : base URL of the OAuth 2.0 authorization server; corresponds to `connections.<name>.token_url` (enables OAuth authentication; see [OAuth 2.0 authentication](#oauth-20-authentication))
 - `SAP_CLIENT_ID` : OAuth 2.0 client ID; corresponds to `connections.<name>.client_id`
 - `SAP_CLIENT_SECRET` : OAuth 2.0 client secret; corresponds to `connections.<name>.client_secret`
