@@ -8,12 +8,14 @@ from unittest.mock import Mock, MagicMock, ANY, call, patch
 import sap.errors
 from sap.rest.errors import HTTPRequestError, UnauthorizedError
 from sap.rest.gcts.errors import GCTSProcessError
-from sap.rest.gcts.repo_task import RepositoryTask
+from sap.rest.gcts.repo_task import RepositoryTask, raise_for_process_message_error
 import sap.rest.gcts
 import sap.rest.gcts.remote_repo
 import sap.rest.gcts.simple
 import sap.rest.gcts.sugar
 import sap.rest.gcts.log_messages
+from sap.rest.gcts.log_messages import ProcessMessage
+from sap.rest.gcts.simple import fetch_process_messages_for_task
 
 from mock import Request, Response, RESTConnection, make_gcts_log_error
 from mock import GCTSLogBuilder as LogBuilder
@@ -1923,6 +1925,55 @@ class TestRepositoryTask(unittest.TestCase):
         self.assertEqual(get_request.adt_uri, f'repository/{self.rid}/task/{task_id}')
 
 
+class TestRaiseForProcessMessageError(unittest.TestCase):
+
+    def test_raises_on_first_error_message(self):
+        """raise_for_process_message_error raises GCTSProcessError on first ERROR severity"""
+        messages = [
+            ProcessMessage({'action': 'EXECUTE_JOB', 'severity': 'RUNNING', 'application': 'gCTS', 'applInfo': 'started'}),
+            ProcessMessage({'action': 'FINISH_JOB', 'severity': 'ERROR', 'application': 'gCTS', 'applInfo': 'failed'}),
+            ProcessMessage({'action': 'CLONE', 'severity': 'ERROR', 'application': 'gCTS', 'applInfo': 'clone error'}),
+        ]
+
+        with self.assertRaises(GCTSProcessError) as cm:
+            raise_for_process_message_error(messages)
+
+        self.assertIs(cm.exception.process_messages, messages)
+
+    def test_does_not_raise_when_no_error_messages(self):
+        """raise_for_process_message_error does nothing if no ERROR severity messages"""
+        messages = [
+            ProcessMessage({'action': 'EXECUTE_JOB', 'severity': 'RUNNING', 'application': 'gCTS', 'applInfo': 'started'}),
+            ProcessMessage({'action': 'FINISH_JOB', 'severity': 'FINISHED', 'application': 'gCTS', 'applInfo': 'done'}),
+            ProcessMessage({'action': 'LOG_LEVEL', 'severity': 'INFO', 'application': 'gCTS', 'applInfo': 'info'}),
+        ]
+
+        raise_for_process_message_error(messages)
+
+    def test_does_not_raise_for_empty_list(self):
+        """raise_for_process_message_error does nothing for empty list"""
+        raise_for_process_message_error([])
+
+    def test_raises_with_single_error_message(self):
+        """raise_for_process_message_error raises on single ERROR message"""
+        messages = [
+            ProcessMessage({'action': 'CLONE', 'severity': 'ERROR', 'application': 'gCTS', 'applInfo': 'error'}),
+        ]
+
+        with self.assertRaises(GCTSProcessError) as cm:
+            raise_for_process_message_error(messages)
+
+        self.assertIs(cm.exception.process_messages, messages)
+
+    def test_does_not_raise_for_warning_severity(self):
+        """raise_for_process_message_error ignores WARNING severity"""
+        messages = [
+            ProcessMessage({'action': 'GET_CURRENT_COMMIT', 'severity': 'WARNING', 'application': 'gCTS', 'applInfo': 'warn'}),
+        ]
+
+        raise_for_process_message_error(messages)
+
+
 class TestRepoActivitiesQueryParams(unittest.TestCase):
 
     def setUp(self):
@@ -3318,6 +3369,117 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
             ),
             self
         )
+
+
+class TestFetchProcessMessagesForTask(GCTSTestSetUp, unittest.TestCase):
+
+    def test_returns_process_messages_for_single_log_entry(self):
+        """fetch_process_messages_for_task returns process messages when exactly 1 log message"""
+        repo_data = dict(self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+
+        task_log = '9617D6AFE539F5AF388E74AA8EE92196'
+        task = RepositoryTask(self.conn, self.repo_rid, data={'tid': '123', 'log': task_log})
+
+        self.conn.set_responses(
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+        )
+
+        result = fetch_process_messages_for_task(repo, task)
+
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, list)
+        self.assertTrue(len(result) > 0)
+        self.assertIsInstance(result[0], ProcessMessage)
+
+    def test_raises_when_response_has_zero_messages(self):
+        """fetch_process_messages_for_task raises SAPCliError when empty response returned"""
+        repo_data = dict(self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+
+        task_log = '9617D6AFE539F5AF388E74AA8EE92196'
+        task = RepositoryTask(self.conn, self.repo_rid, data={'tid': '123', 'log': task_log})
+
+        self.conn.set_responses(
+            Response.with_json(json={}, status_code=200),
+        )
+
+        with self.assertRaises(sap.errors.SAPCliError) as cm:
+            fetch_process_messages_for_task(repo, task)
+
+        self.assertIn('Expected just 1 log message: 0', str(cm.exception))
+
+    def test_raises_when_repo_messages_returns_multiple_entries(self):
+        """fetch_process_messages_for_task raises SAPCliError when more than 1 ActionMessage returned"""
+        repo_data = dict(self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+
+        task_log = '9617D6AFE539F5AF388E74AA8EE92196'
+        task = RepositoryTask(self.conn, self.repo_rid, data={'tid': '123', 'log': task_log})
+
+        fake_action_msg_1 = Mock()
+        fake_action_msg_1.process_messages = [ProcessMessage({'action': 'A', 'severity': 'INFO', 'application': 'gCTS', 'applInfo': 'x'})]
+        fake_action_msg_2 = Mock()
+        fake_action_msg_2.process_messages = [ProcessMessage({'action': 'B', 'severity': 'ERROR', 'application': 'gCTS', 'applInfo': 'y'})]
+
+        with patch.object(repo, 'messages', return_value=[fake_action_msg_1, fake_action_msg_2]):
+            with self.assertRaises(sap.errors.SAPCliError) as cm:
+                fetch_process_messages_for_task(repo, task)
+
+        self.assertIn('Expected just 1 log message: 2', str(cm.exception))
+
+    def test_calls_repo_messages_with_correct_process(self):
+        """fetch_process_messages_for_task passes the task log to the query params"""
+        repo_data = dict(self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+
+        task_log = 'ABCDEF1234567890'
+        task = RepositoryTask(self.conn, self.repo_rid, data={'tid': '456', 'log': task_log})
+
+        self.conn.set_responses(
+            Response.with_json(json=CLONE_SUCCESS_PROCESS_MESSAGES_RESPONSE, status_code=200),
+        )
+
+        fetch_process_messages_for_task(repo, task)
+
+        self.assertEqual(len(self.conn.execs), 1)
+        request = self.conn.execs[0]
+        self.assertEqual(request.method, 'GET')
+        self.assertIn(task_log, request.adt_uri)
+
+    def test_raises_when_process_messages_is_none(self):
+        """fetch_process_messages_for_task raises SAPCliError when process_messages is None"""
+        repo_data = dict(self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+
+        task_log = '9617D6AFE539F5AF388E74AA8EE92196'
+        task = RepositoryTask(self.conn, self.repo_rid, data={'tid': '123', 'log': task_log})
+
+        fake_action_msg = Mock()
+        fake_action_msg.process_messages = None
+
+        with patch.object(repo, 'messages', return_value=[fake_action_msg]):
+            with self.assertRaises(sap.errors.SAPCliError) as cm:
+                fetch_process_messages_for_task(repo, task)
+
+        self.assertIn(f'No process messages found for task log: {task_log}', str(cm.exception))
+
+    def test_raises_when_process_messages_is_empty_list(self):
+        """fetch_process_messages_for_task raises SAPCliError when process_messages is empty list"""
+        repo_data = dict(self.repo_server_data)
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=repo_data)
+
+        task_log = '9617D6AFE539F5AF388E74AA8EE92196'
+        task = RepositoryTask(self.conn, self.repo_rid, data={'tid': '123', 'log': task_log})
+
+        fake_action_msg = Mock()
+        fake_action_msg.process_messages = []
+
+        with patch.object(repo, 'messages', return_value=[fake_action_msg]):
+            with self.assertRaises(sap.errors.SAPCliError) as cm:
+                fetch_process_messages_for_task(repo, task)
+
+        self.assertIn(f'No process messages found for task log: {task_log}', str(cm.exception))
 
 
 class TestCloneStartingFolder(GCTSTestSetUp, unittest.TestCase):

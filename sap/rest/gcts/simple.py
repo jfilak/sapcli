@@ -2,7 +2,7 @@
 
 import json
 import time
-from typing import Optional
+from typing import Optional, List
 
 from sap import get_logger
 from sap.errors import OperationTimeoutError
@@ -11,11 +11,16 @@ from sap.rest.gcts.remote_repo import (
     Repository,
     RepoMessagesQueryParams,
 )
-from sap.rest.gcts.repo_task import RepositoryTask
+from sap.rest.gcts.repo_task import (
+    raise_for_process_message_error,
+    RepositoryTask
+)
+from sap.rest.gcts.log_messages import (
+    ProcessMessage
+)
 from sap.rest.gcts.errors import (
     exception_from_http_error,
     GCTSRepoAlreadyExistsError,
-    GCTSProcessError,
     SAPCliError,
 )
 from sap.rest.gcts.sugar import (
@@ -135,6 +140,24 @@ def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
     return repo
 
 
+def fetch_process_messages_for_task(repo: Repository, task: RepositoryTask) -> List[ProcessMessage]:
+    """Simple helper that ensures fetching process messages for the given task
+       log returns exactly 1 message containing the process messages, otherwise
+       raises an error.
+    """
+
+    repo_messages = repo.messages(RepoMessagesQueryParams().set_process(task.log))
+
+    if len(repo_messages) != 1:
+        raise SAPCliError(f'Expected just 1 log message: {len(repo_messages)}')
+
+    process_messages = repo_messages[0].process_messages
+    if not process_messages:
+        raise SAPCliError(f'No process messages found for task log: {task.log}')
+
+    return process_messages
+
+
 # pylint: disable=too-many-locals
 def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
                     error_exists=True, role='SOURCE', typ='GITHUB', no_import=False,
@@ -183,15 +206,8 @@ def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_toke
                 progress_consumer.progress_message(f'CLONE task "{task.tid}" has finished successfully.')
                 progress_consumer.progress_message(f'Checking Job Log "{task.log}" ...')
 
-            repo_messages = repo.messages(RepoMessagesQueryParams().set_process(task.log))
-
-            if len(repo_messages) != 1:
-                raise SAPCliError(f'Expected just 1 log message: {len(repo_messages)}')
-
-            process_messages = repo_messages[0].process_messages
-            for message in process_messages:
-                if message.severity == 'ERROR':
-                    raise GCTSProcessError(process_messages=process_messages)
+            process_messages = fetch_process_messages_for_task(repo, task)
+            raise_for_process_message_error(process_messages)
         else:
             raise OperationTimeoutError
 

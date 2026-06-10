@@ -1,6 +1,6 @@
 """Utilities for gCTS repository tasks"""
 
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 from sap import get_logger
 
@@ -9,10 +9,15 @@ from sap.http import HTTPRequestError
 
 from sap.rest.gcts.errors import (
     SAPCliError,
+    GCTSProcessError,
     GCTSRequestError,
     GCTSRepoCloneError,
     GCTSRepoNotExistsError,
     GCTSRepoCloneTaskDeleteError,
+)
+
+from sap.rest.gcts.log_messages import (
+    ProcessMessage,
 )
 
 
@@ -53,6 +58,15 @@ def exception_from_http_error_for_task(http_error):
         return GCTSRepoCloneTaskDeleteError(messages)
 
     return GCTSRequestError(messages)
+
+
+def raise_for_process_message_error(process_messages: List[ProcessMessage]):
+    """Checks the list of process messages for any with severity 'ERROR' and
+       raises GCTSProcessError if found.
+    """
+
+    if any(message.severity == 'ERROR' for message in process_messages):
+        raise GCTSProcessError(process_messages=process_messages)
 
 
 class _TaskHttpProxy:
