@@ -56,6 +56,41 @@ class ExceptionResourceCreationFailure(ADTError):
         return f'{self.message}'
 
 
+class ExceptionResourceLockConflict(ADTError):
+    """Raised when an ADT resource cannot be modified because the
+       lock state of the resource (or a parent like a software
+       component / package) does not permit it.
+
+       Common message text is
+         'No suitable software component is modifiable; cannot create object'
+       seen on package or DDIC create calls under a parent that is
+       not modifiable for the current user.
+    """
+
+    def __init__(self, message):
+        super().__init__('com.sap.adt', self.__class__.__name__, message)
+
+    def __str__(self):
+        return f'{self.message}'
+
+
+class ExceptionResourceNoAccess(ADTError):
+    """Raised when the calling user has no access to the addressed
+       resource or transport request.
+
+       Common message text on gCTS-managed systems is
+         'Request <T> cannot be used since it is not assigned to repository <R>'
+       which means the object's gCTS repository binding rejects the
+       transport the caller picked (or the implicit one).
+    """
+
+    def __init__(self, message):
+        super().__init__('com.sap.adt', self.__class__.__name__, message)
+
+    def __str__(self):
+        return f'{self.message}'
+
+
 class ExceptionCheckinFailure(SAPCliError):
     """Wrapper for checkin errors"""
 

@@ -141,6 +141,12 @@ ERROR_XML_PACKAGE_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:e
 ERROR_XML_PROGRAM_ALREADY_EXISTS='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceCreationFailure"/><message lang="EN">A program or include already exists with the name SAPCLI_TEST_REPORT.</message><localizedMessage lang="EN">A program or include already exists with the name SAPCLI_TEST_REPORT.</localizedMessage><properties/></exc:exception>'''
 
 
+ERROR_XML_LOCK_CONFLICT='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceLockConflict"/><message lang="EN">No suitable software component is modifiable; cannot create object</message><localizedMessage lang="EN">No suitable software component is modifiable; cannot create object</localizedMessage><properties/></exc:exception>'''
+
+
+ERROR_XML_RESOURCE_NO_ACCESS='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceNoAccess"/><message lang="EN">Request DEVK900042 cannot be used since it is not assigned to repository sapcli_test_repo</message><localizedMessage lang="EN">Request DEVK900042 cannot be used since it is not assigned to repository sapcli_test_repo</localizedMessage><properties/></exc:exception>'''
+
+
 ERROR_XML_MADEUP_PROBLEM='''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="org.example.whatever"/><type id="UnitTestSAPCLI"/><message lang="EN">Made up problem.</message><localizedMessage lang="EN">Made up problem.</localizedMessage><properties/></exc:exception>'''
 
 DISCOVERY_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
