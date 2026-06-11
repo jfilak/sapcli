@@ -7,7 +7,9 @@ import sap.adt.errors
 from fixtures_adt import (
     ERROR_XML_PACKAGE_ALREADY_EXISTS,
     ERROR_XML_PROGRAM_ALREADY_EXISTS,
-    ERROR_XML_MADEUP_PROBLEM
+    ERROR_XML_MADEUP_PROBLEM,
+    ERROR_XML_LOCK_CONFLICT,
+    ERROR_XML_RESOURCE_NO_ACCESS
 )
 
 from fixtures_adt_package import GET_PACKAGE_ADT_XML_NOT_FOUND
@@ -63,6 +65,28 @@ class TestADTError(unittest.TestCase):
         self.assertEqual(str(error), 'UnitTestSAPCLI: Made up problem.')
         self.assertEqual(repr(error), 'org.example.whatever.UnitTestSAPCLI')
         self.assertIsInstance(error, sap.adt.errors.ADTError)
+
+    def test_parse_lock_conflict(self):
+        error = sap.adt.errors.new_adt_error_from_xml(ERROR_XML_LOCK_CONFLICT)
+
+        self.assertEqual(error.namespace, 'com.sap.adt')
+        self.assertEqual(error.type, 'ExceptionResourceLockConflict')
+        self.assertEqual(error.message, 'No suitable software component is modifiable; cannot create object')
+
+        self.assertEqual(str(error), error.message)
+        self.assertEqual(repr(error), 'com.sap.adt.ExceptionResourceLockConflict')
+        self.assertIsInstance(error, sap.adt.errors.ExceptionResourceLockConflict)
+
+    def test_parse_resource_no_access(self):
+        error = sap.adt.errors.new_adt_error_from_xml(ERROR_XML_RESOURCE_NO_ACCESS)
+
+        self.assertEqual(error.namespace, 'com.sap.adt')
+        self.assertEqual(error.type, 'ExceptionResourceNoAccess')
+        self.assertEqual(error.message, 'Request DEVK900042 cannot be used since it is not assigned to repository sapcli_test_repo')
+
+        self.assertEqual(str(error), error.message)
+        self.assertEqual(repr(error), 'com.sap.adt.ExceptionResourceNoAccess')
+        self.assertIsInstance(error, sap.adt.errors.ExceptionResourceNoAccess)
 
 
 if __name__ == '__main__':
