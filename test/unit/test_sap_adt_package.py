@@ -74,6 +74,41 @@ class TestADTPackage(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(conn.execs[0][3].decode('utf-8'), FIXTURE_PACKAGE_XML)
 
+    def test_package_serialization_with_record_changes_true(self):
+        conn = Connection(collections={'/sap/bc/adt/packages': ['application/vnd.sap.adt.packages.v1+xml']})
+
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', master_system='NPL', responsible='FILAK')
+        package = sap.adt.Package(conn, '$TEST', metadata=metadata)
+        package.description = 'description'
+        package.set_package_type('main')
+        package.set_record_changes(True)
+        package.set_software_component('LOCAL')
+        package.set_transport_layer('HOME')
+        package.set_app_component('PPM')
+        package.super_package.name = '$MASTER'
+        package.create()
+
+        body = conn.execs[0][3].decode('utf-8')
+        self.assertIn('pak:packageType="main"', body)
+        self.assertIn('pak:recordChanges="true"', body)
+
+    def test_package_serialization_with_record_changes_false(self):
+        conn = Connection(collections={'/sap/bc/adt/packages': ['application/vnd.sap.adt.packages.v1+xml']})
+
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', master_system='NPL', responsible='FILAK')
+        package = sap.adt.Package(conn, '$TEST', metadata=metadata)
+        package.description = 'description'
+        package.set_package_type('development')
+        package.set_record_changes(False)
+        package.set_software_component('LOCAL')
+        package.set_transport_layer('HOME')
+        package.set_app_component('PPM')
+        package.super_package.name = '$MASTER'
+        package.create()
+
+        body = conn.execs[0][3].decode('utf-8')
+        self.assertIn('pak:recordChanges="false"', body)
+
     def test_adt_package_fetch(self):
         conn = Connection([Response(text=GET_PACKAGE_ADT_XML,
                                     status_code=200,

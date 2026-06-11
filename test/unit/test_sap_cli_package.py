@@ -107,6 +107,26 @@ class TestPackageCreate(unittest.TestCase):
         with self.assertRaises(SystemExit):
             parse_args('create', '$TEST', 'description', '--package-type', 'bogus')
 
+    def test_create_package_default_omits_record_changes(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('create', '$TEST', 'description')
+        sap.cli.package.create(connection, args)
+
+        body = connection.execs[0].body.decode('utf-8')
+        self.assertNotIn('pak:recordChanges', body)
+
+    def test_create_package_with_record_changes(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('create', 'ZTEST_MAIN', 'description',
+                          '--package-type', 'main', '--record-changes')
+        sap.cli.package.create(connection, args)
+
+        body = connection.execs[0].body.decode('utf-8')
+        self.assertIn('pak:packageType="main"', body)
+        self.assertIn('pak:recordChanges="true"', body)
+
     def test_create_package_error_exists_ignored(self):
         connection = Connection([RESPONSE_PACKAGE_EXISTS])
 

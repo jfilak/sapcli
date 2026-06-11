@@ -34,6 +34,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
 @CommandGroup.argument_corrnr()
 @CommandGroup.argument('--no-error-existing', action='store_true', default=False,
                        help='Do not fail if already exists')
+@CommandGroup.argument('--record-changes', action='store_true', default=False,
+                       help='Record changes via transport requests '
+                            '(required by some structure packages)')
 @CommandGroup.argument('--transport-layer', default=None, help='Transport layer')
 @CommandGroup.argument('--software-component', default='LOCAL', help='Software component')
 @CommandGroup.argument('--app-component', default=None, help='Application component')
@@ -53,6 +56,9 @@ def create(connection, args):
     package = sap.adt.Package(connection, args.name.upper(), metadata=metadata)
     package.description = args.description
     package.set_package_type(args.package_type)
+
+    if args.record_changes:
+        package.set_record_changes(True)
 
     package.set_software_component(args.software_component)
 
