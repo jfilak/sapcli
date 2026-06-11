@@ -45,7 +45,7 @@ def create(connection, args):
     """Creates the requested ABAP package.
     """
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
 
     package = sap.adt.Package(connection, args.name.upper(), metadata=metadata)
     package.description = args.description

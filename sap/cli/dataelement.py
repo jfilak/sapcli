@@ -183,7 +183,7 @@ def define(connection, args):
 
     console = args.console_factory()
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user,
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=args.description)
 
     dataelement = sap.adt.DataElement(connection, args.name.upper(), args.package, metadata=metadata)

@@ -557,7 +557,7 @@ class TestCheckInPackage(ConsoleOutputTestCase, PatcherTestCase):
 
         self.assertConsoleContents(self.console,
                                    stdout=f'Creating Package: {self.repo.packages[0].name} Test Package\n')
-        fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible='fake_user',
+        fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible='FAKE_USER',
                                                description='Test Package')
         fake_package.assert_called_once_with(self.connection, self.repo.packages[0].name.upper(),
                                              metadata=metadata)
@@ -650,7 +650,7 @@ class TestCheckInClass(PatcherTestCase, ConsoleOutputTestCase):
         sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
 
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user, description='Test description')
+                                                    responsible=self.connection.user.upper(), description='Test description')
         self.fake_class.assert_called_once_with(self.connection, self.clas_object.name.upper(),
                                                 package=self.package.name, metadata=self.metadata)
         self.clas.create.assert_called_once_with(None)
@@ -799,7 +799,7 @@ class TestCheckInInterface(PatcherTestCase, ConsoleOutputTestCase):
         sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
 
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user, description='Test intf descr')
+                                                    responsible=self.connection.user.upper(), description='Test intf descr')
         self.fake_interface.assert_called_once_with(self.connection, self.interface_object.name.upper(),
                                                     package=self.package.name, metadata=self.metadata)
         self.interface.create.assert_called_once_with(None)
@@ -894,7 +894,7 @@ class TestCheckInProgram(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(str(cm.exception), 'Unknown program type X')
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user)
+                                                    responsible=self.connection.user.upper())
         self.fake_program.assert_not_called()
         self.fake_include.assert_not_called()
 
@@ -904,7 +904,7 @@ class TestCheckInProgram(PatcherTestCase, ConsoleOutputTestCase):
         sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
 
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user)
+                                                    responsible=self.connection.user.upper())
         self.fake_program.assert_called_once_with(self.connection, self.prog_object.name, package=self.package.name,
                                                   metadata=self.metadata)
         self.assertEqual(self.program.description, 'Test program desc')
@@ -921,7 +921,7 @@ Writing Program: {self.prog_object.name}
         sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
 
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user)
+                                                    responsible=self.connection.user.upper())
         self.fake_program.assert_called_once_with(self.connection, self.prog_object.name, package=self.package.name,
                                                   metadata=self.metadata)
         self.assertEqual(self.program.description, 'Test program desc')
@@ -934,7 +934,7 @@ Writing Program: {self.prog_object.name}
         sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
 
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user)
+                                                    responsible=self.connection.user.upper())
         self.fake_include.assert_called_once_with(self.connection, self.prog_object.name, package=self.package.name,
                                                   metadata=self.metadata)
         self.assertEqual(self.include.description, 'Test include desc')
@@ -1094,7 +1094,7 @@ class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
 
         self.assertEqual(inactive_objects, [self.function_group, self.function_include, self.function_module])
 
-        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible=self.connection.user)
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible=self.connection.user.upper())
         self.fake_function_group.assert_called_once_with(self.connection, 'TEST_FUGR', package=self.fugr_object.package.name,
                                                          metadata=self.metadata)
         self.fake_function_module.assert_called_once_with(self.connection, 'TEST_FUNCTION_MODULE', self.function_group.name,
