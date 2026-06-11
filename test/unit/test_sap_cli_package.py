@@ -79,6 +79,34 @@ class TestPackageCreate(unittest.TestCase):
 
         self.assertEqual(connection.execs[0].params['corrNr'], '420')
 
+    def test_create_package_default_type_is_development(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('create', '$TEST', 'description')
+        sap.cli.package.create(connection, args)
+
+        self.assertIn('pak:packageType="development"', connection.execs[0].body.decode('utf-8'))
+
+    def test_create_package_with_package_type(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('create', 'ZTEST_MAIN', 'description', '--package-type', 'main')
+        sap.cli.package.create(connection, args)
+
+        self.assertIn('pak:packageType="main"', connection.execs[0].body.decode('utf-8'))
+
+    def test_create_package_with_package_type_structure(self):
+        connection = Connection([EMPTY_RESPONSE_OK])
+
+        args = parse_args('create', 'ZTEST_STRUCT', 'description', '--package-type', 'structure')
+        sap.cli.package.create(connection, args)
+
+        self.assertIn('pak:packageType="structure"', connection.execs[0].body.decode('utf-8'))
+
+    def test_create_package_rejects_unknown_package_type(self):
+        with self.assertRaises(SystemExit):
+            parse_args('create', '$TEST', 'description', '--package-type', 'bogus')
+
     def test_create_package_error_exists_ignored(self):
         connection = Connection([RESPONSE_PACKAGE_EXISTS])
 

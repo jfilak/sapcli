@@ -38,6 +38,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
 @CommandGroup.argument('--software-component', default='LOCAL', help='Software component')
 @CommandGroup.argument('--app-component', default=None, help='Application component')
 @CommandGroup.argument('--super-package', default=None, help='Parent package name')
+@CommandGroup.argument('--package-type', default='development',
+                       choices=['development', 'structure', 'main'],
+                       help='Package type (default: development)')
 @CommandGroup.argument('description')
 @CommandGroup.argument('name')
 @CommandGroup.command()
@@ -49,7 +52,7 @@ def create(connection, args):
 
     package = sap.adt.Package(connection, args.name.upper(), metadata=metadata)
     package.description = args.description
-    package.set_package_type('development')
+    package.set_package_type(args.package_type)
 
     package.set_software_component(args.software_component)
 
