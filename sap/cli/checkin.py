@@ -242,7 +242,7 @@ def checkin_package(connection, repo_package, args):
 
     sap.cli.core.printout(f'Creating Package: {repo_package.name} {devc.CTEXT}')
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user,
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=devc.CTEXT)
 
     package = sap.adt.Package(connection, repo_package.name.upper(), metadata=metadata)
@@ -302,7 +302,7 @@ def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         sap.platform.abap.from_xml(abap_data, abap_data_file.read())
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user,
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=abap_data.DESCRIPT)
     interface = sap.adt.Interface(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
 
@@ -332,7 +332,7 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         sap.platform.abap.from_xml(abap_data, abap_data_file.read())
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user,
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=abap_data.DESCRIPT)
     clas = sap.adt.Class(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
 
@@ -406,7 +406,7 @@ def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
     # TODO: how to handle CUA?
     tpool = results['TPOOL']
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
     if progdir.SUBC == SUBC_EXECUTABLE_PROGRAM:
         program = sap.adt.Program(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
     elif progdir.SUBC == SUBC_INCLUDE:
@@ -596,7 +596,7 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
 
     _check_fugr_source_files(repo_obj, functions, includes)
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user)
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
     function_group = sap.adt.FunctionGroup(connection, repo_obj.name.upper(), package=repo_obj.package.name,
                                            metadata=metadata)
     function_group.description = results['AREAT']

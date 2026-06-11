@@ -147,6 +147,20 @@ class TestPackageCreate(unittest.TestCase):
         with self.assertRaises(ExceptionResourceAlreadyExists):
             sap.cli.package.create(connection, args)
 
+    def test_create_package_uppercases_responsible_user(self):
+        # The ADT backend rejects lowercase usernames in adtcore:responsible
+        # with "Enter a valid user, not <name>, as the person responsible".
+        # Other CLI handlers (object.py, messageclass.py, function.py) already
+        # call .upper() on connection.user; this brings package.create() in line.
+        connection = Connection([EMPTY_RESPONSE_OK], user='lowercase_user')
+
+        args = parse_args('create', '$TEST', 'description')
+        sap.cli.package.create(connection, args)
+
+        body = connection.execs[0].body.decode('utf-8')
+        self.assertIn('adtcore:responsible="LOWERCASE_USER"', body)
+        self.assertNotIn('adtcore:responsible="lowercase_user"', body)
+
 
 class TestPackageList(PatcherTestCase, ConsoleOutputTestCase):
 
