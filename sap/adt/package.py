@@ -49,6 +49,7 @@ class Package(ADTObject):
 
         def __init__(self, name=None):
             self._package_type = name
+            self._record_changes = None
 
         @xml_attribute('pak:packageType')
         def package_type(self):
@@ -63,6 +64,24 @@ class Package(ADTObject):
             """
 
             self._package_type = value
+
+        @xml_attribute('pak:recordChanges')
+        def record_changes(self):
+            """Whether the Package records changes via transport requests.
+
+            Returned as the string ``'true'``/``'false'`` to match the wire
+            format expected by the ADT backend, or ``None`` when not set
+            (in which case the attribute is omitted from the XML payload).
+            """
+
+            return self._record_changes
+
+        @record_changes.setter
+        def record_changes(self, value):
+            """The Package's record changes setter
+            """
+
+            self._record_changes = value
 
     class Transport(metaclass=OrderedClassMembers):
         """SAP Package transport details.
@@ -174,6 +193,15 @@ class Package(ADTObject):
         """
 
         self._attributes.package_type = package_type
+
+    def set_record_changes(self, record_changes):
+        """Sets whether the Package records changes via transport requests.
+
+        Accepts a bool; serialized as the lowercase string ``'true'`` /
+        ``'false'`` to match the ADT wire format.
+        """
+
+        self._attributes.record_changes = 'true' if record_changes else 'false'
 
     def set_software_component(self, name):
         """Changes the Package's software component

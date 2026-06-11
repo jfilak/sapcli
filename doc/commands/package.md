@@ -12,7 +12,7 @@
 Creates non-transportable packages
 
 ```bash
-sapcli package create [--super-package SUPER_PKG] [--app-component APP_COMP] [--software-component SW_COMP] [--transport-layer TR_LAYER] [--package-type {development,structure,main}] [--no-error-existing] NAME DESCRIPTION
+sapcli package create [--super-package SUPER_PKG] [--app-component APP_COMP] [--software-component SW_COMP] [--transport-layer TR_LAYER] [--package-type {development,structure,main}] [--record-changes] [--no-error-existing] NAME DESCRIPTION
 ```
 
 **Parameters**:
@@ -21,6 +21,7 @@ sapcli package create [--super-package SUPER_PKG] [--app-component APP_COMP] [--
 - `--software-component SW_COMP`: Name of assigned Software Component. **(optional)**
 - `--transport-layer TR_LAYER`: Name of assigned Transport Layer. **(optional)**
 - `--package-type {development,structure,main}`: Package type. Defaults to `development`. **(optional)**
+- `--record-changes`: Record changes via transport requests. Required by some structure packages whose `pak:recordChanges` attribute is not editable after creation. **(optional)**
 - `--no-error-existing`: Do not exit with non-0 exit code if the package already exists. **(optional)**
 - `NAME`: Name of the newly created package. Do not forget to escape $ in shell to avoid ENV variable evaluation.
 - `DESCRIPTION`: Description of the newly created package. Do not forget to use " if you need more words.
