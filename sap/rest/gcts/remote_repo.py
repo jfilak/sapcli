@@ -572,10 +572,12 @@ class Repository:
     def messages(self, messages_params: RepoMessagesQueryParams) -> list[ActionMessage]:
         """Fetches gCTS repository logs (not git commit history but gCTS log messages)
 
-           In the case the messages_params contains process, the returned lis will contain
-           single ActionMessage with fully the property process_messages populated with
-           the corresponding data. The ActionMessage is stub no other properties should
-           be access - the returned data are random.
+           When messages_params contains a process filter, the returned list holds a
+           single ActionMessage constructed as ActionMessage(None, msglist). The
+           action-level payload is None (i.e. properties like time, caller,
+           processName, status, processId all return None) and should not be accessed.
+           Callers should read the process_messages attribute instead, which is fully
+           populated with the corresponding ProcessMessage items.
         """
 
         path = messages_params.get_path('log')
