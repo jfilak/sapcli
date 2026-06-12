@@ -207,7 +207,11 @@ def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_toke
                 progress_consumer.progress_message(f'Checking Job Log "{task.log}" ...')
 
             process_messages = fetch_process_messages_for_task(repo, task)
-            raise_for_process_message_error(process_messages)
+            # Hard-coded CLONE because the processName is not returned and we
+            # would have to do 2 HTTP round trips to get the process name from
+            # the task definition, but we know that this code is used only for
+            # cloning.
+            raise_for_process_message_error(process_messages, process_name='CLONE', process_id=task.log)
         else:
             raise OperationTimeoutError
 

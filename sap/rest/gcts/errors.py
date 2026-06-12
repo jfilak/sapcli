@@ -54,9 +54,16 @@ class GCTSRepoCloneTaskDeleteError(GCTSRequestError):
 class GCTSProcessError(SAPCliError):
     """Process error raised by a code watching gCTS background tasks"""
 
-    def __init__(self, process_messages):
-        super().__init__()
+    def __init__(self, process_messages, *, process_name=None, process_id=None):
+        if process_name:
+            message = f'gCTS process {process_name} failed (log id: {process_id})'
+        else:
+            message = 'gCTS process failed'
 
+        super().__init__(message)
+
+        self.process_name = process_name
+        self.process_id = process_id
         self.process_messages = process_messages
 
 

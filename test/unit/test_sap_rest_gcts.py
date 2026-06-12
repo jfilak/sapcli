@@ -63,6 +63,40 @@ class TestGCTSProcessError(unittest.TestCase):
         ex = sap.rest.gcts.errors.GCTSProcessError([])
         self.assertEqual(ex.process_messages, [])
 
+    def test_str_without_process_name(self):
+        ex = sap.rest.gcts.errors.GCTSProcessError([{'action': 'CLONE', 'severity': 'ERROR'}])
+        self.assertEqual(str(ex), 'gCTS process failed')
+
+    def test_str_with_process_name_and_id(self):
+        ex = sap.rest.gcts.errors.GCTSProcessError(
+            [{'action': 'CLONE', 'severity': 'ERROR'}],
+            process_name='CLONE',
+            process_id='ABC123'
+        )
+        self.assertEqual(str(ex), 'gCTS process CLONE failed (log id: ABC123)')
+
+    def test_stores_process_name_and_id(self):
+        ex = sap.rest.gcts.errors.GCTSProcessError(
+            [{'action': 'CLONE', 'severity': 'ERROR'}],
+            process_name='DEPLOY',
+            process_id='XYZ789'
+        )
+        self.assertEqual(ex.process_name, 'DEPLOY')
+        self.assertEqual(ex.process_id, 'XYZ789')
+
+    def test_process_name_and_id_default_to_none(self):
+        ex = sap.rest.gcts.errors.GCTSProcessError([])
+        self.assertIsNone(ex.process_name)
+        self.assertIsNone(ex.process_id)
+
+    def test_str_with_process_name_and_none_id(self):
+        ex = sap.rest.gcts.errors.GCTSProcessError(
+            [],
+            process_name='CLONE',
+            process_id=None
+        )
+        self.assertEqual(str(ex), 'gCTS process CLONE failed (log id: None)')
+
 
 class TestGCTSExceptionFactory(unittest.TestCase):
 
@@ -1973,6 +2007,42 @@ class TestRaiseForProcessMessageError(unittest.TestCase):
 
         raise_for_process_message_error(messages)
 
+    def test_raises_with_process_name_and_id(self):
+        """raise_for_process_message_error passes process_name and process_id to exception"""
+        messages = [
+            ProcessMessage({'action': 'CLONE', 'severity': 'ERROR', 'application': 'gCTS', 'applInfo': 'error'}),
+        ]
+
+        with self.assertRaises(GCTSProcessError) as cm:
+            raise_for_process_message_error(messages, process_name='CLONE', process_id='LOG123')
+
+        self.assertEqual(cm.exception.process_name, 'CLONE')
+        self.assertEqual(cm.exception.process_id, 'LOG123')
+        self.assertIs(cm.exception.process_messages, messages)
+        self.assertEqual(str(cm.exception), 'gCTS process CLONE failed (log id: LOG123)')
+
+    def test_raises_without_process_name_and_id(self):
+        """raise_for_process_message_error raises with None process_name and process_id when not provided"""
+        messages = [
+            ProcessMessage({'action': 'DEPLOY', 'severity': 'ERROR', 'application': 'gCTS', 'applInfo': 'error'}),
+        ]
+
+        with self.assertRaises(GCTSProcessError) as cm:
+            raise_for_process_message_error(messages)
+
+        self.assertIsNone(cm.exception.process_name)
+        self.assertIsNone(cm.exception.process_id)
+        self.assertIs(cm.exception.process_messages, messages)
+        self.assertEqual(str(cm.exception), 'gCTS process failed')
+
+    def test_does_not_raise_when_no_error_with_process_name(self):
+        """raise_for_process_message_error does nothing even when process_name is provided if no errors"""
+        messages = [
+            ProcessMessage({'action': 'CLONE', 'severity': 'INFO', 'application': 'gCTS', 'applInfo': 'ok'}),
+        ]
+
+        raise_for_process_message_error(messages, process_name='CLONE', process_id='LOG456')
+
 
 class TestRepoActivitiesQueryParams(unittest.TestCase):
 
@@ -2386,6 +2456,9 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         self.assertEqual(len(cm.exception.process_messages), 7)
         self.assertEqual(cm.exception.process_messages[0].severity, 'ERROR')
         self.assertEqual(cm.exception.process_messages[0].action, 'FINISH_JOB')
+        self.assertEqual(cm.exception.process_name, 'CLONE')
+        self.assertEqual(cm.exception.process_id, task_log)
+        self.assertEqual(str(cm.exception), f'gCTS process CLONE failed (log id: {task_log})')
 
         mock_create.assert_called_once()
         mock_schedule_clone.assert_called_once_with(self.conn, repo)
