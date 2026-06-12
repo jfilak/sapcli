@@ -60,13 +60,15 @@ def exception_from_http_error_for_task(http_error):
     return GCTSRequestError(messages)
 
 
-def raise_for_process_message_error(process_messages: List[ProcessMessage]):
+def raise_for_process_message_error(process_messages: List[ProcessMessage], *,
+                                    process_name: Optional[str] = None,
+                                    process_id: Optional[str] = None):
     """Checks the list of process messages for any with severity 'ERROR' and
        raises GCTSProcessError if found.
     """
 
     if any(message.severity == 'ERROR' for message in process_messages):
-        raise GCTSProcessError(process_messages=process_messages)
+        raise GCTSProcessError(process_messages, process_name=process_name, process_id=process_id)
 
 
 class _TaskHttpProxy:
