@@ -17,6 +17,28 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('abap')
 
 
+def _parse_definitions(define_args):
+    """Turns a list of NAME=VALUE strings into a {NAME: VALUE} dict.
+
+    The value may contain '=' (only the first one separates name and value).
+    The name must follow the preprocessor token name grammar, otherwise the
+    definition could never match a token.
+    """
+
+    definitions = {}
+
+    for item in define_args:
+        name, separator, value = item.partition('=')
+        if not separator or not sap.platform.abap.run.TOKEN_NAME_RE.fullmatch(name):
+            raise sap.errors.SAPCliError(f'Invalid --define value (expected NAME=VALUE): {item}')
+
+        definitions[name] = value
+
+    return definitions
+
+
+@CommandGroup.argument('-D', '--define', type=str, action='append', metavar='NAME=VALUE',
+                       help='Replace {{NAME}} tokens in the source with VALUE (repeatable)')
 @CommandGroup.argument('--package', type=str, default=sap.platform.abap.run.DEFAULT_PACKAGE)
 @CommandGroup.argument('--prefix', type=str, default=sap.platform.abap.run.DEFAULT_PREFIX)
 @CommandGroup.argument('source', type=str)
@@ -31,6 +53,8 @@ def run(connection, args):
     else:
         with open(args.source, 'r', encoding='utf-8') as source_file:
             user_code = source_file.read()
+
+    user_code = sap.platform.abap.run.preprocess(user_code, _parse_definitions(args.define or []))
 
     result = sap.platform.abap.run.execute_abap(
         connection,
