@@ -1,5 +1,6 @@
 """ABAP Adhoc Code Execution"""
 
+import re
 import secrets
 import string
 import warnings
@@ -15,6 +16,22 @@ DEFAULT_PREFIX = 'zcl_sapcli_run'
 DEFAULT_PACKAGE = '$tmp'
 
 _CLASS_DESCRIPTION = 'Temporary class created by sapcli for adhoc ABAP execution'
+
+# Preprocessor token: anything between {{ and }} on a single line. The match is
+# deliberately broader than the supported content so that future syntax (defaults,
+# filters, functions) fails loudly today instead of being passed to the ABAP system.
+_TOKEN_RE = re.compile(r'{{(.*?)}}')
+
+# Grammar of token names - shared with the --define argument parsing so that every
+# definable name is also matchable. Future token syntax will use the characters
+# excluded here (e.g. '|', '()') as operators.
+TOKEN_NAME_RE = re.compile(r'[A-Za-z_]\w*', re.ASCII)
+
+# Jinja2 statement and comment delimiters - reserved for future template features.
+# Their mere presence is an error (paired or not, Jinja2 comments may span lines),
+# so a future upgrade to full Jinja2 templating cannot silently change the meaning
+# of sources which work today.
+_RESERVED_DELIMITERS = ('{%', '{#')
 
 _CLASS_TEMPLATE = '''"! This is a temporary class created by sapcli for execution
 "! of an adhoc ABAP statements.
@@ -52,6 +69,44 @@ def generate_class_name(prefix, username):
 
     random_chars = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(random_len))
     return f'{prefix_lower}_{username_lower}_{random_chars}'
+
+
+def preprocess(user_code, definitions):
+    """Replaces every {{NAME}} token in user_code with definitions[NAME].
+
+    Raises SAPCliError if the code contains a token without a matching definition,
+    so a forgotten substitution fails loudly instead of reaching the ABAP system,
+    and also if a token holds anything but a plain name - the content between the
+    braces is reserved for future syntax. The Jinja2 delimiters '{%' and '{#' are
+    reserved too and must not appear in the code at all. Only the original code is
+    checked - substituted values are inserted literally and never re-scanned.
+    """
+
+    reserved = [delimiter for delimiter in _RESERVED_DELIMITERS if delimiter in user_code]
+    if reserved:
+        names = ', '.join(reserved)
+        raise SAPCliError(f'Reserved preprocessor delimiter(s): {names}')
+
+    undefined = set()
+
+    def _replace(match):
+        name = match.group(1).strip()
+        if not TOKEN_NAME_RE.fullmatch(name):
+            raise SAPCliError(f'Unsupported preprocessor expression: {match.group(0)}')
+
+        if name not in definitions:
+            undefined.add(name)
+            return match.group(0)
+
+        return definitions[name]
+
+    result = _TOKEN_RE.sub(_replace, user_code)
+
+    if undefined:
+        names = ', '.join(sorted(undefined))
+        raise SAPCliError(f'Undefined preprocessor token(s): {names}')
+
+    return result
 
 
 def build_class_code(class_name, user_code):

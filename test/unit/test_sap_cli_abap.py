@@ -132,6 +132,127 @@ class TestAbapRun(unittest.TestCase):
             package='$mypackage'
         )
 
+    def test_run_with_define_substitutes_token(self):
+        file_content = 'WRITE {{VALUE}}.'
+
+        with patch('builtins.open', mock_open(read_data=file_content)):
+            mock_exec, _ = self._run_with_mock(
+                ['run', '--define', 'VALUE=42', 'script.abap']
+            )
+
+        mock_exec.assert_called_once_with(
+            'mock_connection',
+            'WRITE 42.',
+            prefix=sap.platform.abap.run.DEFAULT_PREFIX,
+            package=sap.platform.abap.run.DEFAULT_PACKAGE
+        )
+
+    def test_run_with_define_short_flag(self):
+        file_content = 'WRITE {{VALUE}}.'
+
+        with patch('builtins.open', mock_open(read_data=file_content)):
+            mock_exec, _ = self._run_with_mock(
+                ['run', '-D', 'VALUE=42', 'script.abap']
+            )
+
+        mock_exec.assert_called_once_with(
+            'mock_connection',
+            'WRITE 42.',
+            prefix=sap.platform.abap.run.DEFAULT_PREFIX,
+            package=sap.platform.abap.run.DEFAULT_PACKAGE
+        )
+
+    def test_run_with_multiple_defines(self):
+        file_content = '{{A}} {{B}}'
+
+        with patch('builtins.open', mock_open(read_data=file_content)):
+            mock_exec, _ = self._run_with_mock(
+                ['run', '--define', 'A=foo', '--define', 'B=bar', 'script.abap']
+            )
+
+        mock_exec.assert_called_once_with(
+            'mock_connection',
+            'foo bar',
+            prefix=sap.platform.abap.run.DEFAULT_PREFIX,
+            package=sap.platform.abap.run.DEFAULT_PACKAGE
+        )
+
+    def test_run_without_define_token_in_source_raises(self):
+        file_content = 'WRITE {{VALUE}}.'
+
+        with patch('builtins.open', mock_open(read_data=file_content)):
+            args = parse_args(['run', 'script.abap'])
+            _, factory = make_console_factory()
+            args.console_factory = factory
+
+            with patch('sap.platform.abap.run.execute_abap') as mock_exec:
+                with self.assertRaises(SAPCliError) as caught:
+                    args.execute('mock_connection', args)
+
+            mock_exec.assert_not_called()
+
+        self.assertIn('VALUE', str(caught.exception))
+
+    def test_run_define_value_may_contain_equals(self):
+        file_content = 'cond = {{EXPR}}.'
+
+        with patch('builtins.open', mock_open(read_data=file_content)):
+            mock_exec, _ = self._run_with_mock(
+                ['run', '--define', 'EXPR=a = b', 'script.abap']
+            )
+
+        mock_exec.assert_called_once_with(
+            'mock_connection',
+            'cond = a = b.',
+            prefix=sap.platform.abap.run.DEFAULT_PREFIX,
+            package=sap.platform.abap.run.DEFAULT_PACKAGE
+        )
+
+    def test_run_undefined_token_raises_and_skips_execution(self):
+        file_content = 'WRITE {{MISSING}}.'
+
+        with patch('builtins.open', mock_open(read_data=file_content)):
+            args = parse_args(['run', '--define', 'OTHER=1', 'script.abap'])
+            _, factory = make_console_factory()
+            args.console_factory = factory
+
+            with patch('sap.platform.abap.run.execute_abap') as mock_exec:
+                with self.assertRaises(SAPCliError) as caught:
+                    args.execute('mock_connection', args)
+
+            mock_exec.assert_not_called()
+
+        self.assertIn('MISSING', str(caught.exception))
+
+    def test_run_reserved_delimiter_raises_and_skips_execution(self):
+        file_content = '{% if x %}WRITE.{% endif %}'
+
+        with patch('builtins.open', mock_open(read_data=file_content)):
+            args = parse_args(['run', 'script.abap'])
+            _, factory = make_console_factory()
+            args.console_factory = factory
+
+            with patch('sap.platform.abap.run.execute_abap') as mock_exec:
+                with self.assertRaises(SAPCliError) as caught:
+                    args.execute('mock_connection', args)
+
+            mock_exec.assert_not_called()
+
+        self.assertIn('{%', str(caught.exception))
+
+    def test_run_define_invalid_format_raises(self):
+        file_content = 'WRITE.'
+
+        with patch('builtins.open', mock_open(read_data=file_content)):
+            args = parse_args(['run', '--define', 'NOEQUALS', 'script.abap'])
+            _, factory = make_console_factory()
+            args.console_factory = factory
+
+            with self.assertRaises(SAPCliError) as caught:
+                args.execute('mock_connection', args)
+
+        self.assertIn('NOEQUALS', str(caught.exception))
+
     def test_run_prints_output(self):
         file_content = 'WRITE.'
         expected_output = 'execution result'
@@ -143,6 +264,54 @@ class TestAbapRun(unittest.TestCase):
             )
 
         self.assertEqual(console.capout, expected_output + '\n')
+
+
+class TestParseDefinitions(unittest.TestCase):
+
+    def test_single_definition(self):
+        self.assertEqual(sap.cli.abap._parse_definitions(['A=1']), {'A': '1'})
+
+    def test_multiple_definitions(self):
+        self.assertEqual(
+            sap.cli.abap._parse_definitions(['A=1', 'B=2']),
+            {'A': '1', 'B': '2'}
+        )
+
+    def test_value_may_contain_equals(self):
+        self.assertEqual(sap.cli.abap._parse_definitions(['A=1=2']), {'A': '1=2'})
+
+    def test_empty_value_allowed(self):
+        self.assertEqual(sap.cli.abap._parse_definitions(['A=']), {'A': ''})
+
+    def test_later_definition_overrides_earlier(self):
+        self.assertEqual(sap.cli.abap._parse_definitions(['A=1', 'A=2']), {'A': '2'})
+
+    def test_missing_equals_raises(self):
+        with self.assertRaises(SAPCliError):
+            sap.cli.abap._parse_definitions(['NOEQ'])
+
+    def test_empty_name_raises(self):
+        with self.assertRaises(SAPCliError):
+            sap.cli.abap._parse_definitions(['=value'])
+
+    def test_name_with_underscore_allowed(self):
+        self.assertEqual(sap.cli.abap._parse_definitions(['MY_NAME=1']), {'MY_NAME': '1'})
+
+    def test_name_with_space_raises(self):
+        with self.assertRaises(SAPCliError):
+            sap.cli.abap._parse_definitions(['A B=1'])
+
+    def test_name_with_colon_dash_raises(self):
+        with self.assertRaises(SAPCliError):
+            sap.cli.abap._parse_definitions(['A:-B=1'])
+
+    def test_name_with_pipe_raises(self):
+        with self.assertRaises(SAPCliError):
+            sap.cli.abap._parse_definitions(['A|B=1'])
+
+    def test_name_starting_with_digit_raises(self):
+        with self.assertRaises(SAPCliError):
+            sap.cli.abap._parse_definitions(['1A=2'])
 
 
 class TestAbapSystemInfo(unittest.TestCase):

@@ -9,6 +9,7 @@ from sap.platform.abap.run import (
     generate_class_name,
     build_class_code,
     execute_abap,
+    preprocess,
     DEFAULT_PREFIX,
     DEFAULT_PACKAGE,
 )
@@ -297,6 +298,127 @@ class TestExecuteAbap(unittest.TestCase):
 
         methods = connection.mock_methods()
         self.assertFalse(any(uri.startswith('/sap/bc/adt/checkruns') for _, uri in methods))
+
+
+class TestPreprocess(unittest.TestCase):
+
+    def test_replaces_single_token(self):
+        result = preprocess('WRITE {{VALUE}}.', {'VALUE': '42'})
+        self.assertEqual(result, 'WRITE 42.')
+
+    def test_replaces_multiple_occurrences_of_same_token(self):
+        result = preprocess('{{X}} + {{X}}', {'X': '1'})
+        self.assertEqual(result, '1 + 1')
+
+    def test_replaces_multiple_distinct_tokens(self):
+        result = preprocess('{{A}} {{B}}', {'A': 'foo', 'B': 'bar'})
+        self.assertEqual(result, 'foo bar')
+
+    def test_allows_whitespace_inside_braces(self):
+        result = preprocess('{{ NAME }}', {'NAME': 'x'})
+        self.assertEqual(result, 'x')
+
+    def test_code_without_tokens_unchanged(self):
+        code = 'WRITE / lv_text.'
+        self.assertEqual(preprocess(code, {'UNUSED': '1'}), code)
+
+    def test_no_definitions_and_no_tokens_returns_same(self):
+        code = 'WRITE / lv_text.'
+        self.assertEqual(preprocess(code, {}), code)
+
+    def test_single_braces_are_not_tokens(self):
+        code = "out->write( |Hello { lv_name }| )."
+        self.assertEqual(preprocess(code, {'lv_name': 'x'}), code)
+
+    def test_empty_value_replacement(self):
+        result = preprocess('x{{E}}y', {'E': ''})
+        self.assertEqual(result, 'xy')
+
+    def test_value_is_not_interpreted_as_regex(self):
+        result = preprocess('CALL {{FN}}.', {'FN': "method( '\\1' )"})
+        self.assertEqual(result, "CALL method( '\\1' ).")
+
+    def test_undefined_token_raises(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('WRITE {{MISSING}}.', {})
+
+        self.assertIn('MISSING', str(caught.exception))
+
+    def test_undefined_token_error_lists_missing_only(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('{{KNOWN}} {{UNKNOWN}}', {'KNOWN': '1'})
+
+        self.assertIn('UNKNOWN', str(caught.exception))
+
+    def test_unsupported_expression_bash_default_raises(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess("WRITE {{NAME:-'x'}}.", {'NAME': '1'})
+
+        self.assertIn("{{NAME:-'x'}}", str(caught.exception))
+
+    def test_unsupported_expression_filter_raises(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess("WRITE {{name | default('')}}.", {'name': '1'})
+
+        self.assertIn('Unsupported preprocessor expression', str(caught.exception))
+
+    def test_unsupported_expression_function_raises(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('WRITE {{file(name)}}.', {'name': '1'})
+
+        self.assertIn('Unsupported preprocessor expression', str(caught.exception))
+
+    def test_unsupported_expression_empty_raises(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('WRITE {{}}.', {})
+
+        self.assertIn('Unsupported preprocessor expression', str(caught.exception))
+
+    def test_unsupported_expression_digits_only_raises(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('WRITE {{123}}.', {'123': '1'})
+
+        self.assertIn('Unsupported preprocessor expression', str(caught.exception))
+
+    def test_name_starting_with_underscore_is_valid(self):
+        result = preprocess('WRITE {{_NAME}}.', {'_NAME': '1'})
+        self.assertEqual(result, 'WRITE 1.')
+
+    def test_token_must_not_span_lines(self):
+        code = 'WRITE {{A\nB}} {{C}}.'
+        result = preprocess(code, {'C': '1'})
+        self.assertEqual(result, 'WRITE {{A\nB}} 1.')
+
+    def test_statement_delimiter_is_reserved(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('{% if x %}WRITE.{% endif %}', {})
+
+        self.assertIn('{%', str(caught.exception))
+
+    def test_comment_delimiter_is_reserved(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('{# note #}WRITE.', {})
+
+        self.assertIn('{#', str(caught.exception))
+
+    def test_unpaired_statement_delimiter_is_reserved(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess("WRITE '{%'.", {})
+
+        self.assertIn('{%', str(caught.exception))
+
+    def test_reserved_delimiter_error_lists_all_found(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('{# doc #}\n{% if x %}WRITE.{% endif %}', {})
+
+        self.assertIn('{%', str(caught.exception))
+        self.assertIn('{#', str(caught.exception))
+
+    def test_reserved_delimiter_detected_even_with_valid_tokens(self):
+        with self.assertRaises(SAPCliError) as caught:
+            preprocess('{{A}} {% set x = 1 %}', {'A': '1'})
+
+        self.assertIn('{%', str(caught.exception))
 
 
 if __name__ == '__main__':
