@@ -1,58 +1,12 @@
 """ADT proxy for Object Activation routines."""
 
+import sap.adt.object_factory
 import sap.cli.core
 import sap.errors
 
-from sap.adt.objects import ADTObjectReferences, Class, Interface
-from sap.adt.programs import Program, Include
-from sap.adt.function import FunctionGroup, FunctionModule, FunctionInclude
-from sap.adt.dataelement import DataElement
-from sap.adt.domain import Domain
-from sap.adt.table import Table
-from sap.adt.structure import Structure
-from sap.adt.behaviordefinition import BehaviorDefinition
-from sap.adt.messageclass import MessageClass
-from sap.adt.transaction import Transaction
+from sap.adt.objects import ADTObjectReferences
 from sap.adt.wb import fetch_inactive_objects, mass_activate
 from sap.cli.core import printout
-
-
-# ---------------------------------------------------------------------------
-# Object-kind registry: maps a short CLI name (and a couple of common ABAP
-# aliases) to the ADT object class. ``objects activate`` looks the class up
-# here, instantiates it with (connection, name) and adds the resulting
-# ADTObject to an ADTObjectReferences via ``add_object`` - the same routine
-# ``try_activate`` uses internally for the single-object path.
-# ---------------------------------------------------------------------------
-KIND_REGISTRY = {
-    'program': Program,
-    'prog': Program,
-    'include': Include,
-    'incl': Include,
-    'class': Class,
-    'clas': Class,
-    'interface': Interface,
-    'intf': Interface,
-    'function-group': FunctionGroup,
-    'fugr': FunctionGroup,
-    'function-module': FunctionModule,
-    'fm': FunctionModule,
-    'function-include': FunctionInclude,
-    'data-element': DataElement,
-    'dtel': DataElement,
-    'domain': Domain,
-    'doma': Domain,
-    'table': Table,
-    'tabl': Table,
-    'structure': Structure,
-    'stru': Structure,
-    'behavior-definition': BehaviorDefinition,
-    'bdef': BehaviorDefinition,
-    'message-class': MessageClass,
-    'msag': MessageClass,
-    'transaction': Transaction,
-    'tran': Transaction,
-}
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +124,7 @@ def _report_results(results, ignore_errors, warning_errors):
     return 0
 
 
-def _parse_object_spec(spec):
+def _parse_object_spec(spec, supported_kinds):
     """Parse a ``KIND=NAME`` argument value into ``(kind, name)``."""
 
     if '=' not in spec:
@@ -185,8 +139,8 @@ def _parse_object_spec(spec):
         raise sap.errors.SAPCliError(
             f"Invalid --object value '{spec}'. Both KIND and NAME must be non-empty.")
 
-    if kind not in KIND_REGISTRY:
-        supported = ', '.join(sorted(KIND_REGISTRY))
+    if kind not in supported_kinds:
+        supported = ', '.join(sorted(supported_kinds))
         raise sap.errors.SAPCliError(
             f"Unsupported object kind '{kind}'. Supported kinds: {supported}.")
 
@@ -282,21 +236,28 @@ def objects_activate(connection, args):
     """
 
     if args.list_kinds:
+        # Render kinds without a live connection - the factory only
+        # needs one for actually building objects, so we pass None and
+        # only consult the supported-names list.
+        factory = sap.adt.object_factory.human_names_factory(None)
         printout('Supported KINDs:')
-        for kind in sorted(KIND_REGISTRY):
-            printout(f'  {kind:20s} -> {KIND_REGISTRY[kind].__name__}')
+        for kind in sorted(factory.get_supported_names()):
+            printout(f'  {kind}')
         return 0
 
     if not args.objects:
         raise sap.errors.SAPCliError(
             'At least one --object KIND=NAME is required unless --list-kinds is used.')
 
+    factory = sap.adt.object_factory.human_names_factory(connection)
+    supported_kinds = list(factory.get_supported_names())
+
     refs = ADTObjectReferences()
     summary = []   # list of (kind, name) for printout/dry-run
 
     for spec in args.objects:
-        kind, name = _parse_object_spec(spec)
-        obj = KIND_REGISTRY[kind](connection, name)
+        kind, name = _parse_object_spec(spec, supported_kinds)
+        obj = factory.make(kind, name)
         refs.add_object(obj)
         summary.append((kind, name))
 

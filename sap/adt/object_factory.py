@@ -51,13 +51,53 @@ class ADTObjectFactory:
 def human_names_factory(connection: sap.adt.core.Connection) -> ADTObjectFactory:
     """Returns an instance of factory making ADT object proxies
        based on human readable ADT object types.
+
+       The catalogue exposes both canonical, dash-separated names
+       (``program``, ``function-group`` ...) and the corresponding
+       ABAP-style 4-char aliases (``prog``, ``fugr`` ...) so that the
+       same factory can serve every ``sap.cli`` consumer that needs to
+       map a user-facing name to an ADT object proxy.
     """
 
-    types = {
+    canonical: ADTObjectBuilderDictType = cast(ADTObjectBuilderDictType, {
         'program': sap.adt.Program,
+        'include': sap.adt.Include,
         'program-include': sap.adt.programs.make_program_include_object,
         'class': sap.adt.Class,
-        'package': sap.adt.Package
+        'interface': sap.adt.Interface,
+        'function-group': sap.adt.FunctionGroup,
+        'function-module': sap.adt.FunctionModule,
+        'function-include': sap.adt.FunctionInclude,
+        'data-element': sap.adt.DataElement,
+        'domain': sap.adt.Domain,
+        'table': sap.adt.Table,
+        'structure': sap.adt.Structure,
+        'behavior-definition': sap.adt.BehaviorDefinition,
+        'message-class': sap.adt.MessageClass,
+        'transaction': sap.adt.Transaction,
+        'package': sap.adt.Package,
+    })
+
+    # Each alias must reuse the very same builder as its canonical
+    # counterpart so callers can rely on alias-vs-canonical equivalence.
+    aliases = {
+        'prog': 'program',
+        'incl': 'include',
+        'clas': 'class',
+        'intf': 'interface',
+        'fugr': 'function-group',
+        'fm': 'function-module',
+        'dtel': 'data-element',
+        'doma': 'domain',
+        'tabl': 'table',
+        'stru': 'structure',
+        'bdef': 'behavior-definition',
+        'msag': 'message-class',
+        'tran': 'transaction',
     }
 
-    return ADTObjectFactory(connection, cast(ADTObjectBuilderDictType, types))
+    types: ADTObjectBuilderDictType = dict(canonical)
+    for alias, target in aliases.items():
+        types[alias] = canonical[target]
+
+    return ADTObjectFactory(connection, types)

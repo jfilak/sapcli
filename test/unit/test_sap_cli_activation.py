@@ -346,13 +346,33 @@ class TestObjectsActivate(unittest.TestCase):
         self.assertIn('Dry run', fake_console.capout)
 
     def test_alias_resolves_to_same_class(self):
-        # The CLI accepts both canonical and ABAP aliases
-        self.assertIs(sap.cli.activation.KIND_REGISTRY['program'],
-                      sap.cli.activation.KIND_REGISTRY['prog'])
-        self.assertIs(sap.cli.activation.KIND_REGISTRY['include'],
-                      sap.cli.activation.KIND_REGISTRY['incl'])
-        self.assertIs(sap.cli.activation.KIND_REGISTRY['class'],
-                      sap.cli.activation.KIND_REGISTRY['clas'])
+        # The CLI accepts both canonical and ABAP aliases. Going through
+        # the CLI ensures the resolution is wired up via the shared
+        # human_names_factory rather than a CLI-local table.
+        conn = Connection()
+
+        results = Mock()
+        results.has_errors = False
+        results.has_warnings = False
+        results.messages = []
+
+        with patch('sap.cli.activation.mass_activate') as fake_mass:
+            fake_mass.return_value = (results, Mock())
+
+            args = OBJECTS_PARSER.parse(
+                'activate',
+                '--object', 'prog=ZMYREP',
+                '--object', 'clas=CL_FOO',
+                '--object', 'incl=ZMYREP_C01',
+            )
+
+            with patch_get_print_console_with_buffer():
+                args.execute(conn, args)
+
+            sent_refs = fake_mass.call_args.args[1]
+
+        names = [ref.name for ref in sent_refs.references]
+        self.assertEqual(names, ['ZMYREP', 'CL_FOO', 'ZMYREP_C01'])
 
 
 if __name__ == '__main__':
