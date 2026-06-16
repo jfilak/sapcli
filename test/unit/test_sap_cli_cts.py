@@ -141,7 +141,17 @@ class TestCTSCreate(unittest.TestCase):
         self.assertEqual(call_kwargs['tmtype'], 'K')
 
 
-class TestCTSRelease(PatcherTestCase, ConsoleOutputTestCase):
+class TestCTSRelease(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         ConsoleOutputTestCase.setUp(self)
@@ -194,7 +204,17 @@ Transport request/task {TRANSPORT_NUMBER} was successfully released
         fake_fetch.assert_called_once()
 
 
-class TestCTSDelete(PatcherTestCase, ConsoleOutputTestCase):
+class TestCTSDelete(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         ConsoleOutputTestCase.setUp(self)
@@ -239,7 +259,17 @@ Deleted {TRANSPORT_NUMBER}
         fake_fetch.assert_called_once()
 
 
-class TestCTSReassign(PatcherTestCase, ConsoleOutputTestCase):
+class TestCTSReassign(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         ConsoleOutputTestCase.setUp(self)

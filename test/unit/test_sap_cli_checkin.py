@@ -261,7 +261,11 @@ class TestCheckinGroup(ConsoleOutputTestCase):
         self.assertEqual(len(inactive.references), 1)
 
 
-class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
+class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
 
     def walk(self, name):
         for stand in self.walk_stands:
@@ -272,6 +276,12 @@ class TestCheckIn(PatcherTestCase, ConsoleOutputTestCase):
 
     def glob(self, pattern):
         return [name for name in self.files if fnmatch.fnmatch(name, pattern)]
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -444,6 +454,16 @@ Activating objects ...
 
 class TestActivate(ConsoleOutputTestCase, PatcherTestCase):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
     def setUp(self):
         super(TestActivate, self).setUp()
 
@@ -491,6 +511,16 @@ class TestActivate(ConsoleOutputTestCase, PatcherTestCase):
 
 
 class TestCheckInPackage(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -593,7 +623,17 @@ class TestCheckInPackage(ConsoleOutputTestCase, PatcherTestCase):
         package.create.assert_called_once_with('corrnr')
 
 
-class TestCheckInClass(PatcherTestCase, ConsoleOutputTestCase):
+class TestCheckInClass(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -742,7 +782,17 @@ Writing Clas: {self.clas_object.name} testclasses
 ''')
 
 
-class TestCheckInInterface(PatcherTestCase, ConsoleOutputTestCase):
+class TestCheckInInterface(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -824,7 +874,17 @@ class TestCheckInInterface(PatcherTestCase, ConsoleOutputTestCase):
         self.interface.open_editor.assert_called_once_with(corrnr=None)
 
 
-class TestCheckInProgram(PatcherTestCase, ConsoleOutputTestCase):
+class TestCheckInProgram(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -978,7 +1038,17 @@ Writing Program: {self.prog_object.name}
         self.program.open_editor.assert_not_called()
 
 
-class TestCheckInFunctionGroup(PatcherTestCase, ConsoleOutputTestCase):
+class TestCheckInFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()

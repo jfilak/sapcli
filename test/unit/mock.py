@@ -400,21 +400,21 @@ class GroupArgumentParser:
 
 
 class PatcherTestCase:
-    # Do no add __init__ because it does not work anyways
-    # as this class is involved in multiple inheritance.
+
+    def __init__(self, *args, **kwargs):
+        super(PatcherTestCase, self).__init__()
+
+        self._patchers = {}
+        self._console_backup = None
 
     def patch(self, spec, **kwargs):
-        print('Patching', spec)
-
-        if not hasattr(self, '_patchers'):
-            self._patchers = {}
-
         if spec in self._patchers:
             raise RuntimeError('Cannot patch patched %s' % (spec))
 
+        print('Patching', spec)
         patcher = patch(spec, **kwargs)
         self._patchers[spec] = patcher
-        return patcher.__enter__()
+        return patcher.start()
 
     def patch_console(self, console=None):
         if console is None:
@@ -422,38 +422,36 @@ class PatcherTestCase:
 
         console.tag = self
 
-        old_console = sap.cli.core.set_console(console)
 
         # Remember only the first one - that's the real original and that's how patch works!
-        if  hasattr(self, '_console_backup'):
+        if self._console_backup is not None:
             raise Exception('double patch')
 
-        self._console_backup = old_console
-
-        #return self.patch('sap.cli.core.get_console', return_value=console)
+        self._console_backup = sap.cli.core.set_console(console)
         return Mock(return_value=console)
 
-    def tearDown(self):
-        self.unpatch_all()
-
     def unpatch_all(self):
-        print('Patcher tear down')
-
-        if hasattr(self, '_console_backup'):
+        if self._console_backup is not None:
             double_check = sap.cli.core.set_console(self._console_backup)
-            if not double_check.tag is self:
+            if double_check.tag is not self:
                 raise Exception('revert something else')
+            self._console_backup = None
 
-        if not hasattr(self, '_patchers'):
-            return
-
-        for patcher in self._patchers.values():
-            patcher.__exit__(None, None, None)
+        for spec, patcher in self._patchers.items():
+            print('Unpatching:', spec)
+            patcher.stop()
 
 
 class ConsoleOutputTestCase(unittest.TestCase):
 
+    def __init__(self, *args, **kwargs):
+        super(ConsoleOutputTestCase, self).__init__(*args, **kwargs)
+
+    def tearDown(self):
+         super().tearDown()
+
     def setUp(self):
+        super().setUp()
         self.console = BufferConsole()
 
     def assertEmptyConsole(self, console,):

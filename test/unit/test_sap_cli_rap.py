@@ -22,8 +22,18 @@ from fixtures_adt_businessservice import SERVICE_DEFINITION_ADT_XML
 parse_args = generate_parse_args(sap.cli.rap.CommandGroup())
 
 
-class TestRapBindingPublish(PatcherTestCase, ConsoleOutputTestCase):
+class TestRapBindingPublish(ConsoleOutputTestCase, PatcherTestCase):
     '''Test rap binding Publish command'''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -213,8 +223,18 @@ with supplied name "{self.param_service}" and version ""
         self.assertEqual(exitcode, 1)
 
 
-class TestRapDefinition(PatcherTestCase, ConsoleOutputTestCase):
+class TestRapDefinition(ConsoleOutputTestCase, PatcherTestCase):
     '''Test rap definition command group'''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()

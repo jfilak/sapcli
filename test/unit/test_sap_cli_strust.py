@@ -371,7 +371,17 @@ class TestArgumentsToStores(unittest.TestCase):
             )
 
 
-class TestListAndDumpStrustCerts(PatcherTestCase, ConsoleOutputTestCase):
+class TestListAndDumpStrustCerts(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -484,7 +494,17 @@ Y2VydDI=
 ''')
 
 
-class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
+class TestCreatePSE(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -619,7 +639,17 @@ class TestCreatePSE(PatcherTestCase, ConsoleOutputTestCase):
         self.assert_defaults_for_server_standard(fake_exists, fake_create, alg='R', keylen=4096)
 
 
-class TestRemovePSE(PatcherTestCase, ConsoleOutputTestCase):
+class TestRemovePSE(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -691,7 +721,17 @@ class TestRemovePSE(PatcherTestCase, ConsoleOutputTestCase):
         )
 
 
-class TestGetCSR(PatcherTestCase, ConsoleOutputTestCase):
+class TestGetCSR(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -763,7 +803,17 @@ class TestGetCSR(PatcherTestCase, ConsoleOutputTestCase):
         )
 
 
-class TestPutPKC(PatcherTestCase, ConsoleOutputTestCase):
+class TestPutPKC(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -859,7 +909,17 @@ class TestPutPKC(PatcherTestCase, ConsoleOutputTestCase):
         self.assert_response_and_storage(fake_put_cert, fake_add_file, self.open_mock.return_value)
 
 
-class TestUpload(PatcherTestCase, ConsoleOutputTestCase):
+class TestUpload(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -955,7 +1015,17 @@ class TestUpload(PatcherTestCase, ConsoleOutputTestCase):
         self.assert_password_and_upload(fake_upload, expected_password)
 
 
-class TestListIdentities(PatcherTestCase, ConsoleOutputTestCase):
+class TestListIdentities(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -998,7 +1068,17 @@ class TestListIdentities(PatcherTestCase, ConsoleOutputTestCase):
         )
 
 
-class TestGetOwnCertificate(PatcherTestCase, ConsoleOutputTestCase):
+class TestGetOwnCertificate(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
@@ -1048,7 +1128,17 @@ dGVzdF9nZXRfb3duX2NlcnRpZmljYXRl
 ''')
 
 
-class TestCreateIdentity(PatcherTestCase, ConsoleOutputTestCase):
+class TestCreateIdentity(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
 
     def setUp(self):
         super().setUp()
