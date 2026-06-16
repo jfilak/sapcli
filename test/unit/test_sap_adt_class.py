@@ -26,6 +26,10 @@ class zcl_hello_world implementation.
 endclass.
 '''
 
+INCLUDE_CRLF_READ_RESPONSE_OK = Response(text='* Line 1\r\n* Line2\r\n* Line3\r\n',
+                                         status_code=200,
+                                         headers={'Content-Type': 'text/plain; charset=utf-8'})
+
 
 class TestADTClass(unittest.TestCase):
 
@@ -80,13 +84,16 @@ class TestADTClass(unittest.TestCase):
         put_request = conn.execs[1]
         self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})
 
-    def include_read_test(self, response, getter, includes_uri):
+    def include_read_test(self, response, getter, includes_uri, expected_source_code=None):
         conn = Connection([response])
 
         clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
         source_code = getter(clas).text
 
-        self.assertEqual(source_code, response.text)
+        if expected_source_code is None:
+            expected_source_code = response.text
+
+        self.assertEqual(source_code, expected_source_code)
 
         self.assertEqual(
             [(e.method, e.adt_uri) for e in conn.execs],
@@ -106,6 +113,18 @@ class TestADTClass(unittest.TestCase):
 
     def test_adt_class_read_tests(self):
         self.include_read_test(TEST_CLASSES_READ_RESPONSE_OK, lambda clas: clas.test_classes, 'includes/testclasses')
+
+    def test_adt_class_read_definitions_normalizes_crlf(self):
+        self.include_read_test(INCLUDE_CRLF_READ_RESPONSE_OK, lambda clas: clas.definitions, 'includes/definitions',
+                               expected_source_code='* Line 1\n* Line2\n* Line3\n')
+
+    def test_adt_class_read_implementations_normalizes_crlf(self):
+        self.include_read_test(INCLUDE_CRLF_READ_RESPONSE_OK, lambda clas: clas.implementations, 'includes/implementations',
+                               expected_source_code='* Line 1\n* Line2\n* Line3\n')
+
+    def test_adt_class_read_tests_normalizes_crlf(self):
+        self.include_read_test(INCLUDE_CRLF_READ_RESPONSE_OK, lambda clas: clas.test_classes, 'includes/testclasses',
+                               expected_source_code='* Line 1\n* Line2\n* Line3\n')
 
     def include_write_test(self, getter, includes_uri):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])

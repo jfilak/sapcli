@@ -1413,7 +1413,7 @@ class Class(OOADTObjectBase):
         def text(self):
             """Returns text"""
 
-            return self._clas.connection.get_text(f'{self.uri}{self._metadata.source_uri}')
+            return self._clas.connection.get_text(f'{self.uri}{self._metadata.source_uri}').replace('\r\n', '\n')
 
         def lock(self):
             """Calls parent's lock() for Class's open_editor()"""
