@@ -14,6 +14,16 @@ from fixtures_adt_repository import (PACKAGE_ROOT_NODESTRUCTURE_OK_RESPONSE,
 
 class TestRepository(unittest.TestCase, PatcherTestCase):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
     @staticmethod
     def get_ordered_set(items):
         return dict.fromkeys(items)  # as of Python 3.7, dict keeps insertion order

@@ -127,6 +127,16 @@ class TestADTPackage(unittest.TestCase):
 
 class TestADTPackageWalk(unittest.TestCase, PatcherTestCase):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
     def setUp(self) -> None:
         super().setUp()
         self.patch('sap.adt.repository.set', new=lambda x: x)
