@@ -26,10 +26,19 @@ Executes ATC Checks on the given object and exits with non-zero code,
 if ATC findings of Prio higher then the configured level are found.
 
 ```bash
-sapcli atc run {package,class,program} OBJECT_NAME [-r VARIANT] [-e ERROR_LEVEL] [-m MAX_VERDICITS] [-o {human,html,checkstyle}] [-s SEVERITY_MAPPING] [-f PRIORITY_FILTER]
+sapcli atc run OBJECT_TYPE OBJECT_NAME [OBJECT_NAME ...] [-r VARIANT] [-e ERROR_LEVEL] [-m MAX_VERDICITS] [-o {human,html,checkstyle}] [-s SEVERITY_MAPPING] [-f PRIORITY_FILTER]
 ```
 
-* _OBJECT\_NAME_ package, class or program name
+* _OBJECT\_TYPE_ name of the ADT object type to check. The following canonical
+  names are supported: `program`, `include`, `program-include`, `class`,
+  `interface`, `function-group`, `function-module`, `function-include`,
+  `data-element`, `domain`, `table`, `structure`, `behavior-definition`,
+  `message-class`, `transaction`, `package`, `cds-view`. The corresponding
+  ABAP-style 4-char aliases are also accepted: `prog`, `incl`, `clas`, `intf`,
+  `fugr`, `fm`, `dtel`, `doma`, `tabl`, `stru`, `bdef`, `msag`, `tran`,
+  `ddls`. If an unsupported value is given, sapcli aborts with an error
+  message listing all supported types.
+* _OBJECT\_NAME_ one or more object names of the given _OBJECT\_TYPE_
 * _VARIANT_ if not provided, the system variant from [customizing](#customizing) is used
 * _ERROR\_LEVEL_ All ATC Prio numbers higher than this mumber are not considered erros (default: 2)
 * _MAX\_VERDICTS_ Total number of verdicts returned (default: 100)

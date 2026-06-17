@@ -191,7 +191,7 @@ def customizing(connection, _):
 @CommandGroup.argument('-e', '--error-level', default=2, type=int,
                        help='Exit with non zero if a finding with this or higher prio returned')
 @CommandGroup.argument('name', nargs='+', type=str)
-@CommandGroup.argument('type', choices=['program', 'program-include', 'class', 'package'])
+@CommandGroup.argument('type', type=str)
 @CommandGroup.argument('-o', '--output', default='human', choices=['human', 'html', 'checkstyle'],
                        help='Output format in which checks will be printed')
 @CommandGroup.argument('-s', '--severity-mapping', default=None, type=str,
@@ -218,6 +218,14 @@ def run(connection, args):
     except KeyError as ex:
         raise SAPCliError(f'Unknown format: {args.output}') from ex
 
+    obj_factory = sap.adt.object_factory.human_names_factory(connection)
+
+    if args.type not in obj_factory.get_supported_names():
+        supported = ', '.join(sorted(obj_factory.get_supported_names()))
+        raise SAPCliError(
+            f'Unsupported object type: {args.type}. Supported types are: {supported}'
+        )
+
     severity_mapping = None
     if args.output == 'checkstyle':
         severity_mapping = args.severity_mapping or os.environ.get('SEVERITY_MAPPING')
@@ -230,8 +238,6 @@ def run(connection, args):
     if args.variant is None:
         settings = sap.adt.atc.fetch_customizing(connection)
         args.variant = settings.system_check_variant
-
-    obj_factory = sap.adt.object_factory.human_names_factory(connection)
 
     results = []
     for objname in args.name:
