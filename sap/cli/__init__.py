@@ -52,6 +52,7 @@ class CommandsCache:
         import sap.cli.flp
         import sap.cli.rap
         import sap.cli.srvd
+        import sap.cli.srvb
         import sap.cli.table
         import sap.cli.badi
         import sap.cli.structure
@@ -85,6 +86,7 @@ class CommandsCache:
                 (adt_connection_from_args, sap.cli.abapgit.CommandGroup()),
                 (adt_connection_from_args, sap.cli.rap.CommandGroup()),
                 (adt_connection_from_args, sap.cli.srvd.CommandGroup()),
+                (adt_connection_from_args, sap.cli.srvb.CommandGroup()),
                 (adt_connection_from_args, sap.cli.table.CommandGroup()),
                 (adt_connection_from_args, sap.cli.structure.CommandGroup()),
                 (adt_connection_from_args, sap.cli.dataelement.CommandGroup()),

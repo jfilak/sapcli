@@ -76,3 +76,17 @@ SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML = '''<?xml version="1.0" encoding=
 <srvb:implementation adtcore:name="ZSAPCLI_TEST_BND"/>
 </srvb:binding>
 </srvb:serviceBinding>'''
+
+
+SERVICE_BINDING_ADT_GET_V4_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<srvb:serviceBinding xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core" srvb:contract="C1" srvb:releaseSupported="true" srvb:published="false" srvb:bindingCreated="true" adtcore:name="ZSAPCLI_TEST_BND" adtcore:type="SRVB/SVB" adtcore:version="active" adtcore:description="Test service binding" adtcore:language="EN">
+<adtcore:packageRef adtcore:name="$TMP" adtcore:type="DEVC/K"/>
+<srvb:services srvb:name="ZSAPCLI_TEST_BND">
+<srvb:content srvb:version="0001" srvb:releaseState="NOT_RELEASED">
+<srvb:serviceDefinition adtcore:uri="/sap/bc/adt/ddic/srvd/sources/zsapcli_test_srv" adtcore:type="SRVD/SRV" adtcore:name="ZSAPCLI_TEST_SRV"/>
+</srvb:content>
+</srvb:services>
+<srvb:binding srvb:type="ODATA" srvb:version="V4" srvb:category="0">
+<srvb:implementation adtcore:name="ZSAPCLI_TEST_BND"/>
+</srvb:binding>
+</srvb:serviceBinding>'''
