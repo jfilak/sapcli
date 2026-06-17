@@ -102,8 +102,37 @@ class ServiceBinding(ADTObject):
     services = XmlNodeProperty('srvb:services', factory=ServicesContainer)
     binding = XmlNodeProperty('srvb:binding', factory=Binding)
 
-    def __init__(self, connection, name, metadata=None):
+    def __init__(self, connection, name, package=None, typ=None, version=None,
+                 service_name=None, service_version='0001', metadata=None):
         super().__init__(connection, name, metadata)
+
+        self._metadata.package_reference.name = package
+
+        # The classes Binding / Implementation / Definition / DefinitionLink /
+        # ServicesContainer are constructed with `metaclass=OrderedClassMembers`.
+        # pylint inspects the metaclass `__init__` signature instead of the
+        # class's (empty) `__init__`, hence the spurious E1120 noise. Suppress
+        # it locally — these constructions are exercised by unit tests.
+        # pylint: disable=no-value-for-parameter
+        if typ is not None or version is not None:
+            inner_binding = Binding()
+            inner_binding.typ = typ
+            inner_binding.version = version
+            inner_binding.category = '0'
+            inner_binding.implementation = Implementation()
+            inner_binding.implementation.name = name
+            self.binding = inner_binding
+
+        if service_name is not None:
+            services = ServicesContainer()
+            link = DefinitionLink()
+            link.version = service_version
+            link.release_state = 'NOT_RELEASED'
+            link.definition = Definition()
+            link.definition.name = service_name
+            link.definition.typ = 'SRVD/SRV'
+            services.append(link)
+            self.services = services
 
     def find_service(self, service_name=None, service_version=None):
         """Returns a first service matching the given parameters.
@@ -112,6 +141,10 @@ class ServiceBinding(ADTObject):
            comparison.
         """
 
+        # `self.services` is a dynamically-built XmlContainer; pylint's static
+        # inference flags iteration over it as not-iterable. Suppress the
+        # false positive locally.
+        # pylint: disable=not-an-iterable
         if service_name and service_version:
             return next(
                 (item for item in self.services
