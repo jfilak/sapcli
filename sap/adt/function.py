@@ -493,3 +493,22 @@ class FunctionInclude(ADTObject):
             self._reference = FunctionGroup.create_reference(self.connection, self._function_group_name, self.package)
 
         return self._reference
+
+
+def make_function_module_object(connection, name):
+    """Either splits function module name into FUNCTION_GROUP\\FUNCTION_NAME
+       or resolves the function group from the remote system.
+    """
+
+    name_parts = name.split('\\')
+
+    if len(name_parts) == 1 and name_parts[0]:
+        function_group_name = FunctionModule.resolve_group(connection, name)
+        return FunctionModule(connection, name, function_group_name)
+
+    if len(name_parts) == 2 and name_parts[0] and name_parts[1]:
+        return FunctionModule(connection, name_parts[1], name_parts[0])
+
+    raise sap.errors.SAPCliError(
+        'Function module name can be: FUNCTION_NAME or FUNCTION_GROUP\\FUNCTION_NAME'
+    )

@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import sap.adt
 import sap.adt.programs
+import sap.adt.function
 from sap.errors import SAPCliError
 from sap.adt.object_factory import (
     ADTObjectFactory,
@@ -135,12 +136,15 @@ class TestHumanNamesFactory(unittest.TestCase):
         self.assertEqual(obj.name, 'ZFG')
 
     def test_function_module_is_registered(self):
-        # FunctionModule needs an additional function_group_name
-        # constructor argument; the merged registry preserves the
-        # status quo of sap/cli/activation.py, which only registered
-        # the kind. Building it through factory.make would require a
-        # dedicated parser-builder (out of scope for this merge).
-        self.assertIn('function-module', self.factory.get_supported_names())
+        # The 'function-module' kind uses the dedicated builder
+        # make_function_module_object which accepts the
+        # 'GROUP\\FUNCTION' input and turns it into a proper
+        # FunctionModule instance carrying the function group name
+        # required by its constructor.
+        obj = self.factory.make('function-module', 'ZFG_HELLO_WORLD\\Z_FN_HELLO_WORLD')
+        self.assertIsInstance(obj, sap.adt.FunctionModule)
+        self.assertEqual(obj.name, 'Z_FN_HELLO_WORLD')
+        self.assertEqual(obj._function_group_name, 'ZFG_HELLO_WORLD')
 
     def test_function_include_is_registered(self):
         self.assertIn('function-include', self.factory.get_supported_names())

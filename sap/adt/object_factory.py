@@ -66,7 +66,7 @@ def human_names_factory(connection: sap.adt.core.Connection) -> ADTObjectFactory
         'class': sap.adt.Class,
         'interface': sap.adt.Interface,
         'function-group': sap.adt.FunctionGroup,
-        'function-module': sap.adt.FunctionModule,
+        'function-module': sap.adt.function.make_function_module_object,
         'function-include': sap.adt.FunctionInclude,
         'data-element': sap.adt.DataElement,
         'domain': sap.adt.Domain,
