@@ -88,3 +88,72 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
                 ver = link.version or ''
                 state = link.release_state or ''
                 console.printout(f'  {name} (version {ver}, {state})')
+
+
+def publish_binding(connection, args):
+    """Publish a Service Binding's service to its local endpoint.
+
+    Logic mirrors the legacy `sap.cli.rap.publish` handler verbatim — when
+    the binding contains exactly one service, omitting `--service`/`--version`
+    publishes that one; otherwise the two filters narrow which content entry
+    is selected.
+    """
+
+    console = args.console_factory()
+
+    binding = sap.adt.ServiceBinding(connection, args.binding_name)
+    binding.fetch()
+
+    if not binding.services:
+        console.printerr(
+            f'Business Service Biding {args.binding_name} does not contain any services')
+        return 1
+
+    if args.service is None and args.version is None:
+        if len(binding.services) > 1:
+            console.printerr(
+                f'''Cannot publish Business Service Biding {args.binding_name} without
+Service Definition filters because the business binding contains more than one
+Service Definition''')
+            return 1
+
+        # pylint: disable=unsubscriptable-object
+        service = binding.services[0]
+    else:
+        service = binding.find_service(args.service, args.version)
+        if service is None:
+            console.printerr(
+                f'''Business Service Binding {args.binding_name} has no Service Definition
+with supplied name "{args.service or ''}" and version "{args.version or ''}"''')
+            return 1
+
+    status = binding.publish(service)
+
+    console.printout(status.SHORT_TEXT)
+    if status.LONG_TEXT:
+        console.printout(status.LONG_TEXT)
+
+    if status.SEVERITY != 'OK':
+        console.printerr(
+            f'Failed to publish Service {service.definition.name} in Binding {args.binding_name}')
+        return 1
+
+    console.printout(
+        f'Service {service.definition.name} in Binding {args.binding_name} published successfully.')
+    return 0
+
+
+# Hook `publish` into the `srvb` command group via the class-level decorators.
+# The decorator runs at module load time and registers the command into
+# CommandGroup.commands; the order with respect to define() in __init__
+# is irrelevant because both feed into the same class-level CommandsList.
+@CommandGroup.argument('--version', nargs='?', default=None,
+                       help="Version of the binding's services to publish")
+@CommandGroup.argument('--service', nargs='?', default=None,
+                       help="Service name of the binding's services to publish")
+@CommandGroup.argument('binding_name')
+@CommandGroup.command('publish')
+def publish(connection, args):
+    """Publish odata/ina/sql service that belongs to a service binding."""
+
+    return publish_binding(connection, args)
