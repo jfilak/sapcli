@@ -147,7 +147,14 @@ class TestHumanNamesFactory(unittest.TestCase):
         self.assertEqual(obj._function_group_name, 'ZFG_HELLO_WORLD')
 
     def test_function_include_is_registered(self):
-        self.assertIn('function-include', self.factory.get_supported_names())
+        # The 'function-include' kind uses the dedicated builder
+        # make_function_include_object which enforces the
+        # 'GROUP\\INCLUDE' input because function include names are
+        # not unique across function groups and cannot be looked up.
+        obj = self.factory.make('function-include', 'ZFG_HELLO_WORLD\\ZFI_HELLO_WORLD')
+        self.assertIsInstance(obj, sap.adt.FunctionInclude)
+        self.assertEqual(obj.name, 'ZFI_HELLO_WORLD')
+        self.assertEqual(obj._function_group_name, 'ZFG_HELLO_WORLD')
 
     def test_data_element(self):
         obj = self.factory.make('data-element', 'ZDTEL')

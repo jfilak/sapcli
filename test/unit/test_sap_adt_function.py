@@ -299,6 +299,42 @@ class TestMakeFunctionModuleObject(unittest.TestCase):
         self._run_test_invalid_format('')
 
 
+class TestMakeFunctionIncludeObject(unittest.TestCase):
+
+    def test_make_with_group_in_name(self):
+        connection = Connection()
+
+        finclude = sap.adt.function.make_function_include_object(connection, 'ZFG_HELLO_WORLD\\ZFI_HELLO_WORLD')
+
+        self.assertIsInstance(finclude, sap.adt.FunctionInclude)
+        self.assertEqual(finclude.name, 'ZFI_HELLO_WORLD')
+        self.assertEqual(finclude._function_group_name, 'ZFG_HELLO_WORLD')
+        # No remote calls - the group must be given on the input
+        self.assertEqual(len(connection.execs), 0)
+
+    def test_make_without_group_raises(self):
+        connection = Connection()
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.adt.function.make_function_include_object(connection, 'ZFI_HELLO_WORLD')
+
+        self.assertEqual(
+            str(caught.exception),
+            'Function include name must be: FUNCTION_GROUP\\FUNCTION_INCLUDE'
+        )
+
+    def test_make_too_many_segments_raises(self):
+        connection = Connection()
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.adt.function.make_function_include_object(connection, 'A\\B\\C')
+
+        self.assertEqual(
+            str(caught.exception),
+            'Function include name must be: FUNCTION_GROUP\\FUNCTION_INCLUDE'
+        )
+
+
 class TestResolveGroup(unittest.TestCase):
 
     def test_resolve_group_found(self):
