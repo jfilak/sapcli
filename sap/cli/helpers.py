@@ -3,7 +3,8 @@
 from enum import Enum, auto
 import time
 import threading
-from sap.rest.gcts.errors import SAPCliError
+
+from sap.errors import SAPCliError
 
 
 class TaskStates(Enum):
@@ -214,3 +215,12 @@ def abapstamp_to_isodate(abapstamp: 'int') -> 'str':
     second = abapstamp_str[12:14]
 
     return f'{year}-{month}-{day} {hour}:{minute}:{second}'
+
+
+def raise_if_object_name_is_not_supported(object_type_name, supported_object_type_names):
+    """Check that the given object type name is supported, and raise an exception if not."""
+
+    if object_type_name not in supported_object_type_names:
+        supported = ', '.join(sorted(supported_object_type_names))
+        raise SAPCliError(
+            f"Unsupported object type: '{object_type_name}'. Supported types: {supported}.")

@@ -11,6 +11,7 @@ import sap.adt.object_factory
 import sap.adt.atc
 import sap.cli.core
 from sap.cli.core import printout
+from sap.cli.helpers import raise_if_object_name_is_not_supported
 from sap.errors import SAPCliError
 
 CHECKSTYLE_VERSION = '8.36'
@@ -219,12 +220,7 @@ def run(connection, args):
         raise SAPCliError(f'Unknown format: {args.output}') from ex
 
     obj_factory = sap.adt.object_factory.human_names_factory(connection)
-
-    if args.type not in obj_factory.get_supported_names():
-        supported = ', '.join(sorted(obj_factory.get_supported_names()))
-        raise SAPCliError(
-            f'Unsupported object type: {args.type}. Supported types are: {supported}'
-        )
+    raise_if_object_name_is_not_supported(args.type, obj_factory.get_supported_names())
 
     severity_mapping = None
     if args.output == 'checkstyle':

@@ -85,8 +85,8 @@ class TestRun(unittest.TestCase):
             self.execute_run('foo', 'bar')
 
         message = str(caught.exception)
-        self.assertIn("Unsupported object type: foo", message)
-        self.assertIn("Supported types are:", message)
+        self.assertIn("Unsupported object type: 'foo'", message)
+        self.assertIn("Supported types:", message)
         # spot-check a few well-known supported types are mentioned
         self.assertIn('program', message)
         self.assertIn('class', message)
