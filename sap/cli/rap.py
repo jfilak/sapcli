@@ -1,5 +1,10 @@
 """
-ADT proxy for service binding commands
+ADT proxy for service binding commands.
+
+Both `rap binding publish` and `rap definition activate` are deprecated
+aliases kept for backwards compatibility. They emit a single-line stderr
+deprecation warning and then delegate to the new `srvb publish` / `srvd
+activate` code paths.
 """
 
 import sap.adt
@@ -7,6 +12,17 @@ import sap.cli.core
 import sap.cli.helpers
 import sap.cli.wb
 import sap.cli.object
+import sap.cli.srvb
+import sap.cli.srvd
+
+
+_DEPRECATION_REMOVAL = 'This alias will be removed in the next minor release.'
+
+
+def _deprecation_warning(old, new):
+    """Format the standard deprecation warning text used by both shims."""
+
+    return f'WARNING: `sapcli rap {old}` is deprecated; use `sapcli {new}`. {_DEPRECATION_REMOVAL}'
 
 
 class DefinitionGroup(sap.cli.core.CommandGroup):
@@ -49,57 +65,27 @@ class CommandGroup(sap.cli.core.CommandGroup):
 @BindingGroup.argument('binding_name')
 @BindingGroup.command()
 def publish(connection, args):
-    """ publish odata service that belongs to a service binding identified by a version
-    """
+    """Deprecated alias for `sapcli srvb publish`."""
 
-    console = args.console_factory()
+    args.console_factory().printerr(_deprecation_warning('binding publish', 'srvb publish'))
 
-    binding = sap.adt.businessservice.ServiceBinding(connection, args.binding_name)
-    binding.fetch()
-
-    if not binding.services:
-        console.printerr(
-            f'Business Service Biding {args.binding_name} does not contain any services')
-        return 1
-
-    if args.service is None and args.version is None:
-        if len(binding.services) > 1:
-            console.printerr(
-                f'''Cannot publish Business Service Biding {args.binding_name} without
-Service Definition filters because the business binding contains more than one
-Service Definition''')
-            return 1
-
-        service = binding.services[0]
-    else:
-        service = binding.find_service(args.service, args.version)
-        if service is None:
-            console.printerr(
-                f'''Business Service Binding {args.binding_name} has no Service Definition
-with supplied name "{args.service or ''}" and version "{args.version or ''}"''')
-            return 1
-
-    status = binding.publish(service)
-
-    console.printout(status.SHORT_TEXT)
-    if status.LONG_TEXT:
-        console.printout(status.LONG_TEXT)
-
-    if status.SEVERITY != "OK":
-        console.printerr(f'Failed to publish Service {service.definition.name} in Binding {args.binding_name}')
-        return 1
-
-    console.printout(
-        f'Service {service.definition.name} in Binding {args.binding_name} published successfully.')
-    return 0
+    return sap.cli.srvb.publish_binding(connection, args)
 
 
 @DefinitionGroup.argument('name', nargs='+')
 @DefinitionGroup.command('activate')
 def definition_activate(connection, args):
-    """Activate Business Service Definition"""
+    """Deprecated alias for `sapcli srvd activate`."""
 
-    console = args.console_factory()
-    activator = sap.cli.wb.ObjectActivationWorker()
-    activated_items = ((name, sap.adt.ServiceDefinition(connection, name)) for name in args.name)
-    return sap.cli.object.activate_object_list(activator, activated_items, len(args.name), console)
+    args.console_factory().printerr(_deprecation_warning('definition activate', 'srvd activate'))
+
+    # `srvd activate` (CommandGroupObjectMaster.activate_objects) reads
+    # ignore_errors / warning_errors off args; the `rap` subparser does not
+    # declare those flags, so default them to False to keep the legacy
+    # behaviour (continue=False, warnings_as_errors=False).
+    if not hasattr(args, 'ignore_errors'):
+        args.ignore_errors = False
+    if not hasattr(args, 'warning_errors'):
+        args.warning_errors = False
+
+    return sap.cli.srvd.CommandGroup().activate_objects(connection, args)
