@@ -2,7 +2,6 @@
 import os
 import sys
 import unittest
-import contextlib
 from unittest.mock import patch, Mock, call
 from argparse import ArgumentParser
 from types import SimpleNamespace
@@ -82,14 +81,16 @@ class TestRun(unittest.TestCase):
         return cmd_args.execute(self.connection, cmd_args)
 
     def test_invalid_type(self):
-        connection = Mock()
-
-        errors = StringIO()
-        with self.assertRaises(SystemExit) as caught, contextlib.redirect_stderr(errors):
+        with self.assertRaises(SAPCliError) as caught:
             self.execute_run('foo', 'bar')
 
-        self.assertEqual('2', str(caught.exception))
-        self.assertRegex(errors.getvalue(), r".*invalid choice: 'foo'.*")
+        message = str(caught.exception)
+        self.assertIn("Unsupported object type: foo", message)
+        self.assertIn("Supported types are:", message)
+        # spot-check a few well-known supported types are mentioned
+        self.assertIn('program', message)
+        self.assertIn('class', message)
+        self.assertIn('package', message)
 
     def test_invalid_format(self):
         connection = Mock()
