@@ -9,6 +9,7 @@ from sap.adt.objects import (
     xmlns_adtcore_ancestor,
     ADTObject,
     ADTObjectType,
+    ADTObjectSourceEditor,
     OrderedClassMembers,
     ADTObjectReferences
 )
@@ -166,8 +167,9 @@ class ServiceDefinition(ADTObject):
         'ddic/srvd/sources',
         XMLNS_SRVD,
         ['application/vnd.sap.adt.ddic.srvd.v1+xml'],
-        {},
-        'srvdSource'
+        {'text/plain': 'source/main'},
+        'srvdSource',
+        editor_factory=ADTObjectSourceEditor.plain_text
     )
 
     def __init__(self, connection, name, package=None, metadata=None):

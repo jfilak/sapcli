@@ -1,3 +1,12 @@
+SERVICE_DEFINITION_NAME = 'ZSAPCLI_TEST_SRV'
+SERVICE_DEFINITION_PACKAGE = '$TMP'
+
+SERVICE_DEFINITION_SOURCE_TEXT = '''@EndUserText.label: 'Test service definition'
+define service ZSAPCLI_TEST_SRV {
+  expose ZSAPCLI_TEST_VIEW as Travel;
+}
+'''
+
 SERVICE_DEFINITION_ADT_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <srvd:srvdSource xmlns:srvd="http://www.sap.com/adt/ddic/srvdsources"
  srvd:sourceOrigin="0"

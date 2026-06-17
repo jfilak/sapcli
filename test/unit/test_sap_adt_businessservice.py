@@ -11,8 +11,10 @@ import sap.adt.businessservice
 
 from mock import Connection, Response, Request
 
+from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 from fixtures_adt_businessservice import (
     SERVICE_DEFINITION_ADT_XML,
+    SERVICE_DEFINITION_SOURCE_TEXT,
 )
 
 SAMPLE_ODATA_BINDING_V2 = '''<?xml version="1.0" encoding="utf-8"?>
@@ -241,3 +243,36 @@ class TestbusinessserviceDefinition(unittest.TestCase):
         self.assertEqual(definition.name, definition_name)
         self.assertEqual(definition.description, 'Example Configuration')
         self.assertEqual(definition.reference.name, 'EXAMPLE_CONFIG')
+
+    def test_servicedefinition_text_property_round_trip(self):
+        conn = Connection([Response(text=SERVICE_DEFINITION_SOURCE_TEXT,
+                                    status_code=200,
+                                    headers={'Content-Type': 'text/plain; charset=utf-8'})])
+
+        srvd = sap.adt.businessservice.ServiceDefinition(conn, name='ZSAPCLI_TEST_SRV')
+        code = srvd.text
+
+        self.assertEqual(conn.mock_methods(), [('GET', '/sap/bc/adt/ddic/srvd/sources/zsapcli_test_srv/source/main')])
+
+        get_request = conn.execs[0]
+        self.assertEqual(get_request.headers['Accept'], 'text/plain')
+        self.assertIsNone(get_request.params)
+        self.assertIsNone(get_request.body)
+
+        self.assertEqual(code, SERVICE_DEFINITION_SOURCE_TEXT)
+
+    def test_servicedefinition_open_editor_writes_source(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
+
+        srvd = sap.adt.businessservice.ServiceDefinition(conn, name='ZSAPCLI_TEST_SRV')
+        with srvd.open_editor() as editor:
+            editor.write(SERVICE_DEFINITION_SOURCE_TEXT)
+
+        self.assertEqual(len(conn.execs), 3)
+
+        put_request = conn.execs[1]
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, '/sap/bc/adt/ddic/srvd/sources/zsapcli_test_srv/source/main')
+        self.assertEqual(put_request.headers, {'Content-Type': 'text/plain; charset=utf-8'})
+        self.assertEqual(put_request.params, {'lockHandle': 'win'})
+        self.assertEqual(put_request.body, bytes(SERVICE_DEFINITION_SOURCE_TEXT[:-1], 'utf-8'))
