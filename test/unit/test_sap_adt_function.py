@@ -5,6 +5,7 @@ from unittest.mock import Mock, PropertyMock, patch
 
 from sap.errors import SAPCliError
 import sap.adt.wb
+import sap.adt.function
 from sap.platform.abap.ddic import RSIMP, RSCHA, RSEXP, RSEXC, RSTBL
 
 from mock import Connection, Response
@@ -248,6 +249,54 @@ class TestFunctionModule(unittest.TestCase):
         body = function.get_body()
 
         self.assertEqual(body, '''    Write 'Hello World'.''')
+
+
+class TestMakeFunctionModuleObject(unittest.TestCase):
+
+    def test_make_with_group_in_name(self):
+        connection = Connection()
+
+        fmodule = sap.adt.function.make_function_module_object(connection, 'ZFG_HELLO_WORLD\\Z_FN_HELLO_WORLD')
+
+        self.assertIsInstance(fmodule, sap.adt.FunctionModule)
+        self.assertEqual(fmodule.name, 'Z_FN_HELLO_WORLD')
+        self.assertEqual(fmodule._function_group_name, 'ZFG_HELLO_WORLD')
+        # No remote calls when the group is given on the input
+        self.assertEqual(len(connection.execs), 0)
+
+    def test_make_resolves_group_when_only_function_name(self):
+        connection = Connection([
+            Response(text=SEARCH_FUNCTION_MODULE_RESPONSE_XML, status_code=200)
+        ])
+
+        fmodule = sap.adt.function.make_function_module_object(connection, 'Z_FN_HELLO_WORLD')
+
+        self.assertIsInstance(fmodule, sap.adt.FunctionModule)
+        self.assertEqual(fmodule.name, 'Z_FN_HELLO_WORLD')
+        self.assertEqual(fmodule._function_group_name, 'ZFG_HELLO_WORLD')
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'GET')
+        self.assertIn('repository/informationsystem/search', connection.execs[0].adt_uri)
+        self.assertEqual(connection.execs[0].params['query'], 'Z_FN_HELLO_WORLD')
+
+    def _run_test_invalid_format(self, name):
+        connection = Connection()
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.adt.function.make_function_module_object(connection, name)
+
+        self.assertEqual(
+            str(caught.exception),
+            'Function module name can be: FUNCTION_NAME or FUNCTION_GROUP\\FUNCTION_NAME'
+        )
+
+    def test_make_invalid_format(self):
+        self._run_test_invalid_format('A\\B\\C')
+        self._run_test_invalid_format('\\B')
+        self._run_test_invalid_format('A\\')
+        self._run_test_invalid_format('\\')
+        self._run_test_invalid_format('')
 
 
 class TestResolveGroup(unittest.TestCase):
