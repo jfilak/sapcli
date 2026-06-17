@@ -512,3 +512,20 @@ def make_function_module_object(connection, name):
     raise sap.errors.SAPCliError(
         'Function module name can be: FUNCTION_NAME or FUNCTION_GROUP\\FUNCTION_NAME'
     )
+
+
+def make_function_include_object(connection, name):
+    """Splits function include name into FUNCTION_GROUP\\FUNCTION_INCLUDE.
+
+       The function group is mandatory because function include names
+       are not unique across function groups and cannot be searched.
+    """
+
+    name_parts = name.split('\\')
+
+    if len(name_parts) == 2 and name_parts[0] and name_parts[1]:
+        return FunctionInclude(connection, name_parts[1], name_parts[0])
+
+    raise sap.errors.SAPCliError(
+        'Function include name must be: FUNCTION_GROUP\\FUNCTION_INCLUDE'
+    )
