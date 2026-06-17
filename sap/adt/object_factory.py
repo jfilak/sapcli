@@ -76,6 +76,7 @@ def human_names_factory(connection: sap.adt.core.Connection) -> ADTObjectFactory
         'message-class': sap.adt.MessageClass,
         'transaction': sap.adt.Transaction,
         'package': sap.adt.Package,
+        'cds-view': sap.adt.DataDefinition,
     })
 
     # Each alias must reuse the very same builder as its canonical
@@ -94,6 +95,7 @@ def human_names_factory(connection: sap.adt.core.Connection) -> ADTObjectFactory
         'bdef': 'behavior-definition',
         'msag': 'message-class',
         'tran': 'transaction',
+        'ddls': 'cds-view',
     }
 
     types: ADTObjectBuilderDictType = dict(canonical)
