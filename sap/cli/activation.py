@@ -7,6 +7,7 @@ import sap.errors
 from sap.adt.objects import ADTObjectReferences
 from sap.adt.wb import fetch_inactive_objects, mass_activate
 from sap.cli.core import printout
+from sap.cli.helpers import raise_if_object_name_is_not_supported
 
 
 # ---------------------------------------------------------------------------
@@ -139,10 +140,7 @@ def _parse_object_spec(spec, supported_kinds):
         raise sap.errors.SAPCliError(
             f"Invalid --object value '{spec}'. Both KIND and NAME must be non-empty.")
 
-    if kind not in supported_kinds:
-        supported = ', '.join(sorted(supported_kinds))
-        raise sap.errors.SAPCliError(
-            f"Unsupported object kind '{kind}'. Supported kinds: {supported}.")
+    raise_if_object_name_is_not_supported(kind, supported_kinds)
 
     return kind, name
 
