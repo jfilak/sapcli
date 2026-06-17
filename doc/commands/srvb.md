@@ -2,16 +2,17 @@
 
 CRUD commands for the ABAP RAP **Service Binding** object (`SRVB/SVB`).
 
-The Service Binding has no `text/plain` source body. v1 supports CRUD
-operations only; the `write` command is intentionally not provided in v1
-because the binding's configuration lives in XML attributes/nodes which
-require a JSON round-trip (planned for v2).
+The Service Binding has no `text/plain` source body. v1 supports CRUD plus
+`publish`. The `write` command is intentionally not provided in v1 - the
+binding's configuration lives in XML attributes/nodes which require a
+JSON round-trip (planned for v2).
 
 1. [create](#create)
 2. [read](#read)
 3. [activate](#activate)
-4. [delete](#delete)
-5. [whereused](#whereused)
+4. [publish](#publish)
+5. [delete](#delete)
+6. [whereused](#whereused)
 
 ## create
 
@@ -49,6 +50,19 @@ Activates the given Service Bindings.
 ```bash
 sapcli srvb activate NAME [NAME ...] [--ignore-errors] [--warning-errors]
 ```
+
+## publish
+
+Publish the OData / INA / SQL service exposed by the binding to its local
+service endpoint.
+
+```bash
+sapcli srvb publish BINDING_NAME [--service SERVICE_NAME] [--version SERVICE_VERSION]
+```
+
+If the binding contains exactly one service, omitting `--service` and
+`--version` publishes that one. Otherwise, the two filters narrow which
+`<srvb:content>` entry is selected.
 
 ## delete
 

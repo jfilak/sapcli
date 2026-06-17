@@ -90,3 +90,29 @@ SERVICE_BINDING_ADT_GET_V4_XML = '''<?xml version="1.0" encoding="utf-8"?>
 <srvb:implementation adtcore:name="ZSAPCLI_TEST_BND"/>
 </srvb:binding>
 </srvb:serviceBinding>'''
+
+
+SERVICE_BINDING_PUBLISH_OK_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <DATA>
+      <SEVERITY>OK</SEVERITY>
+      <SHORT_TEXT>Service published successfully</SHORT_TEXT>
+      <LONG_TEXT/>
+    </DATA>
+  </asx:values>
+</asx:abap>
+'''
+
+
+SERVICE_BINDING_PUBLISH_FAIL_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <DATA>
+      <SEVERITY>ERROR</SEVERITY>
+      <SHORT_TEXT>Local Publish of ZSAPCLI_TEST_SRV failed</SHORT_TEXT>
+      <LONG_TEXT>Service Binding ZSAPCLI_TEST_BND does not exist.</LONG_TEXT>
+    </DATA>
+  </asx:values>
+</asx:abap>
+'''

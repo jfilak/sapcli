@@ -6,10 +6,17 @@
 import unittest
 from unittest.mock import call, patch, Mock
 
+import sap.adt.businessservice
 import sap.cli.srvb
 
 from infra import generate_parse_args
-from mock import Connection, Response, patch_get_print_console_with_buffer
+from mock import (
+    Connection,
+    Response,
+    ConsoleOutputTestCase,
+    PatcherTestCase,
+    patch_get_print_console_with_buffer,
+)
 from fixtures_adt_businessservice import (
     SERVICE_BINDING_NAME,
     SERVICE_BINDING_PACKAGE,
@@ -235,6 +242,130 @@ class TestSRVBWhereUsed(unittest.TestCase):
 
         fake_where_used.assert_called_once_with(
             fake_conn, '/sap/bc/adt/businessservices/bindings/zsapcli_test_bnd')
+
+
+class TestSRVBPublish(ConsoleOutputTestCase, PatcherTestCase):
+    '''Test sapcli srvb publish'''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        PatcherTestCase.unpatch_all(self)
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        self.connection = Mock()
+        self.param_version = '0001'
+        self.param_service = 'ZSAPCLI_TEST_SRV'
+        self.param_binding_name = SERVICE_BINDING_NAME
+
+        self.patch_console(console=self.console)
+        self.binding_patch = self.patch('sap.adt.ServiceBinding')
+
+        self.service = Mock()
+        self.service.definition = Mock()
+        self.service.definition.name = self.param_service
+        self.service.version = self.param_version
+
+        self.publish_status = sap.adt.businessservice.StatusMessage()
+
+        self.binding_inst = self.binding_patch.return_value
+        self.binding_inst.find_service = Mock(return_value=self.service)
+        self.binding_inst.publish = Mock(return_value=self.publish_status)
+        self.binding_inst.services = [self.service]
+
+    def execute_publish(self, *extra):
+        args = parse_args('publish', self.param_binding_name, *extra)
+        return args.execute(self.connection, args)
+
+    def test_publish_single_service_default_ok(self):
+        self.publish_status.SEVERITY = 'OK'
+        self.publish_status.SHORT_TEXT = 'Service published successfully'
+
+        self.execute_publish()
+
+        self.binding_inst.fetch.assert_called_once_with()
+        self.binding_inst.publish.assert_called_once_with(self.service)
+        self.assertConsoleContents(
+            console=self.console,
+            stdout=(f'Service published successfully\n'
+                    f'Service {self.param_service} in Binding {self.param_binding_name} '
+                    f'published successfully.\n'))
+
+    def test_publish_with_service_filter(self):
+        self.publish_status.SEVERITY = 'OK'
+        self.publish_status.SHORT_TEXT = 'OK'
+
+        self.execute_publish('--service', self.param_service)
+
+        self.binding_inst.find_service.assert_called_once_with(self.param_service, None)
+        self.binding_inst.publish.assert_called_once_with(self.service)
+
+    def test_publish_with_service_and_version(self):
+        self.publish_status.SEVERITY = 'OK'
+        self.publish_status.SHORT_TEXT = 'OK'
+
+        self.execute_publish('--service', self.param_service, '--version', self.param_version)
+
+        self.binding_inst.find_service.assert_called_once_with(self.param_service, self.param_version)
+        self.binding_inst.publish.assert_called_once_with(self.service)
+
+    def test_publish_no_services_errors(self):
+        self.binding_inst.services = []
+
+        exitcode = self.execute_publish()
+
+        self.binding_inst.publish.assert_not_called()
+        self.assertEqual(exitcode, 1)
+        self.assertIn('does not contain any services', self.console.caperr)
+
+    def test_publish_too_many_services_without_filter_errors(self):
+        self.binding_inst.services = [Mock(), Mock()]
+
+        exitcode = self.execute_publish()
+
+        self.binding_inst.publish.assert_not_called()
+        self.assertEqual(exitcode, 1)
+        self.assertIn('without', self.console.caperr)
+
+    def test_publish_service_not_found_errors(self):
+        self.binding_inst.find_service.return_value = None
+
+        exitcode = self.execute_publish('--service', self.param_service, '--version', self.param_version)
+
+        self.binding_inst.publish.assert_not_called()
+        self.assertEqual(exitcode, 1)
+        self.assertIn('has no Service Definition', self.console.caperr)
+
+    def test_publish_severity_not_ok_returns_1(self):
+        self.publish_status.SEVERITY = 'ERROR'
+        self.publish_status.SHORT_TEXT = 'Local Publish failed'
+
+        exitcode = self.execute_publish()
+
+        self.assertEqual(exitcode, 1)
+        self.assertIn('Failed to publish', self.console.caperr)
+
+    def test_publish_url_uses_lowercase_name(self):
+        # The CLI delegates to ServiceBinding.publish() which builds the URL
+        # via self.objtype.basepath + .lower(name); we just assert the
+        # ServiceBinding constructor was called with the user-provided name
+        # (uppercased per CLI convention) so the URL builder gets the right
+        # input.
+        self.publish_status.SEVERITY = 'OK'
+        self.publish_status.SHORT_TEXT = 'OK'
+
+        self.execute_publish()
+
+        # First positional arg = connection, second = binding name (uppercased
+        # by the CLI adapter).
+        positional = self.binding_patch.call_args.args
+        self.assertEqual(positional[0], self.connection)
+        self.assertEqual(positional[1], self.param_binding_name)
 
 
 if __name__ == '__main__':
