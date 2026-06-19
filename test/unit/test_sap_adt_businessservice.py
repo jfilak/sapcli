@@ -16,7 +16,8 @@ from fixtures_adt_businessservice import (
     SERVICE_DEFINITION_ADT_XML,
     SERVICE_DEFINITION_SOURCE_TEXT,
     SERVICE_DEFINITION_ADT_POST_REQUEST_XML,
-    SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML,
+    SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML_UI,
+    SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML_API,
     SERVICE_GROUP_ODATAV4_GET_XML,
     SERVICE_GROUP_ODATAV2_GET_XML,
 )
@@ -37,6 +38,8 @@ SAMPLE_ODATA_BINDING_V2 = '''<?xml version="1.0" encoding="utf-8"?>
             <srvb:serviceDefinition adtcore:uri="/sap/bc/adt/ddic/srvd/sources/test_service" adtcore:type="SRVD/SRV"
                 adtcore:name="TEST_SERVICE" />
         </srvb:content>
+    </srvb:services>
+    <srvb:services srvb:name="TEST_BINDING_V2">
         <srvb:content srvb:version="0002" srvb:releaseState="">
             <srvb:serviceDefinition adtcore:uri="/sap/bc/adt/ddic/srvd/sources/test_service_2" adtcore:type="SRVD/SRV"
                 adtcore:name="TEST_SERVICE_2" />
@@ -155,7 +158,7 @@ class TestbusinessserviceBinding(unittest.TestCase):
 
         binding = sap.adt.businessservice.ServiceBinding(connection, binding_name)
         binding.fetch()
-        status = binding.publish(binding.services[1])
+        status = binding.publish(binding.services[0])
 
         connection.execs[1].assertEqual(
             Request.post(
@@ -166,7 +169,7 @@ class TestbusinessserviceBinding(unittest.TestCase):
                 },
                 params={
                     'servicename': 'TEST_BINDING',
-                    'serviceversion': '0002'
+                    'serviceversion': '0001'
                 },
                 body=SAMPLE_BINDING_OBJECT_REFERENCE
             ),
@@ -319,15 +322,20 @@ class TestServiceBindingInit(unittest.TestCase):
         # fetch() populates it.
         binding = sap.adt.businessservice.ServiceBinding(Connection(), 'TEST_BINDING')
 
-        self.assertIsNone(binding.binding)
-        self.assertIsNone(binding.services)
+        self.assertIsNone(binding.binding.typ)
+        self.assertIsNone(binding.binding.version)
+        self.assertIsNone(binding.binding.category)
+        self.assertIsNotNone(binding.binding.implementation)
+        self.assertEqual(binding.binding.implementation.name, '')
+        self.assertEqual(binding.services, [])
 
-    def test_init_with_typ_version_sets_binding_node(self):
+    def test_init_with_typ_version_sets_binding_node_ui(self):
         binding = sap.adt.businessservice.ServiceBinding(
             Connection(), 'ZSAPCLI_TEST_BND',
             package='$TMP',
             typ='ODATA',
-            version='V4'
+            version='V4',
+            category='0',
         )
 
         self.assertIsNotNone(binding.binding)
@@ -335,48 +343,58 @@ class TestServiceBindingInit(unittest.TestCase):
         self.assertEqual(binding.binding.version, 'V4')
         self.assertEqual(binding.binding.category, '0')
         self.assertIsNotNone(binding.binding.implementation)
-        self.assertEqual(binding.binding.implementation.name, 'ZSAPCLI_TEST_BND')
+        self.assertEqual(binding.binding.implementation.name, '')
+
+    def test_init_with_typ_version_sets_binding_node_api(self):
+        binding = sap.adt.businessservice.ServiceBinding(
+            Connection(), 'ZSAPCLI_TEST_BND',
+            package='$TMP',
+            typ='ODATA',
+            version='V4',
+            category='1'
+        )
+
+        self.assertIsNotNone(binding.binding)
+        self.assertEqual(binding.binding.typ, 'ODATA')
+        self.assertEqual(binding.binding.version, 'V4')
+        self.assertEqual(binding.binding.category, '1')
+        self.assertIsNotNone(binding.binding.implementation)
+        self.assertEqual(binding.binding.implementation.name, '')
 
     def test_init_with_service_creates_services_link(self):
         binding = sap.adt.businessservice.ServiceBinding(
             Connection(), 'ZSAPCLI_TEST_BND',
             package='$TMP',
-            typ='ODATA', version='V4',
-            service_name='ZSAPCLI_TEST_SRV'
+            typ='ODATA',
+            version='V4',
+            category='1',
         )
 
-        self.assertIsNotNone(binding.services)
-        self.assertEqual(len(binding.services), 1)
         # Live captures show <srvb:services srvb:name=...> always equals the
         # parent binding's name. The constructor must mirror that.
-        self.assertEqual(binding.services.name, 'ZSAPCLI_TEST_BND')
+        binding.add_service('SERVICE_NAME', 'BINDING_NAME', '0001')
+        self.assertEqual(len(binding.services), 1)
+
         link = binding.services[0]
+
+        self.assertEqual(link.name, 'SERVICE_NAME')
         self.assertEqual(link.version, '0001')
         self.assertEqual(link.release_state, 'NOT_RELEASED')
-        self.assertEqual(link.definition.name, 'ZSAPCLI_TEST_SRV')
+        self.assertEqual(link.definition.name, 'BINDING_NAME')
         self.assertEqual(link.definition.typ, 'SRVD/SRV')
 
-    def test_init_with_service_version_overrides_default(self):
-        binding = sap.adt.businessservice.ServiceBinding(
-            Connection(), 'ZSAPCLI_TEST_BND',
-            package='$TMP', typ='ODATA', version='V4',
-            service_name='ZSAPCLI_TEST_SRV', service_version='0002'
-        )
-
-        self.assertEqual(binding.services[0].version, '0002')
-
-    def test_init_creates_full_post_body(self):
+    def test_init_creates_full_post_body_ui(self):
         conn = Connection([EMPTY_RESPONSE_OK])
 
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible='DEVELOPER')
         binding = sap.adt.businessservice.ServiceBinding(
             conn, 'ZSAPCLI_TEST_BND',
             package='$TMP',
-            typ='ODATA', version='V4',
-            service_name='ZSAPCLI_TEST_SRV',
+            typ='ODATA', version='V4', category='0',
             metadata=metadata,
         )
         binding.description = 'Test service binding'
+        binding.add_service('ZSAPCLI_TEST_BND', 'ZSAPCLI_TEST_SRV', '0001')
         binding.create()
 
         self.assertEqual(len(conn.execs), 1)
@@ -385,7 +403,115 @@ class TestServiceBindingInit(unittest.TestCase):
         self.assertEqual(post.adt_uri, '/sap/bc/adt/businessservices/bindings')
 
         self.maxDiff = None
-        self.assertEqual(post.body.decode('utf-8'), SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML)
+        self.assertEqual(post.body.decode('utf-8'), SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML_UI)
+
+    def test_init_creates_full_post_body_api(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible='DEVELOPER')
+        binding = sap.adt.businessservice.ServiceBinding(
+            conn, 'ZSAPCLI_TEST_BND',
+            package='$TMP',
+            typ='ODATA', version='V4', category='1',
+            metadata=metadata,
+        )
+        binding.description = 'Test service binding'
+        binding.add_service('ZSAPCLI_TEST_BND', 'ZSAPCLI_TEST_SRV', '0001')
+        binding.create()
+
+        self.assertEqual(len(conn.execs), 1)
+        post = conn.execs[0]
+        self.assertEqual(post.method, 'POST')
+        self.assertEqual(post.adt_uri, '/sap/bc/adt/businessservices/bindings')
+
+        self.maxDiff = None
+        self.assertEqual(post.body.decode('utf-8'), SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML_API)
+
+
+class TestServiceBindingGetServiceGroup(unittest.TestCase):
+    '''ServiceBinding.get_service_group() path coverage tests.
+
+       The method has four execution paths:
+         1. binding.typ != 'ODATA'                       -> warn + None
+         2. binding.typ == 'ODATA' and version == 'V2'   -> delegate to ODataV2ServiceList.get
+         3. binding.typ == 'ODATA' and version == 'V4'   -> delegate to ODataV4ServiceGroup.get
+         4. binding.typ == 'ODATA' and unknown version   -> warn + None
+    '''
+
+    def _make_binding(self, typ, version):
+        binding = sap.adt.businessservice.ServiceBinding(Connection(), 'TEST_BINDING')
+        binding.binding.typ = typ
+        binding.binding.version = version
+        return binding
+
+    def _make_service(self, name='SRV_NAME', version='0001', definition_name='SRV_DEF'):
+        service = sap.adt.businessservice.ServicesContainer()
+        service.name = name
+        service.link = sap.adt.businessservice.DefinitionLink()
+        service.link.version = version
+        service.link.definition = sap.adt.businessservice.Definition()
+        service.link.definition.name = definition_name
+        return service
+
+    def test_get_service_group_returns_none_when_not_odata(self):
+        binding = self._make_binding(typ='REST', version='V2')
+        service = self._make_service()
+
+        with self.assertLogs(level='WARNING') as captured:
+            result = binding.get_service_group(service)
+
+        self.assertIsNone(result)
+        self.assertEqual(len(captured.records), 1)
+        self.assertIn("TEST_BINDING", captured.records[0].getMessage())
+        self.assertIn("REST", captured.records[0].getMessage())
+        self.assertIn("expected 'ODATA'", captured.records[0].getMessage())
+
+    def test_get_service_group_v2_delegates_to_odatav2_service_list(self):
+        binding = self._make_binding(typ='ODATA', version='V2')
+        service = self._make_service(name='SRV_NAME', version='0001', definition_name='SRV_DEF')
+
+        sentinel = object()
+        with mock.patch.object(
+                sap.adt.businessservice.ODataV2ServiceList, 'get', return_value=sentinel) as v2_get, \
+             mock.patch.object(
+                sap.adt.businessservice.ODataV4ServiceGroup, 'get') as v4_get:
+            result = binding.get_service_group(service)
+
+        self.assertIs(result, sentinel)
+        v2_get.assert_called_once_with(binding.connection, 'SRV_NAME', '0001', 'SRV_DEF')
+        v4_get.assert_not_called()
+
+    def test_get_service_group_v4_delegates_to_odatav4_service_group(self):
+        binding = self._make_binding(typ='ODATA', version='V4')
+        service = self._make_service(name='SRV_NAME', version='0002', definition_name='SRV_DEF')
+
+        sentinel = object()
+        with mock.patch.object(
+                sap.adt.businessservice.ODataV4ServiceGroup, 'get', return_value=sentinel) as v4_get, \
+             mock.patch.object(
+                sap.adt.businessservice.ODataV2ServiceList, 'get') as v2_get:
+            result = binding.get_service_group(service)
+
+        self.assertIs(result, sentinel)
+        v4_get.assert_called_once_with(binding.connection, 'SRV_NAME', '0002', 'SRV_DEF')
+        v2_get.assert_not_called()
+
+    def test_get_service_group_returns_none_for_unsupported_odata_version(self):
+        binding = self._make_binding(typ='ODATA', version='V9')
+        service = self._make_service()
+
+        with mock.patch.object(sap.adt.businessservice.ODataV2ServiceList, 'get') as v2_get, \
+             mock.patch.object(sap.adt.businessservice.ODataV4ServiceGroup, 'get') as v4_get, \
+             self.assertLogs(level='WARNING') as captured:
+            result = binding.get_service_group(service)
+
+        self.assertIsNone(result)
+        v2_get.assert_not_called()
+        v4_get.assert_not_called()
+        self.assertEqual(len(captured.records), 1)
+        self.assertIn("TEST_BINDING", captured.records[0].getMessage())
+        self.assertIn("V9", captured.records[0].getMessage())
+        self.assertIn('unsupported OData version', captured.records[0].getMessage())
 
 
 class TestODataV4ServiceGroupGet(unittest.TestCase):

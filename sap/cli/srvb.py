@@ -22,29 +22,45 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         return sap.adt.ServiceBinding(connection, name.upper(), package=package, metadata=metadata)
 
     def build_new_object(self, connection, args, metadata):
-        # `srvb create` requires --type / --version / --service so the POST
-        # carries the binding configuration AND a wired service entry. The
-        # server rejects an empty <srvb:services> with PreconditionFailed,
-        # so the CLI never offers an "empty binding" mode in v1.
-        return sap.adt.ServiceBinding(
+        # `srvb create` requires --binding-type and --service-definition
+
+        # We can validate by:
+        #   GET /sap/bc/adt/businessservices/bindings/bindingtypes HTTP/1.1
+        #   Accept: application/vnd.sap.adt.nameditems.v1+xml, application/xml
+        typ, version, category = {
+            'ODATAV2_UI': ('ODATA', 'V2', '0'),
+            'ODATAV2_API': ('ODATA', 'V2', '1'),
+            'ODATAV4_UI': ('ODATA', 'V4', '0'),
+            'ODATAV4_API': ('ODATA', 'V4', '1'),
+        }.get(args.binding_type, (None, None, None))
+
+        binding = sap.adt.ServiceBinding(
             connection, args.name.upper(),
             package=args.package,
-            typ=args.binding_type,
-            version=args.binding_version,
-            service_name=args.service.upper(),
-            service_version=args.service_version,
+            typ=typ,
+            version=version,
+            category=category,
             metadata=metadata,
         )
 
+        # The SRVB API requires at least one service to be present on creation
+        # Args: new service name, service definition, and new service version
+        binding.add_service(args.name.upper(), args.service_definition.upper(), args.service_version)
+
+        return binding
+
     def define_create(self, commands):
         create_cmd = super().define_create(commands)
-        create_cmd.append_argument('--type', dest='binding_type',
-                                   choices=['ODATA', 'INA', 'SQL'], required=True,
-                                   help='Service Binding type (srvb:type)')
-        create_cmd.append_argument('--version', dest='binding_version',
-                                   choices=['V2', 'V4', '1'], required=True,
-                                   help='Service Binding version (srvb:version)')
-        create_cmd.append_argument('--service', dest='service', required=True,
+        create_cmd.append_argument('--binding-type', dest='binding_type',
+                                   choices=[
+                                       'ODATAV2_UI',
+                                       'ODATAV2_API',
+                                       'ODATAV4_UI',
+                                       'ODATAV4_API',
+                                   ],
+                                   required=True,
+                                   help='Service Binding type')
+        create_cmd.append_argument('--service-definition', dest='service_definition', required=True,
                                    help='Name of the Service Definition (SRVD) to wire into the binding')
         create_cmd.append_argument('--service-version', dest='service_version', default='0001',
                                    help='Version of the wired Service Definition (default: 0001)')
@@ -83,11 +99,15 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         if binding.services:
             console.printout('Services:')
             # pylint: disable=not-an-iterable
+
             for link in binding.services:
-                name = link.definition.name if link.definition else ''
+                name = link.name
                 ver = link.version or ''
                 state = link.release_state or ''
                 console.printout(f'  {name} (version {ver}, {state})')
+                service_group = binding.get_service_group(link)
+                if service_group:
+                    console.printout(f'    URL: {service_group.services.service_url}')
 
 
 def publish_binding(connection, args):

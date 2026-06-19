@@ -64,7 +64,7 @@ SERVICE_DEFINITION_ADT_POST_REQUEST_XML = '''<?xml version="1.0" encoding="UTF-8
 SERVICE_BINDING_NAME = 'ZSAPCLI_TEST_BND'
 SERVICE_BINDING_PACKAGE = '$TMP'
 
-SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML_UI = '''<?xml version="1.0" encoding="UTF-8"?>
 <srvb:serviceBinding xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="SRVB/SVB" adtcore:description="Test service binding" adtcore:language="EN" adtcore:name="ZSAPCLI_TEST_BND" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER">
 <adtcore:packageRef adtcore:name="$TMP"/>
 <srvb:services srvb:name="ZSAPCLI_TEST_BND">
@@ -73,7 +73,21 @@ SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML = '''<?xml version="1.0" encoding=
 </srvb:content>
 </srvb:services>
 <srvb:binding srvb:type="ODATA" srvb:version="V4" srvb:category="0">
-<srvb:implementation adtcore:name="ZSAPCLI_TEST_BND"/>
+<srvb:implementation adtcore:name=""/>
+</srvb:binding>
+</srvb:serviceBinding>'''
+
+
+SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML_API = '''<?xml version="1.0" encoding="UTF-8"?>
+<srvb:serviceBinding xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="SRVB/SVB" adtcore:description="Test service binding" adtcore:language="EN" adtcore:name="ZSAPCLI_TEST_BND" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER">
+<adtcore:packageRef adtcore:name="$TMP"/>
+<srvb:services srvb:name="ZSAPCLI_TEST_BND">
+<srvb:content srvb:version="0001" srvb:releaseState="NOT_RELEASED">
+<srvb:serviceDefinition adtcore:type="SRVD/SRV" adtcore:name="ZSAPCLI_TEST_SRV"/>
+</srvb:content>
+</srvb:services>
+<srvb:binding srvb:type="ODATA" srvb:version="V4" srvb:category="1">
+<srvb:implementation adtcore:name=""/>
 </srvb:binding>
 </srvb:serviceBinding>'''
 
