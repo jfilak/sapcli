@@ -205,6 +205,12 @@ class ServiceDefinition(ADTObject):
         editor_factory=ADTObjectSourceEditor.plain_text
     )
 
+    # Required by the back-end on POST: without it the server rejects with
+    # `ExceptionResourceCreationFailure: Service Definition type '' does not
+    # exist`. Fixed value 'S' (= "Definition") is the only one observed in
+    # captures - 'E' for "Extension" may exist but is out of scope for v1.
+    source_type = XmlNodeAttributeProperty('srvd:srvdSourceType', value='S')
+
     def __init__(self, connection, name, package=None, metadata=None):
         super().__init__(connection, name, metadata)
 
