@@ -16,6 +16,8 @@ from sap.adt.objects import (
 from sap.adt.annotations import (
     XmlNodeAttributeProperty,
     XmlNodeProperty,
+    XmlListNodeProperty,
+    XmlElementKind,
     XmlContainer
 )
 from sap.adt.marshalling import Marshal
@@ -53,6 +55,22 @@ class DefinitionLink(metaclass=OrderedClassMembers):
 
 
 ServicesContainer = XmlContainer.define('srvb:content', DefinitionLink)
+
+
+# `<srvb:services>` carries an `srvb:name` attribute on the wire (live captures
+# show it equals the parent binding's name in every observed binding). The
+# bare `XmlContainer.define` factory produces a synthesised class that mypy
+# cannot subclass; declare a parallel container directly off `XmlContainer`
+# instead, replicating the items property so we get both the list-of-children
+# behaviour and the container-level srvb:name attribute. ServiceBinding
+# populates `name` from the binding's own name on construction.
+class ServicesContainerWithName(XmlContainer):
+    """Service container that also carries the srvb:name attribute."""
+
+    name = XmlNodeAttributeProperty('srvb:name')
+    items = XmlListNodeProperty('srvb:content', deserialize=True,
+                                factory=DefinitionLink, value=[],
+                                kind=XmlElementKind.OBJECT)
 
 
 # pylint: disable=too-few-public-methods
@@ -99,7 +117,7 @@ class ServiceBinding(ADTObject):
     release_supported = XmlNodeAttributeProperty('srvb:releaseSupported')
     published = XmlNodeAttributeProperty('srvb:published')
     bindingCreated = XmlNodeAttributeProperty('srvb:bindingCreated')
-    services = XmlNodeProperty('srvb:services', factory=ServicesContainer)
+    services = XmlNodeProperty('srvb:services', factory=ServicesContainerWithName)
     binding = XmlNodeProperty('srvb:binding', factory=Binding)
 
     def __init__(self, connection, name, package=None, typ=None, version=None,
@@ -124,7 +142,11 @@ class ServiceBinding(ADTObject):
             self.binding = inner_binding
 
         if service_name is not None:
-            services = ServicesContainer()
+            services = ServicesContainerWithName()
+            # Live captures show `<srvb:services srvb:name=...>` always equals
+            # the parent binding's name. Mirror that here so the POST body
+            # matches the wire shape the back-end expects.
+            services.name = name
             link = DefinitionLink()
             link.version = service_version
             link.release_state = 'NOT_RELEASED'

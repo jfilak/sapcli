@@ -67,7 +67,7 @@ SERVICE_BINDING_PACKAGE = '$TMP'
 SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <srvb:serviceBinding xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="SRVB/SVB" adtcore:description="Test service binding" adtcore:language="EN" adtcore:name="ZSAPCLI_TEST_BND" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER">
 <adtcore:packageRef adtcore:name="$TMP"/>
-<srvb:services>
+<srvb:services srvb:name="ZSAPCLI_TEST_BND">
 <srvb:content srvb:version="0001" srvb:releaseState="NOT_RELEASED">
 <srvb:serviceDefinition adtcore:type="SRVD/SRV" adtcore:name="ZSAPCLI_TEST_SRV"/>
 </srvb:content>
@@ -79,11 +79,14 @@ SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML = '''<?xml version="1.0" encoding=
 
 
 SERVICE_BINDING_ADT_GET_V4_XML = '''<?xml version="1.0" encoding="utf-8"?>
-<srvb:serviceBinding xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core" srvb:contract="C1" srvb:releaseSupported="true" srvb:published="false" srvb:bindingCreated="true" adtcore:name="ZSAPCLI_TEST_BND" adtcore:type="SRVB/SVB" adtcore:version="active" adtcore:description="Test service binding" adtcore:language="EN">
+<srvb:serviceBinding xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core" srvb:contract="C1" srvb:releaseSupported="true" srvb:published="false" srvb:bindingCreated="true" srvb:allowedAction="PUBLISH" adtcore:name="ZSAPCLI_TEST_BND" adtcore:type="SRVB/SVB" adtcore:version="active" adtcore:description="Test service binding" adtcore:language="EN">
 <adtcore:packageRef adtcore:name="$TMP" adtcore:type="DEVC/K"/>
 <srvb:services srvb:name="ZSAPCLI_TEST_BND">
-<srvb:content srvb:version="0001" srvb:releaseState="NOT_RELEASED">
+<srvb:content srvb:version="0001" srvb:minorVersion="0" srvb:patchVersion="0" srvb:buildVersion="" srvb:releaseState="NOT_RELEASED">
 <srvb:serviceDefinition adtcore:uri="/sap/bc/adt/ddic/srvd/sources/zsapcli_test_srv" adtcore:type="SRVD/SRV" adtcore:name="ZSAPCLI_TEST_SRV"/>
+<srvb:bindingTypeData>
+<adtcore:content adtcore:encoding="base64"/>
+</srvb:bindingTypeData>
 </srvb:content>
 </srvb:services>
 <srvb:binding srvb:type="ODATA" srvb:version="V4" srvb:category="0">
