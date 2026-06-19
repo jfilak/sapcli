@@ -245,6 +245,17 @@ class TestbusinessserviceDefinition(unittest.TestCase):
         self.assertEqual(definition.name, definition_name)
         self.assertEqual(definition.description, 'Example Configuration')
         self.assertEqual(definition.reference.name, 'EXAMPLE_CONFIG')
+        # `srvd:srvdSourceType` is REQUIRED on POST and round-trips through GET.
+        # The captured fixture carries srvd:srvdSourceType="S" - assert it
+        # so the field stays wired even if someone refactors the class.
+        self.assertEqual(definition.source_type, 'S')
+
+    def test_servicedefinition_default_source_type_is_S(self):
+        # New, in-memory ServiceDefinition must default source_type='S' so
+        # the create POST always carries srvd:srvdSourceType (the back-end
+        # rejects POST bodies without it - see live e2e captures).
+        srvd = sap.adt.businessservice.ServiceDefinition(Connection(), 'ZNEW_SRV')
+        self.assertEqual(srvd.source_type, 'S')
 
     def test_servicedefinition_text_property_round_trip(self):
         conn = Connection([Response(text=SERVICE_DEFINITION_SOURCE_TEXT,
