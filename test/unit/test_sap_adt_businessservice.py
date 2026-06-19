@@ -345,6 +345,9 @@ class TestServiceBindingInit(unittest.TestCase):
 
         self.assertIsNotNone(binding.services)
         self.assertEqual(len(binding.services), 1)
+        # Live captures show <srvb:services srvb:name=...> always equals the
+        # parent binding's name. The constructor must mirror that.
+        self.assertEqual(binding.services.name, 'ZSAPCLI_TEST_BND')
         link = binding.services[0]
         self.assertEqual(link.version, '0001')
         self.assertEqual(link.release_state, 'NOT_RELEASED')
