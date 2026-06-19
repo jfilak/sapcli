@@ -10,6 +10,7 @@ from sap.adt.objects import (
     ADTObject,
     ADTObjectType,
     ADTObjectSourceEditor,
+    ADTRootObject,
     OrderedClassMembers,
     ADTObjectReferences
 )
@@ -21,10 +22,13 @@ from sap.adt.annotations import (
     XmlContainer
 )
 from sap.adt.marshalling import Marshal
+import sap.adt.core
 
 
 XMLNS_SRVB = xmlns_adtcore_ancestor('srvb', 'http://www.sap.com/adt/ddic/ServiceBindings')
 XMLNS_SRVD = xmlns_adtcore_ancestor('srvd', 'http://www.sap.com/adt/ddic/srvdsources')
+XMLNS_ODATAV2 = xmlns_adtcore_ancestor('odatav2', 'http://www.sap.com/categories/odatav2')
+XMLNS_ODATAV4 = xmlns_adtcore_ancestor('odatav4', 'http://www.sap.com/categories/odatav4')
 
 
 # pylint: disable=too-few-public-methods
@@ -99,6 +103,138 @@ class Binding(metaclass=OrderedClassMembers):
         """
 
         return f'{self.typ.lower()}{self.version.lower()}'
+
+
+# Published Service Info
+
+class ServiceInformationCollection(metaclass=OrderedClassMembers):
+    """ADT service information collection"""
+
+    name = XmlNodeAttributeProperty('serviceInfo:name')
+    is_leading = XmlNodeAttributeProperty('serviceInfo:isLeading')
+    is_root = XmlNodeAttributeProperty('serviceInfo:isRoot')
+
+
+class ServiceInformation(metaclass=OrderedClassMembers):
+    """ADT service information"""
+
+    service_name = XmlNodeAttributeProperty('serviceInfo:name')
+    service_version = XmlNodeAttributeProperty('serviceInfo:version')
+    collection = XmlNodeProperty('serviceInfo:collection', factory=ServiceInformationCollection)
+
+
+# OData V2
+
+class ODataV2ApplicationDetails(metaclass=OrderedClassMembers):
+    """ADT OData V2 Application Details"""
+
+    application_state = XmlNodeAttributeProperty('odatav2:applicationState')
+    application_description = XmlNodeAttributeProperty('odatav2:applicationDescription')
+    application_id = XmlNodeAttributeProperty('odatav2:applicationId')
+
+
+class ODataV2Service(metaclass=OrderedClassMembers):
+    """ADT OData V2 service"""
+
+    repository_id = XmlNodeAttributeProperty('odatav2:repositoryId')
+    service_id = XmlNodeAttributeProperty('odatav2:serviceId')
+    service_version = XmlNodeAttributeProperty('odatav2:serviceVersion')
+    service_url = XmlNodeAttributeProperty('odatav2:serviceUrl')
+    annotation_url = XmlNodeAttributeProperty('odatav2:annotationUrl')
+    created = XmlNodeAttributeProperty('odatav2:created')
+    published = XmlNodeAttributeProperty('odatav2:published')
+    allowed_action = XmlNodeProperty('odatav2:allowedAction')
+
+
+class ODataV2ServiceList(ADTRootObject):
+    """ADT ODataV2 Service Group"""
+
+    OBJTYPE = ADTObjectType(
+        None,  # Object code - not used for ServiceGroup because it is not an ABAP object type
+        'businessservices/odatav2',
+        XMLNS_ODATAV2,
+        ['application/vnd.sap.adt.businessservices.odatav2.v3+xml'],
+        {},  # Content types - not used for ServiceGroup as it is only the XML
+        'serviceList')
+
+    services = XmlNodeProperty('odatav2:services', factory=ODataV2Service)
+
+    @classmethod
+    def get(cls, connection: sap.adt.core.Connection, name: str, version: str, srvdname: str) -> "ODataV2ServiceList":
+        """Fetches the OData V2 Service Group with the given name and version from the back-end"""
+
+        response = connection.execute(
+            'GET',
+            cls.OBJTYPE.basepath + f'/{name}',
+            params={
+                'servicename': name,
+                'serviceversion': version,
+                'srvdname': srvdname
+            },
+            accept=cls.OBJTYPE.all_mimetypes,
+        )
+
+        return Marshal().deserialize(response.text, cls())
+
+
+# OData V4
+
+class ODataV4ApplicationDetails(metaclass=OrderedClassMembers):
+    """ADT OData V4 Application Details"""
+
+    application_state = XmlNodeAttributeProperty('odatav4:applicationState')
+    application_description = XmlNodeAttributeProperty('odatav4:applicationDescription')
+    application_id = XmlNodeAttributeProperty('odatav4:applicationId')
+
+
+class ODataV4Service(metaclass=OrderedClassMembers):
+    """ADT OData V4 service"""
+
+    repository_id = XmlNodeAttributeProperty('odatav4:repositoryId')
+    service_id = XmlNodeAttributeProperty('odatav4:serviceId')
+    service_version = XmlNodeAttributeProperty('odatav4:serviceVersion')
+    service_url = XmlNodeAttributeProperty('odatav4:serviceUrl')
+    annotation_url = XmlNodeAttributeProperty('odatav4:annotationUrl')
+    created = XmlNodeAttributeProperty('odatav4:created')
+    service_information = XmlNodeProperty('serviceInfo:serviceInformation', factory=ServiceInformation)
+    application_details = XmlNodeProperty('odatav4:applicationDetails', factory=ODataV4ApplicationDetails)
+
+
+class ODataV4ServiceGroup(ADTRootObject):
+    """ADT ODataV4 Service Group"""
+
+    OBJTYPE = ADTObjectType(
+        None,  # Object code - not used for ServiceGroup because it is not an ABAP object type
+        'businessservices/odatav4',
+        XMLNS_ODATAV4,
+        ['application/vnd.sap.adt.businessservices.odatav4.v2+xml'],
+        {},  # Content types - not used for ServiceGroup as it is only the XML
+        'serviceGroup')
+
+    published = XmlNodeAttributeProperty('odatav4:published')
+    service_url_prefix = XmlNodeAttributeProperty('odatav4:serviceUrlPrefix')
+    name = XmlNodeAttributeProperty('adtcore:name')
+    services = XmlNodeProperty('odatav4:services', factory=ODataV4Service)
+
+    @classmethod
+    def get(cls, connection: sap.adt.core.Connection, name: str, version: str, srvdname: str) -> "ODataV4ServiceGroup":
+        """Fetches the OData V4 Service Group with the given name and version from the back-end"""
+
+        response = connection.execute(
+            'GET',
+            cls.OBJTYPE.basepath + f'/{name}',
+            params={
+                'servicename': name,
+                'serviceversion': version,
+                'srvdname': srvdname
+            },
+            accept=cls.OBJTYPE.all_mimetypes,
+        )
+
+        return Marshal().deserialize(response.text, cls())
+
+
+# Service Binding
 
 
 class ServiceBinding(ADTObject):

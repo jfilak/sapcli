@@ -119,3 +119,29 @@ SERVICE_BINDING_PUBLISH_FAIL_XML = '''<?xml version="1.0" encoding="UTF-8"?>
   </asx:values>
 </asx:abap>
 '''
+
+SERVICE_GROUP_ODATAV4_GET_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<odatav4:serviceGroup xmlns:odatav4="http://www.sap.com/categories/odatav4" odatav4:published="true" odatav4:serviceUrlPrefix="/sap/opu/odata4/sap/zscli_svcdemo_c/srvd/" adtcore:name="ZSCLI_SVCDEMO_C" xmlns:adtcore="http://www.sap.com/adt/core">
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" rel="http://www.sap.com/categories/ui5app" type="application/vnd.sap.adt.businessservices.ui5app.v1+xml" title="Launch UI5 App"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="/sap/bc/adt/businessservices/odatav4/publishjobs" rel="http://www.sap.com/categories/odatav4" title="ODATAV4PUBLISH"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="/sap/bc/adt/businessservices/odatav4/unpublishjobs" rel="http://www.sap.com/categories/odatav4" title="ODATAV4UNPUBLISH"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" xmlns:n0="SUSH" href="/sap/bc/adt/aps/iam/sush/a41813b73fa2e7ec5a71a92aed3107ht" rel="http://www.sap.com/iam/sush" title="SU22 Object Reference" n0:name="A41813B73FA2E7EC5A71A92AED3107HT"/>
+  <odatav4:services odatav4:repositoryId="SRVD" odatav4:serviceId="ZSCLI_SVCDEMO_C" odatav4:serviceVersion="0001" odatav4:serviceUrl="/sap/opu/odata4/sap/zscli_svcdemo_c/srvd/sap/zscli_svcdemo_c/0001/" odatav4:annotationUrl="" odatav4:created="true">
+    <serviceInfo:serviceInformation xmlns:serviceInfo="http://www.sap.com/categories/serviceinformation" serviceInfo:name="ZSCLI_SVCDEMO_C" serviceInfo:version="0001">
+      <serviceInfo:collection serviceInfo:name="Demo" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
+    </serviceInfo:serviceInformation>
+    <odatav4:applicationDetails odatav4:applicationState="NOT_DEPLOYED" odatav4:applicationDescription="Not deployed" odatav4:applicationId=""/>
+  </odatav4:services>
+</odatav4:serviceGroup>
+'''
+
+SERVICE_GROUP_ODATAV2_GET_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<odatav2:serviceList xmlns:odatav2="http://www.sap.com/categories/odatav2">
+  <odatav2:services odatav2:repositoryId="" odatav2:serviceId="ZSCLI_DM_B_V2" odatav2:serviceVersion="0001" odatav2:serviceUrl="/sap/opu/odata/sap/ZSCLI_DM_B_V2" odatav2:annotationUrl="" odatav2:published="true" odatav2:created="true" odatav2:allowedAction="UNPUBLISH">
+    <serviceInfo:serviceInformation xmlns:serviceInfo="http://www.sap.com/categories/serviceinformation" serviceInfo:name="ZSCLI_DM_B_V2" serviceInfo:version="0001">
+      <serviceInfo:collection serviceInfo:name="Demo" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
+    </serviceInfo:serviceInformation>
+    <odatav2:applicationDetails odatav2:applicationState="NOT_DEPLOYED" odatav2:applicationDescription="Not deployed" odatav2:applicationId=""/>
+  </odatav2:services>
+</odatav2:serviceList>
+'''
