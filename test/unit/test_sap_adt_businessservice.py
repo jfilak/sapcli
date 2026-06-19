@@ -17,6 +17,8 @@ from fixtures_adt_businessservice import (
     SERVICE_DEFINITION_SOURCE_TEXT,
     SERVICE_DEFINITION_ADT_POST_REQUEST_XML,
     SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML,
+    SERVICE_GROUP_ODATAV4_GET_XML,
+    SERVICE_GROUP_ODATAV2_GET_XML,
 )
 
 SAMPLE_ODATA_BINDING_V2 = '''<?xml version="1.0" encoding="utf-8"?>
@@ -384,3 +386,84 @@ class TestServiceBindingInit(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(post.body.decode('utf-8'), SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML)
+
+
+class TestODataV4ServiceGroupGet(unittest.TestCase):
+    '''ODataV4ServiceGroup.get() HTTP request tests'''
+
+    def test_service_group_get_sends_expected_request(self):
+        connection = Connection([Response(
+            text=SERVICE_GROUP_ODATAV4_GET_XML,
+            status_code=200,
+            content_type='application/vnd.sap.adt.businessservices.odatav4.v2+xml; charset=utf-8'
+        )])
+
+        sap.adt.businessservice.ODataV4ServiceGroup.get(
+            connection,
+            'ZSCLI_SVCDEMO_C',
+            '0001',
+            'ZSCLI_SVCDEMO_S',
+        )
+
+        self.assertEqual(len(connection.execs), 1)
+
+        get_request = connection.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(
+            get_request.adt_uri,
+            '/sap/bc/adt/businessservices/odatav4/ZSCLI_SVCDEMO_C',
+        )
+        self.assertEqual(get_request.params, {
+            'servicename': 'ZSCLI_SVCDEMO_C',
+            'serviceversion': '0001',
+            'srvdname': 'ZSCLI_SVCDEMO_S',
+        })
+        self.assertEqual(
+            get_request.headers['Accept'],
+            'application/vnd.sap.adt.businessservices.odatav4.v2+xml',
+        )
+
+
+class TestODataV2ServiceListGet(unittest.TestCase):
+    '''ODataV2ServiceList.get() HTTP request tests'''
+
+    def test_service_list_get_sends_expected_request(self):
+        connection = Connection([Response(
+            text=SERVICE_GROUP_ODATAV2_GET_XML,
+            status_code=200,
+            content_type='application/vnd.sap.adt.businessservices.odatav2.v3+xml; charset=utf-8'
+        )])
+
+        service_list = sap.adt.businessservice.ODataV2ServiceList.get(
+            connection,
+            'ZSCLI_DM_B_V2',
+            '0001',
+            'ZSCLI_DM_B_V2',
+        )
+
+        self.assertEqual(len(connection.execs), 1)
+
+        get_request = connection.execs[0]
+        self.assertEqual(get_request.method, 'GET')
+        self.assertEqual(
+            get_request.adt_uri,
+            '/sap/bc/adt/businessservices/odatav2/ZSCLI_DM_B_V2',
+        )
+        self.assertEqual(get_request.params, {
+            'servicename': 'ZSCLI_DM_B_V2',
+            'serviceversion': '0001',
+            'srvdname': 'ZSCLI_DM_B_V2',
+        })
+        self.assertEqual(
+            get_request.headers['Accept'],
+            'application/vnd.sap.adt.businessservices.odatav2.v3+xml',
+        )
+
+        self.assertIsNotNone(service_list.services)
+        self.assertEqual(service_list.services.repository_id, '')
+        self.assertEqual(service_list.services.service_id, 'ZSCLI_DM_B_V2')
+        self.assertEqual(service_list.services.service_version, '0001')
+        self.assertEqual(service_list.services.service_url, '/sap/opu/odata/sap/ZSCLI_DM_B_V2')
+        self.assertEqual(service_list.services.annotation_url, '')
+        self.assertEqual(service_list.services.created, 'true')
+        self.assertEqual(service_list.services.published, 'true')
