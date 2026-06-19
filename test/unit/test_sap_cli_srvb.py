@@ -4,7 +4,7 @@
 # pylint: disable=missing-function-docstring
 
 import unittest
-from unittest.mock import call, patch, Mock
+from unittest.mock import patch, Mock
 
 import sap.adt.businessservice
 import sap.cli.srvb
@@ -21,6 +21,7 @@ from fixtures_adt_businessservice import (
     SERVICE_BINDING_NAME,
     SERVICE_BINDING_PACKAGE,
     SERVICE_BINDING_ADT_GET_V4_XML,
+    SERVICE_GROUP_ODATAV4_GET_XML,
 )
 
 
@@ -49,8 +50,8 @@ class TestSRVBCreate(unittest.TestCase):
 
         args = parse_args('create', SERVICE_BINDING_NAME,
                           'Test binding', SERVICE_BINDING_PACKAGE,
-                          '--type', 'ODATA', '--version', 'V4',
-                          '--service', 'ZSAPCLI_TEST_SRV')
+                          '--binding-type', 'ODATAV4_UI',
+                          '--service-definition', 'ZSAPCLI_TEST_SRVD')
         with patch_get_print_console_with_buffer():
             args.execute(fake_conn, args)
 
@@ -59,10 +60,9 @@ class TestSRVBCreate(unittest.TestCase):
         self.assertEqual(kwargs['package'], SERVICE_BINDING_PACKAGE)
         self.assertEqual(kwargs['typ'], 'ODATA')
         self.assertEqual(kwargs['version'], 'V4')
-        self.assertEqual(kwargs['service_name'], 'ZSAPCLI_TEST_SRV')
-        # service_version defaults to '0001'
-        self.assertEqual(kwargs['service_version'], '0001')
+        self.assertEqual(kwargs['category'], '0')
 
+        fake_srvb.return_value.add_service.assert_called_once_with(SERVICE_BINDING_NAME, 'ZSAPCLI_TEST_SRVD', '0001')
         fake_srvb.return_value.create.assert_called_once_with(corrnr=None)
 
     @patch('sap.adt.ServiceBinding')
@@ -73,46 +73,14 @@ class TestSRVBCreate(unittest.TestCase):
 
         args = parse_args('create', SERVICE_BINDING_NAME,
                           'Test binding', SERVICE_BINDING_PACKAGE,
-                          '--type', 'ODATA', '--version', 'V2',
-                          '--service', 'ZSAPCLI_TEST_SRV')
+                          '--binding-type', 'ODATAV2_API',
+                          '--service-definition', 'ZSAPCLI_TEST_SRVD')
         with patch_get_print_console_with_buffer():
             args.execute(fake_conn, args)
 
         kwargs = fake_srvb.call_args.kwargs
         self.assertEqual(kwargs['version'], 'V2')
-
-    @patch('sap.adt.ServiceBinding')
-    def test_cli_srvb_create_with_sql_v1(self, fake_srvb):
-        fake_conn = Mock()
-        fake_conn.user = 'TESTER'
-        fake_srvb.return_value = Mock()
-
-        args = parse_args('create', SERVICE_BINDING_NAME,
-                          'Test binding', SERVICE_BINDING_PACKAGE,
-                          '--type', 'SQL', '--version', '1',
-                          '--service', 'ZSAPCLI_TEST_SRV')
-        with patch_get_print_console_with_buffer():
-            args.execute(fake_conn, args)
-
-        kwargs = fake_srvb.call_args.kwargs
-        self.assertEqual(kwargs['typ'], 'SQL')
-        self.assertEqual(kwargs['version'], '1')
-
-    @patch('sap.adt.ServiceBinding')
-    def test_cli_srvb_create_with_ina_v1(self, fake_srvb):
-        fake_conn = Mock()
-        fake_conn.user = 'TESTER'
-        fake_srvb.return_value = Mock()
-
-        args = parse_args('create', SERVICE_BINDING_NAME,
-                          'Test binding', SERVICE_BINDING_PACKAGE,
-                          '--type', 'INA', '--version', '1',
-                          '--service', 'ZSAPCLI_TEST_SRV')
-        with patch_get_print_console_with_buffer():
-            args.execute(fake_conn, args)
-
-        kwargs = fake_srvb.call_args.kwargs
-        self.assertEqual(kwargs['typ'], 'INA')
+        self.assertEqual(kwargs['category'], '1')
 
     @patch('sap.adt.ServiceBinding')
     def test_cli_srvb_create_with_explicit_service_version(self, fake_srvb):
@@ -122,41 +90,13 @@ class TestSRVBCreate(unittest.TestCase):
 
         args = parse_args('create', SERVICE_BINDING_NAME,
                           'Test binding', SERVICE_BINDING_PACKAGE,
-                          '--type', 'ODATA', '--version', 'V4',
-                          '--service', 'ZSAPCLI_TEST_SRV',
+                          '--binding-type', 'ODATAV4_API',
+                          '--service-definition', 'ZSAPCLI_TEST_SRVD',
                           '--service-version', '0002')
         with patch_get_print_console_with_buffer():
             args.execute(fake_conn, args)
 
-        kwargs = fake_srvb.call_args.kwargs
-        self.assertEqual(kwargs['service_version'], '0002')
-
-    def test_cli_srvb_create_missing_type_errors(self):
-        with self.assertRaises(SystemExit):
-            parse_args('create', SERVICE_BINDING_NAME, 'Test', SERVICE_BINDING_PACKAGE,
-                       '--version', 'V4', '--service', 'ZSAPCLI_TEST_SRV')
-
-    def test_cli_srvb_create_missing_version_errors(self):
-        with self.assertRaises(SystemExit):
-            parse_args('create', SERVICE_BINDING_NAME, 'Test', SERVICE_BINDING_PACKAGE,
-                       '--type', 'ODATA', '--service', 'ZSAPCLI_TEST_SRV')
-
-    def test_cli_srvb_create_missing_service_errors(self):
-        with self.assertRaises(SystemExit):
-            parse_args('create', SERVICE_BINDING_NAME, 'Test', SERVICE_BINDING_PACKAGE,
-                       '--type', 'ODATA', '--version', 'V4')
-
-    def test_cli_srvb_create_invalid_type_errors(self):
-        with self.assertRaises(SystemExit):
-            parse_args('create', SERVICE_BINDING_NAME, 'Test', SERVICE_BINDING_PACKAGE,
-                       '--type', 'BOGUS', '--version', 'V4',
-                       '--service', 'ZSAPCLI_TEST_SRV')
-
-    def test_cli_srvb_create_invalid_version_errors(self):
-        with self.assertRaises(SystemExit):
-            parse_args('create', SERVICE_BINDING_NAME, 'Test', SERVICE_BINDING_PACKAGE,
-                       '--type', 'ODATA', '--version', 'V99',
-                       '--service', 'ZSAPCLI_TEST_SRV')
+        fake_srvb.return_value.add_service.call_args.assert_called_once_with(SERVICE_BINDING_NAME, 'ZSAPCLI_TEST_SRVD', '0002')
 
 
 class TestSRVBRead(unittest.TestCase):
@@ -165,7 +105,10 @@ class TestSRVBRead(unittest.TestCase):
         conn = Connection([
             Response(text=SERVICE_BINDING_ADT_GET_V4_XML, status_code=200,
                      headers={'Content-Type':
-                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'})
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+            Response(text=SERVICE_GROUP_ODATAV4_GET_XML, status_code=200,
+                    headers={'Content-Type':
+                             'application/vnd.sap.adt.businessservices.odatav4.v2+xml; charset=utf-8'}),
         ])
 
         args = parse_args('read', SERVICE_BINDING_NAME)
@@ -173,11 +116,16 @@ class TestSRVBRead(unittest.TestCase):
             args.execute(conn, args)
 
         out = fake_console.capout
-        self.assertIn(SERVICE_BINDING_NAME, out)
-        self.assertIn('ODATA', out)
-        self.assertIn('V4', out)
-        self.assertIn('ZSAPCLI_TEST_SRV', out)
-        self.assertIn('0001', out)
+        self.assertEqual(out, '''Name        : ZSAPCLI_TEST_BND
+Description : Test service binding
+Package     : $TMP
+Type        : ODATA
+Version     : V4
+Published   : false
+Services:
+  ZSAPCLI_TEST_BND (version 0001, NOT_RELEASED)
+    URL: /sap/opu/odata4/sap/zscli_svcdemo_c/srvd/sap/zscli_svcdemo_c/0001/
+''')
 
 
 class TestSRVBActivate(unittest.TestCase):

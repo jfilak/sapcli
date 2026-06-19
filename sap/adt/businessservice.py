@@ -1,5 +1,7 @@
 """Odataservice ADT wrappers"""
 
+from typing import Union
+from sap import get_logger
 from sap.errors import SAPCliError
 from sap.platform.abap import (
     from_xml,
@@ -18,11 +20,14 @@ from sap.adt.annotations import (
     XmlNodeAttributeProperty,
     XmlNodeProperty,
     XmlListNodeProperty,
-    XmlElementKind,
-    XmlContainer
 )
 from sap.adt.marshalling import Marshal
-import sap.adt.core
+
+
+def mod_log():
+    """ADT Module logger"""
+
+    return get_logger()
 
 
 XMLNS_SRVB = xmlns_adtcore_ancestor('srvb', 'http://www.sap.com/adt/ddic/ServiceBindings')
@@ -58,23 +63,41 @@ class DefinitionLink(metaclass=OrderedClassMembers):
     definition = XmlNodeProperty('srvb:serviceDefinition', factory=Definition)
 
 
-ServicesContainer = XmlContainer.define('srvb:content', DefinitionLink)
-
-
-# `<srvb:services>` carries an `srvb:name` attribute on the wire (live captures
-# show it equals the parent binding's name in every observed binding). The
-# bare `XmlContainer.define` factory produces a synthesised class that mypy
-# cannot subclass; declare a parallel container directly off `XmlContainer`
-# instead, replicating the items property so we get both the list-of-children
-# behaviour and the container-level srvb:name attribute. ServiceBinding
-# populates `name` from the binding's own name on construction.
-class ServicesContainerWithName(XmlContainer):
+class ServicesContainer(metaclass=OrderedClassMembers):
     """Service container that also carries the srvb:name attribute."""
 
     name = XmlNodeAttributeProperty('srvb:name')
-    items = XmlListNodeProperty('srvb:content', deserialize=True,
-                                factory=DefinitionLink, value=[],
-                                kind=XmlElementKind.OBJECT)
+    link = XmlNodeProperty('srvb:content', factory=DefinitionLink)
+
+    @property
+    def definition(self):
+        """Backward compatibility property to mirror the original structure of the XML, which had
+           the service definition directly under the services container. This allows
+           existing code that accessed `service.services.link.definition` to continue
+           working without modification.
+        """
+
+        return self.link.definition
+
+    @property
+    def version(self):
+        """Backward compatibility property to mirror the original structure of the XML, which had
+           the service version directly under the services container. This allows
+           existing code that accessed `service.services.version` to continue
+           working without modification.
+        """
+
+        return self.link.version
+
+    @property
+    def release_state(self):
+        """Backward compatibility property to mirror the original structure of the XML, which had
+           the service release state directly under the services container. This allows
+           existing code that accessed `service.services.release_state` to continue
+           working without modification.
+        """
+
+        return self.link.release_state
 
 
 # pylint: disable=too-few-public-methods
@@ -160,7 +183,7 @@ class ODataV2ServiceList(ADTRootObject):
     services = XmlNodeProperty('odatav2:services', factory=ODataV2Service)
 
     @classmethod
-    def get(cls, connection: sap.adt.core.Connection, name: str, version: str, srvdname: str) -> "ODataV2ServiceList":
+    def get(cls, connection, name: str, version: str, srvdname: str) -> "ODataV2ServiceList":
         """Fetches the OData V2 Service Group with the given name and version from the back-end"""
 
         response = connection.execute(
@@ -217,7 +240,7 @@ class ODataV4ServiceGroup(ADTRootObject):
     services = XmlNodeProperty('odatav4:services', factory=ODataV4Service)
 
     @classmethod
-    def get(cls, connection: sap.adt.core.Connection, name: str, version: str, srvdname: str) -> "ODataV4ServiceGroup":
+    def get(cls, connection, name: str, version: str, srvdname: str) -> "ODataV4ServiceGroup":
         """Fetches the OData V4 Service Group with the given name and version from the back-end"""
 
         response = connection.execute(
@@ -253,44 +276,36 @@ class ServiceBinding(ADTObject):
     release_supported = XmlNodeAttributeProperty('srvb:releaseSupported')
     published = XmlNodeAttributeProperty('srvb:published')
     bindingCreated = XmlNodeAttributeProperty('srvb:bindingCreated')
-    services = XmlNodeProperty('srvb:services', factory=ServicesContainerWithName)
+    services = XmlListNodeProperty('srvb:services', value=[], factory=ServicesContainer)
     binding = XmlNodeProperty('srvb:binding', factory=Binding)
 
-    def __init__(self, connection, name, package=None, typ=None, version=None,
-                 service_name=None, service_version='0001', metadata=None):
+    def __init__(self, connection, name, package=None, typ=None, version=None, category=None, metadata=None):
         super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
 
-        # The classes Binding / Implementation / Definition / DefinitionLink /
-        # ServicesContainer are constructed with `metaclass=OrderedClassMembers`.
-        # pylint inspects the metaclass `__init__` signature instead of the
-        # class's (empty) `__init__`, hence the spurious E1120 noise. Suppress
-        # it locally — these constructions are exercised by unit tests.
-        # pylint: disable=no-value-for-parameter
-        if typ is not None or version is not None:
-            inner_binding = Binding()
-            inner_binding.typ = typ
-            inner_binding.version = version
-            inner_binding.category = '0'
-            inner_binding.implementation = Implementation()
-            inner_binding.implementation.name = name
-            self.binding = inner_binding
+        inner_binding = Binding()
+        inner_binding.typ = typ
+        inner_binding.version = version
+        inner_binding.category = category
+        inner_binding.implementation = Implementation()
+        inner_binding.implementation.name = ''
 
-        if service_name is not None:
-            services = ServicesContainerWithName()
-            # Live captures show `<srvb:services srvb:name=...>` always equals
-            # the parent binding's name. Mirror that here so the POST body
-            # matches the wire shape the back-end expects.
-            services.name = name
-            link = DefinitionLink()
-            link.version = service_version
-            link.release_state = 'NOT_RELEASED'
-            link.definition = Definition()
-            link.definition.name = service_name
-            link.definition.typ = 'SRVD/SRV'
-            services.append(link)
-            self.services = services
+        self.binding = inner_binding
+
+    def add_service(self, service_name: str, service_definition: str, service_version: str):
+        """Add Service Definition as a new Service"""
+
+        service = ServicesContainer()
+        service.name = service_name
+        service.link = DefinitionLink()
+        service.link.version = service_version
+        service.link.release_state = 'NOT_RELEASED'
+        service.link.definition = Definition()
+        service.link.definition.name = service_definition
+        service.link.definition.typ = 'SRVD/SRV'
+
+        self.services.append(service)
 
     def find_service(self, service_name=None, service_version=None):
         """Returns a first service matching the given parameters.
@@ -325,6 +340,28 @@ class ServiceBinding(ADTObject):
             )
 
         raise SAPCliError("You must specify either Service Name or Service Version or both")
+
+    def get_service_group(self, service: ServicesContainer) -> Union[None | ODataV4ServiceGroup | ODataV2ServiceList]:
+        """Returns the Service Group or None"""
+
+        if self.binding.typ != 'ODATA':
+            mod_log().warning(
+                "Service Binding '%s' is of type '%s', expected 'ODATA'. Cannot fetch Service Group.",
+                self.name,
+                self.binding.typ)
+            return None
+
+        match self.binding.version:
+            case 'V2':
+                return ODataV2ServiceList.get(self.connection, service.name, service.version, service.definition.name)
+            case 'V4':
+                return ODataV4ServiceGroup.get(self.connection, service.name, service.version, service.definition.name)
+
+        mod_log().warning(
+            "Service Binding '%s' has unsupported OData version '%s'. Cannot fetch Service Group.",
+            self.name,
+            self.binding.version)
+        return None
 
     def publish(self, service):
         """Publish service definition"""
