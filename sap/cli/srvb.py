@@ -1,7 +1,19 @@
 """ADT proxy for Service Binding (SRVB)"""
 
+import json
+import sap.errors
 import sap.adt
 import sap.cli.object
+import sap.rest.connection
+
+
+class CommandGroupPreview(sap.cli.core.CommandGroup):
+    """Adapter converting command line parameters to sap.adt.ServiceBinding
+       methods calls.
+    """
+
+    def __init__(self):
+        super().__init__('preview', description='Preview utilities for Service Binding (SRVB)')
 
 
 class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
@@ -12,7 +24,15 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
     def __init__(self):
         super().__init__('srvb', description='Service Binding (SRVB)')
 
+        self.command_group_preview = CommandGroupPreview()
+
         self.define()
+
+    def install_parser(self, arg_parser):
+        super_parser = super().install_parser(arg_parser)
+
+        child_parser = super_parser.add_parser(self.command_group_preview.name)
+        self.command_group_preview.install_parser(child_parser)
 
     def instance(self, connection, name, args, metadata=None):
         package = None
@@ -177,3 +197,71 @@ def publish(connection, args):
     """Publish odata/ina/sql service that belongs to a service binding."""
 
     return publish_binding(connection, args)
+
+
+def _get_service_with_binding_group(connection, args):
+
+    binding = sap.adt.ServiceBinding(connection, args.binding_name.upper())
+    binding.fetch()
+
+    if not binding.services:
+        raise sap.errors.SAPCliError(f'Business Service Biding {args.binding_name} does not contain any services')
+
+    if len(binding.services) > 1 and args.service is None:
+        raise sap.errors.SAPCliError(
+            f'Business Service Biding {args.binding_name} contains more than one Service Definition; '
+            'use --service to specify which one to preview')
+
+    if args.service is not None:
+        for link in binding.services:
+            name = link.name
+            if name == args.service:
+                break
+        else:
+            raise sap.errors.SAPCliError(
+                f'Business Service Biding {args.binding_name} has no Service Definition '
+                f'with supplied name "{args.service}"')
+    else:
+        # pylint: disable=unsubscriptable-object
+        link = binding.services[0]
+
+    service_group = binding.get_service_group(link)
+    if service_group is None:
+        raise sap.errors.SAPCliError(
+            f'Failed to retrieve service group for Service Definition {link.name} in '
+            f'Binding {args.binding_name}')
+
+    return binding, service_group
+
+
+@CommandGroupPreview.argument('--service', nargs='?', default=None,
+                              help="Service name of the binding's services to preview")
+@CommandGroupPreview.argument('binding_name')
+@CommandGroupPreview.command('metadata')
+def preview_metadata(connection, args):
+    """Download and print the OData metadata document for one of the services in a Service Binding."""
+
+    console = args.console_factory()
+    _, service_group = _get_service_with_binding_group(connection, args)
+    metadata = connection.execute('GET', service_group.services.service_url + '/$metadata', complete_url=True).text
+    console.printout(metadata)
+
+
+@CommandGroupPreview.argument('--service', nargs='?', default=None,
+                              help="Service name of the binding's services to preview")
+@CommandGroupPreview.argument('entity_set')
+@CommandGroupPreview.argument('binding_name')
+@CommandGroupPreview.command('fetch')
+def preview_fetch(connection, args):
+    """Fetch and print entries from the specified entity set of one of the services in a Service Binding."""
+
+    console = args.console_factory()
+    _, service_group = _get_service_with_binding_group(connection, args)
+    data = connection.execute(
+        'GET',
+        service_group.services.service_url + '/' + args.entity_set,
+        accept='application/json',
+        complete_url=True
+    ).json()
+
+    console.printout(json.dumps(data, indent=2))
