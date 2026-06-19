@@ -200,14 +200,17 @@ class Connection:
 
         return self._session
 
-    def execute(self, method, adt_uri, params=None, headers=None, body=None, accept=None, content_type=None):
+    def execute(self, method, adt_uri, params=None, headers=None, body=None, accept=None, content_type=None, complete_url=False):
         """Executes the given ADT URI as an HTTP request and returns
            the requests response object
         """
 
         session = self._get_session()
 
-        url = self._build_adt_url(adt_uri)
+        if complete_url:
+            url = adt_uri
+        else:
+            url = self._build_adt_url(adt_uri)
 
         if headers is None:
             headers = {}
