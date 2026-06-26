@@ -49,6 +49,7 @@ OBJECT_TYPE_MAP = {
     'program': 'PROG',
     'program-include': 'PROG',
     'function-group': 'FUGR',
+    'function-module': 'FUNC',
 }
 
 

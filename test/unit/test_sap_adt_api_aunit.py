@@ -98,6 +98,18 @@ EXPECTED_XML_FUGR = '''<?xml version="1.0" encoding="UTF-8"?>
 </osl:objectSet>
 </aunit:run>'''
 
+EXPECTED_XML_FUNC = '''<?xml version="1.0" encoding="UTF-8"?>
+<aunit:run xmlns:aunit="http://www.sap.com/adt/api/aunit" title="Run" context="ABAP Unit Test Run">
+<aunit:options>
+<aunit:scope ownTests="true" foreignTests="true" addForeignTestsAsPreview="true"/>
+<aunit:riskLevel harmless="true" dangerous="true" critical="true"/>
+<aunit:duration short="true" medium="true" long="true"/>
+</aunit:options>
+<osl:objectSet xmlns:osl="http://www.sap.com/api/osl" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="osl:flatObjectSet">
+<osl:object name="ZFUNCTION" type="FUNC"/>
+</osl:objectSet>
+</aunit:run>'''
+
 EXPECTED_XML_MULTI_OBJECTS = '''<?xml version="1.0" encoding="UTF-8"?>
 <aunit:run xmlns:aunit="http://www.sap.com/adt/api/aunit" title="Run" context="ABAP Unit Test Run">
 <aunit:options>
@@ -152,6 +164,10 @@ class TestBuildTestRun(unittest.TestCase):
     def test_function_group(self):
         xml = Marshal().serialize(build_test_run([('zfugr', 'function-group')]))
         self.assertEqual(xml, EXPECTED_XML_FUGR)
+
+    def test_function_group(self):
+        xml = Marshal().serialize(build_test_run([('zfunction', 'function-module')]))
+        self.assertEqual(xml, EXPECTED_XML_FUNC)
 
     def test_osl_types_passthrough(self):
         """OSL types like CLAS, PROG, FUGR should be used as-is"""
