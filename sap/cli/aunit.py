@@ -841,7 +841,8 @@ def _build_objects_info(args):
 @CommandGroup.argument('--as4user', nargs='?', help='Auxiliary parameter for Transports')
 @CommandGroup.argument('--output', choices=['raw', 'human', 'junit4', 'sonar'], default='human')
 @CommandGroup.argument('name', nargs='+', type=str)
-@CommandGroup.argument('type', choices=['program', 'program-include', 'class', 'package', 'transport'])
+@CommandGroup.argument('type', choices=['program', 'program-include', 'class', 'package',
+                                        'function-group', 'function-module', 'transport'])
 @CommandGroup.argument('--result',
                        choices=[
                            ResultOptions.ONLY_UNIT.value,

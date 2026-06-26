@@ -118,6 +118,38 @@ class TestAUnitWrite(unittest.TestCase):
         self.assertEqual(fake_console.caperr, 'Program include name can be: INCLUDE or MAIN\\INCLUDE\n')
         self.assertEqual(ret, 1)
 
+    def test_aunit_function_group_explicit(self):
+        from sap.adt.api.aunit import ACCEPT_AUNIT_RESULTS
+
+        self.connection.set_responses(
+            Response(status_code=200, headers={'Location': '/sap/bc/adt/abapunit/results/42010AEF4C8E1FD19CAD9D1848D3ECFD'}),
+            Response(status_code=200, text=AUNIT_API_RUN_STATUS_FINISHED_XML),
+            Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={'Content-Type': ACCEPT_AUNIT_RESULTS}),
+        )
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            self.execute_run('function-group', '--output', 'human', '/z/fabulous/sapcli/fugr', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(len(self.connection.execs), 3)
+        self.assertIn('<osl:object name="/Z/FABULOUS/SAPCLI/FUGR" type="FUGR"/>', self.connection.execs[0].body)
+        self.assert_print_no_test_classes(fake_console)
+
+    def test_aunit_function_module_explicit(self):
+        from sap.adt.api.aunit import ACCEPT_AUNIT_RESULTS
+
+        self.connection.set_responses(
+            Response(status_code=200, headers={'Location': '/sap/bc/adt/abapunit/results/42010AEF4C8E1FD19CAD9D1848D3ECFD'}),
+            Response(status_code=200, text=AUNIT_API_RUN_STATUS_FINISHED_XML),
+            Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={'Content-Type': ACCEPT_AUNIT_RESULTS}),
+        )
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            self.execute_run('function-module', '--output', 'human', '/z/fabulous/sapcli/func', '--result', ResultOptions.ONLY_UNIT.value)
+
+        self.assertEqual(len(self.connection.execs), 3)
+        self.assertIn('<osl:object name="/Z/FABULOUS/SAPCLI/FUNC" type="FUNC"/>', self.connection.execs[0].body)
+        self.assert_print_no_test_classes(fake_console)
+
     def test_aunit_class_human(self):
         self.connection.set_responses(Response(status_code=200, text=AUNIT_NO_TEST_RESULTS_XML, headers={}))
 
