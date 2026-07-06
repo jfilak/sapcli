@@ -8,6 +8,7 @@ from unittest.mock import patch, Mock
 
 import sap.adt.businessservice
 import sap.cli.srvb
+import sap.errors
 
 from infra import generate_parse_args
 from mock import (
@@ -21,7 +22,13 @@ from fixtures_adt_businessservice import (
     SERVICE_BINDING_NAME,
     SERVICE_BINDING_PACKAGE,
     SERVICE_BINDING_ADT_GET_V4_XML,
+    SERVICE_BINDING_ADT_GET_V4_UITEST_XML,
+    SERVICE_BINDING_UITEST_NAME,
     SERVICE_GROUP_ODATAV4_GET_XML,
+    SERVICE_GROUP_ODATAV4_UITEST_GET_XML,
+    SERVICE_GROUP_ODATAV2_GET_XML,
+    SERVICE_GROUP_UITEST_ENCODEDPATHPARAMS,
+    SERVICE_GROUP_UITEST_ENTITY_SET,
 )
 
 
@@ -317,6 +324,148 @@ class TestSRVBPublish(ConsoleOutputTestCase, PatcherTestCase):
         positional = self.binding_patch.call_args.args
         self.assertEqual(positional[0], self.connection)
         self.assertEqual(positional[1], self.param_binding_name)
+
+
+class TestSRVBPreviewHtml(unittest.TestCase):
+    '''sapcli srvb preview html'''
+
+    def test_preview_html_v4_sends_expected_request(self):
+        binding_lower = SERVICE_BINDING_UITEST_NAME.lower()
+        html_body = '<html><body>preview</body></html>'
+
+        conn = Connection([
+            Response(text=SERVICE_BINDING_ADT_GET_V4_UITEST_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+            Response(text=SERVICE_GROUP_ODATAV4_UITEST_GET_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.odatav4.v2+xml; charset=utf-8'}),
+            Response(text=html_body, status_code=200,
+                     headers={'Content-Type': 'text/html; charset=utf-8'}),
+        ])
+
+        args = parse_args('preview', 'html',
+                          SERVICE_BINDING_UITEST_NAME,
+                          SERVICE_GROUP_UITEST_ENTITY_SET)
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(conn, args)
+
+        self.assertEqual(len(conn.execs), 3)
+
+        binding_fetch = conn.execs[0]
+        self.assertEqual(binding_fetch.method, 'GET')
+        self.assertEqual(
+            binding_fetch.adt_uri,
+            f'/sap/bc/adt/businessservices/bindings/{binding_lower}',
+        )
+
+        service_group_get = conn.execs[1]
+        self.assertEqual(service_group_get.method, 'GET')
+        self.assertEqual(
+            service_group_get.adt_uri,
+            f'/sap/bc/adt/businessservices/odatav4/{SERVICE_BINDING_UITEST_NAME}',
+        )
+
+        preview_request = conn.execs[2]
+        self.assertEqual(preview_request.method, 'GET')
+        self.assertEqual(
+            preview_request.adt_uri,
+            f'/sap/bc/adt/businessservices/odatav4/feap/'
+            f'{SERVICE_GROUP_UITEST_ENCODEDPATHPARAMS}/flp.html',
+        )
+        self.assertEqual(preview_request.params, {
+            'sap-ui-xx-viewCache': 'false',
+            'sap-ui-language': 'EN',
+            'sap-client': 'mockclient',
+        })
+
+        self.assertEqual(fake_console.capout, html_body + '\n')
+
+    def test_preview_html_v2_raises(self):
+        # For OData V2 bindings the encoded-path preview endpoint is not yet
+        # implemented; the CLI must surface a friendly SAPCliError instead of
+        # silently issuing a broken request.
+        conn = Connection([
+            Response(text=SERVICE_BINDING_ADT_GET_V4_UITEST_XML.replace(
+                'srvb:version="V4"', 'srvb:version="V2"'),
+                     status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+            Response(text=SERVICE_GROUP_ODATAV2_GET_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.odatav2.v3+xml; charset=utf-8'}),
+        ])
+
+        args = parse_args('preview', 'html',
+                          SERVICE_BINDING_UITEST_NAME,
+                          SERVICE_GROUP_UITEST_ENTITY_SET)
+        with patch_get_print_console_with_buffer():
+            with self.assertRaises(sap.errors.SAPCliError) as ctx:
+                args.execute(conn, args)
+
+        self.assertIn('V4', str(ctx.exception))
+
+        # No HTTP request beyond fetching the binding and its service group
+        # should have been issued.
+        self.assertEqual(len(conn.execs), 2)
+
+    def test_preview_html_open_launches_browser(self):
+        conn = Connection([
+            Response(text=SERVICE_BINDING_ADT_GET_V4_UITEST_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+            Response(text=SERVICE_GROUP_ODATAV4_UITEST_GET_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.odatav4.v2+xml; charset=utf-8'}),
+        ])
+
+        args = parse_args('preview', 'html',
+                          SERVICE_BINDING_UITEST_NAME,
+                          SERVICE_GROUP_UITEST_ENTITY_SET,
+                          '--open')
+
+        with patch('sap.cli.srvb.webbrowser.open') as fake_open:
+            with patch_get_print_console_with_buffer() as fake_console:
+                args.execute(conn, args)
+
+        # With --open only the binding + service group are fetched; the
+        # HTML page itself is opened in the browser, not retrieved via HTTP.
+        self.assertEqual(len(conn.execs), 2)
+
+        expected_url = (
+            f'https://mockhost:443/sap/bc/adt/businessservices/odatav4/feap/'
+            f'{SERVICE_GROUP_UITEST_ENCODEDPATHPARAMS}/flp.html'
+            f'?sap-ui-xx-viewCache=false&sap-ui-language=EN&sap-client=mockclient'
+            f'#app-preview'
+        )
+        fake_open.assert_called_once_with(expected_url)
+
+        # Nothing is printed to stdout when --open is used.
+        self.assertEqual(fake_console.capout, '')
+
+    def test_preview_html_open_v2_raises_before_launching_browser(self):
+        conn = Connection([
+            Response(text=SERVICE_BINDING_ADT_GET_V4_UITEST_XML.replace(
+                'srvb:version="V4"', 'srvb:version="V2"'),
+                     status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+            Response(text=SERVICE_GROUP_ODATAV2_GET_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.odatav2.v3+xml; charset=utf-8'}),
+        ])
+
+        args = parse_args('preview', 'html',
+                          SERVICE_BINDING_UITEST_NAME,
+                          SERVICE_GROUP_UITEST_ENTITY_SET,
+                          '--open')
+
+        with patch('sap.cli.srvb.webbrowser.open') as fake_open:
+            with patch_get_print_console_with_buffer():
+                with self.assertRaises(sap.errors.SAPCliError):
+                    args.execute(conn, args)
+
+        fake_open.assert_not_called()
 
 
 if __name__ == '__main__':

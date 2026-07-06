@@ -1,6 +1,8 @@
 """ADT proxy for Service Binding (SRVB)"""
 
 import json
+import urllib.parse
+import webbrowser
 import sap.errors
 import sap.adt
 import sap.cli.object
@@ -268,3 +270,76 @@ def preview_fetch(connection, args):
     ).json()
 
     console.printout(json.dumps(data, indent=2))
+
+
+def _encode_feap_path_params(service_url, entity_set, service_name, service_version, group_name):
+    """Encode the seven-component path fragment expected by the `feap/.../flp.html`
+       Fiori launchpad preview endpoint.
+
+       The encoding recipe is the one used by ADT's own web frontend: components
+       are joined by ``##``, every character's code point is shifted by +20 and
+       the resulting string is URL-quoted.
+    """
+
+    components = [service_url, entity_set, '', '', service_name, service_version, group_name]
+    params = "##".join(components)
+    encodedparams = "".join([chr(b) for b in [ord(c) + 20 for c in params]])
+    return urllib.parse.quote(encodedparams)
+
+
+@CommandGroupPreview.argument('--open', dest='open_in_browser', action='store_true', default=False,
+                              help='Open the preview page in the default web browser instead of '
+                                   'downloading it')
+@CommandGroupPreview.argument('--service', nargs='?', default=None,
+                              help="Service name of the binding's services to preview")
+@CommandGroupPreview.argument('entity_set')
+@CommandGroupPreview.argument('binding_name')
+@CommandGroupPreview.command('html')
+def preview_html(connection, args):
+    """Fetch and print the Fiori launchpad preview HTML page for the given
+       entity set of one of the services in a Service Binding.
+
+       With ``--open``, the URL of the preview page is opened in the user's
+       default web browser using Python's OS-agnostic ``webbrowser`` module
+       instead of being downloaded.
+    """
+
+    console = args.console_factory()
+    _, service_group = _get_service_with_binding_group(connection, args)
+
+    if not isinstance(service_group, sap.adt.businessservice.ODataV4ServiceGroup):
+        raise sap.errors.SAPCliError(
+            'sapcli srvb preview html is currently supported only for OData V4 Service Bindings')
+
+    service = service_group.services
+    encoded_path_params = _encode_feap_path_params(
+        service.service_url,
+        args.entity_set,
+        service.service_information.service_name,
+        service.service_information.service_version,
+        service_group.name,
+    )
+
+    # `connection._http_client.client` is the only place where the SAP client
+    # currently exposed on the ADT Connection lives; the corresponding public
+    # accessor does not exist yet, so reach into the HTTP client directly.
+    # pylint: disable=protected-access
+    sap_client = connection._http_client.client
+
+    query_params = {
+        'sap-ui-xx-viewCache': 'false',
+        'sap-ui-language': 'EN',
+        'sap-client': sap_client,
+    }
+    path = f'businessservices/odatav4/feap/{encoded_path_params}/flp.html'
+
+    if args.open_in_browser:
+        # pylint: disable=protected-access
+        base_url = connection._http_client._base_url
+        query_string = urllib.parse.urlencode(query_params)
+        full_url = f'{base_url}/sap/bc/adt/{path}?{query_string}#app-preview'
+        webbrowser.open(full_url)
+        return
+
+    html = connection.execute('GET', path, params=query_params).text
+    console.printout(html)

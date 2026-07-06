@@ -161,3 +161,45 @@ SERVICE_GROUP_ODATAV2_GET_XML = '''<?xml version="1.0" encoding="UTF-8"?>
   </odatav2:services>
 </odatav2:serviceList>
 '''
+
+
+# The following fixtures pair together to exercise `sapcli srvb preview html`.
+# The ENCODEDPATHPARAMS constant is the exact output of the encoding recipe
+# documented in `sap/cli/srvb.py::_encode_feap_path_params` applied to the
+# components extracted from the two XML fixtures below and the entity set
+# named `StatA`.
+SERVICE_BINDING_UITEST_NAME = 'ZSCLI_UITEST_B'
+SERVICE_GROUP_UITEST_ENTITY_SET = 'StatA'
+
+SERVICE_BINDING_ADT_GET_V4_UITEST_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<srvb:serviceBinding xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core" srvb:contract="C1" srvb:releaseSupported="true" srvb:published="false" srvb:bindingCreated="true" srvb:allowedAction="PUBLISH" adtcore:name="ZSCLI_UITEST_B" adtcore:type="SRVB/SVB" adtcore:version="active" adtcore:description="UI Test binding" adtcore:language="EN">
+<adtcore:packageRef adtcore:name="$TMP" adtcore:type="DEVC/K"/>
+<srvb:services srvb:name="ZSCLI_UITEST_B">
+<srvb:content srvb:version="0001" srvb:releaseState="NOT_RELEASED">
+<srvb:serviceDefinition adtcore:uri="/sap/bc/adt/ddic/srvd/sources/zscli_uitest_b" adtcore:type="SRVD/SRV" adtcore:name="ZSCLI_UITEST_B"/>
+</srvb:content>
+</srvb:services>
+<srvb:binding srvb:type="ODATA" srvb:version="V4" srvb:category="0">
+<srvb:implementation adtcore:name="ZSCLI_UITEST_B"/>
+</srvb:binding>
+</srvb:serviceBinding>'''
+
+
+SERVICE_GROUP_ODATAV4_UITEST_GET_XML = '''<?xml version="1.0" encoding="UTF-8"?>
+<odatav4:serviceGroup xmlns:odatav4="http://www.sap.com/categories/odatav4" odatav4:published="false" odatav4:serviceUrlPrefix="/sap/opu/odata4/sap/zscli_uitest_b/srvd/" adtcore:name="ZSCLI_UITEST_B" xmlns:adtcore="http://www.sap.com/adt/core">
+  <odatav4:services odatav4:repositoryId="SRVD" odatav4:serviceId="ZSCLI_UITEST_B" odatav4:serviceVersion="0001" odatav4:serviceUrl="/sap/opu/odata4/sap/zscli_uitest_b/srvd/sap/zscli_uitest_b/0001/" odatav4:annotationUrl="" odatav4:created="true">
+    <serviceInfo:serviceInformation xmlns:serviceInfo="http://www.sap.com/categories/serviceinformation" serviceInfo:name="ZSCLI_UITEST_B" serviceInfo:version="0001">
+      <serviceInfo:collection serviceInfo:name="StatA" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
+    </serviceInfo:serviceInformation>
+    <odatav4:applicationDetails odatav4:applicationState="NOT_DEPLOYED" odatav4:applicationDescription="Not deployed" odatav4:applicationId=""/>
+  </odatav4:services>
+</odatav4:serviceGroup>
+'''
+
+
+SERVICE_GROUP_UITEST_ENCODEDPATHPARAMS = (
+    'C%C2%87u%C2%84C%C2%83%C2%84%C2%89C%C2%83xu%C2%88uHC%C2%87u%C2%84C%C2%8E%C2%87w%C2%80%7D'
+    's%C2%89%7D%C2%88y%C2%87%C2%88svC%C2%87%C2%86%C2%8AxC%C2%87u%C2%84C%C2%8E%C2%87w%C2%80'
+    '%7Ds%C2%89%7D%C2%88y%C2%87%C2%88svCDDDEC77g%C2%88u%C2%88U777777ngW%60%5Dsi%5DhYghsV77'
+    'DDDE77ngW%60%5Dsi%5DhYghsV'
+)
