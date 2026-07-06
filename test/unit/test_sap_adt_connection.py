@@ -337,6 +337,52 @@ class TestADTConnection(unittest.TestCase):
         collection_types = self.connection.collection_types
         self.assertEqual(collection_types, fake_value)
 
+    def test_new_session_clears_existing_session(self):
+        """new_session() drops the cached HTTP session so the next request
+        forces a fresh handshake (login + CSRF token)."""
+        self.connection._session = Mock()
+
+        self.connection.new_session()
+
+        self.assertIsNone(self.connection._session)
+
+    def test_new_session_when_no_session_is_noop(self):
+        """new_session() is safe to call even when no session was built yet."""
+        self.assertIsNone(self.connection._session)
+
+        self.connection.new_session()
+
+        self.assertIsNone(self.connection._session)
+
+    @patch('sap.adt.core._get_collection_accepts')
+    @patch('sap.http.HTTPClient.retrieve')
+    def test_new_session_forces_new_session_on_next_execute(self, fake_retrieve, fake_accepts):
+        """After new_session() the next execute must build a brand new session."""
+        dummy_conn = Connection(responses=[
+            Response(status_code=200, headers={'x-csrf-token': 'first'}),
+            Response(status_code=200, headers={'x-csrf-token': 'second'}),
+            Response(status_code=200, text='first-call'),
+            Response(status_code=200, headers={'x-csrf-token': 'third'}),
+            Response(status_code=200, headers={'x-csrf-token': 'fourth'}),
+            Response(status_code=200, text='second-call'),
+        ])
+
+        fake_retrieve.side_effect = dummy_conn._retrieve
+
+        first = self.connection.execute('GET', 'test')
+        session_after_first = self.connection._session
+        self.assertIsNotNone(session_after_first)
+        self.assertEqual(first.text, 'first-call')
+
+        self.connection.new_session()
+        self.assertIsNone(self.connection._session)
+
+        second = self.connection.execute('GET', 'test')
+        self.assertEqual(second.text, 'second-call')
+        # A new session object was constructed.
+        self.assertIsNotNone(self.connection._session)
+        self.assertIsNot(self.connection._session, session_after_first)
+
 
     @patch('sap.adt.core.Connection.execute')
     def test_parse_collection_accept(self, mock_exec):
