@@ -524,7 +524,7 @@ class TestODataV4ServiceGroupGet(unittest.TestCase):
             content_type='application/vnd.sap.adt.businessservices.odatav4.v2+xml; charset=utf-8'
         )])
 
-        sap.adt.businessservice.ODataV4ServiceGroup.get(
+        service_group = sap.adt.businessservice.ODataV4ServiceGroup.get(
             connection,
             'ZSCLI_SVCDEMO_C',
             '0001',
@@ -548,6 +548,49 @@ class TestODataV4ServiceGroupGet(unittest.TestCase):
             get_request.headers['Accept'],
             'application/vnd.sap.adt.businessservices.odatav4.v2+xml',
         )
+
+        # Verify complete deserialization of the response XML.
+        self.assertEqual(service_group.published, 'true')
+        self.assertEqual(
+            service_group.service_url_prefix,
+            '/sap/opu/odata4/sap/zscli_svcdemo_c/srvd/',
+        )
+        self.assertEqual(service_group.name, 'ZSCLI_SVCDEMO_C')
+
+        service = service_group.services
+        self.assertIsNotNone(service)
+        self.assertEqual(service.repository_id, 'SRVD')
+        self.assertEqual(service.service_id, 'ZSCLI_SVCDEMO_C')
+        self.assertEqual(service.service_version, '0001')
+        self.assertEqual(
+            service.service_url,
+            '/sap/opu/odata4/sap/zscli_svcdemo_c/srvd/sap/zscli_svcdemo_c/0001/',
+        )
+        self.assertEqual(service.annotation_url, '')
+        self.assertEqual(service.created, 'true')
+
+        service_information = service.service_information
+        self.assertIsNotNone(service_information)
+        self.assertEqual(service_information.service_name, 'ZSCLI_SVCDEMO_C')
+        self.assertEqual(service_information.service_version, '0001')
+
+        self.assertEqual(len(service_information.collection), 2)
+
+        first_collection = service_information.collection[0]
+        self.assertEqual(first_collection.name, 'Demo')
+        self.assertEqual(first_collection.is_leading, 'false')
+        self.assertEqual(first_collection.is_root, 'false')
+
+        second_collection = service_information.collection[1]
+        self.assertEqual(second_collection.name, 'FourthDemo')
+        self.assertEqual(second_collection.is_leading, 'false')
+        self.assertEqual(second_collection.is_root, 'false')
+
+        application_details = service.application_details
+        self.assertIsNotNone(application_details)
+        self.assertEqual(application_details.application_state, 'NOT_DEPLOYED')
+        self.assertEqual(application_details.application_description, 'Not deployed')
+        self.assertEqual(application_details.application_id, '')
 
 
 class TestODataV2ServiceListGet(unittest.TestCase):
@@ -593,3 +636,7 @@ class TestODataV2ServiceListGet(unittest.TestCase):
         self.assertEqual(service_list.services.annotation_url, '')
         self.assertEqual(service_list.services.created, 'true')
         self.assertEqual(service_list.services.published, 'true')
+        # `allowed_action` is declared as XmlNodeProperty on ODataV2Service while
+        # the XML carries it as an attribute of `odatav2:services`, so it does
+        # not deserialize. This assertion documents the current behaviour.
+        self.assertIsNone(service_list.services.allowed_action)

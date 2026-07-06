@@ -143,7 +143,7 @@ class ServiceInformation(metaclass=OrderedClassMembers):
 
     service_name = XmlNodeAttributeProperty('serviceInfo:name')
     service_version = XmlNodeAttributeProperty('serviceInfo:version')
-    collection = XmlNodeProperty('serviceInfo:collection', factory=ServiceInformationCollection)
+    collection = XmlListNodeProperty('serviceInfo:collection', value=[], factory=ServiceInformationCollection)
 
 
 # OData V2
