@@ -18,6 +18,7 @@ future version).
 7. [preview](#preview)
    - [preview metadata](#preview-metadata)
    - [preview fetch](#preview-fetch)
+   - [preview html](#preview-html)
 
 ## create
 
@@ -123,3 +124,26 @@ sapcli srvb preview fetch BINDING_NAME ENTITY_SET [--service SERVICE_NAME]
   `BookSet`).
 - **--service** - name of the binding's service to preview. Required
   only when the binding contains more than one Service Definition.
+
+### preview html
+
+Download and print the Fiori launchpad preview HTML page for the given
+entity set of one of the services bound by a Service Binding, or - with
+`--open` - open that page in the default web browser instead.
+
+The command targets the ADT `feap/.../flp.html` endpoint and is
+currently implemented for **OData V4** bindings only; running it against
+an OData V2 binding raises an error before any preview request is
+issued.
+
+```bash
+sapcli srvb preview html BINDING_NAME ENTITY_SET [--service SERVICE_NAME] [--open]
+```
+
+- **ENTITY_SET** - name of the OData entity set to preview (e.g.
+  `BookSet`).
+- **--service** - name of the binding's service to preview. Required
+  only when the binding contains more than one Service Definition.
+- **--open** - open the preview page in the default web browser
+  instead of downloading its HTML. Uses Python's OS-agnostic
+  `webbrowser` module, so it works on Linux, macOS and Windows.
