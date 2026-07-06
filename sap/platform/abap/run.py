@@ -144,6 +144,8 @@ def execute_abap(connection, user_code, prefix=DEFAULT_PREFIX, package=DEFAULT_P
 
         sap.adt.wb.activate(clas)
 
+        connection.new_session()  # avoid "Class does not implement if_oo_adt_classrun~main method!"
+
         result = clas.execute()
     finally:
         try:
