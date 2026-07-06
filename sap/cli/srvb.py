@@ -128,6 +128,9 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
                 service_group = binding.get_service_group(link)
                 if service_group:
                     console.printout(f'    URL: {service_group.services.service_url}')
+                    console.printout('    Entity Sets and Associations:')
+                    for info in service_group.services.service_information.collection:
+                        console.printout(f'      {info.name}')
 
 
 def publish_binding(connection, args):
