@@ -125,6 +125,9 @@ Published   : false
 Services:
   ZSAPCLI_TEST_BND (version 0001, NOT_RELEASED)
     URL: /sap/opu/odata4/sap/zscli_svcdemo_c/srvd/sap/zscli_svcdemo_c/0001/
+    Entity Sets and Associations:
+      Demo
+      FourthDemo
 ''')
 
 
