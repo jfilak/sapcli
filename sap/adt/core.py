@@ -149,6 +149,11 @@ class Connection:
         self._session = None
         self._collection_types = None
 
+    def new_session(self):
+        """Start new HTTP session."""
+
+        self._session = None
+
     @property
     def user(self):
         """Connected user"""
