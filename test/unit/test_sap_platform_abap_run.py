@@ -299,6 +299,50 @@ class TestExecuteAbap(unittest.TestCase):
         methods = connection.mock_methods()
         self.assertFalse(any(uri.startswith('/sap/bc/adt/checkruns') for _, uri in methods))
 
+    def test_new_session_called_before_execute(self):
+        """A new HTTP session must be started between activate and execute
+        to avoid the transient ADT error:
+        'Class does not implement if_oo_adt_classrun~main method!'"""
+        connection = self._make_connection('hello')
+
+        call_order = []
+        real_new_session = connection.new_session
+
+        def track_new_session():
+            call_order.append(len(connection.execs))
+            real_new_session()
+
+        with patch.object(connection, 'new_session', side_effect=track_new_session) as mock_new_session:
+            with patch('sap.platform.abap.run.generate_class_name', return_value=FIXED_CLASS_NAME):
+                execute_abap(connection, 'WRITE "hello".')
+
+        mock_new_session.assert_called_once_with()
+
+        # The mock sequence in _make_connection is:
+        # 0 create, 1 check, 2 lock, 3 write, 4 unlock,
+        # 5 activate POST, 6 activate fetch GET, 7 execute, 8 delete
+        # new_session() must be called after the activation fetch (index 6 done)
+        # and before the execute request (index 7).
+        self.assertEqual(call_order, [7])
+
+    def test_new_session_not_called_when_check_fails(self):
+        """When the pre-save check finds errors, execution is skipped and
+        there is no reason to reset the session."""
+        from sap.adt.checks import ObjectCheckFindings
+
+        connection = Connection([
+            EMPTY_RESPONSE_OK,                                                  # create
+            _make_check_response(ADT_XML_RUN_OBJECT_CHECK_RESPONSE_ERRORS),     # checkrun
+            EMPTY_RESPONSE_OK,                                                  # delete
+        ])
+
+        with patch.object(connection, 'new_session') as mock_new_session:
+            with patch('sap.platform.abap.run.generate_class_name', return_value=FIXED_CLASS_NAME):
+                with self.assertRaises(ObjectCheckFindings):
+                    execute_abap(connection, 'WRITE.')
+
+        mock_new_session.assert_not_called()
+
 
 class TestPreprocess(unittest.TestCase):
 
