@@ -143,6 +143,7 @@ SERVICE_GROUP_ODATAV4_GET_XML = '''<?xml version="1.0" encoding="UTF-8"?>
   <odatav4:services odatav4:repositoryId="SRVD" odatav4:serviceId="ZSCLI_SVCDEMO_C" odatav4:serviceVersion="0001" odatav4:serviceUrl="/sap/opu/odata4/sap/zscli_svcdemo_c/srvd/sap/zscli_svcdemo_c/0001/" odatav4:annotationUrl="" odatav4:created="true">
     <serviceInfo:serviceInformation xmlns:serviceInfo="http://www.sap.com/categories/serviceinformation" serviceInfo:name="ZSCLI_SVCDEMO_C" serviceInfo:version="0001">
       <serviceInfo:collection serviceInfo:name="Demo" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
+      <serviceInfo:collection serviceInfo:name="FourthDemo" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
     </serviceInfo:serviceInformation>
     <odatav4:applicationDetails odatav4:applicationState="NOT_DEPLOYED" odatav4:applicationDescription="Not deployed" odatav4:applicationId=""/>
   </odatav4:services>
@@ -154,6 +155,7 @@ SERVICE_GROUP_ODATAV2_GET_XML = '''<?xml version="1.0" encoding="UTF-8"?>
   <odatav2:services odatav2:repositoryId="" odatav2:serviceId="ZSCLI_DM_B_V2" odatav2:serviceVersion="0001" odatav2:serviceUrl="/sap/opu/odata/sap/ZSCLI_DM_B_V2" odatav2:annotationUrl="" odatav2:published="true" odatav2:created="true" odatav2:allowedAction="UNPUBLISH">
     <serviceInfo:serviceInformation xmlns:serviceInfo="http://www.sap.com/categories/serviceinformation" serviceInfo:name="ZSCLI_DM_B_V2" serviceInfo:version="0001">
       <serviceInfo:collection serviceInfo:name="Demo" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
+      <serviceInfo:collection serviceInfo:name="SecondDemo" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
     </serviceInfo:serviceInformation>
     <odatav2:applicationDetails odatav2:applicationState="NOT_DEPLOYED" odatav2:applicationDescription="Not deployed" odatav2:applicationId=""/>
   </odatav2:services>
