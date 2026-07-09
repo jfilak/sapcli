@@ -18,7 +18,8 @@ from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionCheckinFailu
 from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
-from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, INTF_XML, PROG_XML, PROG_WITH_CUA_XML, INCLUDE_XML, INVALID_TYPE_XML, \
+from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, CLAS_WITH_DESCRIPTIONS_SUB_XML, INTF_XML, \
+    INTF_WITH_DESCRIPTIONS_SUB_XML, PROG_XML, PROG_WITH_CUA_XML, INCLUDE_XML, INVALID_TYPE_XML, \
     FUNCTION_GROUP_XML, FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, \
     FUNCTION_MODULE_CODE_NO_PARAMS_ADT, FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, \
     FUNCTION_GROUP_XML_NO_RFC
@@ -702,6 +703,29 @@ Writing Clas: {self.clas_object.name} locals_imp
 Writing Clas: {self.clas_object.name} testclasses
 ''')
 
+    def test_checkin_clas_with_descriptions_sub(self):
+        source_files_content = ['class_body', 'locals_def_body', 'locals_imp_body', 'test_body']
+        self.fake_open.side_effect = [StringIOFile(content) for content in
+                                      [CLAS_WITH_DESCRIPTIONS_SUB_XML] + source_files_content]
+
+        result = sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        self.assertEqual(result.abap_objects, [self.clas])
+        self.assertEqual(result.used_files, ['foo.clas.abap', 'foo.locals_def.abap', 'foo.locals_imp.abap',
+                                             'foo.testclasses.abap'])
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
+                                                    responsible=self.connection.user.upper(), description='Test description')
+        self.fake_class.assert_called_once_with(self.connection, self.clas_object.name.upper(),
+                                                package=self.package.name, metadata=self.metadata)
+        self.clas.create.assert_called_once_with(None)
+        self.assert_open_editor_calls(source_files_content)
+        self.assertConsoleContents(self.console, stdout=f'''Creating Class: {self.clas_object.name}
+Writing Clas: {self.clas_object.name} clas
+Writing Clas: {self.clas_object.name} locals_def
+Writing Clas: {self.clas_object.name} locals_imp
+Writing Clas: {self.clas_object.name} testclasses
+''')
+
     def test_checkin_clas_already_exists(self):
         self.fake_open.return_value = StringIOFile(CLAS_XML)
         self.clas.create.side_effect = [ExceptionResourceAlreadyExists('Class already exists.'), None]
@@ -848,6 +872,23 @@ class TestCheckInInterface(ConsoleOutputTestCase, PatcherTestCase):
     def test_checkin_intf(self):
         sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
 
+        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
+                                                    responsible=self.connection.user.upper(), description='Test intf descr')
+        self.fake_interface.assert_called_once_with(self.connection, self.interface_object.name.upper(),
+                                                    package=self.package.name, metadata=self.metadata)
+        self.interface.create.assert_called_once_with(None)
+        self.interface.open_editor.assert_called_once_with(corrnr=None)
+        self.interface_editor.write.assert_called_once_with('test_intf_body')
+        self.assertConsoleContents(self.console, stdout=f'Creating Interface: {self.interface_object.name}\n'
+                                                        f'Writing Interface: {self.interface_object.name}\n')
+
+    def test_checkin_intf_with_descriptions_sub(self):
+        self.fake_open.side_effect = [StringIOFile(INTF_WITH_DESCRIPTIONS_SUB_XML), StringIOFile('test_intf_body')]
+
+        result = sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
+
+        self.assertEqual(result.abap_objects, [self.interface])
+        self.assertEqual(result.used_files, ['foo.intf.abap'])
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
                                                     responsible=self.connection.user.upper(), description='Test intf descr')
         self.fake_interface.assert_called_once_with(self.connection, self.interface_object.name.upper(),

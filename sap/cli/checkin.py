@@ -11,6 +11,7 @@ import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
     VSEOCLASS,
+    DESCRIPTIONS_SUB,
     PROGDIR,
     CUA,
     TPOOL,
@@ -298,9 +299,12 @@ def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
     if not source_file.endswith('.abap'):
         raise sap.adt.errors.ExceptionCheckinFailure(f'No .abap suffix of source file for interface {repo_obj.name}')
 
-    abap_data = VSEOINTERF()
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        sap.platform.abap.from_xml(abap_data, abap_data_file.read())
+        # DESCRIPTIONS_SUB is parsed only to detect abapGit XML format changes
+        # - ADT generates the sub-component descriptions from source code
+        abap_data = sap.platform.abap.abapgit.from_xml(
+            [VSEOINTERF, sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
+            abap_data_file.read())['VSEOINTERF']
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=abap_data.DESCRIPT)
@@ -328,9 +332,12 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
     if not repo_obj.files:
         raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for class {repo_obj.name}')
 
-    abap_data = VSEOCLASS()
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        sap.platform.abap.from_xml(abap_data, abap_data_file.read())
+        # DESCRIPTIONS_SUB is parsed only to detect abapGit XML format changes
+        # - ADT generates the sub-component descriptions from source code
+        abap_data = sap.platform.abap.abapgit.from_xml(
+            [VSEOCLASS, sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
+            abap_data_file.read())['VSEOCLASS']
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=abap_data.DESCRIPT)
