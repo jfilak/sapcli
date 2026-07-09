@@ -55,6 +55,24 @@ class VSEOCLASS(Structure):
 
 # pylint: disable=invalid-name
 # pylint: disable=too-few-public-methods
+class SEOSUBCOTX(Structure):
+    """Class sub-component description (e.g. method parameter or exception)"""
+
+    # pylint: disable=invalid-name
+    CMPNAME: str
+    # pylint: disable=invalid-name
+    SCONAME: str
+    # pylint: disable=invalid-name
+    LANGU: str
+    # pylint: disable=invalid-name
+    DESCRIPT: str
+
+
+DESCRIPTIONS_SUB = InternalTable.define('DESCRIPTIONS_SUB', SEOSUBCOTX)  # type: Any
+
+
+# pylint: disable=invalid-name
+# pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
 class VSEOINTERF(Structure):
     """Interface metadata"""
