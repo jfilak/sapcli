@@ -64,6 +64,13 @@ class RepoObject(typing.NamedTuple):
     files: list
 
 
+class ObjectCheckinResult(typing.NamedTuple):
+    """Result of a single ADT object checkin handler"""
+
+    abap_objects: list
+    used_files: list
+
+
 # pylint: disable=too-many-instance-attributes
 class Repository:
     """Repository information"""
@@ -83,6 +90,8 @@ class Repository:
 
         self._packages = {}
         self._objects = []
+        self._files = set()
+        self._used_files = set()
 
         self._pkg_name_bldr = {
             sap.platform.abap.abapgit.FOLDER_LOGIC_FULL: lambda parts: self._full_fmt % (parts[-1]),
@@ -108,10 +117,26 @@ class Repository:
 
         return self._objects
 
+    @property
+    def unused_files(self):
+        """Sorted list of recorded files which were not marked as used"""
+
+        return sorted(self._files - self._used_files)
+
     def find_package_by_path(self, dir_path):
         """Get package based on its path"""
 
         return self._packages[dir_path]
+
+    def add_file(self, file_path):
+        """Record a file found in the repository directory structure"""
+
+        self._files.add(file_path)
+
+    def mark_file_used(self, file_path):
+        """Mark the given repository file as consumed by checkin"""
+
+        self._used_files.add(file_path)
 
     def add_object(self, obj_file_name, package):
         """Add new ADT object"""
@@ -141,6 +166,7 @@ class Repository:
 
         obj = RepoObject(obj_code, obj_name, os.path.join(package.dir_path, obj_file_name), package, other_files)
         self._objects.append(obj)
+        self.mark_file_used(obj.path)
 
         return obj
 
@@ -179,6 +205,7 @@ class Repository:
 
         pkg = RepoPackage(pkg_name, pkg_file, dir_path, parent)
         self._packages[dir_path] = pkg
+        self.mark_file_used(pkg_file)
 
         return pkg
 
@@ -202,7 +229,13 @@ def _load_objects(repo):
         package = repo.find_package_by_path(root)
 
         for obj_file_name in files:
-            obj_type, suffix = obj_file_name.split('.')[-2:]
+            repo.add_file(os.path.join(root, obj_file_name))
+
+            obj_name_parts = obj_file_name.split('.')
+            if len(obj_name_parts) < 2:
+                continue
+
+            obj_type, suffix = obj_name_parts[-2:]
             if suffix != 'xml' or obj_type not in OBJECT_CHECKIN_HANDLERS:
                 continue
 
@@ -321,7 +354,7 @@ def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
                            source_label=source_file,
                            check_before_save=check_before_save)
 
-    return [interface]
+    return ObjectCheckinResult([interface], [source_file])
 
 
 def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
@@ -360,12 +393,13 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
         clas = sap.adt.Class(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
         clas.create(corrnr)
 
+    used_files = []
+
     for source_file in repo_obj.files:
         if not source_file.endswith('.abap'):
             raise sap.adt.errors.ExceptionCheckinFailure(f'No .abap suffix of source file for class {repo_obj.name}:'
                                                          f' {source_file}')
 
-        source_file_parts = source_file.split('.')
         class_parts = {
             'clas': clas,
             'locals_def': clas.definitions,
@@ -373,7 +407,7 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
             'testclasses': clas.test_classes,
         }
 
-        sub_obj_id = source_file_parts[-2]
+        sub_obj_id = source_file.split('.')[-2]
         sub_obj = class_parts.get(sub_obj_id, None)
         if sub_obj is None:
             sap.cli.core.printerr(f'Unknown class part {source_file}')
@@ -386,7 +420,9 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
                                source_label=source_file,
                                check_before_save=check_before_save)
 
-    return [clas]
+        used_files.append(source_file)
+
+    return ObjectCheckinResult([clas], used_files)
 
 
 def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
@@ -440,7 +476,7 @@ def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
                            source_label=source_file,
                            check_before_save=check_before_save)
 
-    return [program]
+    return ObjectCheckinResult([program], [source_file])
 
 
 def _check_fugr_source_files(repo_obj, functions, includes):
@@ -503,6 +539,8 @@ def _write_adt_object_source_file(path_prefix, adt_object, corrnr=None,
         _write_source_file(source.read(), adt_object, corrnr,
                            source_label=adt_object_file_path,
                            check_before_save=check_before_save)
+
+    return adt_object_file_path
 
 
 def _format_function(source_code):
@@ -568,6 +606,8 @@ def _write_function_source_code(path_prefix, adt_object, corrnr=None,
                        source_label=source_file_path,
                        check_before_save=check_before_save)
 
+    return source_file_path
+
 
 def create_function_module(connection, func, function_group, metadata, corrnr):
     """Create Function Module"""
@@ -614,6 +654,7 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
         mod_log().info(err.message)
 
     abap_objs_inactive = [function_group]
+    used_files = []
 
     for include in includes:
         include_obj = sap.adt.FunctionInclude(connection, include, function_group.name, metadata=metadata)
@@ -629,18 +670,18 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
             mod_log().info(err.message)
 
         sap.cli.core.printout('Writing Function Group Include:', include_obj.name)
-        _write_adt_object_source_file(repo_obj.path[:-4], include_obj, corrnr=corrnr,
-                                      check_before_save=check_before_save)
+        used_files.append(_write_adt_object_source_file(repo_obj.path[:-4], include_obj, corrnr=corrnr,
+                                                        check_before_save=check_before_save))
 
     for func in functions:
         function_module = create_function_module(connection, func, function_group, metadata, corrnr)
         abap_objs_inactive.append(function_module)
 
         sap.cli.core.printout('Writing Function Module:', function_module.name)
-        _write_function_source_code(repo_obj.path[:-4], function_module, corrnr=corrnr,
-                                    check_before_save=check_before_save)
+        used_files.append(_write_function_source_code(repo_obj.path[:-4], function_module, corrnr=corrnr,
+                                                      check_before_save=check_before_save))
 
-    return abap_objs_inactive
+    return ObjectCheckinResult(abap_objs_inactive, used_files)
 
 
 OBJECT_CHECKIN_HANDLERS = {
@@ -651,7 +692,7 @@ OBJECT_CHECKIN_HANDLERS = {
 }
 
 
-def _checkin_dependency_group(connection, group, console, corrnr, check_before_save=False):
+def _checkin_dependency_group(connection, repo, group, console, corrnr, check_before_save=False):
     inactive_objects = sap.adt.objects.ADTObjectReferences()
 
     for repo_obj in group:
@@ -662,10 +703,13 @@ def _checkin_dependency_group(connection, group, console, corrnr, check_before_s
             continue
 
         try:
-            abap_objs = obj_handler(connection, repo_obj, corrnr,
-                                    check_before_save=check_before_save)
-            for abap_obj in abap_objs:
+            result = obj_handler(connection, repo_obj, corrnr,
+                                 check_before_save=check_before_save)
+            for abap_obj in result.abap_objects:
                 inactive_objects.add_object(abap_obj)
+
+            for used_file in result.used_files:
+                repo.mark_file_used(used_file)
 
         except sap.adt.errors.ExceptionCheckinFailure:
             console.printout(f'Object handled without activation: {repo_obj.path}')
@@ -721,13 +765,16 @@ def do_checkin_directory(connection, args):
         for activation_group in groups:
             console.printout('Creating objects ...')
             inactive_objects = _checkin_dependency_group(
-                connection, activation_group, console, args.corrnr,
+                connection, repo, activation_group, console, args.corrnr,
                 check_before_save=check_before_save,
             )
 
             if inactive_objects.references:
                 console.printout('Activating objects ...')
                 _activate(connection, inactive_objects, console)
+
+        for unused_file in repo.unused_files:
+            console.printerr(f'Unused file: {unused_file}')
     except sap.adt.checks.ObjectCheckFindings as findings:
         for line in str(findings).splitlines():
             console.printerr(line)
