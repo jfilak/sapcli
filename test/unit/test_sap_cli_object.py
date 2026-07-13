@@ -3,11 +3,12 @@
 from argparse import ArgumentParser
 
 import unittest
-from unittest.mock import patch, MagicMock, Mock, call, mock_open
+from unittest.mock import patch, MagicMock, Mock, call, mock_open, PropertyMock
 from types import SimpleNamespace
 
 import sap.adt.checks
 import sap.cli.object
+import sap.errors
 
 from mock import patch_get_print_console_with_buffer
 from fixtures_adt import DummyADTObject, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, OBJECT_METADATA
@@ -105,6 +106,14 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         self.assertEqual(act_whereused_cmd, exp_whereused_cmd)
         self.assertEqual(len(exp_whereused_cmd.arguments), 1)
 
+    def test_define_edit(self):
+        exp_edit_cmd = self.group.define_edit(self.commands)
+        act_edit_cmd = self.commands.get_declaration(self.group.edit_object)
+
+        self.assertEqual(act_edit_cmd, exp_edit_cmd)
+        # name, --check, --no-check, --corrnr
+        self.assertEqual(len(exp_edit_cmd.arguments), 4)
+
     def test_define(self):
         self.group.define_create = MagicMock()
         self.group.define_read = MagicMock()
@@ -112,6 +121,7 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         self.group.define_activate = MagicMock()
         self.group.define_delete = MagicMock()
         self.group.define_whereused = MagicMock()
+        self.group.define_edit = MagicMock()
 
         del self.group.__class__._instance
         del self.group.__class__.commands
@@ -126,6 +136,7 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         self.group.define_activate.assert_called_once_with(commands)
         self.group.define_delete.assert_called_once_with(commands)
         self.group.define_whereused.assert_called_once_with(commands)
+        self.group.define_edit.assert_called_once_with(commands)
 
         del self.group.__class__._instance
         del self.group.__class__.commands
@@ -206,6 +217,112 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
         self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata=None)
         self.assertEqual(fake_console.capout, 'source code\n')
+
+    def test_edit_object_modified(self):
+        connection = MagicMock()
+        self.group.new_object_mock.text = 'original code'
+
+        args = self.parse_args('edit', 'myname')
+
+        self.assertEqual(args.name, 'myname')
+        self.assertEqual(args.corrnr, None)
+        self.assertIsNone(args.check)
+        self.assertEqual(args.execute, self.group.edit_object)
+
+        with patch('sap.cli.object.edit_text_in_editor', return_value='edited code') as fake_edit, \
+             patch('sap.cli.object.config_get', return_value=False), \
+             patch_get_print_console_with_buffer() as fake_console:
+            exit_code = args.execute(connection, args)
+
+        self.assertEqual(exit_code, 0)
+        self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata=None)
+        fake_edit.assert_called_once_with('original code')
+        self.group.new_object_mock.open_editor.assert_called_once_with(corrnr=None)
+        self.group.open_editor_mock.write.assert_called_once_with('edited code')
+        self.assertEqual(fake_console.capout, 'Writing: str(myname)\n')
+
+    def test_edit_object_unchanged(self):
+        connection = MagicMock()
+        self.group.new_object_mock.text = 'original code'
+
+        args = self.parse_args('edit', 'myname')
+
+        with patch('sap.cli.object.edit_text_in_editor', return_value='original code'), \
+             patch('sap.cli.object.config_get', return_value=False), \
+             patch_get_print_console_with_buffer() as fake_console:
+            exit_code = args.execute(connection, args)
+
+        self.assertEqual(exit_code, 0)
+        self.group.new_object_mock.open_editor.assert_called_once_with(corrnr=None)
+        self.group.open_editor_mock.write.assert_not_called()
+        self.assertEqual(fake_console.capout, 'No changes to myname\n')
+
+    def test_edit_object_corrnr(self):
+        connection = MagicMock()
+        self.group.new_object_mock.text = 'original code'
+
+        args = self.parse_args('edit', 'myname', '--corrnr', '123456')
+
+        self.assertEqual(args.corrnr, '123456')
+
+        with patch('sap.cli.object.edit_text_in_editor', return_value='edited code'), \
+             patch('sap.cli.object.config_get', return_value=False), \
+             patch_get_print_console_with_buffer():
+            args.execute(connection, args)
+
+        self.group.new_object_mock.open_editor.assert_called_once_with(corrnr='123456')
+        self.group.open_editor_mock.write.assert_called_once_with('edited code')
+
+    def test_edit_object_check_flag_runs_pre_check(self):
+        connection = MagicMock()
+        self.group.new_object_mock.text = 'original code'
+
+        args = self.parse_args('edit', 'myname', '--check')
+
+        self.assertTrue(args.check)
+
+        with patch('sap.cli.object.edit_text_in_editor', return_value='edited code'), \
+             patch('sap.adt.checks.run_object_check') as fake_check, \
+             patch_get_print_console_with_buffer():
+            fake_check.return_value = SimpleNamespace(has_errors=False, messages=iter([]))
+            args.execute(connection, args)
+
+        fake_check.assert_called_once()
+        self.group.open_editor_mock.write.assert_called_once_with('edited code')
+
+    def test_edit_object_check_findings_raise_and_skip(self):
+        connection = MagicMock()
+        self.group.new_object_mock.text = 'original code'
+
+        args = self.parse_args('edit', 'myname', '--check')
+
+        bad_result = SimpleNamespace(has_errors=True, messages=iter([]))
+
+        with patch('sap.cli.object.edit_text_in_editor', return_value='edited code'), \
+             patch('sap.adt.checks.run_object_check', return_value=bad_result), \
+             patch_get_print_console_with_buffer():
+            with self.assertRaises(sap.adt.checks.ObjectCheckFindings):
+                args.execute(connection, args)
+
+        self.group.open_editor_mock.write.assert_not_called()
+        self.group.new_object_mock.open_editor.assert_called_once_with(corrnr=None)
+
+    def test_edit_object_source_changed_aborts(self):
+        connection = MagicMock()
+        self.addCleanup(delattr, type(self.group.new_object_mock), 'text')
+        type(self.group.new_object_mock).text = PropertyMock(
+            side_effect=['original code', 'someone elses code'])
+
+        args = self.parse_args('edit', 'myname')
+
+        with patch('sap.cli.object.edit_text_in_editor', return_value='edited code'), \
+             patch('sap.cli.object.config_get', return_value=False), \
+             patch_get_print_console_with_buffer():
+            with self.assertRaises(sap.errors.SAPCliError):
+                args.execute(connection, args)
+
+        self.group.open_editor_mock.write.assert_not_called()
+        self.group.new_object_mock.open_editor.assert_called_once_with(corrnr=None)
 
     def test_write_object_text_stdin(self):
         connection = MagicMock()
@@ -763,6 +880,87 @@ class TestCommandGroupObjectMaster(unittest.TestCase):
         fake_metadata.assert_called_once_with(connection, args)
         self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata='mock')
         self.group.new_object_mock.create.assert_called_once_with(corrnr=None)
+
+
+class TestEditTextInEditor(unittest.TestCase):
+
+    def _run_editor(self, environ, read_data='edited code', returncode=0):
+        fake_run_result = Mock()
+        fake_run_result.returncode = returncode
+
+        with patch('sap.cli.object.tempfile.mkstemp', return_value=(5, '/tmp/obj.abap')) as fake_mkstemp, \
+             patch('sap.cli.object.os.fdopen', mock_open()) as fake_fdopen, \
+             patch('sap.cli.object.subprocess.run', return_value=fake_run_result) as fake_run, \
+             patch('sap.cli.object.open', mock_open(read_data=read_data)) as fake_open, \
+             patch('sap.cli.object.os.unlink') as fake_unlink, \
+             patch.dict('sap.cli.object.os.environ', environ, clear=True):
+            result = sap.cli.object.edit_text_in_editor('original code')
+
+        return SimpleNamespace(result=result, mkstemp=fake_mkstemp, fdopen=fake_fdopen,
+                               run=fake_run, open=fake_open, unlink=fake_unlink)
+
+    def test_writes_reads_and_returns_edited_content(self):
+        ctx = self._run_editor({'EDITOR': 'nano'})
+
+        self.assertEqual(ctx.result, 'edited code')
+        ctx.mkstemp.assert_called_once_with(suffix='.abap')
+        ctx.fdopen().write.assert_called_once_with('original code')
+        ctx.run.assert_called_once_with(['nano', '/tmp/obj.abap'], check=False)
+        ctx.open.assert_called_once_with('/tmp/obj.abap', 'r', encoding='utf8')
+        ctx.unlink.assert_called_once_with('/tmp/obj.abap')
+
+    def test_editor_precedence_prefers_sapcli_editor(self):
+        ctx = self._run_editor({'SAPCLI_EDITOR': 'code --wait', 'EDITOR': 'nano', 'VISUAL': 'vim'})
+
+        ctx.run.assert_called_once_with(['code', '--wait', '/tmp/obj.abap'], check=False)
+
+    def test_editor_precedence_falls_back_to_editor(self):
+        ctx = self._run_editor({'EDITOR': 'nano', 'VISUAL': 'vim'})
+
+        ctx.run.assert_called_once_with(['nano', '/tmp/obj.abap'], check=False)
+
+    def test_editor_precedence_falls_back_to_visual(self):
+        ctx = self._run_editor({'VISUAL': 'vim'})
+
+        ctx.run.assert_called_once_with(['vim', '/tmp/obj.abap'], check=False)
+
+    def test_editor_default_is_vi(self):
+        ctx = self._run_editor({})
+
+        ctx.run.assert_called_once_with(['vi', '/tmp/obj.abap'], check=False)
+
+    def test_non_zero_exit_raises_and_cleans_up(self):
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            self._run_editor({'EDITOR': 'nano'}, returncode=1)
+
+        self.assertIn('nano', str(caught.exception))
+        self.assertIn('1', str(caught.exception))
+
+    def test_launch_oserror_raises_sapclierror_and_cleans_up(self):
+        with patch('sap.cli.object.tempfile.mkstemp', return_value=(5, '/tmp/obj.abap')), \
+             patch('sap.cli.object.os.fdopen', mock_open()), \
+             patch('sap.cli.object.subprocess.run', side_effect=OSError('no such file')), \
+             patch('sap.cli.object.os.unlink') as fake_unlink, \
+             patch.dict('sap.cli.object.os.environ', {'EDITOR': 'nano'}, clear=True):
+            with self.assertRaises(sap.errors.SAPCliError) as caught:
+                sap.cli.object.edit_text_in_editor('original code')
+
+        self.assertIn('nano', str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, OSError)
+        fake_unlink.assert_called_once_with('/tmp/obj.abap')
+
+    def test_launch_valueerror_raises_sapclierror_and_cleans_up(self):
+        with patch('sap.cli.object.tempfile.mkstemp', return_value=(5, '/tmp/obj.abap')), \
+             patch('sap.cli.object.os.fdopen', mock_open()), \
+             patch('sap.cli.object.subprocess.run', side_effect=ValueError('bad quoting')), \
+             patch('sap.cli.object.os.unlink') as fake_unlink, \
+             patch.dict('sap.cli.object.os.environ', {'EDITOR': 'nano'}, clear=True):
+            with self.assertRaises(sap.errors.SAPCliError) as caught:
+                sap.cli.object.edit_text_in_editor('original code')
+
+        self.assertIn('nano', str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, ValueError)
+        fake_unlink.assert_called_once_with('/tmp/obj.abap')
 
 
 class TestObjNameFromSourceFile(unittest.TestCase):
