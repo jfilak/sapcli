@@ -2,6 +2,9 @@
 
 import sys
 import os
+import shlex
+import subprocess
+import tempfile
 import collections
 
 import sap.cli.core
@@ -40,6 +43,40 @@ def object_name_from_source_file(filesystem_path):
         raise InvalidCommandLineError(f'"{basename}" does not match the pattern NAME.SUFFIX')
 
     return parts
+
+
+def edit_text_in_editor(content, suffix='.abap'):
+    """Writes content to a temporary file, opens it in the user's editor,
+       and returns the (possibly modified) content after the editor exits.
+
+       The editor is selected from the environment variables in the order
+       SAPCLI_EDITOR, EDITOR, VISUAL and falls back to 'vi'.
+    """
+
+    editor = (os.environ.get('SAPCLI_EDITOR')
+              or os.environ.get('EDITOR')
+              or os.environ.get('VISUAL')
+              or 'vi')
+
+    handle, path = tempfile.mkstemp(suffix=suffix)
+    try:
+        with os.fdopen(handle, 'w', encoding='utf8') as tmp:
+            tmp.write(content)
+
+        try:
+            result = subprocess.run(shlex.split(editor) + [path], check=False)
+        except (ValueError, OSError) as ex:
+            raise sap.errors.SAPCliError(
+                f'Failed to launch the editor "{editor}": {ex}') from ex
+
+        if result.returncode != 0:
+            raise sap.errors.SAPCliError(
+                f'The editor "{editor}" exited with non-zero status {result.returncode}')
+
+        with open(path, 'r', encoding='utf8') as tmp:
+            return tmp.read()
+    finally:
+        os.unlink(path)
 
 
 def write_args_to_objects(command, connection, args, metadata=None):
@@ -230,6 +267,23 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         return whereused_cmd
 
+    def define_edit(self, commands):
+        """Declares the Edit command with its parameters and returns
+           the definition.
+        """
+
+        edit_cmd = commands.add_command(self.edit_object, name='edit')
+        edit_cmd.append_argument('name')
+        edit_cmd.append_argument('--check', dest='check', action='store_true', default=None,
+                                 help='Run abapCheckRun before writing source code'
+                                      ' (overrides SAPCLI_CHECK_BEFORE_SAVE)')
+        edit_cmd.append_argument('--no-check', dest='check', action='store_false',
+                                 help='Skip abapCheckRun before writing source code'
+                                      ' (overrides SAPCLI_CHECK_BEFORE_SAVE)')
+        edit_cmd.declare_corrnr()
+
+        return edit_cmd
+
     def define(self):
         """Defines the commands Create, Read, Write, Activate, and Delete
            and returns the command list
@@ -251,6 +305,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
         self.define_activate(commands)
         self.define_delete(commands)
         self.define_whereused(commands)
+        self.define_edit(commands)
 
         return commands
 
@@ -312,6 +367,38 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         return activator
 
+    def _save_object_text(self, obj, code, check_before_save, corrnr=None, editor=None):
+        """Runs the optional pre-check and writes the source code, with a
+           post-failure recheck to surface a readable diagnostic instead of
+           the cryptic ADT save error.
+
+           If an already open editor is given, the source is written through it
+           so the PUT happens while the caller's lock is still held. Otherwise
+           the object is locked and unlocked implicitly around the write.
+        """
+
+        if check_before_save:
+            result = sap.adt.checks.run_object_check(obj, code)
+            if result.has_errors:
+                raise sap.adt.checks.ObjectCheckFindings(obj, result)
+
+        try:
+            if editor is not None:
+                editor.write(code)
+            else:
+                with obj.open_editor(corrnr=corrnr) as new_editor:
+                    new_editor.write(code)
+        except sap.adt.errors.ExceptionResourceSaveFailure as save_exc:
+            # The PUT to source/main rejected the source. Re-run abapCheckRun
+            # on the same source to surface a readable diagnostic instead of
+            # the cryptic ADT save error. If the check has nothing to say,
+            # the original failure carries the real reason (lock, missing
+            # inactive version, etc.) - re-raise it.
+            result = sap.adt.checks.run_object_check(obj, code)
+            if result.has_errors:
+                raise sap.adt.checks.ObjectCheckFindings(obj, result) from save_exc
+            raise
+
     def write_object_text(self, connection, args):
         """Changes source code of the given program include"""
 
@@ -327,24 +414,7 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
             console.printout('*', str(obj))
             code = ''.join(text)
 
-            if check_before_save:
-                result = sap.adt.checks.run_object_check(obj, code)
-                if result.has_errors:
-                    raise sap.adt.checks.ObjectCheckFindings(obj, result)
-
-            try:
-                with obj.open_editor(corrnr=args.corrnr) as editor:
-                    editor.write(code)
-            except sap.adt.errors.ExceptionResourceSaveFailure as save_exc:
-                # The PUT to source/main rejected the source. Re-run abapCheckRun
-                # on the same source to surface a readable diagnostic instead of
-                # the cryptic ADT save error. If the check has nothing to say,
-                # the original failure carries the real reason (lock, missing
-                # inactive version, etc.) - re-raise it.
-                result = sap.adt.checks.run_object_check(obj, code)
-                if result.has_errors:
-                    raise sap.adt.checks.ObjectCheckFindings(obj, result) from save_exc
-                raise
+            self._save_object_text(obj, code, check_before_save, args.corrnr)
 
             toactivate[obj.name] = obj
 
@@ -353,6 +423,42 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         activated_items = toactivate.items()
         return activate_object_list(self.build_activator(args), activated_items, len(activated_items), console)
+
+    def edit_object(self, connection, args):
+        """Fetches the object's source, opens it in the user's editor and
+           writes it back if it was modified.
+        """
+
+        console = args.console_factory()
+
+        obj = self.instance(connection, args.name, args)
+
+        flag = getattr(args, 'check', None)
+        check_before_save = flag if flag is not None else config_get('check_before_save', False)
+
+        # Lock the object before reading its source and keep the lock held
+        # until the source is written back. This prevents a lost update where
+        # somebody else changes the object between the read and the write.
+        with obj.open_editor(corrnr=args.corrnr) as editor:
+            original = obj.text
+            edited = edit_text_in_editor(original)
+
+            if edited == original:
+                console.printout(f'No changes to {args.name}')
+                return 0
+
+            # Re-check the source under the lock right before writing. If it no
+            # longer matches what was opened in the editor, abort instead of
+            # silently overwriting the newer version.
+            if obj.text != original:
+                raise sap.errors.SAPCliError(
+                    f'Cannot save {args.name}: its source changed on the server '
+                    f'while it was being edited')
+
+            console.printout('Writing:', str(obj))
+            self._save_object_text(obj, edited, check_before_save, editor=editor)
+
+        return 0
 
     def activate_objects(self, connection, args):
         """Actives the given object."""
