@@ -126,6 +126,7 @@ class UserPasswordManager:
             self.get_user_type() in ['A', 'C']])     # A = Dialog, C = Communications Data
 
 
+# pylint: disable=too-many-instance-attributes
 class UserBuilder:
     """An utility class for building SAP user parameters"""
 
@@ -133,6 +134,8 @@ class UserBuilder:
         self._username = None
         self._address = None
         self._logondata = None
+        self._snc = None
+        self._sncx = None
         self._password = None
         self._alias = None
         self._userPasswordManager = UserPasswordManager()
@@ -165,6 +168,14 @@ class UserBuilder:
 
         return self._logondata
 
+    @property
+    def _snc_data(self) -> Dict[str, str]:
+        if self._snc is None:
+            self._snc = {}
+            self._sncx = {}
+
+        return self._snc
+
     def set_username(self, username: str):
         """Sets user name for logon"""
 
@@ -186,7 +197,7 @@ class UserBuilder:
     def set_email_address(self, email_address: str):
         """Sets user's email address"""
 
-        self._address['E_MAIL'] = email_address
+        self._address_data['E_MAIL'] = email_address
         return self
 
     def set_password(self, password: str, productive_password=False):
@@ -236,6 +247,24 @@ class UserBuilder:
 
         return self
 
+    def set_snc_name(self, snc_name: str) -> 'UserBuilder':
+        """Sets user's SNC name"""
+
+        self._snc_data['PNAME'] = snc_name
+        self._sncx['PNAME'] = 'X'
+
+        return self
+
+    def set_snc_permit_password(self, flag: bool) -> 'UserBuilder':
+        """Sets user's SNC SAPGUI password permit flag - if true, users are
+           allowed to use SAPGUI password instead of SNC authentication.
+        """
+
+        self._snc_data['GUIFLAG'] = 'X' if flag else ''
+        self._sncx['GUIFLAG'] = 'X'
+
+        return self
+
     def get_username(self) -> str:
         """Get user's name"""
 
@@ -266,6 +295,10 @@ class UserBuilder:
         add_to_dict_if_not_present(alias, 'USERALIAS', '')
         params['ALIAS'] = alias
 
+    def _rfc_params_add_snc(self, params):
+        snc = copy_dict_or_new(self._snc)
+        params['SNC'] = snc
+
     def build_rfc_params(self) -> RFCParams:
         """Creates RFC parameters for Creating users"""
 
@@ -282,6 +315,8 @@ class UserBuilder:
         self._rfc_params_add_password(params)
 
         self._rfc_params_add_alias(params)
+
+        self._rfc_params_add_snc(params)
 
         logondata = copy_dict_or_new(self._logondata_data)
         add_to_dict_if_not_present(logondata, 'GLTGV', today_sap_date())
@@ -303,6 +338,10 @@ class UserBuilder:
         if self._alias:
             self._rfc_params_add_alias(params)
             params['ALIASX'] = {'BAPIALIAS': 'X'}
+
+        if self._snc:
+            self._rfc_params_add_snc(params)
+            params['SNCX'] = copy_dict_or_new(self._sncx)
 
         return params
 
