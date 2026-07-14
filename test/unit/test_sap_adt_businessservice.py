@@ -72,6 +72,25 @@ SAMPLE_ODATA_BINDING_V2_SINGLE_SRVD = '''<?xml version="1.0" encoding="utf-8"?>
     </srvb:binding>
 </srvb:serviceBinding>'''
 
+SAMPLE_ODATA_BINDING_V4 = '''<?xml version="1.0" encoding="utf-8"?>
+<srvb:serviceBinding srvb:releaseSupported="false" srvb:published="true" srvb:bindingCreated="true"
+    xmlns:srvb="http://www.sap.com/adt/ddic/ServiceBindings" xmlns:adtcore="http://www.sap.com/adt/core">
+    <atom:link href="/sap/bc/adt/businessservices/odatav4/TEST_BINDING_V4" rel="http://www.sap.com/categories/odatav4"
+        type="application/vnd.sap.adt.businessservices.odatav4.v2+xml" title="ODATAV4"
+        xmlns:atom="http://www.w3.org/2005/Atom" />
+    <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP"
+        adtcore:description="desc" />
+    <srvb:services srvb:name="TEST_BINDING_V4">
+        <srvb:content srvb:version="0001" srvb:releaseState="">
+            <srvb:serviceDefinition adtcore:uri="/sap/bc/adt/ddic/srvd/sources/test_service" adtcore:type="SRVD/SRV"
+                adtcore:name="TEST_SERVICE" />
+        </srvb:content>
+    </srvb:services>
+    <srvb:binding srvb:type="ODATA" srvb:version="V4" srvb:category="0">
+        <srvb:implementation adtcore:name="TEST_BINDING_V4" />
+    </srvb:binding>
+</srvb:serviceBinding>'''
+
 SAMPLE_ODATA_PUBLISH_SUCCESS_TEXT = """<?xml version="1.0" encoding="UTF-8"?>
 <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
@@ -84,9 +103,14 @@ SAMPLE_ODATA_PUBLISH_SUCCESS_TEXT = """<?xml version="1.0" encoding="UTF-8"?>
 </asx:abap>
 """
 
-SAMPLE_BINDING_OBJECT_REFERENCE = '''<?xml version="1.0" encoding="UTF-8"?>
+SAMPLE_BINDING_OBJECT_REFERENCE_V2 = '''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
-<adtcore:objectReference adtcore:uri="/sap/bc/adt/businessservices/bindings/test_binding" adtcore:name="TEST_BINDING"/>
+<adtcore:objectReference adtcore:name="TEST_BINDING"/>
+</adtcore:objectReferences>'''
+
+SAMPLE_BINDING_OBJECT_REFERENCE_V4 = '''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:objectReference adtcore:type="SCGR" adtcore:name="TEST_BINDING_V4"/>
 </adtcore:objectReferences>'''
 
 RESPONSE_BINDING_OK = Response(
@@ -97,6 +121,12 @@ RESPONSE_BINDING_OK = Response(
 
 RESPONSE_BINDING_OK_SINGLE_SRVD = Response(
     text=SAMPLE_ODATA_BINDING_V2_SINGLE_SRVD,
+    status_code=200,
+    content_type='application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'
+)
+
+RESPONSE_BINDING_OK_V4 = Response(
+    text=SAMPLE_ODATA_BINDING_V4,
     status_code=200,
     content_type='application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'
 )
@@ -171,7 +201,7 @@ class TestbusinessserviceBinding(unittest.TestCase):
                     'servicename': 'TEST_BINDING',
                     'serviceversion': '0001'
                 },
-                body=SAMPLE_BINDING_OBJECT_REFERENCE
+                body=SAMPLE_BINDING_OBJECT_REFERENCE_V2
             ),
             self
         )
@@ -181,7 +211,103 @@ class TestbusinessserviceBinding(unittest.TestCase):
                          "Local Service Endpoint of service TEST_SERVICE_2 with version 0002 is activated locally")
         self.assertEqual(status.LONG_TEXT, "")
 
-    def test_service_find_by_name(self):
+    def test_service_published_v4(self):
+        connection = sample_connection_ok(RESPONSE_BINDING_OK_V4)
+
+        binding_name = 'TEST_BINDING_V4'
+
+        binding = sap.adt.businessservice.ServiceBinding(connection, binding_name)
+        binding.fetch()
+        status = binding.publish(binding.services[0])
+
+        connection.execs[1].assertEqual(
+            Request.post(
+                uri='/sap/bc/adt/businessservices/odatav4/publishjobs',
+                headers={
+                    'Accept': 'application/xml, application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.StatusMessage',
+                    'Content-Type': 'application/xml'
+                },
+                params=None,
+                body=SAMPLE_BINDING_OBJECT_REFERENCE_V4
+            ),
+            self
+        )
+
+        self.assertEqual(status.SEVERITY, "OK")
+        self.assertEqual(status.SHORT_TEXT,
+                         "Local Service Endpoint of service TEST_SERVICE_2 with version 0002 is activated locally")
+        self.assertEqual(status.LONG_TEXT, "")
+
+    def test_service_unpublished_v2(self):
+        connection = sample_connection_ok()
+
+        binding_name = 'TEST_BINDING'
+
+        binding = sap.adt.businessservice.ServiceBinding(connection, binding_name)
+        binding.fetch()
+        status = binding.unpublish(binding.services[0])
+
+        connection.execs[1].assertEqual(
+            Request.post(
+                uri='/sap/bc/adt/businessservices/odatav2/unpublishjobs',
+                headers={
+                    'Accept': 'application/xml, application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.StatusMessage',
+                    'Content-Type': 'application/xml'
+                },
+                params={
+                    'servicename': 'TEST_BINDING',
+                    'serviceversion': '0001'
+                },
+                body=SAMPLE_BINDING_OBJECT_REFERENCE_V2
+            ),
+            self
+        )
+
+        self.assertEqual(status.SEVERITY, "OK")
+        self.assertEqual(status.SHORT_TEXT,
+                         "Local Service Endpoint of service TEST_SERVICE_2 with version 0002 is activated locally")
+        self.assertEqual(status.LONG_TEXT, "")
+
+    def test_service_unpublished_v4(self):
+        connection = sample_connection_ok(RESPONSE_BINDING_OK_V4)
+
+        binding_name = 'TEST_BINDING_V4'
+
+        binding = sap.adt.businessservice.ServiceBinding(connection, binding_name)
+        binding.fetch()
+        status = binding.unpublish(binding.services[0])
+
+        connection.execs[1].assertEqual(
+            Request.post(
+                uri='/sap/bc/adt/businessservices/odatav4/unpublishjobs',
+                headers={
+                    'Accept': 'application/xml, application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.StatusMessage',
+                    'Content-Type': 'application/xml'
+                },
+                params=None,
+                body=SAMPLE_BINDING_OBJECT_REFERENCE_V4
+            ),
+            self
+        )
+
+        self.assertEqual(status.SEVERITY, "OK")
+        self.assertEqual(status.SHORT_TEXT,
+                         "Local Service Endpoint of service TEST_SERVICE_2 with version 0002 is activated locally")
+        self.assertEqual(status.LONG_TEXT, "")
+
+    def test_service_publish_unsupported_binding_type(self):
+        connection = sample_connection_ok()
+
+        binding = sap.adt.businessservice.ServiceBinding(connection, 'TEST_BINDING')
+        binding.fetch()
+        binding.binding.version = 'V9'
+
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            binding.publish(binding.services[0])
+
+        self.assertEqual(str(caught.exception), "Unsupported service binding type 'odatav9'")
+
+
         connection = sample_connection_ok()
 
         service_name = 'TEST_SERVICE_2'
