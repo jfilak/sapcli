@@ -1,6 +1,7 @@
 """Odataservice ADT wrappers"""
 
 from typing import Union
+from enum import Enum
 from sap import get_logger
 from sap.errors import SAPCliError
 from sap.platform.abap import (
@@ -14,7 +15,8 @@ from sap.adt.objects import (
     ADTObjectSourceEditor,
     ADTRootObject,
     OrderedClassMembers,
-    ADTObjectReferences
+    ADTObjectReference,
+    ADTObjectReferences,
 )
 from sap.adt.annotations import (
     XmlNodeAttributeProperty,
@@ -34,6 +36,15 @@ XMLNS_SRVB = xmlns_adtcore_ancestor('srvb', 'http://www.sap.com/adt/ddic/Service
 XMLNS_SRVD = xmlns_adtcore_ancestor('srvd', 'http://www.sap.com/adt/ddic/srvdsources')
 XMLNS_ODATAV2 = xmlns_adtcore_ancestor('odatav2', 'http://www.sap.com/categories/odatav2')
 XMLNS_ODATAV4 = xmlns_adtcore_ancestor('odatav4', 'http://www.sap.com/categories/odatav4')
+
+
+# Enum for JobName -> publish, unpublish
+# pylint: disable=too-few-public-methods
+class JobName(Enum):
+    """Enum for JobName"""
+
+    PUBLISH = "publishjobs"
+    UNPUBLISH = "unpublishjobs"
 
 
 # pylint: disable=too-few-public-methods
@@ -364,19 +375,26 @@ class ServiceBinding(ADTObject):
             self.binding.version)
         return None
 
-    def publish(self, service):
-        """Publish service definition"""
-
+    def _execute_service_job(self, jobname: JobName, service):
         references = ADTObjectReferences()
-        references.add_object(self)
+
+        params = None
+        match self.binding.term:
+            case 'odatav2':
+                references.add_reference(ADTObjectReference(name=service.name))
+                params = {
+                    'servicename': self.name,
+                    'serviceversion': service.version,
+                }
+            case 'odatav4':
+                references.add_reference(ADTObjectReference(typ='SCGR', name=service.name))
+            case _:
+                raise SAPCliError(f"Unsupported service binding type '{self.binding.term}'")
 
         response = self.connection.execute(
             'POST',
-            f'businessservices/{self.binding.term}/publishjobs',
-            params={
-                'servicename': self.name,
-                'serviceversion': service.version,
-            },
+            f'businessservices/{self.binding.term}/{jobname.value}',
+            params=params,
             headers={
                 # pylint: disable=line-too-long
                 'Accept': 'application/xml, application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.StatusMessage',
@@ -386,6 +404,16 @@ class ServiceBinding(ADTObject):
         )
 
         return from_xml(StatusMessage(), response.text, root_elem="DATA")
+
+    def publish(self, service):
+        """Publish service definition"""
+
+        return self._execute_service_job(JobName.PUBLISH, service)
+
+    def unpublish(self, service):
+        """Unpublish service definition"""
+
+        return self._execute_service_job(JobName.UNPUBLISH, service)
 
 
 class ServiceDefinition(ADTObject):
