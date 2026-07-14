@@ -166,7 +166,7 @@ class ODataV2Service(metaclass=OrderedClassMembers):
     annotation_url = XmlNodeAttributeProperty('odatav2:annotationUrl')
     created = XmlNodeAttributeProperty('odatav2:created')
     published = XmlNodeAttributeProperty('odatav2:published')
-    allowed_action = XmlNodeProperty('odatav2:allowedAction')
+    allowed_action = XmlNodeAttributeProperty('odatav2:allowedAction')
 
 
 class ODataV2ServiceList(ADTRootObject):
