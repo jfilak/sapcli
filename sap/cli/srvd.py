@@ -13,6 +13,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
         super().__init__('srvd', description='Service Definition (SRVD)')
 
         self.define()
+        sap.cli.apirelease.enhance_command_group(self)
 
     def instance(self, connection, name, args, metadata=None):
         package = None

@@ -274,6 +274,12 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         edit_cmd = commands.add_command(self.edit_object, name='edit')
         edit_cmd.append_argument('name')
+        edit_cmd.append_argument('-a', '--activate', action='store_true',
+                                 default=False, help='activate after edit')
+        edit_cmd.append_argument('--ignore-errors', action='store_true',
+                                 default=False, help='Do not stop activation in case of errors')
+        edit_cmd.append_argument('--warning-errors', action='store_true',
+                                 default=False, help='Treat Activation warnings as errors')
         edit_cmd.append_argument('--check', dest='check', action='store_true', default=None,
                                  help='Run abapCheckRun before writing source code'
                                       ' (overrides SAPCLI_CHECK_BEFORE_SAVE)')
@@ -458,7 +464,10 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
             console.printout('Writing:', str(obj))
             self._save_object_text(obj, edited, check_before_save, editor=editor)
 
-        return 0
+        if not args.activate:
+            return 0
+
+        return activate_object_list(self.build_activator(args), [(obj.name, obj)], 1, console)
 
     def activate_objects(self, connection, args):
         """Actives the given object."""
