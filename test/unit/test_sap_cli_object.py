@@ -111,8 +111,9 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         act_edit_cmd = self.commands.get_declaration(self.group.edit_object)
 
         self.assertEqual(act_edit_cmd, exp_edit_cmd)
-        # name, --check, --no-check, --corrnr
-        self.assertEqual(len(exp_edit_cmd.arguments), 4)
+        # name, --activate, --ignore-errors, --warning-errors,
+        # --check, --no-check, --corrnr
+        self.assertEqual(len(exp_edit_cmd.arguments), 7)
 
     def test_define(self):
         self.group.define_create = MagicMock()
@@ -323,6 +324,40 @@ class TestCommandGroupObjectTemplate(unittest.TestCase):
 
         self.group.open_editor_mock.write.assert_not_called()
         self.group.new_object_mock.open_editor.assert_called_once_with(corrnr=None)
+
+    @patch('sap.adt.wb.try_activate')
+    def test_edit_object_activate(self, fake_activate):
+        connection = MagicMock()
+        self.group.new_object_mock.text = 'original code'
+
+        args = self.parse_args('edit', 'myname', '--activate')
+
+        self.assertTrue(args.activate)
+        self.assertFalse(args.ignore_errors)
+        self.assertFalse(args.warning_errors)
+
+        def fake_activate_fn(obj):
+            # simulate object activation
+            obj.active = 'active'
+            return (sap.adt.wb.CheckResults(), None)
+
+        fake_activate.side_effect = fake_activate_fn
+
+        with patch('sap.cli.object.edit_text_in_editor', return_value='edited code'), \
+             patch('sap.cli.object.config_get', return_value=False), \
+             patch_get_print_console_with_buffer() as fake_console:
+            exit_code = args.execute(connection, args)
+
+        self.assertEqual(exit_code, 0)
+        self.group.open_editor_mock.write.assert_called_once_with('edited code')
+        fake_activate.assert_called_once_with(self.group.new_object_mock)
+        self.assertEqual(fake_console.capout, '''Writing: str(myname)
+Activating:
+* myname
+Activation has finished
+Warnings: 0
+Errors: 0
+''')
 
     def test_write_object_text_stdin(self):
         connection = MagicMock()
