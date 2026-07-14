@@ -153,9 +153,9 @@ SERVICE_GROUP_ODATAV4_GET_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 SERVICE_GROUP_ODATAV2_GET_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <odatav2:serviceList xmlns:odatav2="http://www.sap.com/categories/odatav2">
   <odatav2:services odatav2:repositoryId="" odatav2:serviceId="ZSCLI_DM_B_V2" odatav2:serviceVersion="0001" odatav2:serviceUrl="/sap/opu/odata/sap/ZSCLI_DM_B_V2" odatav2:annotationUrl="" odatav2:published="true" odatav2:created="true" odatav2:allowedAction="UNPUBLISH">
-    <serviceInfo:serviceInformation xmlns:serviceInfo="http://www.sap.com/categories/serviceinformation" serviceInfo:name="ZSCLI_DM_B_V2" serviceInfo:version="0001">
-      <serviceInfo:collection serviceInfo:name="Demo" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
-      <serviceInfo:collection serviceInfo:name="SecondDemo" serviceInfo:isLeading="false" serviceInfo:isRoot="false"/>
+    <serviceInfo:serviceInformation xmlns:serviceInfo="http://www.sap.com/categories/serviceinformation" serviceInfo:name="ZSCLI_DM_B_V2" serviceInfo:version="0007">
+      <serviceInfo:collection serviceInfo:name="Demo" serviceInfo:isLeading="false" serviceInfo:isRoot="true"/>
+      <serviceInfo:collection serviceInfo:name="SecondDemo" serviceInfo:isLeading="true" serviceInfo:isRoot="false"/>
     </serviceInfo:serviceInformation>
     <odatav2:applicationDetails odatav2:applicationState="NOT_DEPLOYED" odatav2:applicationDescription="Not deployed" odatav2:applicationId=""/>
   </odatav2:services>

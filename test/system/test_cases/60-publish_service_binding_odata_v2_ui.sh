@@ -4,8 +4,8 @@ set -o nounset
 set -o errexit
 set -o pipefail
 
-_tcn="61"
-_round="0"
+_tcn="60"
+_round="1"
 
 DDLS_NAME="ZAPCLI_ST${_tcn}_DDLS_O2UI_${_round}"
 SRVD_NAME="ZAPCLI_ST${_tcn}_SRVD_O2UI_${_round}"
