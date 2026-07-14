@@ -6,6 +6,7 @@ import webbrowser
 import sap.errors
 import sap.adt
 import sap.cli.object
+import sap.cli.wb
 import sap.rest.connection
 
 
@@ -135,6 +136,17 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
                         console.printout(f'      {info.name}')
 
 
+def _print_service_line(console, action, service):
+    """Prints the operation header and the affected service in the form:
+
+           <action>:
+           * <Service Definition> <Service Name> <Service Version>
+    """
+
+    console.printout(f'{action}:')
+    console.printout('*', service.definition.name, service.name, service.version)
+
+
 def publish_binding(connection, args):
     """Publish a Service Binding's service to its local endpoint.
 
@@ -172,6 +184,8 @@ Service Definition''')
 with supplied name "{args.service or ''}" and version "{args.version or ''}"''')
             return 1
 
+    _print_service_line(console, 'Publishing', service)
+
     status = binding.publish(service)
 
     console.printout(status.SHORT_TEXT)
@@ -183,8 +197,6 @@ with supplied name "{args.service or ''}" and version "{args.version or ''}"''')
             f'Failed to publish Service {service.definition.name} in Binding {args.binding_name}')
         return 1
 
-    console.printout(
-        f'Service {service.definition.name} in Binding {args.binding_name} published successfully.')
     return 0
 
 
@@ -202,6 +214,88 @@ def publish(connection, args):
     """Publish odata/ina/sql service that belongs to a service binding."""
 
     return publish_binding(connection, args)
+
+
+def _activate_binding(binding, args, console):
+    """Activates the given Service Binding using the standard activation
+       reporting and returns its exit code (0 on success, 1 on errors).
+    """
+
+    activator = sap.cli.wb.ObjectActivationWorker()
+    activator.continue_on_errors = args.ignore_errors
+    activator.warnings_as_errors = args.warning_errors
+
+    return sap.cli.object.activate_object_list(activator, [(binding.name, binding)], 1, console)
+
+
+@CommandGroup.argument('--warning-errors', action='store_true', default=False,
+                       help='Treat activation warnings as errors (only with --activate)')
+@CommandGroup.argument('--ignore-errors', action='store_true', default=False,
+                       help='Do not stop activation in case of errors (only with --activate)')
+@CommandGroup.argument('-a', '--activate', action='store_true', default=False,
+                       help='Activate the Service Binding after successful unpublishing')
+@CommandGroup.argument('--version', nargs='?', default=None,
+                       help="Version of the binding's services to unpublish")
+@CommandGroup.argument('--service', nargs='?', default=None,
+                       help="Service name of the binding's services to unpublish")
+@CommandGroup.argument('binding_name')
+@CommandGroup.command('unpublish')
+def unpublish(connection, args):
+    """Unpublish odata/ina/sql service that belongs to a service binding.
+
+    Logic mirrors the `publish` handler verbatim — when the binding contains
+    exactly one service, omitting `--service`/`--version` unpublishes that one;
+    otherwise the two filters narrow which content entry is selected.
+
+    When `--activate` is given, the binding is activated after a successful
+    unpublish.
+    """
+
+    console = args.console_factory()
+
+    binding = sap.adt.ServiceBinding(connection, args.binding_name)
+    binding.fetch()
+
+    if not binding.services:
+        console.printerr(
+            f'Business Service Biding {args.binding_name} does not contain any services')
+        return 1
+
+    if args.service is None and args.version is None:
+        if len(binding.services) > 1:
+            console.printerr(
+                f'''Cannot unpublish Business Service Biding {args.binding_name} without
+Service Definition filters because the business binding contains more than one
+Service Definition''')
+            return 1
+
+        # pylint: disable=unsubscriptable-object
+        service = binding.services[0]
+    else:
+        service = binding.find_service(args.service, args.version)
+        if service is None:
+            console.printerr(
+                f'''Business Service Binding {args.binding_name} has no Service Definition
+with supplied name "{args.service or ''}" and version "{args.version or ''}"''')
+            return 1
+
+    _print_service_line(console, 'Unpublishing', service)
+
+    status = binding.unpublish(service)
+
+    console.printout(status.SHORT_TEXT)
+    if status.LONG_TEXT:
+        console.printout(status.LONG_TEXT)
+
+    if status.SEVERITY != 'OK':
+        console.printerr(
+            f'Failed to unpublish Service {service.definition.name} in Binding {args.binding_name}')
+        return 1
+
+    if args.activate:
+        return _activate_binding(binding, args, console)
+
+    return 0
 
 
 def _get_service_with_binding_group(connection, args):

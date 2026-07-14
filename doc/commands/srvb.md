@@ -1,8 +1,8 @@
 # Service Binding (SRVB)
 
 CRUD commands for the ABAP RAP **Service Binding** object (`SRVB/SVB`),
-plus `publish` and a `preview` sub-group for inspecting the bound OData
-service at runtime.
+plus `publish`, `unpublish` and a `preview` sub-group for inspecting the
+bound OData service at runtime.
 
 The Service Binding has no `text/plain` source body, so a top-level
 `write` command is not provided - the binding's configuration lives in
@@ -13,9 +13,10 @@ future version).
 2. [read](#read)
 3. [activate](#activate)
 4. [publish](#publish)
-5. [delete](#delete)
-6. [whereused](#whereused)
-7. [preview](#preview)
+5. [unpublish](#unpublish)
+6. [delete](#delete)
+7. [whereused](#whereused)
+8. [preview](#preview)
    - [preview metadata](#preview-metadata)
    - [preview fetch](#preview-fetch)
    - [preview html](#preview-html)
@@ -74,6 +75,29 @@ sapcli srvb publish BINDING_NAME [--service SERVICE_NAME] [--version SERVICE_VER
 If the binding contains exactly one service, omitting `--service` and
 `--version` publishes that one. Otherwise, the two filters narrow which
 `<srvb:content>` entry is selected.
+
+## unpublish
+
+Unpublish the OData service exposed by the binding from its
+local service endpoint.
+
+```bash
+sapcli srvb unpublish BINDING_NAME [--service SERVICE_NAME] [--version SERVICE_VERSION] \
+                      [--activate] [--ignore-errors] [--warning-errors]
+```
+
+If the binding contains exactly one service, omitting `--service` and
+`--version` unpublishes that one. Otherwise, the two filters narrow which
+`<srvb:content>` entry is selected.
+
+- **--service** - service name of the binding's service to unpublish.
+- **--version** - version of the binding's service to unpublish.
+- **-a**, **--activate** - activate the Service Binding after a
+  successful unpublish.
+- **--ignore-errors** - do not stop activation in case of errors (only
+  takes effect together with `--activate`).
+- **--warning-errors** - treat activation warnings as errors (only takes
+  effect together with `--activate`).
 
 ## delete
 
