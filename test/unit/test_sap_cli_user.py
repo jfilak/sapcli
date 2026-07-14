@@ -97,6 +97,7 @@ class TestUserCreate(ConsoleOutputTestCase, PatcherTestCase):
                 ADDRESS={'FIRSTNAME': '', 'LASTNAME': '', 'E_MAIL': ''},
                 PASSWORD={'BAPIPWD': 'Victory1!'},
                 ALIAS={'USERALIAS': ''},
+                SNC={},
                 LOGONDATA={'USTYP': 'Dialog',
                            'GLTGV': today_sap_date(),
                            'GLTGB': '20991231'}

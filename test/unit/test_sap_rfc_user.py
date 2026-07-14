@@ -76,7 +76,8 @@ class TestUserBuilder(unittest.TestCase):
                     'E_MAIL': ''
                 },
              'ALIAS': {'USERALIAS': ''},
-             'PASSWORD': {'BAPIPWD': ''}
+             'PASSWORD': {'BAPIPWD': ''},
+             'SNC': {}
             }
         )
 
@@ -126,6 +127,7 @@ class TestUserBuilder(unittest.TestCase):
             'PASSWORD': {
                 'BAPIPWD': password
             },
+            'SNC': {},
             'LOGONDATA': {
                 'USTYP': typ,
                 'CLASS': group,
@@ -182,6 +184,139 @@ class TestUserBuilder(unittest.TestCase):
                 'BAPIALIAS': 'X'
             }
         })
+
+    def test_set_snc_methods_return_self(self):
+        self.assertEqual(self.builder, self.builder.set_snc_name('p:CN=FOO'))
+        self.assertEqual(self.builder, self.builder.set_snc_permit_password(True))
+
+    def test_email_address_only(self):
+        # set_email_address must not crash when called before other
+        # address setters (regression: it used self._address directly).
+        self.assertEqual(self.builder, self.builder.set_email_address('email@example.org'))
+
+        params = self.builder.build_rfc_params()
+
+        self.assertEqual(params['ADDRESS'], {
+            'FIRSTNAME': '',
+            'LASTNAME': '',
+            'E_MAIL': 'email@example.org'
+        })
+
+    def test_create_parameters_with_snc(self):
+        username = 'FOO'
+        snc_name = 'p:CN=FOO, OU=Bar, O=Example, C=US'
+
+        self.builder.set_username(username)
+        self.builder.set_snc_name(snc_name)
+        self.builder.set_snc_permit_password(True)
+
+        params = self.builder.build_rfc_params()
+
+        self.assertEqual(params['SNC'], {
+            'PNAME': snc_name,
+            'GUIFLAG': 'X'
+        })
+
+    def test_change_parameters_snc_name_only(self):
+        username = 'FOO'
+        snc_name = 'p:CN=FOO'
+
+        self.builder.set_username(username)
+        self.builder.set_snc_name(snc_name)
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params, {
+            'USERNAME': username,
+            'SNC': {
+                'PNAME': snc_name
+            },
+            'SNCX': {
+                'PNAME': 'X'
+            }
+        })
+
+    def test_change_parameters_snc_permit_password_true(self):
+        username = 'FOO'
+
+        self.builder.set_username(username)
+        self.builder.set_snc_permit_password(True)
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params, {
+            'USERNAME': username,
+            'SNC': {
+                'GUIFLAG': 'X'
+            },
+            'SNCX': {
+                'GUIFLAG': 'X'
+            }
+        })
+
+    def test_change_parameters_snc_permit_password_false(self):
+        username = 'FOO'
+
+        self.builder.set_username(username)
+        self.builder.set_snc_permit_password(False)
+
+        params = self.builder.build_change_rfc_params()
+
+        # Turning the flag off must still be transmitted (SNCX marks it as
+        # modified) but with an empty value.
+        self.assertEqual(params, {
+            'USERNAME': username,
+            'SNC': {
+                'GUIFLAG': ''
+            },
+            'SNCX': {
+                'GUIFLAG': 'X'
+            }
+        })
+
+    def test_change_parameters_snc_name_and_permit_password(self):
+        username = 'FOO'
+        snc_name = 'p:CN=FOO'
+
+        self.builder.set_username(username)
+        self.builder.set_snc_name(snc_name)
+        self.builder.set_snc_permit_password(True)
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params, {
+            'USERNAME': username,
+            'SNC': {
+                'PNAME': snc_name,
+                'GUIFLAG': 'X'
+            },
+            'SNCX': {
+                'PNAME': 'X',
+                'GUIFLAG': 'X'
+            }
+        })
+
+    def test_change_parameters_no_snc(self):
+        username = 'FOO'
+
+        self.builder.set_username(username)
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertNotIn('SNC', params)
+        self.assertNotIn('SNCX', params)
+
+    def test_change_snc_params_are_copies(self):
+        # build_change_rfc_params must not leak the builder's internal
+        # mutable SNCX dict to the caller.
+        self.builder.set_username('FOO')
+        self.builder.set_snc_name('p:CN=FOO')
+
+        params = self.builder.build_change_rfc_params()
+        params['SNCX']['PNAME'] = 'TAMPERED'
+
+        fresh_params = self.builder.build_change_rfc_params()
+        self.assertEqual(fresh_params['SNCX'], {'PNAME': 'X'})
 
 
 class TestUserRoleAssignmentBuilder(unittest.TestCase):
