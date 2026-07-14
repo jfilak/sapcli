@@ -67,6 +67,7 @@ class TestRapBindingPublish(ConsoleOutputTestCase, PatcherTestCase):
         self.service = Mock()
         self.service.definition = Mock()
         self.service.definition.name = self.param_service
+        self.service.name = self.param_binding_name
         self.service.version = self.param_version
 
         self.publish_status = sap.adt.businessservice.StatusMessage()
@@ -127,7 +128,9 @@ class TestRapBindingPublish(ConsoleOutputTestCase, PatcherTestCase):
         self.binding_patch.assert_called_once_with(self.connection, self.param_binding_name)
         self.binding_inst.publish.assert_called_once_with(self.service)
         self.assertConsoleContents(console=self.console,
-                                   stdout=f'''Foo bar\nService {self.param_service} in Binding {self.param_binding_name} published successfully.
+                                   stdout=f'''Publishing:
+* {self.param_service} {self.param_binding_name} {self.param_version}
+Foo bar
 ''',
                                    stderr=DEPRECATION_PUBLISH)
 
@@ -142,7 +145,9 @@ class TestRapBindingPublish(ConsoleOutputTestCase, PatcherTestCase):
         self.binding_inst.find_service.assert_called_once_with(self.param_service, None)
         self.binding_inst.publish.assert_called_once_with(self.service)
         self.assertConsoleContents(console=self.console,
-                                   stdout=f'''Foo bar\nService {self.param_service} in Binding {self.param_binding_name} published successfully.
+                                   stdout=f'''Publishing:
+* {self.param_service} {self.param_binding_name} {self.param_version}
+Foo bar
 ''',
                                    stderr=DEPRECATION_PUBLISH)
 
@@ -156,7 +161,10 @@ class TestRapBindingPublish(ConsoleOutputTestCase, PatcherTestCase):
         self.binding_patch.assert_called_once_with(self.connection, self.param_binding_name)
         self.binding_inst.publish.assert_called_once_with(self.service)
         self.assertConsoleContents(console=self.console,
-                                   stdout=f'''Foo bar\nLong text\nService {self.param_service} in Binding {self.param_binding_name} published successfully.
+                                   stdout=f'''Publishing:
+* {self.param_service} {self.param_binding_name} {self.param_version}
+Foo bar
+Long text
 ''',
                                    stderr=DEPRECATION_PUBLISH)
 
@@ -168,7 +176,11 @@ class TestRapBindingPublish(ConsoleOutputTestCase, PatcherTestCase):
 
         self.binding_patch.assert_called_once()
         self.binding_inst.publish.assert_called_once()
-        self.assertConsoleContents(console=self.console, stdout='Foo bar\n',
+        self.assertConsoleContents(console=self.console,
+                                   stdout=f'''Publishing:
+* {self.param_service} {self.param_binding_name} {self.param_version}
+Foo bar
+''',
                                    stderr=DEPRECATION_PUBLISH + f'''Failed to publish Service {self.param_service} in Binding {self.param_binding_name}
 ''')
         self.assertEqual(exitcode, 1)

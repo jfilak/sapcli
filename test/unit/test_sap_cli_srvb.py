@@ -23,6 +23,7 @@ from fixtures_adt_businessservice import (
     SERVICE_BINDING_PACKAGE,
     SERVICE_BINDING_ADT_GET_V4_XML,
     SERVICE_BINDING_ADT_GET_V4_UITEST_XML,
+    SERVICE_BINDING_PUBLISH_OK_XML,
     SERVICE_BINDING_UITEST_NAME,
     SERVICE_GROUP_ODATAV4_GET_XML,
     SERVICE_GROUP_ODATAV4_UITEST_GET_XML,
@@ -227,6 +228,7 @@ class TestSRVBPublish(ConsoleOutputTestCase, PatcherTestCase):
         self.service = Mock()
         self.service.definition = Mock()
         self.service.definition.name = self.param_service
+        self.service.name = SERVICE_BINDING_NAME
         self.service.version = self.param_version
 
         self.publish_status = sap.adt.businessservice.StatusMessage()
@@ -250,9 +252,9 @@ class TestSRVBPublish(ConsoleOutputTestCase, PatcherTestCase):
         self.binding_inst.publish.assert_called_once_with(self.service)
         self.assertConsoleContents(
             console=self.console,
-            stdout=(f'Service published successfully\n'
-                    f'Service {self.param_service} in Binding {self.param_binding_name} '
-                    f'published successfully.\n'))
+            stdout=(f'Publishing:\n'
+                    f'* {self.param_service} {SERVICE_BINDING_NAME} {self.param_version}\n'
+                    f'Service published successfully\n'))
 
     def test_publish_with_service_filter(self):
         self.publish_status.SEVERITY = 'OK'
@@ -324,6 +326,229 @@ class TestSRVBPublish(ConsoleOutputTestCase, PatcherTestCase):
         positional = self.binding_patch.call_args.args
         self.assertEqual(positional[0], self.connection)
         self.assertEqual(positional[1], self.param_binding_name)
+
+
+class TestSRVBUnpublish(ConsoleOutputTestCase, PatcherTestCase):
+    '''Test sapcli srvb unpublish'''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        PatcherTestCase.unpatch_all(self)
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        self.connection = Mock()
+        self.param_version = '0001'
+        self.param_service = 'ZSAPCLI_TEST_SRV'
+        self.param_binding_name = SERVICE_BINDING_NAME
+
+        self.patch_console(console=self.console)
+        self.binding_patch = self.patch('sap.adt.ServiceBinding')
+        self.try_activate = self.patch('sap.adt.wb.try_activate')
+        self.try_activate.return_value = (sap.adt.wb.CheckResults(), None)
+
+        self.service = Mock()
+        self.service.definition = Mock()
+        self.service.definition.name = self.param_service
+        self.service.name = SERVICE_BINDING_NAME
+        self.service.version = self.param_version
+
+        self.unpublish_status = sap.adt.businessservice.StatusMessage()
+
+        self.binding_inst = self.binding_patch.return_value
+        self.binding_inst.name = self.param_binding_name
+        self.binding_inst.active = 'active'
+        self.binding_inst.find_service = Mock(return_value=self.service)
+        self.binding_inst.unpublish = Mock(return_value=self.unpublish_status)
+        self.binding_inst.services = [self.service]
+
+    def execute_unpublish(self, *extra):
+        args = parse_args('unpublish', self.param_binding_name, *extra)
+        return args.execute(self.connection, args)
+
+    def test_unpublish_single_service_default_ok(self):
+        self.unpublish_status.SEVERITY = 'OK'
+        self.unpublish_status.SHORT_TEXT = 'Service unpublished successfully'
+
+        self.execute_unpublish()
+
+        self.binding_inst.fetch.assert_called_once_with()
+        self.binding_inst.unpublish.assert_called_once_with(self.service)
+        self.try_activate.assert_not_called()
+        self.assertConsoleContents(
+            console=self.console,
+            stdout=(f'Unpublishing:\n'
+                    f'* {self.param_service} {SERVICE_BINDING_NAME} {self.param_version}\n'
+                    f'Service unpublished successfully\n'))
+
+    def test_unpublish_with_service_filter(self):
+        self.unpublish_status.SEVERITY = 'OK'
+        self.unpublish_status.SHORT_TEXT = 'OK'
+
+        self.execute_unpublish('--service', self.param_service)
+
+        self.binding_inst.find_service.assert_called_once_with(self.param_service, None)
+        self.binding_inst.unpublish.assert_called_once_with(self.service)
+
+    def test_unpublish_with_service_and_version(self):
+        self.unpublish_status.SEVERITY = 'OK'
+        self.unpublish_status.SHORT_TEXT = 'OK'
+
+        self.execute_unpublish('--service', self.param_service, '--version', self.param_version)
+
+        self.binding_inst.find_service.assert_called_once_with(self.param_service, self.param_version)
+        self.binding_inst.unpublish.assert_called_once_with(self.service)
+
+    def test_unpublish_no_services_errors(self):
+        self.binding_inst.services = []
+
+        exitcode = self.execute_unpublish()
+
+        self.binding_inst.unpublish.assert_not_called()
+        self.assertEqual(exitcode, 1)
+        self.assertIn('does not contain any services', self.console.caperr)
+
+    def test_unpublish_too_many_services_without_filter_errors(self):
+        self.binding_inst.services = [Mock(), Mock()]
+
+        exitcode = self.execute_unpublish()
+
+        self.binding_inst.unpublish.assert_not_called()
+        self.assertEqual(exitcode, 1)
+        self.assertIn('without', self.console.caperr)
+
+    def test_unpublish_service_not_found_errors(self):
+        self.binding_inst.find_service.return_value = None
+
+        exitcode = self.execute_unpublish('--service', self.param_service, '--version', self.param_version)
+
+        self.binding_inst.unpublish.assert_not_called()
+        self.assertEqual(exitcode, 1)
+        self.assertIn('has no Service Definition', self.console.caperr)
+
+    def test_unpublish_severity_not_ok_returns_1(self):
+        self.unpublish_status.SEVERITY = 'ERROR'
+        self.unpublish_status.SHORT_TEXT = 'Local Unpublish failed'
+
+        exitcode = self.execute_unpublish('--activate')
+
+        self.assertEqual(exitcode, 1)
+        self.assertIn('Failed to unpublish', self.console.caperr)
+        # A failed unpublish must never trigger activation.
+        self.try_activate.assert_not_called()
+
+    def test_unpublish_with_activate_long_flag_runs_activation(self):
+        self.unpublish_status.SEVERITY = 'OK'
+        self.unpublish_status.SHORT_TEXT = 'OK'
+
+        exitcode = self.execute_unpublish('--activate')
+
+        self.binding_inst.unpublish.assert_called_once_with(self.service)
+        self.try_activate.assert_called_once_with(self.binding_inst)
+        self.assertEqual(exitcode, 0)
+        self.assertIn('Activation has finished', self.console.capout)
+
+    def test_unpublish_with_activate_short_flag_runs_activation(self):
+        self.unpublish_status.SEVERITY = 'OK'
+        self.unpublish_status.SHORT_TEXT = 'OK'
+
+        exitcode = self.execute_unpublish('-a')
+
+        self.try_activate.assert_called_once_with(self.binding_inst)
+        self.assertEqual(exitcode, 0)
+
+    def test_unpublish_activate_failure_returns_1(self):
+        self.unpublish_status.SEVERITY = 'OK'
+        self.unpublish_status.SHORT_TEXT = 'OK'
+        # A binding that stays inactive after activation is reported as a
+        # failure by activate_object_list.
+        self.binding_inst.active = 'inactive'
+
+        exitcode = self.execute_unpublish('--activate')
+
+        self.try_activate.assert_called_once_with(self.binding_inst)
+        self.assertEqual(exitcode, 1)
+        self.assertIn('Inactive objects:', self.console.capout)
+
+    def test_unpublish_activate_forwards_error_flags_to_worker(self):
+        self.unpublish_status.SEVERITY = 'OK'
+        self.unpublish_status.SHORT_TEXT = 'OK'
+
+        with patch('sap.cli.object.activate_object_list', return_value=0) as fake_activate_list:
+            exitcode = self.execute_unpublish('--activate', '--ignore-errors', '--warning-errors')
+
+        self.assertEqual(exitcode, 0)
+        fake_activate_list.assert_called_once()
+        worker, object_list, count, _console = fake_activate_list.call_args.args
+        self.assertTrue(worker.continue_on_errors)
+        self.assertTrue(worker.warnings_as_errors)
+        self.assertEqual(object_list, [(self.binding_inst.name, self.binding_inst)])
+        self.assertEqual(count, 1)
+
+
+class TestSRVBUnpublishHttp(unittest.TestCase):
+    '''Ensures sapcli srvb unpublish issues the expected HTTP calls end-to-end.'''
+
+    def test_unpublish_v4_with_activate_sends_all_requests(self):
+        binding_lower = SERVICE_BINDING_NAME.lower()
+
+        conn = Connection([
+            # GET the binding (binding.fetch())
+            Response(text=SERVICE_BINDING_ADT_GET_V4_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+            # POST unpublishjobs
+            Response(text=SERVICE_BINDING_PUBLISH_OK_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.as+xml; charset=utf-8; '
+                              'dataname=com.sap.adt.StatusMessage'}),
+            # POST activation
+            Response(text='', status_code=200, headers={'Content-Type': 'text/plain'}),
+            # GET re-fetch performed by try_activate
+            Response(text=SERVICE_BINDING_ADT_GET_V4_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+        ])
+
+        args = parse_args('unpublish', SERVICE_BINDING_NAME, '--activate')
+        with patch_get_print_console_with_buffer():
+            exitcode = args.execute(conn, args)
+
+        self.assertEqual(exitcode, 0)
+        self.assertEqual(conn.mock_methods(), [
+            ('GET', f'/sap/bc/adt/businessservices/bindings/{binding_lower}'),
+            ('POST', '/sap/bc/adt/businessservices/odatav4/unpublishjobs'),
+            ('POST', '/sap/bc/adt/activation'),
+            ('GET', f'/sap/bc/adt/businessservices/bindings/{binding_lower}'),
+        ])
+
+    def test_unpublish_v4_without_activate_skips_activation(self):
+        binding_lower = SERVICE_BINDING_NAME.lower()
+
+        conn = Connection([
+            Response(text=SERVICE_BINDING_ADT_GET_V4_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+            Response(text=SERVICE_BINDING_PUBLISH_OK_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.as+xml; charset=utf-8; '
+                              'dataname=com.sap.adt.StatusMessage'}),
+        ])
+
+        args = parse_args('unpublish', SERVICE_BINDING_NAME)
+        with patch_get_print_console_with_buffer():
+            exitcode = args.execute(conn, args)
+
+        self.assertEqual(exitcode, 0)
+        self.assertEqual(conn.mock_methods(), [
+            ('GET', f'/sap/bc/adt/businessservices/bindings/{binding_lower}'),
+            ('POST', '/sap/bc/adt/businessservices/odatav4/unpublishjobs'),
+        ])
 
 
 class TestSRVBPreviewHtml(unittest.TestCase):

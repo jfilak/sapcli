@@ -46,3 +46,5 @@ sapcli srvb read ${SRVB_NAME}
 sapcli srvb preview metadata ${SRVB_NAME}
 
 sapcli srvb preview fetch ${SRVB_NAME} ${DDLS_NAME}
+
+sapcli srvb unpublish -a ${SRVB_NAME}
