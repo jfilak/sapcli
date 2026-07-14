@@ -637,3 +637,21 @@ class TestODataV2ServiceListGet(unittest.TestCase):
         self.assertEqual(service_list.services.created, 'true')
         self.assertEqual(service_list.services.published, 'true')
         self.assertEqual(service_list.services.allowed_action, 'UNPUBLISH')
+
+
+        service_information = service_list.services.service_information
+        self.assertIsNotNone(service_information)
+        self.assertEqual(service_information.service_name, 'ZSCLI_DM_B_V2')
+        self.assertEqual(service_information.service_version, '0007')
+
+        self.assertEqual(len(service_information.collection), 2)
+
+        first_collection = service_information.collection[0]
+        self.assertEqual(first_collection.name, 'Demo')
+        self.assertEqual(first_collection.is_leading, 'false')
+        self.assertEqual(first_collection.is_root, 'true')
+
+        second_collection = service_information.collection[1]
+        self.assertEqual(second_collection.name, 'SecondDemo')
+        self.assertEqual(second_collection.is_leading, 'true')
+        self.assertEqual(second_collection.is_root, 'false')

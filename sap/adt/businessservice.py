@@ -167,6 +167,7 @@ class ODataV2Service(metaclass=OrderedClassMembers):
     created = XmlNodeAttributeProperty('odatav2:created')
     published = XmlNodeAttributeProperty('odatav2:published')
     allowed_action = XmlNodeAttributeProperty('odatav2:allowedAction')
+    service_information = XmlNodeProperty('serviceInfo:serviceInformation', factory=ServiceInformation)
 
 
 class ODataV2ServiceList(ADTRootObject):
