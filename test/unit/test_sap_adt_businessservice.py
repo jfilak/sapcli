@@ -636,7 +636,4 @@ class TestODataV2ServiceListGet(unittest.TestCase):
         self.assertEqual(service_list.services.annotation_url, '')
         self.assertEqual(service_list.services.created, 'true')
         self.assertEqual(service_list.services.published, 'true')
-        # `allowed_action` is declared as XmlNodeProperty on ODataV2Service while
-        # the XML carries it as an attribute of `odatav2:services`, so it does
-        # not deserialize. This assertion documents the current behaviour.
-        self.assertIsNone(service_list.services.allowed_action)
+        self.assertEqual(service_list.services.allowed_action, 'UNPUBLISH')
