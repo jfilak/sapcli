@@ -16,6 +16,7 @@ from fixtures_adt_businessservice import (
     SERVICE_DEFINITION_ADT_XML,
     SERVICE_DEFINITION_SOURCE_TEXT,
     SERVICE_DEFINITION_ADT_POST_REQUEST_XML,
+    SERVICE_DEFINITION_ADT_POST_REQUEST_XML_EXTENSION,
     SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML_UI,
     SERVICE_BINDING_ADT_POST_ODATA_V4_REQUEST_XML_API,
     SERVICE_GROUP_ODATAV4_GET_XML,
@@ -387,6 +388,36 @@ class TestbusinessserviceDefinition(unittest.TestCase):
         # rejects POST bodies without it - see live e2e captures).
         srvd = sap.adt.businessservice.ServiceDefinition(Connection(), 'ZNEW_SRV')
         self.assertEqual(srvd.source_type, 'S')
+
+    def test_sourcetype_enum_values(self):
+        self.assertEqual(sap.adt.businessservice.SourceType.DEFINITION.value, 'S')
+        self.assertEqual(sap.adt.businessservice.SourceType.EXTENSION.value, 'X')
+
+    def test_servicedefinition_source_type_extension(self):
+        # The constructor must honor an explicit source type so extensions
+        # can be created (srvd:srvdSourceType='X').
+        srvd = sap.adt.businessservice.ServiceDefinition(
+            Connection(), 'ZNEW_SRV',
+            source_type=sap.adt.businessservice.SourceType.EXTENSION)
+        self.assertEqual(srvd.source_type, 'X')
+
+    def test_servicedefinition_create_extension_serializes_post_body(self):
+        conn = Connection([EMPTY_RESPONSE_OK])
+
+        metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible='DEVELOPER')
+        srvd = sap.adt.businessservice.ServiceDefinition(
+            conn, 'ZSAPCLI_TEST_SRV', package='$TMP', metadata=metadata,
+            source_type=sap.adt.businessservice.SourceType.EXTENSION)
+        srvd.description = 'Test service definition'
+        srvd.create()
+
+        self.assertEqual(len(conn.execs), 1)
+        post = conn.execs[0]
+        self.assertEqual(post.method, 'POST')
+        self.assertEqual(post.adt_uri, '/sap/bc/adt/ddic/srvd/sources')
+
+        self.maxDiff = None
+        self.assertEqual(post.body.decode('utf-8'), SERVICE_DEFINITION_ADT_POST_REQUEST_XML_EXTENSION)
 
     def test_servicedefinition_text_property_round_trip(self):
         conn = Connection([Response(text=SERVICE_DEFINITION_SOURCE_TEXT,
