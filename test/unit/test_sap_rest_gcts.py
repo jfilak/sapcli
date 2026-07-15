@@ -2657,7 +2657,6 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
 
         data = dict(self.repo_data)
         data['config'] = [
-            {'key': 'VCS_TARGET_DIR', 'value': 'src/'},
             {'key': 'CLIENT_VCS_AUTH_TOKEN', 'value': 'THE_TOKEN'}
         ]
 
@@ -2687,7 +2686,7 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         mock_repo_instance.create.assert_called_once_with(
             self.repo_url,
             '6IT',
-            config={'VCS_TARGET_DIR': 'src/', 'CLIENT_VCS_AUTH_TOKEN': 'THE_TOKEN'},
+            config={'CLIENT_VCS_AUTH_TOKEN': 'THE_TOKEN'},
             role='SOURCE',
             typ='GITHUB'
         )
@@ -2720,7 +2719,6 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         data['role'] = 'TARGET'
         data['type'] = 'GIT'
         data['config'] = [
-            {'key': 'VCS_TARGET_DIR', 'value': 'foo/'},
             {'key': 'CLIENT_VCS_AUTH_TOKEN', 'value': 'THE_TOKEN'}
         ]
 

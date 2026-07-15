@@ -238,15 +238,13 @@ def schedule_clone(connection, repo, branch=None) -> Optional[RepositoryTask]:
     return task
 
 
+# start_dir is unsused but I want to keep for backward compatibility with the previous version of the API
+# pylint: disable=unused-argument
 def create(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
            role='SOURCE', typ='GITHUB'):
     """Creates the repository in the target systems"""
 
     config = {}
-
-    if start_dir:
-        _mod_log().warning('Setting deprecated VCS_TARGET_DIR to "%s" in the repository configuration ...', start_dir)
-        config['VCS_TARGET_DIR'] = start_dir
 
     if vcs_token:
         config['CLIENT_VCS_AUTH_TOKEN'] = vcs_token
