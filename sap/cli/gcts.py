@@ -715,7 +715,6 @@ def repolist(connection, args):
                        help='The directory inside the repository where ABAP files are stored;'
                             ' configured in the repository layout.'
                             ' The layout is only updated if not yet set for the repository.'
-                            ' The deprecated VCS_TARGET_DIR property is also set for backward compatibility.'
                             ' Default: src/')
 @CommandGroup.argument('--no-fail-exists', default=False, action='store_true')
 @CommandGroup.argument('--sync-clone', default=False, action='store_true')
