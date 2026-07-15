@@ -7,13 +7,13 @@ import unittest
 from unittest.mock import call, patch, Mock
 
 import sap.cli.srvd
+import sap.adt.businessservice
 
 from infra import generate_parse_args
 from mock import patch_get_print_console_with_buffer
 
 
 parse_args = generate_parse_args(sap.cli.srvd.CommandGroup())
-
 
 class TestCommandGroup(unittest.TestCase):
 
@@ -60,6 +60,38 @@ class TestSRVDCreate(unittest.TestCase):
             args.execute(fake_conn, args)
 
         fake_srvd.return_value.create.assert_called_once_with(corrnr='TR42')
+
+    @patch('sap.adt.ServiceDefinition')
+    def test_cli_srvd_create_default_source_type(self, fake_srvd):
+        fake_conn = Mock()
+        fake_conn.user = 'TESTER'
+        fake_srvd.return_value = Mock()
+
+        args = parse_args('create', 'ZSAPCLI_TEST_SRV', 'Test service', '$TMP')
+        with patch_get_print_console_with_buffer():
+            args.execute(fake_conn, args)
+
+        self.assertEqual(fake_srvd.call_args.kwargs['source_type'],
+                         sap.adt.businessservice.SourceType.DEFINITION)
+
+    @patch('sap.adt.ServiceDefinition')
+    def test_cli_srvd_create_extension_source_type(self, fake_srvd):
+        fake_conn = Mock()
+        fake_conn.user = 'TESTER'
+        fake_srvd.return_value = Mock()
+
+        args = parse_args('create', 'ZSAPCLI_TEST_SRV', 'Test service', '$TMP',
+                          '--type', 'extension')
+        with patch_get_print_console_with_buffer():
+            args.execute(fake_conn, args)
+
+        self.assertEqual(fake_srvd.call_args.kwargs['source_type'],
+                         sap.adt.businessservice.SourceType.EXTENSION)
+
+    def test_cli_srvd_create_invalid_source_type(self):
+        with self.assertRaises(SystemExit):
+            parse_args('create', 'ZSAPCLI_TEST_SRV', 'Test service', '$TMP',
+                       '--type', 'nonsense')
 
 
 class TestSRVDRead(unittest.TestCase):

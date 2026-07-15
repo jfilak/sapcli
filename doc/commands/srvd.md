@@ -16,11 +16,12 @@ The source body is plain CDS service definition syntax
 Creates a new (inactive) Service Definition in the given package.
 
 ```bash
-sapcli srvd create NAME DESCRIPTION PACKAGE [--corrnr TRANSPORT]
+sapcli srvd create NAME DESCRIPTION PACKAGE [--type {definition,extension}] [--corrnr TRANSPORT]
 ```
 
-The empty body is created on the server with `srvd:srvdSourceType="S"`.
-Use `sapcli srvd write` to upload the actual `define service { ... }` source.
+- **--type** - source type of the Service Definition (default: `definition`):
+  - **definition** - a regular Service Definition
+  - **extension** - a Service Definition extension
 
 ## read
 

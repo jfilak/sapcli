@@ -61,6 +61,12 @@ SERVICE_DEFINITION_ADT_POST_REQUEST_XML = '''<?xml version="1.0" encoding="UTF-8
 </srvd:srvdSource>'''
 
 
+SERVICE_DEFINITION_ADT_POST_REQUEST_XML_EXTENSION = '''<?xml version="1.0" encoding="UTF-8"?>
+<srvd:srvdSource xmlns:srvd="http://www.sap.com/adt/ddic/srvdsources" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="SRVD/SRV" adtcore:description="Test service definition" adtcore:language="EN" adtcore:name="ZSAPCLI_TEST_SRV" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER" srvd:srvdSourceType="X">
+<adtcore:packageRef adtcore:name="$TMP"/>
+</srvd:srvdSource>'''
+
+
 SERVICE_BINDING_NAME = 'ZSAPCLI_TEST_BND'
 SERVICE_BINDING_PACKAGE = '$TMP'
 
