@@ -318,6 +318,165 @@ class TestUserBuilder(unittest.TestCase):
         fresh_params = self.builder.build_change_rfc_params()
         self.assertEqual(fresh_params['SNCX'], {'PNAME': 'X'})
 
+    def test_new_setters_return_self(self):
+        self.assertEqual(self.builder, self.builder.set_reference_user('REF'))
+        self.assertEqual(self.builder, self.builder.set_security_policy('POLICY'))
+        self.assertEqual(self.builder, self.builder.set_company('COMP'))
+        self.assertEqual(self.builder, self.builder.set_company_template_orgtype(True))
+        self.assertEqual(self.builder, self.builder.set_sapuser_uuid('UUID'))
+
+    # -- REF_USER -----------------------------------------------------------
+
+    def test_create_parameters_with_reference_user(self):
+        self.builder.set_username('FOO')
+        self.builder.set_reference_user('TEMPLATE')
+
+        params = self.builder.build_rfc_params()
+
+        self.assertEqual(params['REF_USER'], {'REF_USER': 'TEMPLATE'})
+        self.assertNotIn('REF_USERX', params)
+
+    def test_change_parameters_with_reference_user(self):
+        self.builder.set_username('FOO')
+        self.builder.set_reference_user('TEMPLATE')
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params, {
+            'USERNAME': 'FOO',
+            'REF_USER': {'REF_USER': 'TEMPLATE'},
+            'REF_USERX': {'REF_USER': 'X'}
+        })
+
+    def test_change_parameters_no_reference_user(self):
+        self.builder.set_username('FOO')
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertNotIn('REF_USER', params)
+        self.assertNotIn('REF_USERX', params)
+
+    # -- LOGONDATA.SECURITY_POLICY ------------------------------------------
+
+    def test_create_parameters_with_security_policy(self):
+        self.builder.set_username('FOO')
+        self.builder.set_security_policy('SECPOL')
+
+        params = self.builder.build_rfc_params()
+
+        self.assertEqual(params['LOGONDATA']['SECURITY_POLICY'], 'SECPOL')
+
+    def test_change_parameters_with_security_policy(self):
+        self.builder.set_username('FOO')
+        self.builder.set_security_policy('SECPOL')
+
+        params = self.builder.build_change_rfc_params()
+
+        # Only the explicitly modified LOGONDATA field must be transmitted so
+        # that the validity dates and other fields are not reset.
+        self.assertEqual(params, {
+            'USERNAME': 'FOO',
+            'LOGONDATA': {'SECURITY_POLICY': 'SECPOL'},
+            'LOGONDATAX': {'SECURITY_POLICY': 'X'}
+        })
+
+    def test_change_parameters_security_policy_does_not_leak_validity(self):
+        self.builder.set_username('FOO')
+        self.builder.set_valid_to('20301231')
+        self.builder.set_security_policy('SECPOL')
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params['LOGONDATA'], {'SECURITY_POLICY': 'SECPOL'})
+        self.assertEqual(params['LOGONDATAX'], {'SECURITY_POLICY': 'X'})
+
+    def test_change_parameters_no_security_policy(self):
+        self.builder.set_username('FOO')
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertNotIn('LOGONDATA', params)
+        self.assertNotIn('LOGONDATAX', params)
+
+    # -- COMPANY ------------------------------------------------------------
+
+    def test_create_parameters_with_company(self):
+        self.builder.set_username('FOO')
+        self.builder.set_company('EXAMPLE CORP')
+        self.builder.set_company_template_orgtype(True)
+
+        params = self.builder.build_rfc_params()
+
+        self.assertEqual(params['COMPANY'], {
+            'COMPANY': 'EXAMPLE CORP',
+            'TEMPLATE_ORGTYPE': 'X'
+        })
+        self.assertNotIn('COMPANYX', params)
+
+    def test_create_parameters_company_template_orgtype_false(self):
+        self.builder.set_username('FOO')
+        self.builder.set_company('EXAMPLE CORP')
+        self.builder.set_company_template_orgtype(False)
+
+        params = self.builder.build_rfc_params()
+
+        self.assertEqual(params['COMPANY'], {
+            'COMPANY': 'EXAMPLE CORP',
+            'TEMPLATE_ORGTYPE': ''
+        })
+
+    def test_change_parameters_with_company(self):
+        self.builder.set_username('FOO')
+        self.builder.set_company('EXAMPLE CORP')
+
+        params = self.builder.build_change_rfc_params()
+
+        # BAPIUSCOMX only exposes an X-flag for COMPANY (not TEMPLATE_ORGTYPE).
+        self.assertEqual(params, {
+            'USERNAME': 'FOO',
+            'COMPANY': {'COMPANY': 'EXAMPLE CORP'},
+            'COMPANYX': {'COMPANY': 'X'}
+        })
+
+    def test_change_parameters_no_company(self):
+        self.builder.set_username('FOO')
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertNotIn('COMPANY', params)
+        self.assertNotIn('COMPANYX', params)
+
+    # -- SAPUSER_UUID -------------------------------------------------------
+
+    def test_create_parameters_with_sapuser_uuid(self):
+        self.builder.set_username('FOO')
+        self.builder.set_sapuser_uuid('0123456789abcdef')
+
+        params = self.builder.build_rfc_params()
+
+        self.assertEqual(params['SAPUSER_UUID'], {'SAP_UID': '0123456789abcdef'})
+        self.assertNotIn('SAPUSER_UUIDX', params)
+
+    def test_change_parameters_with_sapuser_uuid(self):
+        self.builder.set_username('FOO')
+        self.builder.set_sapuser_uuid('0123456789abcdef')
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertEqual(params, {
+            'USERNAME': 'FOO',
+            'SAPUSER_UUID': {'SAP_UID': '0123456789abcdef'},
+            'SAPUSER_UUIDX': {'SAP_UID': 'X'}
+        })
+
+    def test_change_parameters_no_sapuser_uuid(self):
+        self.builder.set_username('FOO')
+
+        params = self.builder.build_change_rfc_params()
+
+        self.assertNotIn('SAPUSER_UUID', params)
+        self.assertNotIn('SAPUSER_UUIDX', params)
+
 
 class TestUserRoleAssignmentBuilder(unittest.TestCase):
 
