@@ -126,7 +126,7 @@ class UserPasswordManager:
             self.get_user_type() in ['A', 'C']])     # A = Dialog, C = Communications Data
 
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, too-many-public-methods
 class UserBuilder:
     """An utility class for building SAP user parameters"""
 
@@ -134,8 +134,15 @@ class UserBuilder:
         self._username = None
         self._address = None
         self._logondata = None
+        self._logondatax = None
         self._snc = None
         self._sncx = None
+        self._ref_user = None
+        self._ref_userx = None
+        self._company = None
+        self._companyx = None
+        self._sapuser_uuid = None
+        self._sapuser_uuidx = None
         self._password = None
         self._alias = None
         self._userPasswordManager = UserPasswordManager()
@@ -175,6 +182,37 @@ class UserBuilder:
             self._sncx = {}
 
         return self._snc
+
+    @property
+    def _logondatax_data(self) -> Dict[str, str]:
+        if self._logondatax is None:
+            self._logondatax = {}
+
+        return self._logondatax
+
+    @property
+    def _ref_user_data(self) -> Dict[str, str]:
+        if self._ref_user is None:
+            self._ref_user = {}
+            self._ref_userx = {}
+
+        return self._ref_user
+
+    @property
+    def _company_data(self) -> Dict[str, str]:
+        if self._company is None:
+            self._company = {}
+            self._companyx = {}
+
+        return self._company
+
+    @property
+    def _sapuser_uuid_data(self) -> Dict[str, str]:
+        if self._sapuser_uuid is None:
+            self._sapuser_uuid = {}
+            self._sapuser_uuidx = {}
+
+        return self._sapuser_uuid
 
     def set_username(self, username: str):
         """Sets user name for logon"""
@@ -265,6 +303,50 @@ class UserBuilder:
 
         return self
 
+    def set_reference_user(self, ref_user: str) -> 'UserBuilder':
+        """Sets user's reference user for authorizations"""
+
+        self._ref_user_data['REF_USER'] = ref_user
+        self._ref_userx['REF_USER'] = 'X'
+
+        return self
+
+    def set_security_policy(self, security_policy: str) -> 'UserBuilder':
+        """Sets user's security policy"""
+
+        self._logondata_data['SECURITY_POLICY'] = security_policy
+        self._logondatax_data['SECURITY_POLICY'] = 'X'
+
+        return self
+
+    def set_company(self, company: str) -> 'UserBuilder':
+        """Sets user's company (address)"""
+
+        self._company_data['COMPANY'] = company
+        self._companyx['COMPANY'] = 'X'
+
+        return self
+
+    def set_company_template_orgtype(self, flag: bool) -> 'UserBuilder':
+        """Sets the flag marking user's company address as a template.
+
+           Note: BAPI_USER_CHANGE cannot modify this flag on its own (the X
+           structure BAPIUSCOMX has no marker for it), so it is only effective
+           when creating a user.
+        """
+
+        self._company_data['TEMPLATE_ORGTYPE'] = 'X' if flag else ''
+
+        return self
+
+    def set_sapuser_uuid(self, sap_uid: str) -> 'UserBuilder':
+        """Sets user's SAP user UUID (SAP_UID)"""
+
+        self._sapuser_uuid_data['SAP_UID'] = sap_uid
+        self._sapuser_uuidx['SAP_UID'] = 'X'
+
+        return self
+
     def get_username(self) -> str:
         """Get user's name"""
 
@@ -299,6 +381,18 @@ class UserBuilder:
         snc = copy_dict_or_new(self._snc)
         params['SNC'] = snc
 
+    @staticmethod
+    def _rfc_params_add_change_structure(params, name, data, datax):
+        """Adds the given structure together with its change-marker (X)
+           structure to the RFC params, but only if the structure holds data.
+        """
+
+        if not data:
+            return
+
+        params[name] = copy_dict_or_new(data)
+        params[name + 'X'] = copy_dict_or_new(datax)
+
     def build_rfc_params(self) -> RFCParams:
         """Creates RFC parameters for Creating users"""
 
@@ -317,6 +411,15 @@ class UserBuilder:
         self._rfc_params_add_alias(params)
 
         self._rfc_params_add_snc(params)
+
+        if self._ref_user:
+            params['REF_USER'] = copy_dict_or_new(self._ref_user)
+
+        if self._company:
+            params['COMPANY'] = copy_dict_or_new(self._company)
+
+        if self._sapuser_uuid:
+            params['SAPUSER_UUID'] = copy_dict_or_new(self._sapuser_uuid)
 
         logondata = copy_dict_or_new(self._logondata_data)
         add_to_dict_if_not_present(logondata, 'GLTGV', today_sap_date())
@@ -342,6 +445,16 @@ class UserBuilder:
         if self._snc:
             self._rfc_params_add_snc(params)
             params['SNCX'] = copy_dict_or_new(self._sncx)
+
+        if self._logondatax:
+            # Transmit only the explicitly modified LOGONDATA fields so that
+            # unrelated fields (validity dates, user type, ...) are not reset.
+            params['LOGONDATA'] = {key: self._logondata_data[key] for key in self._logondatax}
+            params['LOGONDATAX'] = copy_dict_or_new(self._logondatax)
+
+        self._rfc_params_add_change_structure(params, 'REF_USER', self._ref_user, self._ref_userx)
+        self._rfc_params_add_change_structure(params, 'COMPANY', self._company, self._companyx)
+        self._rfc_params_add_change_structure(params, 'SAPUSER_UUID', self._sapuser_uuid, self._sapuser_uuidx)
 
         return params
 
