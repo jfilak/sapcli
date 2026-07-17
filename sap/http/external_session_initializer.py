@@ -18,6 +18,7 @@ from sap.http.auth_plugin import (
     run_plugin,
 )
 from sap.http.auth_plugin_cache import get_response_store
+from sap.http.client_cert import ClientCertificateHTTPSessionInitializer
 from sap.http.errors import UnauthorizedError
 
 
@@ -167,11 +168,9 @@ def _apply_certificates(session, content: dict) -> None:
             "Plugin certificates response missing required field 'key'"
         )
 
-    session.cert = (certificate, key)
-
-    issuer = content.get('issuer_certificate')
-    if issuer:
-        session.verify = issuer
+    ClientCertificateHTTPSessionInitializer(
+        certificate, key, server_ca=content.get('issuer_certificate'),
+    ).initialize_session(session)
 
 
 _HANDLERS = {

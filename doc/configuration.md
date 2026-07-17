@@ -7,7 +7,7 @@ a configuration file. The priority order from highest to lowest is:
 2. **Environment variables** - override config file values
 3. **Configuration file** (active context) - overrides defaults
 4. **Built-in defaults** - used when nothing else is specified
-5. **Interactive prompt** - fallback for mandatory values (user, password) when no SNC config is present, no valid OAuth token is cached, and no auth plugin is configured
+5. **Interactive prompt** - fallback for mandatory values (user, password) when no SNC config is present, no valid OAuth token is cached, and no auth plugin or client certificate is configured
 
 ## Parameters
 
@@ -166,6 +166,32 @@ config file. Precedence: CLI flag > env var > config file. The
 sapcli --auth-plugin-disable-cache abap systeminfo
 ```
 
+### --auth-cert
+
+Path to a PEM encoded X.509 client certificate used for TLS client
+certificate authentication (mTLS) instead of user/password. The file may
+also contain the private key - in that case `--auth-key` can be omitted.
+
+When a client certificate is configured, sapcli does not prompt for user
+or password - the server derives the user from the certificate.
+
+The certificate can also be set via the environment variable
+`SAP_AUTH_CERT` or via `auth_cert` in the configuration file. See
+[Client certificate authentication](#client-certificate-authentication).
+
+```bash
+sapcli --auth-cert ~/certs/me.crt --auth-key ~/certs/me.key abap systeminfo
+```
+
+### --auth-key
+
+Path to the PEM encoded private key belonging to `--auth-cert`. The key
+must not be password protected - see
+[Password protected keys](#password-protected-keys).
+
+The key can also be set via the environment variable `SAP_AUTH_KEY` or
+via `auth_key` in the configuration file.
+
 ## Configuration file
 
 ### File location
@@ -297,13 +323,23 @@ authentication. See [OAuth 2.0 authentication](#oauth-20-authentication) below.
 
 | Field | Type | Required | Default | Env var equivalent |
 |---|---|---|---|---|
-| `user` | string | yes | - | `SAP_USER` |
+| `user` | string | yes (*) | - | `SAP_USER` |
 | `password` | string | no | - | `SAP_PASSWORD` |
 | `auth_plugin` | mapping | no | - | (config only) |
+| `auth_cert` | string | no | - | `SAP_AUTH_CERT` |
+| `auth_key` | string | no | - | `SAP_AUTH_KEY` |
+
+(*) Not required when `auth_plugin` or `auth_cert` is used - the plugin
+acquires the credentials itself and the server derives the user from a
+client certificate.
 
 `auth_plugin` is mutually exclusive with `password` and with OAuth fields
 on the same logical session. See [Auth plugins](#auth-plugins) for the
 plugin contract and configuration shape.
+
+`auth_cert` is mutually exclusive with `password`, `auth_plugin`, and
+OAuth fields in the same resolved context. See
+[Client certificate authentication](#client-certificate-authentication).
 
 #### `contexts.<name>`
 
@@ -335,15 +371,18 @@ fields (e.g. hostname). Define one base connection and override per context.
 Storing passwords in plain text configuration files is a security concern.
 The recommended approaches, in order of preference:
 
-1. **Use OAuth 2.0** - if your system supports it (e.g. SAP cloud systems),
+1. **Use a client certificate** - if your system supports X.509 logon,
+   no secret needs to be stored at all. See
+   [Client certificate authentication](#client-certificate-authentication) below.
+2. **Use OAuth 2.0** - if your system supports it (e.g. SAP cloud systems),
    prefer OAuth over a stored password. See
    [OAuth 2.0 authentication](#oauth-20-authentication) below.
-2. **Use an auth plugin** - for SAML2 SSO, Windows client certificates,
+3. **Use an auth plugin** - for SAML2 SSO, certificates in secret stores,
    or any other method that does not fit OAuth or BasicAuth. See
    [Auth plugins](#auth-plugins) below.
-3. **Omit the password from config** - sapcli will prompt interactively
-4. **Use environment variables** - `SAP_PASSWORD` overrides the config file; suitable for CI/CD pipelines
-5. **Store in config file** - acceptable for local development if the file has restrictive permissions (`chmod 600`)
+4. **Omit the password from config** - sapcli will prompt interactively
+5. **Use environment variables** - `SAP_PASSWORD` overrides the config file; suitable for CI/CD pipelines
+6. **Store in config file** - acceptable for local development if the file has restrictive permissions (`chmod 600`)
 
 sapcli will warn if the config file is world-readable and contains passwords.
 
@@ -408,6 +447,77 @@ file:
 ```bash
 rm ~/.sapcli/tokens.json
 ```
+
+### Client certificate authentication
+
+SAP systems can authenticate users with X.509 client certificates
+(mutual TLS): the ICM maps the certificate's subject to an ABAP user, so
+no password is exchanged at all. sapcli presents the certificate when
+`--auth-cert`/`SAP_AUTH_CERT` or `auth_cert` in the configuration file
+is set.
+
+The certificate belongs to a **user** definition - it is an identity,
+not a property of a system. One certificate is typically accepted by
+many systems, which is expressed by referencing the same user from
+several contexts:
+
+```yaml
+connections:
+  dev-system:
+    ashost: dev.example.com
+    client: "100"
+
+  qas-system:
+    ashost: qas.example.com
+    client: "200"
+
+users:
+  cert-me:                        # note: no 'user' name needed
+    auth_cert: ~/certs/me.crt     # PEM certificate (may include the chain)
+    auth_key: ~/certs/me.key      # PEM private key, not password protected
+
+contexts:
+  dev:
+    connection: dev-system
+    user: cert-me
+  qas:
+    connection: qas-system
+    user: cert-me
+```
+
+Notes:
+
+- When the certificate file also contains the private key, omit
+  `auth_key` (the same convention as curl's `--cert` without `--key`).
+- If the server requires intermediate issuer certificates, append them
+  to the certificate file - there is no separate chain option.
+- Validation of the *server's* certificate is unrelated to client
+  certificate authentication and stays configured via
+  `--ssl-server-cert`/`ssl_server_cert` or the operating system trust
+  store.
+- A client certificate requires TLS - combining it with `--no-ssl` is
+  rejected.
+- `--user` may still be supplied as a hint for systems that map one
+  certificate to several users; it is optional.
+
+#### Password protected keys
+
+sapcli only accepts unencrypted private keys and refuses encrypted ones
+with an error. Storing the key passphrase in the configuration file
+would be equivalent to storing the key unencrypted, and prompting for
+the passphrase on every command would be impractical for scripting.
+
+Either decrypt the key into a file with restrictive permissions:
+
+```bash
+openssl pkey -in encrypted.key -out plain.key
+chmod 600 plain.key
+```
+
+or use an [auth plugin](#auth-plugins) with the `certificates` response
+type - a plugin can fetch the certificate from a secret store or decrypt
+the key with a passphrase from a keyring and hand sapcli ephemeral
+files.
 
 ### Auth plugins
 

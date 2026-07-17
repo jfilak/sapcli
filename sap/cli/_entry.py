@@ -63,6 +63,37 @@ def _system_cert_store_applies(args):
     )
 
 
+def _report_auth_cert_cli_conflicts(arg_parser, args):
+    """Reject contradictory authentication modes given on the command line.
+
+    Must run before resolve_default_connection_values merges in env/config
+    values - after that the sources are indistinguishable and e.g. an
+    exported SAP_PASSWORD must not trip the check.
+    """
+
+    if args.auth_cert and args.password:
+        report_args_error_and_exit(
+            arg_parser,
+            '--auth-cert and --password are mutually exclusive'
+            ': the client certificate replaces the password')
+
+
+def _report_auth_cert_resolved_conflicts(arg_parser, args):
+    """Reject broken client certificate setups after defaults resolution."""
+
+    if args.auth_key and not args.auth_cert:
+        report_args_error_and_exit(
+            arg_parser,
+            '--auth-key requires --auth-cert'
+            ' (or auth_cert in the configuration file)')
+
+    if args.auth_cert and not args.ssl:
+        report_args_error_and_exit(
+            arg_parser,
+            '--auth-cert cannot be used with --no-ssl'
+            ': a client certificate requires TLS')
+
+
 # pylint: disable=too-many-statements
 def parse_command_line(argv):
     """Parses command line arguments"""
@@ -93,6 +124,15 @@ def parse_command_line(argv):
         help='Do not read or write the auth-plugin response cache on disk '
              '(also drops any pre-existing entry). '
              'Env: SAPCLI_AUTH_PLUGIN_DISABLE_CACHE')
+    arg_parser.add_argument(
+        '--auth-cert', dest='auth_cert', type=str, default=None,
+        help='Path to a PEM client certificate for TLS client certificate '
+             'authentication; may contain the private key too. '
+             'Env: SAP_AUTH_CERT')
+    arg_parser.add_argument(
+        '--auth-key', dest='auth_key', type=str, default=None,
+        help='Path to the unencrypted PEM private key for --auth-cert. '
+             'Env: SAP_AUTH_KEY')
     arg_parser.add_argument(
         '--ashost', dest='ashost', type=str, default=None,
         help='Application Server address (DNS or IP)')
@@ -168,6 +208,8 @@ def parse_command_line(argv):
     if connection_factory is sap.cli.no_connection:
         return args
 
+    _report_auth_cert_cli_conflicts(arg_parser, args)
+
     sap.cli.resolve_default_connection_values(args)
 
     if _system_cert_store_applies(args):
@@ -196,11 +238,13 @@ def parse_command_line(argv):
                 'use the option --client or the environment variable SAP_CLIENT'
             )))
 
+    _report_auth_cert_resolved_conflicts(arg_parser, args)
+
     if not (args.snc_qop or args.snc_myname or args.snc_partnername):
-        # auth_plugin owns credential acquisition - do not prompt for either
-        # user or password. The plugin reads what it needs from its own
-        # source (env vars, browser, cert store, ...).
-        if not args.auth_plugin:
+        # auth_plugin owns credential acquisition and the server derives
+        # the user from a client certificate - do not prompt for either
+        # user or password in these modes.
+        if not args.auth_plugin and not args.auth_cert:
             if not args.user:
                 args.user = input('Login:')
 

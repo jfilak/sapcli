@@ -1,0 +1,38 @@
+"""PEM payloads for client certificate session initializer tests.
+
+The contents are structurally valid PEM blocks with dummy payloads - the
+initializer never parses the cryptographic material, it only inspects the
+PEM armor and headers.
+"""
+
+CERTIFICATE_PEM = '''-----BEGIN CERTIFICATE-----
+MIICdummycertificatepayloadAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+-----END CERTIFICATE-----
+'''
+
+PLAIN_KEY_PEM = '''-----BEGIN PRIVATE KEY-----
+MIIEdummyplainkeypayloadBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+-----END PRIVATE KEY-----
+'''
+
+ENCRYPTED_PKCS8_KEY_PEM = '''-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIIFdummyencryptedkeypayloadCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+-----END ENCRYPTED PRIVATE KEY-----
+'''
+
+ENCRYPTED_LEGACY_KEY_PEM = '''-----BEGIN RSA PRIVATE KEY-----
+Proc-Type: 4,ENCRYPTED
+DEK-Info: AES-128-CBC,0123456789ABCDEF0123456789ABCDEF
+
+MIIEdummylegacyencryptedkeypayloadDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+-----END RSA PRIVATE KEY-----
+'''
+
+COMBINED_CERT_AND_PLAIN_KEY_PEM = CERTIFICATE_PEM + PLAIN_KEY_PEM
+
+COMBINED_CERT_AND_ENCRYPTED_KEY_PEM = CERTIFICATE_PEM + ENCRYPTED_PKCS8_KEY_PEM
+
+SERVER_CA_PEM = '''-----BEGIN CERTIFICATE-----
+MIICdummyservercapayloadEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+-----END CERTIFICATE-----
+'''
