@@ -27,7 +27,7 @@ CONNECTION_FIELDS = (
 )
 
 USER_FIELDS = (
-    'user', 'password', 'auth_plugin',
+    'user', 'password', 'auth_plugin', 'auth_cert', 'auth_key',
 )
 
 CONTEXT_FIELDS = ()

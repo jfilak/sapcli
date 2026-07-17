@@ -7,6 +7,7 @@ Dependency modules are lazy loaded to enable partial modular installation.
 
 
 import os
+from collections import namedtuple
 from functools import partial
 from types import SimpleNamespace
 from sap import rfc
@@ -157,10 +158,11 @@ def adt_connection_from_args(args):
 def _build_session_initializer(args, conn_type=None, conn_path=None):
     """Pick the HTTPSessionInitializer for the given args.
 
-    Precedence: auth_plugin > OAuth > None (HTTPClient falls back to
-    BasicAuth). The three are mutually exclusive - the spec for
-    auth_plugin says so explicitly, and OAuth+plugin would be
-    nonsensical anyway since both want to own the session's auth.
+    Precedence: auth_plugin > client certificate > OAuth > None
+    (HTTPClient falls back to BasicAuth). The modes are mutually
+    exclusive - each wants to own the session's auth; the plugin outranks
+    the certificate because it is the designated escape hatch for advanced
+    certificate scenarios (secret stores, encrypted keys).
     """
 
     if getattr(args, 'auth_plugin', None):
@@ -169,6 +171,17 @@ def _build_session_initializer(args, conn_type=None, conn_path=None):
         # time we get here, args.password may have been populated from env
         # (the plugin's subprocess inherits it), and that is fine.
         return _build_plugin_initializer(args, conn_type, conn_path)
+
+    if getattr(args, 'auth_cert', None):
+        from sap.http.client_cert import ClientCertificateHTTPSessionInitializer
+
+        # No server_ca here - server trust stays owned by --ssl-server-cert,
+        # which HTTPClient.build_session applies after the initializer runs.
+        return ClientCertificateHTTPSessionInitializer(
+            args.auth_cert,
+            getattr(args, 'auth_key', None),
+            user=getattr(args, 'user', None),
+        )
 
     token_url = getattr(args, 'token_url', None)
     client_id = getattr(args, 'client_id', None)
@@ -349,6 +362,8 @@ def build_empty_connection_values():
         auth_plugin_cache_key=None,
         auth_plugin_disable_cache=None,
         auth_plugin_invalidate_cache=False,
+        auth_cert=None,
+        auth_key=None,
     )
 
 
@@ -428,6 +443,13 @@ def resolve_default_connection_values(args):
     if not args.user:
         args.user = os.getenv('SAP_USER') or config_values.get('user')
 
+    # The certificate resolver needs the pre-merge view of password and
+    # OAuth fields to tell which source supplied them, and must run before
+    # the plugin resolver - a higher-precedence certificate switches the
+    # mode away from a config-file auth_plugin (see
+    # _resolve_auth_plugin_default).
+    _resolve_auth_cert_default(args, config_values)
+
     if not args.password:
         args.password = os.getenv('SAP_PASSWORD') or config_values.get('password')
 
@@ -472,6 +494,106 @@ def _resolve_oauth_defaults(args, config_values):
         args.client_secret = os.getenv('SAP_CLIENT_SECRET') or config_values.get('client_secret')
 
 
+_OAUTH_FIELDS = ('token_url', 'client_id', 'client_secret')
+
+_AuthSource = namedtuple('_AuthSource', 'name cert key password oauth plugin')
+
+
+def _collect_auth_sources(args, config_values):
+    """Snapshot the authentication inputs of every source, most significant
+    first. Requires the pre-merge view of args.password and the OAuth
+    fields - see the resolver ordering in resolve_default_connection_values.
+    """
+
+    return (
+        _AuthSource(
+            name='command line',
+            cert=getattr(args, 'auth_cert', None),
+            key=getattr(args, 'auth_key', None),
+            password=bool(getattr(args, 'password', None)),
+            oauth=any(getattr(args, field, None) for field in _OAUTH_FIELDS),
+            plugin=bool(getattr(args, 'auth_plugin', None)),
+        ),
+        _AuthSource(
+            name='environment',
+            cert=os.getenv('SAP_AUTH_CERT'),
+            key=os.getenv('SAP_AUTH_KEY'),
+            password=bool(os.getenv('SAP_PASSWORD')),
+            oauth=any(os.getenv(f'SAP_{field.upper()}') for field in _OAUTH_FIELDS),
+            plugin=False,
+        ),
+        _AuthSource(
+            name='configuration file',
+            cert=config_values.get('auth_cert'),
+            key=config_values.get('auth_key'),
+            password=bool(config_values.get('password')),
+            oauth=any(config_values.get(field) for field in _OAUTH_FIELDS),
+            plugin=bool(config_values.get('auth_plugin')),
+        ),
+    )
+
+
+def _resolve_auth_cert_default(args, config_values):
+    """Resolve TLS client certificate authentication (auth_cert/auth_key).
+
+    The authentication mode is selected by the highest-precedence source
+    (CLI args > env vars > config file) that specifies any authentication
+    input - a certificate from a lower-precedence source never overrides
+    a password, OAuth, or plugin mode given at a higher level.
+
+    Certificate and key are taken from the winning source only: a key
+    from a higher source than the certificate is rejected (silently
+    dropping explicit input would hide a mismatched pair behind a cryptic
+    OpenSSL error), a key from a lower source is shadowed like any other
+    lower-precedence auth input. Mutual exclusivity with password /
+    auth_plugin / OAuth is enforced within the winning source.
+
+    Paths are ~-expanded - config files are shared between machines and
+    env vars may be set without shell expansion.
+    """
+
+    sources = _collect_auth_sources(args, config_values)
+
+    winner = next(
+        (source for source in sources
+         if source.cert or source.password or source.oauth or source.plugin),
+        None,
+    )
+
+    if winner is None or not winner.cert:
+        # No authentication input anywhere, or a password/OAuth/plugin
+        # mode won. A CLI/env key is kept visible for the orphan-key
+        # validation in parse_command_line.
+        args.auth_cert = None
+        args.auth_key = sources[0].key or sources[1].key
+        return
+
+    if winner.password:
+        raise SAPCliConfigError(
+            f'auth_cert and password are mutually exclusive (both from the '
+            f'{winner.name}): the client certificate replaces the password')
+
+    if winner.plugin:
+        raise SAPCliConfigError(
+            f'auth_cert and auth_plugin are mutually exclusive (both from '
+            f'the {winner.name})')
+
+    if winner.oauth:
+        raise SAPCliConfigError(
+            f'auth_cert and OAuth fields (token_url/client_id/client_secret) '
+            f'are mutually exclusive (both from the {winner.name})')
+
+    for higher in sources[:sources.index(winner)]:
+        if higher.key:
+            raise SAPCliConfigError(
+                f'auth_key from the {higher.name} cannot be paired with '
+                f'auth_cert from the {winner.name}: the certificate and the '
+                f'key must come from the same source')
+
+    args.auth_cert = os.path.expanduser(winner.cert)
+    args.auth_key = os.path.expanduser(winner.key) if winner.key else None
+
+
 def _resolve_auth_plugin_default(args, config_values):
     """Resolve the auth_plugin definition from the config file and enforce
     its mutual exclusivity with password / OAuth at the *config* level.
@@ -494,7 +616,11 @@ def _resolve_auth_plugin_default(args, config_values):
         return
 
     plugin = config_values.get('auth_plugin')
-    if not plugin:
+    # A certificate resolved from a higher-precedence source (CLI/env)
+    # switches the mode away from a config-file plugin. The plugin+cert
+    # combination *within* the config is rejected by
+    # _resolve_auth_cert_default before this code runs.
+    if not plugin or getattr(args, 'auth_cert', None):
         args.auth_plugin = None
         args.auth_plugin_cache_key = None
         _resolve_disable_cache(args, None)

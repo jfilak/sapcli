@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
@@ -12,8 +14,16 @@ from sap.http.auth_plugin import (
     ConnectionInfo,
 )
 from sap.http.client import HTTPClient, HTTPSessionInitializer
+from sap.http.client_cert import ClientCertificateError
 from sap.http.errors import UnauthorizedError
 from sap.http.external_session_initializer import HTTPExternalSessionInitializer
+
+from fixtures_sap_http_client_cert import (
+    CERTIFICATE_PEM,
+    ENCRYPTED_PKCS8_KEY_PEM,
+    PLAIN_KEY_PEM,
+    SERVER_CA_PEM,
+)
 
 
 def _connection():
@@ -243,6 +253,18 @@ class TestHeaderDispatch(unittest.TestCase):
 
 class TestCertificatesDispatch(unittest.TestCase):
 
+    def setUp(self):
+        # pylint: disable=consider-using-with
+        self._tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp_dir.cleanup)
+
+    def _write(self, name, content):
+        path = os.path.join(self._tmp_dir.name, name)
+        with open(path, 'w', encoding='ascii') as pem_file:
+            pem_file.write(content)
+
+        return path
+
     def _initialize(self, content):
         with patch(
             'sap.http.external_session_initializer.run_plugin',
@@ -256,36 +278,69 @@ class TestCertificatesDispatch(unittest.TestCase):
             return session
 
     def test_certificate_and_key_set_session_cert(self):
+        cert = self._write('client.crt', CERTIFICATE_PEM)
+        key = self._write('client.key', PLAIN_KEY_PEM)
+
         session = self._initialize({
             'type': 'certificates',
-            'certificate': '/etc/ssl/client.pem',
-            'key': '/etc/ssl/client.key',
+            'certificate': cert,
+            'key': key,
         })
 
-        self.assertEqual(session.cert, ('/etc/ssl/client.pem', '/etc/ssl/client.key'))
+        self.assertEqual(session.cert, (cert, key))
 
     def test_issuer_certificate_sets_session_verify(self):
+        cert = self._write('client.crt', CERTIFICATE_PEM)
+        key = self._write('client.key', PLAIN_KEY_PEM)
+        issuer = self._write('ca.pem', SERVER_CA_PEM)
+
         session = self._initialize({
             'type': 'certificates',
-            'certificate': '/etc/ssl/client.pem',
-            'key': '/etc/ssl/client.key',
-            'issuer_certificate': '/etc/ssl/ca.pem',
+            'certificate': cert,
+            'key': key,
+            'issuer_certificate': issuer,
         })
 
-        self.assertEqual(session.verify, '/etc/ssl/ca.pem')
+        self.assertEqual(session.verify, issuer)
 
     def test_missing_certificate_raises(self):
+        key = self._write('client.key', PLAIN_KEY_PEM)
+
         with self.assertRaisesRegex(AuthPluginError, "certificate"):
             self._initialize({
                 'type': 'certificates',
-                'key': '/etc/ssl/client.key',
+                'key': key,
             })
 
     def test_missing_key_raises(self):
+        cert = self._write('client.crt', CERTIFICATE_PEM)
+
         with self.assertRaisesRegex(AuthPluginError, "key"):
             self._initialize({
                 'type': 'certificates',
-                'certificate': '/etc/ssl/client.pem',
+                'certificate': cert,
+            })
+
+    def test_nonexistent_certificate_file_raises(self):
+        key = self._write('client.key', PLAIN_KEY_PEM)
+        missing = os.path.join(self._tmp_dir.name, 'nosuch.crt')
+
+        with self.assertRaisesRegex(ClientCertificateError, 'nosuch.crt'):
+            self._initialize({
+                'type': 'certificates',
+                'certificate': missing,
+                'key': key,
+            })
+
+    def test_encrypted_key_file_raises(self):
+        cert = self._write('client.crt', CERTIFICATE_PEM)
+        key = self._write('client.key', ENCRYPTED_PKCS8_KEY_PEM)
+
+        with self.assertRaisesRegex(ClientCertificateError, 'encrypted'):
+            self._initialize({
+                'type': 'certificates',
+                'certificate': cert,
+                'key': key,
             })
 
 

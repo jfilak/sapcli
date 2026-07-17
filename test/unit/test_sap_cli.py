@@ -1556,5 +1556,348 @@ class TestBuildEmptyConnectionValuesDisableCache(unittest.TestCase):
         self.assertIsNone(values.auth_plugin_disable_cache)
 
 
+class TestBuildEmptyConnectionValuesAuthCert(unittest.TestCase):
+
+    def test_empty_values_include_auth_cert(self):
+        values = sap.cli.build_empty_connection_values()
+
+        self.assertTrue(hasattr(values, 'auth_cert'))
+        self.assertIsNone(values.auth_cert)
+
+    def test_empty_values_include_auth_key(self):
+        values = sap.cli.build_empty_connection_values()
+
+        self.assertTrue(hasattr(values, 'auth_key'))
+        self.assertIsNone(values.auth_key)
+
+
+class AuthCertArgsTestCase(unittest.TestCase):
+    """Base with the args namespace both resolver and factory tests need."""
+
+    def _make_args(self, **kwargs):
+        defaults = dict(
+            ashost=None, sysnr=None, client=None, port=None,
+            ssl=None, verify=None, ssl_server_cert=None,
+            user=None, password=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin=None, auth_cert=None, auth_key=None,
+        )
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def _config_with_user(self, user_def, connection_def=None):
+        return ConfigFile({
+            'current-context': 'ctx',
+            'connections': {
+                'srv': connection_def or {'ashost': 'h', 'client': '100'},
+            },
+            'users': {'u': user_def},
+            'contexts': {'ctx': {'connection': 'srv', 'user': 'u'}},
+        }, TEST_CONFIG_PATH)
+
+
+class TestResolveDefaultConnectionValuesAuthCert(AuthCertArgsTestCase):
+    """auth_cert/auth_key are propagated from the resolved config context
+       onto args (with ~ expansion) so the connection factory can build a
+       ClientCertificateHTTPSessionInitializer.
+    """
+
+    def test_auth_cert_propagated_from_config(self):
+        config_file = self._config_with_user({
+            'auth_cert': '/certs/me.crt',
+            'auth_key': '/certs/me.key',
+        })
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.auth_cert, '/certs/me.crt')
+        self.assertEqual(args.auth_key, '/certs/me.key')
+
+    def test_auth_cert_absent_when_not_in_config(self):
+        config_file = self._config_with_user({'user': 'USR', 'password': 'pwd'})
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIsNone(args.auth_cert)
+        self.assertIsNone(args.auth_key)
+
+    def test_auth_cert_from_env(self):
+        config_file = self._config_with_user({'user': 'USR'})
+        args = self._make_args(config_file=config_file)
+
+        env = {
+            'SAP_AUTH_CERT': '/env/me.crt',
+            'SAP_AUTH_KEY': '/env/me.key',
+        }
+        with patch.dict('os.environ', env, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.auth_cert, '/env/me.crt')
+        self.assertEqual(args.auth_key, '/env/me.key')
+
+    def test_cli_args_beat_env_and_config(self):
+        config_file = self._config_with_user({
+            'auth_cert': '/cfg/me.crt',
+            'auth_key': '/cfg/me.key',
+        })
+        args = self._make_args(
+            config_file=config_file,
+            auth_cert='/cli/me.crt',
+            auth_key='/cli/me.key',
+        )
+
+        env = {
+            'SAP_AUTH_CERT': '/env/me.crt',
+            'SAP_AUTH_KEY': '/env/me.key',
+        }
+        with patch.dict('os.environ', env, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.auth_cert, '/cli/me.crt')
+        self.assertEqual(args.auth_key, '/cli/me.key')
+
+    def test_config_paths_are_user_expanded(self):
+        config_file = self._config_with_user({
+            'auth_cert': '~/certs/me.crt',
+            'auth_key': '~/certs/me.key',
+        })
+        args = self._make_args(config_file=config_file)
+
+        env = {'HOME': '/home/elbezi'}
+        with patch.dict('os.environ', env, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.auth_cert, '/home/elbezi/certs/me.crt')
+        self.assertEqual(args.auth_key, '/home/elbezi/certs/me.key')
+
+
+class TestResolveAuthCertMutualExclusivity(AuthCertArgsTestCase):
+    """auth_cert must conflict with password / auth_plugin / OAuth fields
+       at the config level (when they appear together in a resolved
+       context), not at the args level - mirroring auth_plugin so env vars
+       cannot trip the check.
+    """
+
+    def test_password_with_auth_cert_in_user_raises(self):
+        config_file = self._config_with_user({
+            'password': 'secret',
+            'auth_cert': '/certs/me.crt',
+        })
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True), \
+             self.assertRaises(SAPCliConfigError) as cm:
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIn('mutually exclusive', str(cm.exception).lower())
+
+    def test_auth_plugin_with_auth_cert_in_user_raises(self):
+        config_file = self._config_with_user({
+            'auth_cert': '/certs/me.crt',
+            'auth_plugin': {'command': '/p'},
+        })
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True), \
+             self.assertRaises(SAPCliConfigError) as cm:
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIn('mutually exclusive', str(cm.exception).lower())
+
+    def test_oauth_fields_with_auth_cert_raises(self):
+        config_file = self._config_with_user(
+            {'auth_cert': '/certs/me.crt'},
+            connection_def={
+                'ashost': 'h', 'client': '100',
+                'token_url': 'https://t', 'client_id': 'cid',
+                'client_secret': 'csec',
+            },
+        )
+        args = self._make_args(config_file=config_file)
+
+        with patch.dict('os.environ', {}, clear=True), \
+             self.assertRaises(SAPCliConfigError) as cm:
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIn('mutually exclusive', str(cm.exception).lower())
+
+    def test_env_password_beats_config_auth_cert(self):
+        # Strict precedence: env > config selects the authentication mode,
+        # so an exported SAP_PASSWORD wins over a config-file certificate.
+        config_file = self._config_with_user({'auth_cert': '/certs/me.crt'})
+        args = self._make_args(config_file=config_file)
+
+        env = {'SAP_PASSWORD': 'exported'}
+        with patch.dict('os.environ', env, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIsNone(args.auth_cert)
+        self.assertEqual(args.password, 'exported')
+
+    def test_env_oauth_beats_config_auth_cert(self):
+        config_file = self._config_with_user({'auth_cert': '/certs/me.crt'})
+        args = self._make_args(config_file=config_file)
+
+        env = {
+            'SAP_TOKEN_URL': 'https://t',
+            'SAP_CLIENT_ID': 'cid',
+            'SAP_CLIENT_SECRET': 'csec',
+        }
+        with patch.dict('os.environ', env, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIsNone(args.auth_cert)
+        self.assertEqual(args.token_url, 'https://t')
+
+    def test_env_cert_with_env_password_raises(self):
+        # Within one source the modes are contradictory - same rule the
+        # config level and the CLI level (parse_command_line) apply.
+        config_file = self._config_with_user({'user': 'USR'})
+        args = self._make_args(config_file=config_file)
+
+        env = {'SAP_AUTH_CERT': '/env/me.crt', 'SAP_PASSWORD': 'pwd'}
+        with patch.dict('os.environ', env, clear=True), \
+             self.assertRaises(SAPCliConfigError) as cm:
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIn('mutually exclusive', str(cm.exception).lower())
+
+    def test_cli_key_with_config_cert_raises(self):
+        # An explicit key must never be silently dropped, and pairing it
+        # with a certificate from another source is a mismatch waiting to
+        # happen - reject the combination.
+        config_file = self._config_with_user({'auth_cert': '/cfg/me.crt'})
+        args = self._make_args(config_file=config_file, auth_key='/cli/me.key')
+
+        with patch.dict('os.environ', {}, clear=True), \
+             self.assertRaises(SAPCliConfigError) as cm:
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIn('same source', str(cm.exception).lower())
+
+    def test_env_key_with_config_cert_raises(self):
+        config_file = self._config_with_user({'auth_cert': '/cfg/me.crt'})
+        args = self._make_args(config_file=config_file)
+
+        env = {'SAP_AUTH_KEY': '/env/me.key'}
+        with patch.dict('os.environ', env, clear=True), \
+             self.assertRaises(SAPCliConfigError) as cm:
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertIn('same source', str(cm.exception).lower())
+
+    def test_env_key_shadowed_by_cli_cert(self):
+        # The winning source provides the whole cert+key pair; a leftover
+        # env key is shadowed like any other lower-precedence auth input,
+        # so the CLI certificate is treated as a combined PEM file.
+        config_file = self._config_with_user({'user': 'USR'})
+        args = self._make_args(config_file=config_file, auth_cert='/cli/me.pem')
+
+        env = {'SAP_AUTH_KEY': '/env/me.key'}
+        with patch.dict('os.environ', env, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.auth_cert, '/cli/me.pem')
+        self.assertIsNone(args.auth_key)
+
+    def test_cli_auth_cert_overrides_config_auth_plugin(self):
+        # CLI > config: an explicit --auth-cert switches the mode away
+        # from a config-file auth_plugin instead of erroring out.
+        config_file = self._config_with_user({
+            'auth_plugin': {'command': '/p'},
+        })
+        args = self._make_args(config_file=config_file, auth_cert='/cli/me.crt')
+
+        with patch.dict('os.environ', {}, clear=True):
+            sap.cli.resolve_default_connection_values(args)
+
+        self.assertEqual(args.auth_cert, '/cli/me.crt')
+        self.assertIsNone(args.auth_plugin)
+
+
+class TestAuthCertSessionInitializer(AuthCertArgsTestCase):
+    """adt_connection_from_args must construct a
+       ClientCertificateHTTPSessionInitializer when args.auth_cert is set.
+    """
+
+    def _make_connection_args(self, **overrides):
+        defaults = dict(
+            ashost='h.example.com', client='100', user=None, password=None,
+            port=443, ssl=True, verify=True, ssl_server_cert=None,
+            token_url=None, client_id=None, client_secret=None,
+            auth_plugin=None, auth_cert=None, auth_key=None,
+        )
+        defaults.update(overrides)
+        return SimpleNamespace(**defaults)
+
+    def test_cert_initializer_when_auth_cert_set(self):
+        from sap.http.client_cert import ClientCertificateHTTPSessionInitializer
+
+        args = self._make_connection_args(
+            auth_cert='/certs/me.crt', auth_key='/certs/me.key', user='ELBEZI',
+        )
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        _, kwargs = mock_connection.call_args
+        initializer = kwargs.get('session_initializer')
+        self.assertIsInstance(initializer, ClientCertificateHTTPSessionInitializer)
+        self.assertEqual(initializer._certificate, '/certs/me.crt')
+        self.assertEqual(initializer._key, '/certs/me.key')
+        self.assertIsNone(initializer._server_ca)
+        self.assertEqual(initializer._user, 'ELBEZI')
+
+    def test_cert_initializer_without_key(self):
+        from sap.http.client_cert import ClientCertificateHTTPSessionInitializer
+
+        args = self._make_connection_args(auth_cert='/certs/me.pem')
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        _, kwargs = mock_connection.call_args
+        initializer = kwargs.get('session_initializer')
+        self.assertIsInstance(initializer, ClientCertificateHTTPSessionInitializer)
+        self.assertEqual(initializer._certificate, '/certs/me.pem')
+        self.assertIsNone(initializer._key)
+
+    def test_auth_plugin_beats_auth_cert(self):
+        from sap.http.external_session_initializer import (
+            HTTPExternalSessionInitializer,
+        )
+
+        args = self._make_connection_args(
+            auth_plugin={'command': '/p'},
+            auth_cert='/certs/me.crt',
+        )
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        _, kwargs = mock_connection.call_args
+        self.assertIsInstance(
+            kwargs.get('session_initializer'), HTTPExternalSessionInitializer)
+
+    def test_auth_cert_beats_oauth(self):
+        from sap.http.client_cert import ClientCertificateHTTPSessionInitializer
+
+        args = self._make_connection_args(
+            auth_cert='/certs/me.crt',
+            token_url='https://t', client_id='cid', client_secret='csec',
+        )
+
+        with patch('sap.adt.Connection') as mock_connection:
+            sap.cli.adt_connection_from_args(args)
+
+        _, kwargs = mock_connection.call_args
+        self.assertIsInstance(
+            kwargs.get('session_initializer'), ClientCertificateHTTPSessionInitializer)
+
+
 if __name__ == '__main__':
     unittest.main()

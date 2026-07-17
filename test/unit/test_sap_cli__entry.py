@@ -471,6 +471,143 @@ class TestParseCommandLine(unittest.TestCase):
             self.assertFalse(args.auth_plugin_disable_cache, msg=variant)
 
 
+class TestParseCommandLineAuthCert(unittest.TestCase):
+
+    def setUp(self):
+        self._get_commands_patcher = patch('sap.cli.get_commands')
+        fake_commands = self._get_commands_patcher.start()
+        self._fake_cmd = make_mock_command()
+        fake_commands.return_value = [(Mock(), self._fake_cmd)]
+
+        self._config_patcher = patch('sap.cli._entry.ConfigFile.load', return_value=ConfigFile({}, TEST_CONFIG_PATH))
+        self._config_patcher.start()
+
+    def tearDown(self):
+        self._config_patcher.stop()
+        self._get_commands_patcher.stop()
+
+    def _cert_parameters(self, *extra):
+        """Tested parameters without user/password/no-ssl, with the given
+           extra global options inserted before the command name."""
+
+        params = get_tested_parameters()
+        remove_cmd_param_from_list(params, '--user')
+        remove_cmd_param_from_list(params, '--password')
+        params.remove('--no-ssl')
+        params[1:1] = list(extra)
+        return params
+
+    def test_args_auth_cert_and_key_skip_prompts(self):
+        params = self._cert_parameters(
+            '--auth-cert', '/certs/me.crt', '--auth-key', '/certs/me.key')
+
+        getpass_mock = Mock(return_value='should-not-be-used')
+        input_mock = Mock(return_value='should-not-be-used')
+
+        with patch('getpass.getpass', getpass_mock), \
+             patch('builtins.input', input_mock):
+            args = entry.parse_command_line(params)
+
+        getpass_mock.assert_not_called()
+        input_mock.assert_not_called()
+        self.assertEqual(args.auth_cert, '/certs/me.crt')
+        self.assertEqual(args.auth_key, '/certs/me.key')
+        self.assertIsNone(args.user)
+        self.assertIsNone(args.password)
+
+    def test_args_auth_cert_without_key_is_combined_file(self):
+        params = self._cert_parameters('--auth-cert', '/certs/me.pem')
+
+        with patch('builtins.input', Mock(return_value='unused')):
+            args = entry.parse_command_line(params)
+
+        self.assertEqual(args.auth_cert, '/certs/me.pem')
+        self.assertIsNone(args.auth_key)
+
+    def test_args_auth_cert_with_user_is_allowed(self):
+        # Some servers map one certificate to several users via login
+        # modules and honor a user hint - the combination is legal.
+        params = self._cert_parameters(
+            '--auth-cert', '/certs/me.crt', '--user', 'fantomas')
+
+        args = entry.parse_command_line(params)
+
+        self.assertEqual(args.auth_cert, '/certs/me.crt')
+        self.assertEqual(args.user, 'fantomas')
+
+    def test_args_auth_key_without_auth_cert_errors(self):
+        params = self._cert_parameters('--auth-key', '/certs/me.key')
+
+        with patch('sys.stderr', new_callable=StringIO) as fake_output, \
+             self.assertRaises(SystemExit) as exit_cm:
+            entry.parse_command_line(params)
+
+        self.assertEqual(str(exit_cm.exception), '3')
+        self.assertIn('--auth-cert', fake_output.getvalue())
+
+    def test_args_auth_cert_with_password_errors(self):
+        params = self._cert_parameters(
+            '--auth-cert', '/certs/me.crt', '--password', 'Down1oad')
+
+        with patch('sys.stderr', new_callable=StringIO) as fake_output, \
+             self.assertRaises(SystemExit) as exit_cm:
+            entry.parse_command_line(params)
+
+        self.assertEqual(str(exit_cm.exception), '3')
+        self.assertIn('mutually exclusive', fake_output.getvalue())
+
+    def test_args_auth_cert_with_no_ssl_errors(self):
+        params = self._cert_parameters('--auth-cert', '/certs/me.crt', '--no-ssl')
+
+        with patch('sys.stderr', new_callable=StringIO) as fake_output, \
+             self.assertRaises(SystemExit) as exit_cm:
+            entry.parse_command_line(params)
+
+        self.assertEqual(str(exit_cm.exception), '3')
+        self.assertIn('TLS', fake_output.getvalue())
+
+    def test_args_skip_prompts_when_config_auth_cert(self):
+        """When the resolved context configures auth_cert, the user prompt
+           and the password prompt must both be suppressed - the server
+           derives the user from the certificate.
+        """
+
+        config_data = {
+            'current-context': 'cert-ctx',
+            'connections': {
+                'server': {'ashost': 'h.example.com', 'client': '100'},
+            },
+            'users': {
+                'cert-user': {'auth_cert': '/certs/me.crt'},
+            },
+            'contexts': {
+                'cert-ctx': {'connection': 'server', 'user': 'cert-user'},
+            },
+        }
+        self._config_patcher.stop()
+        self._config_patcher = patch(
+            'sap.cli._entry.ConfigFile.load',
+            return_value=ConfigFile(config_data, TEST_CONFIG_PATH),
+        )
+        self._config_patcher.start()
+
+        params = self._cert_parameters()
+        remove_cmd_param_from_list(params, '--ashost')
+        remove_cmd_param_from_list(params, '--client')
+
+        getpass_mock = Mock(return_value='should-not-be-used')
+        input_mock = Mock(return_value='should-not-be-used')
+
+        with patch('getpass.getpass', getpass_mock), \
+             patch('builtins.input', input_mock):
+            args = entry.parse_command_line(params)
+
+        getpass_mock.assert_not_called()
+        input_mock.assert_not_called()
+        self.assertEqual(args.auth_cert, '/certs/me.crt')
+        self.assertIsNone(args.password)
+
+
 class TestParseCommandLineNoCommand(unittest.TestCase):
 
     @patch('sap.cli._entry.ConfigFile.load', return_value=ConfigFile({}, TEST_CONFIG_PATH))
