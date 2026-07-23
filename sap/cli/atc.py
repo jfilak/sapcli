@@ -64,56 +64,73 @@ def _format_human_location(location):
     return f'line={line}, column={column}'
 
 
+def _collect_findings(all_results, error_level, priority_filter):
+    """Walk all worklists and yield ``(obj, findings)`` pairs where findings
+       have a priority within ``priority_filter``.
+
+       Objects left without any finding after filtering are skipped so that
+       formatters never emit empty output for them. The returned ``stats``
+       dict carries the ``exit_code`` (1 if any surviving finding is at or
+       below ``error_level``, otherwise 0), updated as the generator is
+       consumed.
+    """
+
+    stats = {'exit_code': 0}
+
+    def generate():
+        for run_results in all_results:
+            for obj in run_results.objects:
+                findings = [finding for finding in obj.findings
+                            if int(finding.priority) <= priority_filter]
+                if not findings:
+                    continue
+
+                if any(int(finding.priority) <= error_level for finding in findings):
+                    stats['exit_code'] = 1
+
+                yield obj, findings
+
+    return generate(), stats
+
+
 def print_worklists_to_stream(all_results, stream, error_level=99, priority_filter=5):
     """Print results to stream"""
 
-    pad = ''
-    ret = 0
-    for run_results in all_results:
-        for obj in run_results.objects:
-            stream.write(f'{obj.object_type_id}/{obj.name}\n')
-            finiding_pad = pad + ' '
-            for finding in obj.findings:
-                if int(finding.priority) > priority_filter:
-                    continue
-                if int(finding.priority) <= error_level:
-                    ret += 1
+    objects, stats = _collect_findings(all_results, error_level, priority_filter)
+    for obj, findings in objects:
+        stream.write(f'{obj.object_type_id}/{obj.name}\n')
 
-                location_suffix = _format_human_location(finding.location)
-                prio = finding.priority
-                title = finding.check_title
-                msg = finding.message_title
-                stream.write(f'*{finiding_pad}{prio} :: {title} :: {msg} :: {location_suffix}\n')
+        for finding in findings:
+            location_suffix = _format_human_location(finding.location)
+            prio = finding.priority
+            title = finding.check_title
+            msg = finding.message_title
+            stream.write(f'* {prio} :: {title} :: {msg} :: {location_suffix}\n')
 
-    return 0 if ret < 1 else 1
+    return stats['exit_code']
 
 
 # pylint: disable=invalid-name
 def print_worklists_as_html_to_stream(all_results, stream, error_level=99, priority_filter=5):
     """Print results as html table to stream"""
 
-    ret = 0
     stream.write('<table>\n')
-    for run_results in all_results:
-        for obj in run_results.objects:
-            stream.write('<tr><th>Object type ID</th>\n'
-                         '<th>Name</th></tr>\n')
-            stream.write(f'<tr><td>{escape(obj.object_type_id)}</td>\n'
-                         f'<td>{escape(obj.name)}</td></tr>\n')
-            stream.write('<tr><th>Priority</th>\n'
-                         '<th>Check title</th>\n'
-                         '<th>Message title</th></tr>\n')
-            for finding in obj.findings:
-                if int(finding.priority) > priority_filter:
-                    continue
-                if int(finding.priority) <= error_level:
-                    ret += 1
-                stream.write(f'<tr><td>{escape(str(finding.priority))}</td>\n'
-                             f'<td>{escape(finding.check_title)}</td>\n'
-                             f'<td>{escape(finding.message_title)}</td></tr>\n')
+    objects, stats = _collect_findings(all_results, error_level, priority_filter)
+    for obj, findings in objects:
+        stream.write('<tr><th>Object type ID</th>\n'
+                     '<th>Name</th></tr>\n')
+        stream.write(f'<tr><td>{escape(obj.object_type_id)}</td>\n'
+                     f'<td>{escape(obj.name)}</td></tr>\n')
+        stream.write('<tr><th>Priority</th>\n'
+                     '<th>Check title</th>\n'
+                     '<th>Message title</th></tr>\n')
+        for finding in findings:
+            stream.write(f'<tr><td>{escape(str(finding.priority))}</td>\n'
+                         f'<td>{escape(finding.check_title)}</td>\n'
+                         f'<td>{escape(finding.message_title)}</td></tr>\n')
 
     stream.write('</table>\n')
-    return 0 if ret < 1 else 1
+    return stats['exit_code']
 
 
 def replace_slash(name):
@@ -149,31 +166,27 @@ def print_worklists_as_checkstyle_xml_to_stream(all_results, stream, error_level
 
     stream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
     stream.write(f'<checkstyle version="{CHECKSTYLE_VERSION}">\n')
-    ret = 0
-    for run_results in all_results:
-        for obj in run_results.objects:
-            package_name = replace_slash(obj.typ)
-            name = replace_slash(f'{obj.package_name}/{obj.name}')
-            filename = f'{package_name}/{name}'
-            stream.write(f'<file name={quoteattr(filename)}>\n')
-            for finding in obj.findings:
-                if int(finding.priority) > priority_filter:
-                    continue
-                if int(finding.priority) <= error_level:
-                    ret += 1
-                severity = severity_mapping.get(str(finding.priority), INFO)
-                line, column = get_line_and_column(finding.location)
-                stream.write(f'<error '
-                             f'line={quoteattr(line)} '
-                             f'column={quoteattr(column)} '
-                             f'severity={quoteattr(severity)} '
-                             f'message={quoteattr(finding.message_title)} '
-                             f'source={quoteattr(finding.check_title)}'
-                             f'/>\n')
-            stream.write('</file>\n')
+    objects, stats = _collect_findings(all_results, error_level, priority_filter)
+    for obj, findings in objects:
+        filename = f'{replace_slash(obj.typ)}/{replace_slash(f"{obj.package_name}/{obj.name}")}'
+
+        stream.write(f'<file name={quoteattr(filename)}>\n')
+
+        for finding in findings:
+            severity = severity_mapping.get(str(finding.priority), INFO)
+            line, column = get_line_and_column(finding.location)
+            stream.write(f'<error '
+                         f'line={quoteattr(line)} '
+                         f'column={quoteattr(column)} '
+                         f'severity={quoteattr(severity)} '
+                         f'message={quoteattr(finding.message_title)} '
+                         f'source={quoteattr(finding.check_title)}'
+                         f'/>\n')
+
+        stream.write('</file>\n')
 
     stream.write('</checkstyle>\n')
-    return 0 if ret < 1 else 1
+    return stats['exit_code']
 
 
 @CommandGroup.command()
