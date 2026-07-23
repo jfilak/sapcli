@@ -387,6 +387,12 @@ class TestPrintWorklistToStream(TestPrintWorklistMixin, unittest.TestCase):
 ''')
         self.assertEqual(1, ret)
 
+    def test_priority_filter_0_skips_object(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_to_stream([self.worklist], output, priority_filter=0)
+        self.assertEqual(output.getvalue(), '')
+        self.assertEqual(0, ret)
+
 class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase):
 
     def test_all_loops(self):
@@ -494,6 +500,14 @@ class TestPrintWorklistToStreamAsHtml(TestPrintWorklistMixin, unittest.TestCase)
 </table>
 ''')
         self.assertEqual(1, ret)
+
+    def test_priority_filter_0_skips_object(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_as_html_to_stream([self.worklist], output, priority_filter=0)
+        self.assertEqual(output.getvalue(),
+                         '<table>\n'
+                         '</table>\n')
+        self.assertEqual(0, ret)
 
 
 class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
@@ -615,6 +629,15 @@ class TestPrintWorklistToStreamAsXml(TestPrintWorklistMixin, unittest.TestCase):
 </checkstyle>
 ''')
         self.assertEqual(1, ret)
+
+    def test_priority_filter_0_skips_file(self):
+        output = StringIO()
+        ret = sap.cli.atc.print_worklists_as_checkstyle_xml_to_stream([self.worklist], output, priority_filter=0)
+        self.assertEqual(output.getvalue(),
+                         '<?xml version="1.0" encoding="UTF-8"?>\n'
+                         '<checkstyle version="8.36">\n'
+                         '</checkstyle>\n')
+        self.assertEqual(0, ret)
 
 
 class TestDump(unittest.TestCase):
