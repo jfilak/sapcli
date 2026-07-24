@@ -112,6 +112,33 @@ Finally install **sapcli**:
 - Run: `pipx install <the copied link>`
 - Verify the installation by running: `sapcli --version`
 
+#### Installing sapcli.exe to a custom folder
+
+By default, pipx places `sapcli.exe` in `%USERPROFILE%\.local\bin`. If that folder
+is scanned by Microsoft Defender (or another antivirus tool) and causes performance
+issues or blocks execution, you can install `sapcli.exe` into a folder that is
+excluded from scanning instead. Set the `PIPX_BIN_DIR` environment variable before
+running the install command:
+
+```cmd
+set PIPX_BIN_DIR=C:\REPLACE_ME\sapcli
+pipx install <the copied link>
+```
+
+Afterwards, make sure `C:\REPLACE_ME\sapcli` is on your PATH, or run:
+
+```cmd
+pipx ensurepath
+```
+
+`PIPX_BIN_DIR` only controls where the `sapcli.exe` shim is placed — the Python
+virtual environment resides under the configured `PIPX_HOME` location (in the
+`venvs\sapcli` subfolder). You can check the current `PIPX_HOME` value by running:
+
+```cmd
+pipx environment --value PIPX_HOME
+```
+
 ### Enable RFC features
 
 RFC features are not enabled until you install the required dependencies, but sapcli is perfectly operational even without them because the other features only need HTTP connectivity.
