@@ -114,8 +114,10 @@ Finally install **sapcli**:
 
 #### Installing sapcli.exe to a custom folder
 
-If you want `sapcli.exe` to be placed in a specific folder instead of the default
-`%USERPROFILE%\.local\bin`, set the `PIPX_BIN_DIR` environment variable before
+By default, pipx places `sapcli.exe` in `%USERPROFILE%\.local\bin`. If that folder
+is scanned by Microsoft Defender (or another antivirus tool) and causes performance
+issues or blocks execution, you can install `sapcli.exe` into a folder that is
+excluded from scanning instead. Set the `PIPX_BIN_DIR` environment variable before
 running the install command:
 
 ```cmd
