@@ -32,3 +32,4 @@
 30. [abap](commands/abap.md) - ABAP utilities like run or find
 31. [messageclass](commands/messageclass.md) - Message Classes
 32. [ddlx](commands/metadata_extension.md) - CDS Metadata Extension
+33. [enhs](commands/enhs.md) - Enhancement Spots

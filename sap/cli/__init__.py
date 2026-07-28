@@ -26,8 +26,8 @@ class CommandsCache:
     local = None
 
     @staticmethod
-    def commands():
-        """Returns list of available commands"""
+    def _adt_commands():
+        """Returns the list of the commands communicating over ADT"""
 
         import sap.cli.program
         import sap.cli.include
@@ -43,15 +43,12 @@ class CommandsCache:
         import sap.cli.datapreview
         import sap.cli.package
         import sap.cli.cts
-        import sap.cli.gcts
         import sap.cli.checkout
         import sap.cli.checkin
         import sap.cli.activation
         import sap.cli.adt
         import sap.cli.abapgit
-        import sap.cli.bsp
         import sap.cli.featuretoggle
-        import sap.cli.flp
         import sap.cli.rap
         import sap.cli.srvd
         import sap.cli.srvb
@@ -64,44 +61,57 @@ class CommandsCache:
         import sap.cli.abap
         import sap.cli.transaction
         import sap.cli.messageclass
+        import sap.cli.enhs
+
+        return [
+            (adt_connection_from_args, sap.cli.program.CommandGroup()),
+            (adt_connection_from_args, sap.cli.include.CommandGroup()),
+            (adt_connection_from_args, sap.cli.interface.CommandGroup()),
+            (adt_connection_from_args, sap.cli.abapclass.CommandGroup()),
+            (adt_connection_from_args, sap.cli.datadefinition.CommandGroup()),
+            (adt_connection_from_args, sap.cli.metadatextension.CommandGroup()),
+            (adt_connection_from_args, sap.cli.accesscontrol.CommandGroup()),
+            (adt_connection_from_args, sap.cli.behaviordefinition.CommandGroup()),
+            (adt_connection_from_args, sap.cli.function.CommandGroupFunctionGroup()),
+            (adt_connection_from_args, sap.cli.function.CommandGroupFunctionModule()),
+            (adt_connection_from_args, sap.cli.aunit.CommandGroup()),
+            (adt_connection_from_args, sap.cli.atc.CommandGroup()),
+            (adt_connection_from_args, sap.cli.datapreview.CommandGroup()),
+            (adt_connection_from_args, sap.cli.package.CommandGroup()),
+            (adt_connection_from_args, sap.cli.cts.CommandGroup()),
+            (adt_connection_from_args, sap.cli.checkout.CommandGroup()),
+            (adt_connection_from_args, sap.cli.activation.CommandGroup()),
+            (adt_connection_from_args, sap.cli.adt.CommandGroup()),
+            (adt_connection_from_args, sap.cli.abapgit.CommandGroup()),
+            (adt_connection_from_args, sap.cli.rap.CommandGroup()),
+            (adt_connection_from_args, sap.cli.srvd.CommandGroup()),
+            (adt_connection_from_args, sap.cli.srvb.CommandGroup()),
+            (adt_connection_from_args, sap.cli.table.CommandGroup()),
+            (adt_connection_from_args, sap.cli.structure.CommandGroup()),
+            (adt_connection_from_args, sap.cli.dataelement.CommandGroup()),
+            (adt_connection_from_args, sap.cli.domain.CommandGroup()),
+            (adt_connection_from_args, sap.cli.authorizationfield.CommandGroup()),
+            (adt_connection_from_args, sap.cli.checkin.CommandGroup()),
+            (adt_connection_from_args, sap.cli.badi.CommandGroup()),
+            (adt_connection_from_args, sap.cli.featuretoggle.CommandGroup()),
+            (adt_connection_from_args, sap.cli.abap.CommandGroup()),
+            (adt_connection_from_args, sap.cli.transaction.CommandGroup()),
+            (adt_connection_from_args, sap.cli.messageclass.CommandGroup()),
+            (adt_connection_from_args, sap.cli.enhs.CommandGroup()),
+        ]
+
+    @staticmethod
+    def commands():
+        """Returns list of available commands"""
+
+        import sap.cli.gcts
+        import sap.cli.bsp
+        import sap.cli.flp
         import sap.cli.config
 
         if CommandsCache.adt is None:
-            CommandsCache.adt = [
-                (adt_connection_from_args, sap.cli.program.CommandGroup()),
-                (adt_connection_from_args, sap.cli.include.CommandGroup()),
-                (adt_connection_from_args, sap.cli.interface.CommandGroup()),
-                (adt_connection_from_args, sap.cli.abapclass.CommandGroup()),
-                (adt_connection_from_args, sap.cli.datadefinition.CommandGroup()),
-                (adt_connection_from_args, sap.cli.metadatextension.CommandGroup()),
-                (adt_connection_from_args, sap.cli.accesscontrol.CommandGroup()),
-                (adt_connection_from_args, sap.cli.behaviordefinition.CommandGroup()),
-                (adt_connection_from_args, sap.cli.function.CommandGroupFunctionGroup()),
-                (adt_connection_from_args, sap.cli.function.CommandGroupFunctionModule()),
-                (adt_connection_from_args, sap.cli.aunit.CommandGroup()),
-                (adt_connection_from_args, sap.cli.atc.CommandGroup()),
-                (adt_connection_from_args, sap.cli.datapreview.CommandGroup()),
-                (adt_connection_from_args, sap.cli.package.CommandGroup()),
-                (adt_connection_from_args, sap.cli.cts.CommandGroup()),
-                (adt_connection_from_args, sap.cli.checkout.CommandGroup()),
-                (adt_connection_from_args, sap.cli.activation.CommandGroup()),
-                (adt_connection_from_args, sap.cli.adt.CommandGroup()),
-                (adt_connection_from_args, sap.cli.abapgit.CommandGroup()),
-                (adt_connection_from_args, sap.cli.rap.CommandGroup()),
-                (adt_connection_from_args, sap.cli.srvd.CommandGroup()),
-                (adt_connection_from_args, sap.cli.srvb.CommandGroup()),
-                (adt_connection_from_args, sap.cli.table.CommandGroup()),
-                (adt_connection_from_args, sap.cli.structure.CommandGroup()),
-                (adt_connection_from_args, sap.cli.dataelement.CommandGroup()),
-                (adt_connection_from_args, sap.cli.domain.CommandGroup()),
-                (adt_connection_from_args, sap.cli.authorizationfield.CommandGroup()),
-                (adt_connection_from_args, sap.cli.checkin.CommandGroup()),
-                (adt_connection_from_args, sap.cli.badi.CommandGroup()),
-                (adt_connection_from_args, sap.cli.featuretoggle.CommandGroup()),
-                (adt_connection_from_args, sap.cli.abap.CommandGroup()),
-                (adt_connection_from_args, sap.cli.transaction.CommandGroup()),
-                (adt_connection_from_args, sap.cli.messageclass.CommandGroup()),
-            ]
+            # pylint: disable=protected-access
+            CommandsCache.adt = CommandsCache._adt_commands()
 
         if CommandsCache.rest is None:
             CommandsCache.rest = [
