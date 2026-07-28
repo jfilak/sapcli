@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: "pip" # requirements.txt, dev-requirements.txt, pyproject.toml
+    directory: "/" # Location of package manifests
+    # Raise the version in every file declaring the dependency, even when the
+    # existing >= constraint would already allow the new release. Without this
+    # Dependabot may pick "widen ranges" and silently leave >= lines untouched.
+    versioning-strategy: "increase"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions" # .github/workflows/*.yml
+    directory: "/" # Always "/" - the workflows directory is implied
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker" # Dockerfile
+    directory: "/" # Location of the Dockerfile
+    schedule:
+      interval: "weekly"

@@ -1,6 +1,4 @@
-FROM python:3.10-alpine
-
-RUN pip3 install requests
+FROM python:3.14-alpine
 
 COPY . /opt/sapcli
 
