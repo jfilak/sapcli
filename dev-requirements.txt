@@ -1,6 +1,6 @@
 coverage>=7.15.2
 pylint>=4.0.6
 flake8>=7.3.0
-mypy>=0.930
+mypy>=2.3.0
 types-PyYAML>=6.0.1
 types-requests>=2.26.2
