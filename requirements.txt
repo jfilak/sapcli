@@ -1,4 +1,4 @@
-requests>=2.20.0
+requests>=2.34.2
 pyodata==1.12.0
 PyYAML==6.0.1
 platformdirs>=4.5.1
