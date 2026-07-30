@@ -47,7 +47,7 @@ dev = [
     "build",
 ]
 test = [
-    "pytest>=2.7.0",
+    "pytest>=9.1.1",
     "pytest-cov",
     "codecov",
     "flake8",
