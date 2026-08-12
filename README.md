@@ -117,18 +117,33 @@ Finally install **sapcli**:
 By default, pipx places `sapcli.exe` in `%USERPROFILE%\.local\bin`. If that folder
 is scanned by Microsoft Defender (or another antivirus tool) and causes performance
 issues or blocks execution, you can install `sapcli.exe` into a folder that is
-excluded from scanning instead. Set the `PIPX_BIN_DIR` environment variable before
-running the install command:
+excluded from scanning instead. If sapcli is already installed, uninstall it first:
+
+```cmd
+pipx uninstall sapcli
+```
+
+Then set the `PIPX_BIN_DIR` environment variable before running the install command.
+
+**Command Prompt (cmd):**
 
 ```cmd
 set PIPX_BIN_DIR=C:\REPLACE_ME\sapcli
 pipx install <the copied link>
 ```
 
-Afterwards, make sure `C:\REPLACE_ME\sapcli` is on your PATH, or run:
+**PowerShell:**
 
-```cmd
-pipx ensurepath
+```powershell
+$env:PIPX_BIN_DIR = "C:\REPLACE_ME\sapcli"
+pipx install <the copied link>
+```
+
+Afterwards, make sure `C:\REPLACE_ME\sapcli` is on your PATH by adding it to the
+user environment variables in the Windows system settings, or from PowerShell:
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";C:\REPLACE_ME\sapcli", "User")
 ```
 
 `PIPX_BIN_DIR` only controls where the `sapcli.exe` shim is placed — the Python
