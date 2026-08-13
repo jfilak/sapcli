@@ -68,7 +68,7 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
 
         # The SRVB API requires at least one service to be present on creation
         # Args: new service name, service definition, and new service version
-        binding.add_service(args.name.upper(), args.service_definition.upper(), args.service_version)
+        binding.add_service(args.service_definition.upper(), args.service_definition.upper(), args.service_version)
 
         return binding
 

@@ -527,8 +527,7 @@ class TestServiceBindingInit(unittest.TestCase):
             category='1',
         )
 
-        # Live captures show <srvb:services srvb:name=...> always equals the
-        # parent binding's name. The constructor must mirror that.
+        # For OData V4 the linked service name is the caller-provided name.
         binding.add_service('SERVICE_NAME', 'BINDING_NAME', '0001')
         self.assertEqual(len(binding.services), 1)
 
@@ -539,6 +538,59 @@ class TestServiceBindingInit(unittest.TestCase):
         self.assertEqual(link.release_state, 'NOT_RELEASED')
         self.assertEqual(link.definition.name, 'BINDING_NAME')
         self.assertEqual(link.definition.typ, 'SRVD/SRV')
+
+    def test_add_service_v2_uses_binding_name_as_service_name(self):
+        binding = sap.adt.businessservice.ServiceBinding(
+            Connection(), 'ZSAPCLI_TEST_BND',
+            package='$TMP',
+            typ='ODATA',
+            version='V2',
+            category='1',
+        )
+
+        # For OData V2 the linked service name always equals the binding name,
+        # regardless of the caller-provided service name.
+        binding.add_service('SERVICE_NAME', 'SERVICE_DEF', '0001')
+        self.assertEqual(len(binding.services), 1)
+
+        link = binding.services[0]
+
+        self.assertEqual(link.name, 'ZSAPCLI_TEST_BND')
+        self.assertEqual(link.version, '0001')
+        self.assertEqual(link.definition.name, 'SERVICE_DEF')
+
+    def test_add_service_returns_none_when_not_odata(self):
+        binding = sap.adt.businessservice.ServiceBinding(
+            Connection(), 'ZSAPCLI_TEST_BND',
+            package='$TMP',
+            typ='REST',
+            version='V2',
+            category='1',
+        )
+
+        with self.assertLogs(level='WARNING') as captured:
+            result = binding.add_service('SERVICE_NAME', 'SERVICE_DEF', '0001')
+
+        self.assertIsNone(result)
+        self.assertEqual(len(binding.services), 0)
+        self.assertEqual(len(captured.records), 1)
+        self.assertIn("ZSAPCLI_TEST_BND", captured.records[0].getMessage())
+        self.assertIn("REST", captured.records[0].getMessage())
+        self.assertIn("expected 'ODATA'", captured.records[0].getMessage())
+
+    def test_add_service_raises_for_unsupported_odata_version(self):
+        binding = sap.adt.businessservice.ServiceBinding(
+            Connection(), 'ZSAPCLI_TEST_BND',
+            package='$TMP',
+            typ='ODATA',
+            version='V9',
+            category='1',
+        )
+
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            binding.add_service('SERVICE_NAME', 'SERVICE_DEF', '0001')
+
+        self.assertIn("V9", str(caught.exception))
 
     def test_init_creates_full_post_body_ui(self):
         conn = Connection([EMPTY_RESPONSE_OK])
@@ -635,7 +687,7 @@ class TestServiceBindingGetServiceGroup(unittest.TestCase):
             result = binding.get_service_group(service)
 
         self.assertIs(result, sentinel)
-        v2_get.assert_called_once_with(binding.connection, 'SRV_NAME', '0001', 'SRV_DEF')
+        v2_get.assert_called_once_with(binding.connection, 'SRV_NAME', '0001', 'SRV_DEF', 'TEST_BINDING')
         v4_get.assert_not_called()
 
     def test_get_service_group_v4_delegates_to_odatav4_service_group(self):
@@ -650,7 +702,7 @@ class TestServiceBindingGetServiceGroup(unittest.TestCase):
             result = binding.get_service_group(service)
 
         self.assertIs(result, sentinel)
-        v4_get.assert_called_once_with(binding.connection, 'SRV_NAME', '0002', 'SRV_DEF')
+        v4_get.assert_called_once_with(binding.connection, 'SRV_NAME', '0002', 'SRV_DEF', 'TEST_BINDING')
         v2_get.assert_not_called()
 
     def test_get_service_group_returns_none_for_unsupported_odata_version(self):
@@ -686,6 +738,7 @@ class TestODataV4ServiceGroupGet(unittest.TestCase):
             'ZSCLI_SVCDEMO_C',
             '0001',
             'ZSCLI_SVCDEMO_S',
+            'ZSCLI_SVCDEMO_B',
         )
 
         self.assertEqual(len(connection.execs), 1)
@@ -694,7 +747,7 @@ class TestODataV4ServiceGroupGet(unittest.TestCase):
         self.assertEqual(get_request.method, 'GET')
         self.assertEqual(
             get_request.adt_uri,
-            '/sap/bc/adt/businessservices/odatav4/ZSCLI_SVCDEMO_C',
+            '/sap/bc/adt/businessservices/odatav4/ZSCLI_SVCDEMO_B',
         )
         self.assertEqual(get_request.params, {
             'servicename': 'ZSCLI_SVCDEMO_C',
@@ -765,6 +818,7 @@ class TestODataV2ServiceListGet(unittest.TestCase):
             'ZSCLI_DM_B_V2',
             '0001',
             'ZSCLI_DM_B_V2',
+            'ZSCLI_DM_BND_V2',
         )
 
         self.assertEqual(len(connection.execs), 1)
@@ -773,7 +827,7 @@ class TestODataV2ServiceListGet(unittest.TestCase):
         self.assertEqual(get_request.method, 'GET')
         self.assertEqual(
             get_request.adt_uri,
-            '/sap/bc/adt/businessservices/odatav2/ZSCLI_DM_B_V2',
+            '/sap/bc/adt/businessservices/odatav2/ZSCLI_DM_BND_V2',
         )
         self.assertEqual(get_request.params, {
             'servicename': 'ZSCLI_DM_B_V2',

@@ -195,12 +195,12 @@ class ODataV2ServiceList(ADTRootObject):
     services = XmlNodeProperty('odatav2:services', factory=ODataV2Service)
 
     @classmethod
-    def get(cls, connection, name: str, version: str, srvdname: str) -> "ODataV2ServiceList":
+    def get(cls, connection, name: str, version: str, srvdname: str, binding_name: str) -> "ODataV2ServiceList":
         """Fetches the OData V2 Service Group with the given name and version from the back-end"""
 
         response = connection.execute(
             'GET',
-            cls.OBJTYPE.basepath + f'/{name}',
+            cls.OBJTYPE.basepath + f'/{binding_name}',
             params={
                 'servicename': name,
                 'serviceversion': version,
@@ -252,12 +252,12 @@ class ODataV4ServiceGroup(ADTRootObject):
     services = XmlNodeProperty('odatav4:services', factory=ODataV4Service)
 
     @classmethod
-    def get(cls, connection, name: str, version: str, srvdname: str) -> "ODataV4ServiceGroup":
+    def get(cls, connection, name: str, version: str, srvdname: str, binding_name: str) -> "ODataV4ServiceGroup":
         """Fetches the OData V4 Service Group with the given name and version from the back-end"""
 
         response = connection.execute(
             'GET',
-            cls.OBJTYPE.basepath + f'/{name}',
+            cls.OBJTYPE.basepath + f'/{binding_name}',
             params={
                 'servicename': name,
                 'serviceversion': version,
@@ -308,8 +308,23 @@ class ServiceBinding(ADTObject):
     def add_service(self, service_name: str, service_definition: str, service_version: str):
         """Add Service Definition as a new Service"""
 
+        if self.binding.typ != 'ODATA':
+            mod_log().warning(
+                "Service Binding '%s' is of type '%s', expected 'ODATA'. Cannot add Service.",
+                self.name,
+                self.binding.typ)
+            return None
+
         service = ServicesContainer()
-        service.name = service_name
+
+        match self.binding.version:
+            case 'V2':
+                service.name = self.name
+            case 'V4':
+                service.name = service_name
+            case _:
+                raise SAPCliError(f"Unsupported service binding OData Version '{self.binding.version}'")
+
         service.link = DefinitionLink()
         service.link.version = service_version
         service.link.release_state = 'NOT_RELEASED'
@@ -365,9 +380,9 @@ class ServiceBinding(ADTObject):
 
         match self.binding.version:
             case 'V2':
-                return ODataV2ServiceList.get(self.connection, service.name, service.version, service.definition.name)
+                return ODataV2ServiceList.get(self.connection, service.name, service.version, service.definition.name, self.name)
             case 'V4':
-                return ODataV4ServiceGroup.get(self.connection, service.name, service.version, service.definition.name)
+                return ODataV4ServiceGroup.get(self.connection, service.name, service.version, service.definition.name, self.name)
 
         mod_log().warning(
             "Service Binding '%s' has unsupported OData version '%s'. Cannot fetch Service Group.",
@@ -387,7 +402,7 @@ class ServiceBinding(ADTObject):
                     'serviceversion': service.version,
                 }
             case 'odatav4':
-                references.add_reference(ADTObjectReference(typ='SCGR', name=service.name))
+                references.add_reference(ADTObjectReference(typ='SCGR', name=self.name))
             case _:
                 raise SAPCliError(f"Unsupported service binding type '{self.binding.term}'")
 

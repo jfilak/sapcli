@@ -70,7 +70,7 @@ class TestSRVBCreate(unittest.TestCase):
         self.assertEqual(kwargs['version'], 'V4')
         self.assertEqual(kwargs['category'], '0')
 
-        fake_srvb.return_value.add_service.assert_called_once_with(SERVICE_BINDING_NAME, 'ZSAPCLI_TEST_SRVD', '0001')
+        fake_srvb.return_value.add_service.assert_called_once_with('ZSAPCLI_TEST_SRVD', 'ZSAPCLI_TEST_SRVD', '0001')
         fake_srvb.return_value.create.assert_called_once_with(corrnr=None)
 
     @patch('sap.adt.ServiceBinding')
@@ -104,7 +104,7 @@ class TestSRVBCreate(unittest.TestCase):
         with patch_get_print_console_with_buffer():
             args.execute(fake_conn, args)
 
-        fake_srvb.return_value.add_service.call_args.assert_called_once_with(SERVICE_BINDING_NAME, 'ZSAPCLI_TEST_SRVD', '0002')
+        fake_srvb.return_value.add_service.assert_called_once_with('ZSAPCLI_TEST_SRVD', 'ZSAPCLI_TEST_SRVD', '0002')
 
 
 class TestSRVBRead(unittest.TestCase):
@@ -549,6 +549,31 @@ class TestSRVBUnpublishHttp(unittest.TestCase):
             ('GET', f'/sap/bc/adt/businessservices/bindings/{binding_lower}'),
             ('POST', '/sap/bc/adt/businessservices/odatav4/unpublishjobs'),
         ])
+
+    def test_unpublish_v4_references_service_binding(self):
+        # The OData V4 (un)publish payload must reference the service binding
+        # (typ 'SCGR', name = binding name), not the service group/list.
+        conn = Connection([
+            Response(text=SERVICE_BINDING_ADT_GET_V4_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.adt.businessservices.servicebinding.v2+xml; charset=utf-8'}),
+            Response(text=SERVICE_BINDING_PUBLISH_OK_XML, status_code=200,
+                     headers={'Content-Type':
+                              'application/vnd.sap.as+xml; charset=utf-8; '
+                              'dataname=com.sap.adt.StatusMessage'}),
+        ])
+
+        args = parse_args('unpublish', SERVICE_BINDING_NAME)
+        with patch_get_print_console_with_buffer():
+            exitcode = args.execute(conn, args)
+
+        self.assertEqual(exitcode, 0)
+
+        post = conn.execs[1]
+        self.assertEqual(post.adt_uri, '/sap/bc/adt/businessservices/odatav4/unpublishjobs')
+        body = post.body
+        self.assertIn('adtcore:type="SCGR"', body)
+        self.assertIn(f'adtcore:name="{SERVICE_BINDING_NAME}"', body)
 
 
 class TestSRVBPreviewHtml(unittest.TestCase):
