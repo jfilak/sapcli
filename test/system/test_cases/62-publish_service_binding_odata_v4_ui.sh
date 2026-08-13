@@ -7,9 +7,9 @@ set -o pipefail
 _tcn="62"
 _round="0"
 
-DDLS_NAME="ZAPCLI_ST${_tcn}_DDLS_O2UI_${_round}"
-SRVD_NAME="ZAPCLI_ST${_tcn}_SRVD_O2UI_${_round}"
-SRVB_NAME="ZAPCLI_ST${_tcn}_SRVB_O2UI_${_round}"
+DDLS_NAME="ZAPCLI_ST${_tcn}_DDLS_O4UI_${_round}"
+SRVD_NAME="ZAPCLI_ST${_tcn}_SRVD_O4UI_${_round}"
+SRVB_NAME="ZAPCLI_ST${_tcn}_SRVB_O4UI_${_round}"
 
 sapcli ddl create ${DDLS_NAME} "sapcli system test ${_tcn}" '$tmp'
 
