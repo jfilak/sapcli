@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from io import StringIO
 
 import sap.cli.checkout
+import sap.config
 import sap.platform.abap
 import sap.platform.abap.abapgit
 import sap.adt
@@ -44,10 +45,74 @@ class TestCheckoutCommandGroup(unittest.TestCase):
         sap.cli.checkout.CommandGroup()
 
 
+class TestContextDestdir(unittest.TestCase):
+
+    @patch('sap.cli.checkout.os.makedirs')
+    @patch('sap.cli.checkout.os.path.isdir', return_value=False)
+    @patch('sap.config.ConfigFile.load')
+    def test_returns_context_subdir_when_context_is_set(self, fake_load, fake_isdir, fake_makedirs):
+        fake_config = Mock()
+        fake_config.current_context = 'DEV'
+        fake_load.return_value = fake_config
+
+        args = SimpleNamespace(config=None)
+        result = sap.cli.checkout.context_destdir(args)
+
+        self.assertEqual(result, os.path.join('.sapcli', 'DEV'))
+        fake_makedirs.assert_called_once_with(os.path.join('.sapcli', 'DEV'))
+
+    @patch('sap.config.ConfigFile.load')
+    def test_returns_none_when_no_context(self, fake_load):
+        fake_config = Mock()
+        fake_config.current_context = None
+        fake_load.return_value = fake_config
+
+        args = SimpleNamespace(config=None)
+        result = sap.cli.checkout.context_destdir(args)
+
+        self.assertIsNone(result)
+
+    @patch('sap.config.ConfigFile.load')
+    def test_returns_none_on_config_error(self, fake_load):
+        fake_load.side_effect = sap.config.SAPCliConfigError('bad config')
+
+        args = SimpleNamespace(config=None)
+        result = sap.cli.checkout.context_destdir(args)
+
+        self.assertIsNone(result)
+
+    @patch('sap.cli.checkout.os.makedirs')
+    @patch('sap.cli.checkout.os.path.isdir', return_value=True)
+    @patch('sap.config.ConfigFile.load')
+    def test_does_not_create_dir_if_already_exists(self, fake_load, fake_isdir, fake_makedirs):
+        fake_config = Mock()
+        fake_config.current_context = 'DEV'
+        fake_load.return_value = fake_config
+
+        args = SimpleNamespace(config=None)
+        sap.cli.checkout.context_destdir(args)
+
+        fake_makedirs.assert_not_called()
+
+    @patch('sap.cli.checkout.os.makedirs')
+    @patch('sap.cli.checkout.os.path.isdir', return_value=False)
+    @patch('sap.config.ConfigFile.load')
+    def test_passes_config_path_from_args(self, fake_load, fake_isdir, fake_makedirs):
+        fake_config = Mock()
+        fake_config.current_context = 'PRD'
+        fake_load.return_value = fake_config
+
+        args = SimpleNamespace(config='/custom/config.yml')
+        sap.cli.checkout.context_destdir(args)
+
+        fake_load.assert_called_once_with('/custom/config.yml')
+
+
 class TestCheckout(unittest.TestCase):
 
+    @patch('sap.cli.checkout.context_destdir', return_value=None)
     @patch('sap.cli.checkout.checkout_class')
-    def test_checkout_uppercase_name_clas(self, fake_clas):
+    def test_checkout_uppercase_name_clas(self, fake_clas, fake_destdir):
         conn = Connection()
 
         args = parse_args(['class', 'zcl_lowercase'])
@@ -56,10 +121,11 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['class', 'ZCL_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE'), call(conn, 'ZCL_UPPERCASE')])
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE', destdir=None), call(conn, 'ZCL_UPPERCASE', destdir=None)])
 
+    @patch('sap.cli.checkout.context_destdir', return_value=None)
     @patch('sap.cli.checkout.checkout_interface')
-    def test_checkout_uppercase_name_intf(self, fake_intf):
+    def test_checkout_uppercase_name_intf(self, fake_intf, fake_destdir):
         conn = Connection()
 
         args = parse_args(['interface', 'zif_lowercase'])
@@ -68,10 +134,11 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['interface', 'ZIF_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE'), call(conn, 'ZIF_UPPERCASE')])
+        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE', destdir=None), call(conn, 'ZIF_UPPERCASE', destdir=None)])
 
+    @patch('sap.cli.checkout.context_destdir', return_value=None)
     @patch('sap.cli.checkout.checkout_program')
-    def test_checkout_uppercase_name_prog(self, fake_prog):
+    def test_checkout_uppercase_name_prog(self, fake_prog, fake_destdir):
         conn = Connection()
 
         args = parse_args(['program', 'zlowercase'])
@@ -80,11 +147,23 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['program', 'ZUPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE'), call(conn, 'ZUPPERCASE')])
+        self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE', destdir=None), call(conn, 'ZUPPERCASE', destdir=None)])
 
+    @patch('sap.cli.checkout.context_destdir', return_value='.sapcli/DEV')
+    @patch('sap.cli.checkout.checkout_function_group')
+    def test_checkout_function_group_wrapper_passes_destdir(self, fake_fugr, fake_destdir):
+        conn = Connection()
+
+        args = parse_args(['function_group', 'ztest_fg'])
+        args.execute(conn, args)
+
+        fake_fugr.assert_called_once_with(conn, 'ZTEST_FG', destdir='.sapcli/DEV', source_format=sap.cli.checkout.SourceCodeFormat.ABAPGIT)
+
+
+    @patch('sap.cli.checkout.context_destdir', return_value=None)
     @patch('sap.cli.checkout.XMLWriter')
     @patch('sap.adt.Class')
-    def test_checkout_class(self, fake_clas, fake_writer):
+    def test_checkout_class(self, fake_clas, fake_writer, fake_destdir):
         fake_inst = Mock()
         fake_inst.name = 'ZCL_HELLO_WORLD'
         fake_inst.description = 'Cowabunga'
@@ -135,10 +214,11 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(vseoclass.FIXPT, 'X')
         self.assertEqual(vseoclass.UNICODE, 'X')
 
+    @patch('sap.cli.checkout.context_destdir', return_value=None)
     @patch('sap.cli.checkout.XMLWriter')
     @patch('sap.adt.Interface.fetch')
     @patch('sap.adt.Interface.text', new_callable=PropertyMock)
-    def test_checkout_interface(self, fake_text, fake_fetch, fake_writer):
+    def test_checkout_interface(self, fake_text, fake_fetch, fake_writer, fake_destdir):
         fake_writer.return_value = fake_writer
         fake_writer.add = Mock()
 
@@ -174,9 +254,10 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(vseointerf.STATE, '1')
         self.assertEqual(vseointerf.UNICODE, 'X')
 
+    @patch('sap.cli.checkout.context_destdir', return_value=None)
     @patch('sap.cli.checkout.XMLWriter')
     @patch('sap.adt.Program')
-    def test_checkout_program(self, fake_program, fake_writer):
+    def test_checkout_program(self, fake_program, fake_writer, fake_destdir):
         fake_inst = Mock()
         fake_inst.name = 'Z_HELLO_WORLD'
         fake_inst.description = 'Cowabunga'
@@ -602,8 +683,9 @@ class TestCheckoutFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
         fake_funcgrp_class = self.patch('sap.adt.FunctionGroup')
         fake_funcgrp_class.return_value = self.fake_funcgrp
 
+    @patch('sap.cli.checkout.context_destdir', return_value=None)
     @patch('sap.cli.checkout.open')
-    def test_checkout_function_group(self, fake_open):
+    def test_checkout_function_group(self, fake_open, fake_destdir):
         self.set_up_fixture_objects()
         fake_write = self.MockOpenWrite()
         fake_open.return_value.__enter__.return_value = fake_write
@@ -643,11 +725,12 @@ class TestCheckoutFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(exit_code, 1)
         self.assertConsoleContents(self.console, stdout='TEST_FUNCGRP\n', stderr='Checkout failed: Unsupported function group object: UNSUPPORTED/THIS TEST\n')
 
+    @patch('sap.cli.checkout.context_destdir', return_value=None)
     @patch('sap.cli.checkout.build_function_group_abap_attributes')
     @patch('sap.cli.checkout.build_system_fn_include_abap_attributes')
     @patch('sap.cli.checkout.dump_attributes_to_file')
     @patch('sap.cli.checkout.download_abap_source')
-    def test_checkout_function_group_px_include(self, fake_download, fake_dump, fake_build_include, fake_build_funcgrp):
+    def test_checkout_function_group_px_include(self, fake_download, fake_dump, fake_build_include, fake_build_funcgrp, fake_destdir):
         self.fake_funcgrp.walk = Mock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/PX', name='TESTTOP')])])
         fake_build_include.return_value = 'FAKE_INCLUDE_PARAMS'
         fake_build_funcgrp.return_value = 'FAKE_FUNCGRP_PARAMS'

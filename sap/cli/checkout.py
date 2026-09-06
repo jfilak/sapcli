@@ -5,6 +5,7 @@ import sys
 
 import sap.adt
 import sap.cli.core
+import sap.config
 
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
@@ -26,6 +27,22 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
     def __init__(self):
         super().__init__('checkout')
+
+
+def context_destdir(args):
+    """Returns .sapcli/<context>/ as destdir when an active context is configured."""
+    try:
+        config_path = getattr(args, 'config', None)
+        context = sap.config.ConfigFile.load(config_path).current_context
+        if context:
+            destdir = os.path.join('.sapcli', context)
+            if not os.path.isdir(destdir):
+                os.makedirs(destdir)
+            return destdir
+    except sap.config.SAPCliConfigError:
+        # Config exists but is unreadable or malformed; fall back to CWD.
+        pass
+    return None
 
 
 def build_filename(object_name, typsfx, fileext, destdir=None):
@@ -124,7 +141,7 @@ def checkout_class(connection, name, destdir=None):
 def abapclass(connection, args):
     """Download all class sources command wrapper"""
 
-    checkout_class(connection, args.name.upper())
+    checkout_class(connection, args.name.upper(), destdir=context_destdir(args))
 
 
 def build_program_abap_attributes(adt_program):
@@ -164,7 +181,7 @@ def checkout_program(connection, name, destdir=None):
 def program(connection, args):
     """Download program sources command wrapper"""
 
-    checkout_program(connection, args.name.upper())
+    checkout_program(connection, args.name.upper(), destdir=context_destdir(args))
 
 
 def build_interface_abap_attributes(adt_intf):
@@ -201,7 +218,7 @@ def checkout_interface(connection, name, destdir=None):
 def interface(connection, args):
     """Download interface sources command wrapper"""
 
-    checkout_interface(connection, args.name.upper())
+    checkout_interface(connection, args.name.upper(), destdir=context_destdir(args))
 
 
 def build_function_module_abap_attributes(func_module):
@@ -347,7 +364,7 @@ def function_group(connection, args):
     """Download function group sources command wrapper"""
 
     try:
-        checkout_function_group(connection, args.name.upper(), source_format=SourceCodeFormat(args.format))
+        checkout_function_group(connection, args.name.upper(), destdir=context_destdir(args), source_format=SourceCodeFormat(args.format))
     except sap.cli.core.SAPCliError as ex:
         sap.cli.core.printerr(f'Checkout failed: {str(ex)}')
         return 1
