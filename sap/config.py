@@ -10,6 +10,7 @@ import requests
 import yaml
 
 from sap.errors import SAPCliError
+from sap.version import build_user_agent
 
 
 DEFAULT_CONFIG_PATH = os.path.join('~', '.sapcli', 'config.yml')
@@ -568,7 +569,7 @@ def _fetch_config_from_url(url: str, ssl_verify: bool = True) -> dict:
     """Fetch and parse config data from an HTTP(S) URL."""
 
     try:
-        response = requests.get(url, timeout=30, verify=ssl_verify)
+        response = requests.get(url, headers={'User-Agent': build_user_agent()}, timeout=30, verify=ssl_verify)
         response.raise_for_status()
     except requests.RequestException as ex:
         raise SAPCliConfigError(

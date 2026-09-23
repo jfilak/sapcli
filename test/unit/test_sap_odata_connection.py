@@ -63,7 +63,7 @@ class TestConnectionInit(unittest.TestCase):
 class TestConnectionInitErrors(unittest.TestCase):
 
     @patch('sap.odata.connection.pyodata.Client')
-    @patch('requests.Session', return_value=Mock())
+    @patch('requests.Session', return_value=Mock(headers={}))
     def test_init_timeout(self, mock_session_cls, mock_pyodata):
         session = mock_session_cls.return_value
         session.send.side_effect = ConnectTimeout()
@@ -74,7 +74,7 @@ class TestConnectionInitErrors(unittest.TestCase):
         mock_pyodata.assert_not_called()
 
     @patch('sap.odata.connection.pyodata.Client')
-    @patch('requests.Session', return_value=Mock())
+    @patch('requests.Session', return_value=Mock(headers={}))
     def test_init_read_timeout(self, mock_session_cls, mock_pyodata):
         session = mock_session_cls.return_value
         session.send.side_effect = ReadTimeout()
@@ -85,7 +85,7 @@ class TestConnectionInitErrors(unittest.TestCase):
         mock_pyodata.assert_not_called()
 
     @patch('sap.odata.connection.pyodata.Client')
-    @patch('requests.Session', return_value=Mock())
+    @patch('requests.Session', return_value=Mock(headers={}))
     def test_init_unauthorized(self, mock_session_cls, mock_pyodata):
         response = Mock()
         response.status_code = 401
@@ -98,7 +98,7 @@ class TestConnectionInitErrors(unittest.TestCase):
         mock_pyodata.assert_not_called()
 
     @patch('sap.odata.connection.pyodata.Client')
-    @patch('requests.Session', return_value=Mock())
+    @patch('requests.Session', return_value=Mock(headers={}))
     def test_init_http_error(self, mock_session_cls, mock_pyodata):
         response = Mock()
         response.status_code = 500

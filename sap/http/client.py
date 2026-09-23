@@ -7,6 +7,7 @@ import requests.exceptions
 from requests.auth import HTTPBasicAuth
 
 from sap import get_logger, config_get
+from sap.version import build_user_agent
 from sap.http.errors import (
     HTTPRequestError,
     UnauthorizedError,
@@ -244,6 +245,8 @@ class HTTPClient():
         """Build the HTTP session for the ABAP HTTP request."""
 
         session = requests.Session()
+        # Set before the initializer to let auth plugins override it on purpose.
+        session.headers['User-Agent'] = build_user_agent()
         session = self._session_initializer.initialize_session(session)
 
         # requests.session.verify is either boolean or path to CA to use!

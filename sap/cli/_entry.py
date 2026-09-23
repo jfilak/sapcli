@@ -8,13 +8,13 @@ import logging
 from argparse import ArgumentParser
 import getpass
 import warnings
-from importlib.metadata import version, PackageNotFoundError
 
 import sap
 import sap.cli
 import sap.adt
 import sap.rfc
 from sap.config import ConfigFile
+from sap.version import get_version
 from sap.http import TimedOutRequestError as HttpTimedOutRequestError
 from sap.http.truststore_support import enable_system_cert_store, TruststoreNotAvailableError
 import sap.http.oauth
@@ -99,12 +99,7 @@ def parse_command_line(argv):
     """Parses command line arguments"""
 
     arg_parser = ArgumentParser(os.path.basename(argv[0]))
-    try:
-        sapcli_version = version('sapcli')
-    except PackageNotFoundError:
-        sapcli_version = 'unknown version'
-
-    arg_parser.add_argument('--version', action='version', version=f'%(prog)s {sapcli_version}')
+    arg_parser.add_argument('--version', action='version', version=f'%(prog)s {get_version()}')
     arg_parser.add_argument(
         '-v', '--verbose', dest='verbose_count', action='count', default=0,
         help='make verbose output')

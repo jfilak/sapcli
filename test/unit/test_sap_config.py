@@ -12,6 +12,7 @@ import requests
 import yaml
 
 import sap.config
+from sap.version import build_user_agent
 from sap.config import (
     ConfigFile,
     SAPCliConfigError,
@@ -1177,7 +1178,7 @@ class TestFetchConfigSource(unittest.TestCase):
         with patch('sap.config.requests.get', return_value=mock_response) as mock_get:
             data = fetch_config_source('https://config.example.com/config.yml')
 
-        mock_get.assert_called_once_with('https://config.example.com/config.yml', timeout=30, verify=True)
+        mock_get.assert_called_once_with('https://config.example.com/config.yml', headers={'User-Agent': build_user_agent()}, timeout=30, verify=True)
         self.assertEqual(data['current-context'], 'dev')
         self.assertIn('connections', data)
 
@@ -1242,7 +1243,7 @@ class TestFetchConfigSource(unittest.TestCase):
             data = fetch_config_source('http://config.example.com/config.yml', insecure=True)
 
         # HTTP with insecure=True always passes verify=True (no SSL to verify)
-        mock_get.assert_called_once_with('http://config.example.com/config.yml', timeout=30, verify=True)
+        mock_get.assert_called_once_with('http://config.example.com/config.yml', headers={'User-Agent': build_user_agent()}, timeout=30, verify=True)
         self.assertIn('srv', data['connections'])
 
     def test_fetch_https_url_skip_ssl_verify(self):
@@ -1254,7 +1255,7 @@ class TestFetchConfigSource(unittest.TestCase):
         with patch('sap.config.requests.get', return_value=mock_response) as mock_get:
             data = fetch_config_source('https://config.example.com/config.yml', ssl_verify=False)
 
-        mock_get.assert_called_once_with('https://config.example.com/config.yml', timeout=30, verify=False)
+        mock_get.assert_called_once_with('https://config.example.com/config.yml', headers={'User-Agent': build_user_agent()}, timeout=30, verify=False)
         self.assertIn('srv', data['connections'])
 
     def test_fetch_https_url_ssl_verify_default_true(self):
@@ -1266,7 +1267,7 @@ class TestFetchConfigSource(unittest.TestCase):
         with patch('sap.config.requests.get', return_value=mock_response) as mock_get:
             data = fetch_config_source('https://config.example.com/config.yml')
 
-        mock_get.assert_called_once_with('https://config.example.com/config.yml', timeout=30, verify=True)
+        mock_get.assert_called_once_with('https://config.example.com/config.yml', headers={'User-Agent': build_user_agent()}, timeout=30, verify=True)
         self.assertIn('srv', data['connections'])
 
     def test_fetch_http_url_insecure_ignores_ssl_verify(self):
@@ -1281,7 +1282,7 @@ class TestFetchConfigSource(unittest.TestCase):
                                        insecure=True, ssl_verify=False)
 
         # ssl_verify is irrelevant for HTTP; always passes verify=True
-        mock_get.assert_called_once_with('http://config.example.com/config.yml', timeout=30, verify=True)
+        mock_get.assert_called_once_with('http://config.example.com/config.yml', headers={'User-Agent': build_user_agent()}, timeout=30, verify=True)
         self.assertIn('srv', data['connections'])
 
     def test_fetch_warns_passwords_in_local_source(self):
