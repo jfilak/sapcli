@@ -9,6 +9,7 @@ from requests.auth import AuthBase
 from sap.errors import SAPCliError
 from sap.http.errors import UnauthorizedError
 from sap.http.token_cache import get_token_store, Token
+from sap.version import build_user_agent
 
 DEFAULT_EXPIRES_IN = 3600
 
@@ -98,6 +99,7 @@ def refresh_access_token(token_url, client_id, client_secret, refresh_token):
         token_url.rstrip('/') + '/oauth/token',
         auth=(client_id, client_secret),
         data={'grant_type': 'refresh_token', 'refresh_token': refresh_token},
+        headers={'User-Agent': build_user_agent()},
         timeout=30,
     )
     if not response.ok:
@@ -122,6 +124,7 @@ def fetch_token_with_credentials(token_url, client_id, client_secret, user, pass
             'username': user,
             'password': password,
         },
+        headers={'User-Agent': build_user_agent()},
         timeout=30,
     )
 

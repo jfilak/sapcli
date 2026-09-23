@@ -799,6 +799,49 @@ class TestHTTPClientBuildSession(unittest.TestCase):
 
         self.assertEqual(mock_session.auth, HTTPBasicAuth(self.fixture_user, self.fixture_password))
 
+    @patch('sap.http.client.build_user_agent', return_value='sapcli/1.2.3')
+    @patch('sap.http.client.requests.Session')
+    def test_build_session_sets_user_agent(self, mock_session_cls, _):
+        client = self._make_client()
+
+        mock_session = MagicMock()
+        mock_session.headers = {}
+        mock_session_cls.return_value = mock_session
+
+        login_response = Mock()
+        login_response.status_code = 200
+        login_response.headers = {}
+        client.execute_with_session = Mock(return_value=login_response)
+
+        session, _ = client.build_session()
+
+        self.assertEqual(session.headers['User-Agent'], 'sapcli/1.2.3')
+
+    @patch('sap.http.client.build_user_agent', return_value='sapcli/1.2.3')
+    @patch('sap.http.client.requests.Session')
+    def test_build_session_initializer_can_override_user_agent(self, mock_session_cls, _):
+        def fake_initialize_session(session):
+            session.headers['User-Agent'] = 'plugin-agent/1.0'
+            return session
+
+        initializer = Mock()
+        initializer.initialize_session = Mock(side_effect=fake_initialize_session)
+
+        client = self._make_client(session_initializer=initializer)
+
+        mock_session = MagicMock()
+        mock_session.headers = {}
+        mock_session_cls.return_value = mock_session
+
+        login_response = Mock()
+        login_response.status_code = 200
+        login_response.headers = {}
+        client.execute_with_session = Mock(return_value=login_response)
+
+        session, _ = client.build_session()
+
+        self.assertEqual(session.headers['User-Agent'], 'plugin-agent/1.0')
+
     @patch('sap.http.client.requests.Session')
     def test_build_session_uses_initializer_returned_session(self, mock_session_cls):
         """build_session must use whatever session the initializer returns."""

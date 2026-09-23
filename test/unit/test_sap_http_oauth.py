@@ -21,6 +21,7 @@ from sap.http.oauth import (
     save_token_response,
 )
 from sap.http.token_cache import Token
+from sap.version import build_user_agent
 
 from test.unit.mock import InMemoryTokenStore
 
@@ -341,6 +342,7 @@ class TestRefreshAccessToken(unittest.TestCase):
             'https://auth.example.com/oauth/token',
             auth=(self.fixture_client_id, self.fixture_client_secret),
             data={'grant_type': 'refresh_token', 'refresh_token': 'old-refresh'},
+            headers={'User-Agent': build_user_agent()},
             timeout=30,
         )
 
@@ -400,6 +402,7 @@ class TestFetchTokenWithCredentials(unittest.TestCase):
                 'username': 'user@sap.com',
                 'password': 'mypassword',
             },
+            headers={'User-Agent': build_user_agent()},
             timeout=30,
         )
 
