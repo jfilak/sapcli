@@ -44,6 +44,43 @@ class TestCheckoutCommandGroup(unittest.TestCase):
         sap.cli.checkout.CommandGroup()
 
 
+class TestContextDestdir(unittest.TestCase):
+
+    @patch('sap.cli.checkout.os.makedirs')
+    def test_returns_context_subdir_when_context_is_set(self, fake_makedirs):
+        fake_config = Mock()
+        fake_config.current_context = 'DEV'
+        fake_config.path.parent = '/home/user/.sapcli'
+
+        result = sap.cli.checkout.context_destdir(SimpleNamespace(config_file=fake_config))
+
+        self.assertEqual(result, os.path.join('/home/user/.sapcli', 'DEV'))
+        fake_makedirs.assert_called_once_with(os.path.join('/home/user/.sapcli', 'DEV'), exist_ok=True)
+
+    def test_returns_none_when_no_context(self):
+        fake_config = Mock()
+        fake_config.current_context = None
+
+        result = sap.cli.checkout.context_destdir(SimpleNamespace(config_file=fake_config))
+
+        self.assertIsNone(result)
+
+    def test_returns_none_when_no_config_file(self):
+        result = sap.cli.checkout.context_destdir(SimpleNamespace(config_file=None))
+
+        self.assertIsNone(result)
+
+    @patch('sap.cli.checkout.os.makedirs', side_effect=OSError('disk full'))
+    def test_returns_none_on_makedirs_failure(self, fake_makedirs):
+        fake_config = Mock()
+        fake_config.current_context = 'DEV'
+        fake_config.path.parent = '/home/user/.sapcli'
+
+        result = sap.cli.checkout.context_destdir(SimpleNamespace(config_file=fake_config))
+
+        self.assertIsNone(result)
+
+
 class TestCheckout(unittest.TestCase):
 
     @patch('sap.cli.checkout.checkout_class')
@@ -56,7 +93,7 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['class', 'ZCL_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE'), call(conn, 'ZCL_UPPERCASE')])
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE', None), call(conn, 'ZCL_UPPERCASE', None)])
 
     @patch('sap.cli.checkout.checkout_interface')
     def test_checkout_uppercase_name_intf(self, fake_intf):
@@ -68,7 +105,7 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['interface', 'ZIF_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE'), call(conn, 'ZIF_UPPERCASE')])
+        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE', None), call(conn, 'ZIF_UPPERCASE', None)])
 
     @patch('sap.cli.checkout.checkout_program')
     def test_checkout_uppercase_name_prog(self, fake_prog):
@@ -80,7 +117,7 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['program', 'ZUPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE'), call(conn, 'ZUPPERCASE')])
+        self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE', None), call(conn, 'ZUPPERCASE', None)])
 
     @patch('sap.cli.checkout.XMLWriter')
     @patch('sap.adt.Class')
