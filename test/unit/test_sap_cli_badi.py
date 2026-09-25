@@ -37,6 +37,12 @@ OK_ENHO_RESPONSE = Response(
     content_type='application/vnd.sap.adt.enh.enhoxhb.v4+xml'
 )
 
+BADI_LIST_TABLE = (
+    'Name             | Active | Class                | Definition      | Customizing | Default | Example | Short Text \n'
+    '------------------------------------------------------------------------------------------------------------------\n'
+    'SAPCLI_BADI_IMPL | true   | ZCL_SAPCLI_BADI_IMPL | SAPCLI_BADI_DEF |             | false   | false   | SAPCLI badi\n'
+)
+
 class TestBadiEnhImplList(ConsoleOutputTestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
@@ -73,9 +79,7 @@ class TestBadiEnhImplList(ConsoleOutputTestCase, PatcherTestCase):
         list_cmd = self.list('SAPCLI_ENH_IMPL')
         list_cmd.execute(conn, list_cmd)
 
-        self.assertConsoleContents(
-                self.console,
-                stdout='SAPCLI_BADI_IMPL true ZCL_SAPCLI_BADI_IMPL SAPCLI_BADI_DEF  false false SAPCLI badi\n')
+        self.assertConsoleContents(self.console, stdout=BADI_LIST_TABLE)
 
     def test_default_action_all_badis(self):
         conn = Connection([OK_ENHO_RESPONSE])
@@ -83,9 +87,7 @@ class TestBadiEnhImplList(ConsoleOutputTestCase, PatcherTestCase):
         list_cmd = self.default_action('-i', 'SAPCLI_ENH_IMPL')
         list_cmd.execute(conn, list_cmd)
 
-        self.assertConsoleContents(
-                self.console,
-                stdout='SAPCLI_BADI_IMPL true ZCL_SAPCLI_BADI_IMPL SAPCLI_BADI_DEF  false false SAPCLI badi\n')
+        self.assertConsoleContents(self.console, stdout=BADI_LIST_TABLE)
 
     def test_set_active_no_change(self):
         with patch('sap.cli.badi._get_enhancement_implementation') as mock_getter:

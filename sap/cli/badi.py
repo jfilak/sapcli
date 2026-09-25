@@ -5,6 +5,7 @@ ADT proxy for New BAdI (Enhancement Implementation BAdIs) commands
 import sap
 import sap.adt
 import sap.cli.core
+import sap.cli.helpers
 import sap.cli.object
 
 
@@ -25,9 +26,20 @@ def _list(connection, args):
 
     enho = _get_enhancement_implementation(connection, args)
 
-    for badi in enho.specific.badis.implementations:
-        console.printout(badi.name, badi.active, badi.implementing_class.name, badi.badi_definition.name,
-                         badi.customizing_lock, badi.default, badi.example, badi.short_text)
+    columns = (
+        sap.cli.helpers.TableWriter.Columns()
+        ('name', 'Name')
+        ('active', 'Active')
+        ('implementing_class.name', 'Class')
+        ('badi_definition.name', 'Definition')
+        ('customizing_lock', 'Customizing')
+        ('default', 'Default')
+        ('example', 'Example')
+        ('short_text', 'Short Text')
+        .done()
+    )
+
+    sap.cli.helpers.TableWriter(enho.specific.badis.implementations, columns).printout(console)
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
