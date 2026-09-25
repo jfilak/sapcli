@@ -2172,6 +2172,28 @@ class TestgCTSRepoSetProperty(ConsoleOutputTestCase, PatcherTestCase):
         self.assertConsoleContents(self.console, stderr='Cannot get repository.\n')
 
 
+def get_argument_help(command_group, handler, argument):
+    declaration = command_group.get_command_declaration(handler)
+    return next(kwargs['help'] for args, kwargs in declaration.arguments if argument in args)
+
+
+class TestgCTSRepoColumnsHelp(unittest.TestCase):
+
+    def test_activities_columns_help(self):
+        self.assertEqual(
+            get_argument_help(sap.cli.gcts.RepoCommandGroup, sap.cli.gcts.activities, '--columns'),
+            'Comma separated list of visible columns: checkoutTime, caller, type, request, '
+            'fromCommit, toCommit, state, rc')
+
+    def test_objects_columns_help(self):
+        self.assertEqual(
+            get_argument_help(sap.cli.gcts.RepoCommandGroup, sap.cli.gcts.objects, '--columns'),
+            'Comma separated list of visible columns: pgmid, type, object')
+
+    def test_objects_columns_headers(self):
+        self.assertEqual([c[1] for c in sap.cli.gcts.REPO_OBJECTS_COLUMNS], ['Program', 'Type', 'Name'])
+
+
 class TestgCTSRepoActivities(ConsoleOutputTestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
@@ -3533,15 +3555,6 @@ class TestgCTSRepoObjects(ConsoleOutputTestCase, PatcherTestCase):
     def test_repo_objects_with_default_format_human(self, fake_table_writer, fake_get_repository):
         package = 'test_package'
         fake_get_repository.return_value = self.fake_repo
-        mock_columns_instance = Mock()
-        mock_columns_class = Mock(return_value=mock_columns_instance)
-        fake_table_writer.Columns = mock_columns_class
-        mock_columns_instance.return_value = mock_columns_instance
-        mock_columns_instance.done.return_value = [
-            ('pgmid', 'Program'),
-            ('type', 'Type'),
-            ('object', 'Name')
-        ]
         mock_table_writer_instance = Mock()
         fake_table_writer.return_value = mock_table_writer_instance
 
@@ -3551,20 +3564,9 @@ class TestgCTSRepoObjects(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(objects_list_exit_code, 0)
         fake_get_repository.assert_called_once_with(self.fake_connection, package)
         self.fake_repo.objects.assert_called_once()
-        mock_columns_class.assert_called_once()
-        # TW columns setup check
-        self.assertEqual(mock_columns_instance.call_count, 3)
-        expected_calls = [
-            call('pgmid', 'Program'),
-            call('type', 'Type'),
-            call('object', 'Name')
-        ]
-        mock_columns_instance.assert_has_calls(expected_calls)
-        mock_columns_instance.done.assert_called_once()
-        # TW instance setup check
         fake_table_writer.assert_called_once_with(
-            self.fake_repo.objects.return_value, 
-            mock_columns_instance.done.return_value, 
+            self.fake_repo.objects.return_value,
+            sap.cli.gcts.REPO_OBJECTS_COLUMNS,
             display_header=True, 
             visible_columns=None
         )
@@ -3575,15 +3577,6 @@ class TestgCTSRepoObjects(ConsoleOutputTestCase, PatcherTestCase):
     def test_repo_objects_with_human_format_columsns_noheadings(self, fake_table_writer, fake_get_repository):
         package = 'test_package'
         fake_get_repository.return_value = self.fake_repo
-        mock_columns_instance = Mock()
-        mock_columns_class = Mock(return_value=mock_columns_instance)
-        fake_table_writer.Columns = mock_columns_class
-        mock_columns_instance.return_value = mock_columns_instance
-        mock_columns_instance.done.return_value = [
-            ('pgmid', 'Program'),
-            ('type', 'Type'),
-            ('object', 'Name')
-        ]
         mock_table_writer_instance = Mock()
         fake_table_writer.return_value = mock_table_writer_instance
 
@@ -3593,18 +3586,9 @@ class TestgCTSRepoObjects(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(objects_list_exit_code, 0)
         fake_get_repository.assert_called_once_with(self.fake_connection, package)
         self.fake_repo.objects.assert_called_once()
-        mock_columns_class.assert_called_once()
-        self.assertEqual(mock_columns_instance.call_count, 3)
-        expected_calls = [
-            call('pgmid', 'Program'),
-            call('type', 'Type'),
-            call('object', 'Name')
-        ]
-        mock_columns_instance.assert_has_calls(expected_calls)
-        mock_columns_instance.done.assert_called_once()
         fake_table_writer.assert_called_once_with(
             self.fake_repo.objects.return_value,
-            mock_columns_instance.done.return_value,
+            sap.cli.gcts.REPO_OBJECTS_COLUMNS,
             display_header=False,
             visible_columns=['pgmid', 'type']
         )

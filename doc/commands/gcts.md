@@ -331,7 +331,8 @@ sapcli gcts repo activities PACKAGE [--limit LIMIT] [--offset OFFSET] [--fromcom
 - `--tocommit TOCOMMIT`: The To Commit hash of activities to return
 - `--operation {COMMIT,PULL,CLONE,BRANCH_SW}`: The type of activities to return. Possible values follow domain of `SCTS_ABAP_VCS_COMMIT_TYPE`.
 - `--noheadings`: Do not display a header line
-- `--columns`: Specify the columns to display
+- `--columns`: Comma-separated list of visible columns; available columns:
+  checkoutTime, caller, type, request, fromCommit, toCommit, state, rc
 
 ## repo messages
 
@@ -360,7 +361,7 @@ sapcli gcts repo objects PACKAGE [--columns COLUMNS] [--noheadings] [-f|--format
 
 **Parameters**:
 - `PACKAGE`: The repository name
-- `--columns COLUMNS`: Comma-separated list of visible columns (e.g., `pgmid,type,object`)
+- `--columns COLUMNS`: Comma-separated list of visible columns; available columns: pgmid, type, object
 - `--noheadings`: Do not display a header line
 - `--format`: The format of the command's output. `HUMAN` displays a formatted table, `JSON` outputs JSON format, and `TRANSPORT` outputs tab-separated values suitable for transport files.
 

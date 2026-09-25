@@ -374,7 +374,22 @@ def layout(connection, args):
     return 0
 
 
-@RepoCommandGroup.argument('--columns', type=str, default=None, help='Visible columns in CSV')
+REPO_ACTIVITIES_COLUMNS = (
+    sap.cli.helpers.TableWriter.Columns()
+    ('checkoutTime', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate)
+    ('caller', 'Caller')
+    ('type', 'Operation')
+    ('request', 'Transport', default='')
+    ('fromCommit', 'From Commit', default='')
+    ('toCommit', 'To Commit', default='')
+    ('state', 'State', default='')
+    ('rc', 'Code', default='----')
+    .done()
+)
+
+
+@RepoCommandGroup.argument('--columns', type=str, default=None,
+                           help=sap.cli.helpers.columns_help(REPO_ACTIVITIES_COLUMNS))
 @RepoCommandGroup.argument('--noheadings', action='store_true', default=False)
 @RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
 @RepoCommandGroup.argument('--operation', type=str, choices=RepoActivitiesQueryParams.allowed_operations(),
@@ -400,22 +415,9 @@ def activities(connection, args):
     if args.format == 'JSON':
         console.printout(repo_activities)
     else:
-        columns = (
-            sap.cli.helpers.TableWriter.Columns()
-            ('checkoutTime', 'Date', formatter=sap.cli.helpers.abapstamp_to_isodate)
-            ('caller', 'Caller')
-            ('type', 'Operation')
-            ('request', 'Transport', default='')
-            ('fromCommit', 'From Commit', default='')
-            ('toCommit', 'To Commit', default='')
-            ('state', 'State', default='')
-            ('rc', 'Code', default='----')
-            .done()
-        )
-
         tw = sap.cli.helpers.TableWriter(
             repo_activities,
-            columns,
+            REPO_ACTIVITIES_COLUMNS,
             display_header=not args.noheadings,
             visible_columns=None if not args.columns else args.columns.split(',')
         )
@@ -503,7 +505,17 @@ def tasks(connection, args):
     return 0
 
 
-@RepoCommandGroup.argument('--columns', type=str, default=None, help='Visible columns in CSV')
+REPO_OBJECTS_COLUMNS = (
+    sap.cli.helpers.TableWriter.Columns()
+    ('pgmid', 'Program',)
+    ('type', 'Type')
+    ('object', 'Name')
+    .done()
+)
+
+
+@RepoCommandGroup.argument('--columns', type=str, default=None,
+                           help=sap.cli.helpers.columns_help(REPO_OBJECTS_COLUMNS))
 @RepoCommandGroup.argument('--noheadings', action='store_true', default=False)
 @RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON', 'TRANSPORT'], default='HUMAN')
 @RepoCommandGroup.argument('package')
@@ -520,17 +532,9 @@ def objects(connection, args):
     if args.format == 'JSON':
         console.printout(sap.cli.core.json_dumps(repo_objects))
     elif args.format == 'HUMAN':
-        columns = (
-            sap.cli.helpers.TableWriter.Columns()
-            ('pgmid', 'Program',)
-            ('type', 'Type')
-            ('object', 'Name')
-            .done()
-        )
-
         tw = sap.cli.helpers.TableWriter(
             repo_objects,
-            columns,
+            REPO_OBJECTS_COLUMNS,
             display_header=not args.noheadings,
             visible_columns=None if not args.columns else args.columns.split(',')
         )
