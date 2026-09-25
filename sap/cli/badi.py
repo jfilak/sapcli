@@ -39,7 +39,17 @@ def _list(connection, args):
         .done()
     )
 
-    sap.cli.helpers.TableWriter(enho.specific.badis.implementations, columns).printout(console)
+    # The default action of the command group (without the sub-command list)
+    # does not have the list's arguments, hence getattr with defaults.
+    noheadings = getattr(args, 'noheadings', False)
+    visible_columns = getattr(args, 'columns', None)
+
+    sap.cli.helpers.TableWriter(
+        enho.specific.badis.implementations,
+        columns,
+        display_header=not noheadings,
+        visible_columns=None if not visible_columns else visible_columns.split(',')
+    ).printout(console)
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -55,6 +65,10 @@ class CommandGroup(sap.cli.core.CommandGroup):
         arg_parser.add_argument('-i', '--enhancement_implementation', help='BAdI Enhancement Implementation Name')
 
 
+@CommandGroup.argument('--columns', type=str, default=None,
+                       help='Comma separated list of visible columns: name, active, implementing_class.name, '
+                            'badi_definition.name, customizing_lock, default, example, short_text')
+@CommandGroup.argument('--noheadings', action='store_true', default=False, help='Do not print the header')
 @CommandGroup.command('list')
 def list_badis(connection, args):
     """List BAdIs for the given Enhancement Implementation name"

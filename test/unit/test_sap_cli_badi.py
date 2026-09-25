@@ -89,6 +89,36 @@ class TestBadiEnhImplList(ConsoleOutputTestCase, PatcherTestCase):
 
         self.assertConsoleContents(self.console, stdout=BADI_LIST_TABLE)
 
+    def test_list_noheadings(self):
+        conn = Connection([OK_ENHO_RESPONSE])
+
+        list_cmd = self.list('SAPCLI_ENH_IMPL', '--noheadings')
+        list_cmd.execute(conn, list_cmd)
+
+        self.assertConsoleContents(
+            self.console,
+            stdout='SAPCLI_BADI_IMPL | true | ZCL_SAPCLI_BADI_IMPL | SAPCLI_BADI_DEF |  | false | false | SAPCLI badi\n')
+
+    def test_list_columns(self):
+        conn = Connection([OK_ENHO_RESPONSE])
+
+        list_cmd = self.list('SAPCLI_ENH_IMPL', '--columns', 'name,implementing_class.name')
+        list_cmd.execute(conn, list_cmd)
+
+        self.assertConsoleContents(
+            self.console,
+            stdout='Name             | Class               \n'
+                   '---------------------------------------\n'
+                   'SAPCLI_BADI_IMPL | ZCL_SAPCLI_BADI_IMPL\n')
+
+    def test_list_columns_noheadings(self):
+        conn = Connection([OK_ENHO_RESPONSE])
+
+        list_cmd = self.list('SAPCLI_ENH_IMPL', '--columns', 'implementing_class.name,name', '--noheadings')
+        list_cmd.execute(conn, list_cmd)
+
+        self.assertConsoleContents(self.console, stdout='SAPCLI_BADI_IMPL | ZCL_SAPCLI_BADI_IMPL\n')
+
     def test_set_active_no_change(self):
         with patch('sap.cli.badi._get_enhancement_implementation') as mock_getter:
             mock_badi = MagicMock()

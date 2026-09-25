@@ -9,10 +9,14 @@
 List BAdI implementations of a particular Enhancement Implementation
 
 ```bash
-sapcli badi [-i|--enhancement_implementation ENHO] [list]
+sapcli badi [-i|--enhancement_implementation ENHO] [list [--noheadings] [--columns COLUMNS]]
 ```
 
 * _--enhancement_implementation ENHO_ name of the ENHO object (Enhancement Implementation)
+* _--noheadings_ do not print the table header
+* _--columns COLUMNS_ comma separated list of visible columns; available columns:
+  name, active, implementing_class.name, badi_definition.name, customizing_lock,
+  default, example, short_text; the columns are always printed in this order
 
 ## set-active
 
