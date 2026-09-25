@@ -230,6 +230,101 @@ col1 ! col2 ! col3 ! None
 (..) | (..)
 ''')
 
+    def test_table_writer_attr_nested(self):
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('obj1.nested2.data3', 'Col1')
+            .done()
+        )
+
+        fixture_data = [SimpleNamespace(obj1=SimpleNamespace(nested2=SimpleNamespace(data3='nice')))]
+        sap.cli.helpers.TableWriter(fixture_data, columns).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1
+----
+nice
+''')
+
+    def test_table_writer_dict_nested(self):
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('obj1.nested2.data3', 'Col1')
+            .done()
+        )
+
+        fixture_data = [{'obj1': {'nested2': {'data3': 'nice'}}}]
+        sap.cli.helpers.TableWriter(fixture_data, columns).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1
+----
+nice
+''')
+
+    def test_table_writer_dict_in_attr_nested(self):
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('obj1.nested2.data3', 'Col1')
+            .done()
+        )
+
+        fixture_data = [SimpleNamespace(obj1={'nested2': SimpleNamespace(data3='nice')})]
+        sap.cli.helpers.TableWriter(fixture_data, columns).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout=
+'''Col1
+----
+nice
+''')
+
+    def test_table_writer_attr_nested_missing(self):
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('obj1.nested2.data3', 'Col1')
+            .done()
+        )
+
+        fixture_data = [SimpleNamespace(obj1=SimpleNamespace(nested2=SimpleNamespace()))]
+
+        with self.assertRaises(sap.cli.helpers.SAPCliError) as cm:
+            sap.cli.helpers.TableWriter(fixture_data, columns).printout(self.console)
+
+        self.assertEqual(str(cm.exception), 'Missing column in table data: obj1.nested2.data3')
+
+    def test_table_writer_dict_nested_missing(self):
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('obj1.nested2.data3', 'Col1')
+            .done()
+        )
+
+        fixture_data = [{'obj1': {}}]
+
+        with self.assertRaises(sap.cli.helpers.SAPCliError) as cm:
+            sap.cli.helpers.TableWriter(fixture_data, columns).printout(self.console)
+
+        self.assertEqual(str(cm.exception), 'Missing column in table data: obj1.nested2.data3')
+
+    def test_table_writer_attr_nested_missing_with_default(self):
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('obj1.nested2.data3', 'Col1', default='-')
+            .done()
+        )
+
+        fixture_data = [SimpleNamespace(obj1=SimpleNamespace())]
+        sap.cli.helpers.TableWriter(fixture_data, columns).printout(self.console)
+
+        self.assertConsoleContents(self.console, stdout='Col1\n----\n-   \n')
+
+    def test_table_writer_attr_nested_none(self):
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('obj1.nested2', 'Col1')
+            .done()
+        )
+
+        fixture_data = [SimpleNamespace(obj1=None)]
+
+        with self.assertRaises(sap.cli.helpers.SAPCliError) as cm:
+            sap.cli.helpers.TableWriter(fixture_data, columns).printout(self.console)
+
+        self.assertEqual(str(cm.exception), 'Missing column in table data: obj1.nested2')
+
 
 class TestAbapstampToIsodate(unittest.TestCase):
 

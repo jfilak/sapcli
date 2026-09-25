@@ -110,6 +110,13 @@ class TableWriter:
            that sometimes happen when you recieve a list of JSON objects
            (especially gCTS does that - the list items are not uniform).
 
+           The parameter 'attr' can be a dot separated path to a nested
+           attribute or dictionary key (e.g. 'owner.name'). Dots are always
+           treated as separators, so dictionary keys containing dots cannot
+           be used. The 'default' value is used when any part of the path is
+           missing; if an intermediate part is None, the next part is treated
+           as missing too.
+
            Example:
              columns = TableWriter.Columns() \
                            ('field_one', 'Header One', formatter=lambda x: str(x), default='...') \
@@ -138,6 +145,36 @@ class TableWriter:
 
             return self._columns
 
+    @staticmethod
+    def _resolve_attribute(obj: object, attribute: str, default: object):
+        """Resolves value of the given attribute of the given object.
+           The attribute can be a path consisting of several parts joined by dots.
+           The function will iteratively resolve each part of the attribute, each time
+           using the object retrieved by the previous part.
+
+           If the object is a dictionary, the key is retrieved instead.
+
+           Dots are always treated as path separators, hence dictionary keys
+           containing dots (e.g. {'a.b': 1}) cannot be addressed.
+
+           If an intermediate part resolves to None, the next part is looked up
+           on None and ends up with the default value - i.e. the error
+           'Missing column' is raised for columns without default even though
+           the data is empty rather than missing.
+        """
+
+        val = obj
+        for part in attribute.split('.'):
+            if isinstance(val, dict):
+                val = val.get(part, default)
+            else:
+                val = getattr(val, part, default)
+
+            if val is TableWriter.Columns.SENTINEL:
+                raise SAPCliError(f'Missing column in table data: {attribute}')
+
+        return val
+
     def __init__(self, data, columns, display_header=True, visible_columns=None):
         if visible_columns is None:
             self._columns = columns
@@ -157,13 +194,7 @@ class TableWriter:
             line = []
 
             for i, c in enumerate(self._columns):
-                if isinstance(item, dict):
-                    val = item.get(c[TableWriter.Columns.ATTR], c[TableWriter.Columns.DEFAULT])
-                else:
-                    val = getattr(item, c[TableWriter.Columns.ATTR], c[TableWriter.Columns.DEFAULT])
-
-                if val is TableWriter.Columns.SENTINEL:
-                    raise SAPCliError(f'Missing column in table data: {c[TableWriter.Columns.ATTR]}')
+                val = TableWriter._resolve_attribute(item, c[TableWriter.Columns.ATTR], c[TableWriter.Columns.DEFAULT])
 
                 if c[TableWriter.Columns.FORMATTER] is not None:
                     val = c[TableWriter.Columns.FORMATTER](val)
