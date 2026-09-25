@@ -230,6 +230,14 @@ class TableWriter:
                 line_callback(console, self._data[i])
 
 
+def columns_help(columns) -> str:
+    """Returns help text for the command line argument selecting visible columns
+       of the given TableWriter column definitions.
+    """
+
+    return 'Comma separated list of visible columns: ' + ', '.join(c[TableWriter.Columns.ATTR] for c in columns)
+
+
 def abapstamp_to_isodate(abapstamp: 'int') -> 'str':
     """Formats ABAP timestamp to ISO8061 date string with space instead of T"""
 

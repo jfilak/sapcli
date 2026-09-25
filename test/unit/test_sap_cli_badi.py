@@ -43,6 +43,20 @@ BADI_LIST_TABLE = (
     'SAPCLI_BADI_IMPL | true   | ZCL_SAPCLI_BADI_IMPL | SAPCLI_BADI_DEF |             | false   | false   | SAPCLI badi\n'
 )
 
+def get_argument_help(command_group, handler, argument):
+    declaration = command_group.get_command_declaration(handler)
+    return next(kwargs['help'] for args, kwargs in declaration.arguments if argument in args)
+
+
+class TestBadiEnhImplListHelp(unittest.TestCase):
+
+    def test_list_columns_help(self):
+        self.assertEqual(
+            get_argument_help(sap.cli.badi.CommandGroup, sap.cli.badi.list_badis, '--columns'),
+            'Comma separated list of visible columns: name, active, implementing_class.name, '
+            'badi_definition.name, customizing_lock, default, example, short_text')
+
+
 class TestBadiEnhImplList(ConsoleOutputTestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):

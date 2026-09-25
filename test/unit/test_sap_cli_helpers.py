@@ -326,6 +326,19 @@ nice
         self.assertEqual(str(cm.exception), 'Missing column in table data: obj1.nested2')
 
 
+class TestColumnsHelp(unittest.TestCase):
+
+    def test_columns_help(self):
+        columns = (sap.cli.helpers.TableWriter.Columns()
+            ('col1', 'Col1')
+            ('obj.col2', 'Col2')
+            .done()
+        )
+
+        self.assertEqual(sap.cli.helpers.columns_help(columns),
+                         'Comma separated list of visible columns: col1, obj.col2')
+
+
 class TestAbapstampToIsodate(unittest.TestCase):
 
     def test_abapstamp_to_isodate(self):

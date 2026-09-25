@@ -9,6 +9,20 @@ import sap.cli.helpers
 import sap.cli.object
 
 
+BADI_LIST_COLUMNS = (
+    sap.cli.helpers.TableWriter.Columns()
+    ('name', 'Name')
+    ('active', 'Active')
+    ('implementing_class.name', 'Class')
+    ('badi_definition.name', 'Definition')
+    ('customizing_lock', 'Customizing')
+    ('default', 'Default')
+    ('example', 'Example')
+    ('short_text', 'Short Text')
+    .done()
+)
+
+
 def mod_log():
     """ADT Module logger"""
 
@@ -26,19 +40,6 @@ def _list(connection, args):
 
     enho = _get_enhancement_implementation(connection, args)
 
-    columns = (
-        sap.cli.helpers.TableWriter.Columns()
-        ('name', 'Name')
-        ('active', 'Active')
-        ('implementing_class.name', 'Class')
-        ('badi_definition.name', 'Definition')
-        ('customizing_lock', 'Customizing')
-        ('default', 'Default')
-        ('example', 'Example')
-        ('short_text', 'Short Text')
-        .done()
-    )
-
     # The default action of the command group (without the sub-command list)
     # does not have the list's arguments, hence getattr with defaults.
     noheadings = getattr(args, 'noheadings', False)
@@ -46,7 +47,7 @@ def _list(connection, args):
 
     sap.cli.helpers.TableWriter(
         enho.specific.badis.implementations,
-        columns,
+        BADI_LIST_COLUMNS,
         display_header=not noheadings,
         visible_columns=None if not visible_columns else visible_columns.split(',')
     ).printout(console)
@@ -66,8 +67,7 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
 
 @CommandGroup.argument('--columns', type=str, default=None,
-                       help='Comma separated list of visible columns: name, active, implementing_class.name, '
-                            'badi_definition.name, customizing_lock, default, example, short_text')
+                       help=sap.cli.helpers.columns_help(BADI_LIST_COLUMNS))
 @CommandGroup.argument('--noheadings', action='store_true', default=False, help='Do not print the header')
 @CommandGroup.command('list')
 def list_badis(connection, args):
