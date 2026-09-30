@@ -2,8 +2,9 @@
 
 1. [find](#find)
 2. [run](#run)
-3. [feeds](#feeds)
-4. [shortdumps](#shortdumps)
+3. [systeminfo](#systeminfo)
+4. [feeds](#feeds)
+5. [shortdumps](#shortdumps)
 
 ## find
 
@@ -114,6 +115,29 @@ sapcli abap run --prefix zcl_myrun --package '$mypackage' my_script.abap
 
 ```bash
 echo -n "out->write( '{{GREETING}}, {{WHO}}!' )." | sapcli abap run --define GREETING=Hello --define WHO=World -
+```
+
+## systeminfo
+
+Prints system information (system ID, client, user, database, operating system,
+application server, ...) gathered from ADT.
+
+```bash
+sapcli abap systeminfo [--key KEY]
+```
+
+* _--key KEY_ print only the value of the given entry instead of the whole list
+
+### Print all system information
+
+```bash
+sapcli abap systeminfo
+```
+
+### Print a single value
+
+```bash
+sapcli abap systeminfo --key OSName
 ```
 
 ## feeds
