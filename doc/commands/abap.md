@@ -2,6 +2,8 @@
 
 1. [find](#find)
 2. [run](#run)
+3. [feeds](#feeds)
+4. [shortdumps](#shortdumps)
 
 ## find
 
@@ -112,4 +114,82 @@ sapcli abap run --prefix zcl_myrun --package '$mypackage' my_script.abap
 
 ```bash
 echo -n "out->write( '{{GREETING}}, {{WHO}}!' )." | sapcli abap run --define GREETING=Hello --define WHO=World -
+```
+
+## feeds
+
+Work with the ADT feeds (ATOM feeds published by the system, e.g. runtime
+dumps or the system log).
+
+### list
+
+Lists the feeds available on the system.
+
+```bash
+sapcli abap feeds list
+```
+
+Example output:
+
+```
+Title               | Id
+--------------------|---------------------------
+ABAP Runtime Errors | /sap/bc/adt/runtime/dumps
+System Log          | /sap/bc/adt/runtime/syslog
+```
+
+### read
+
+Reads a single feed identified by its URL (the `Id` value shown by
+`feeds list`) and prints its entries as a table.
+
+```bash
+sapcli abap feeds read FEED_URL
+```
+
+* _FEED\_URL_ the ADT feed URL (e.g. `/sap/bc/adt/runtime/syslog`)
+
+```bash
+sapcli abap feeds read /sap/bc/adt/runtime/syslog
+```
+
+As a convenience, reading the runtime dumps feed
+(`/sap/bc/adt/runtime/dumps`) is redirected to
+[`shortdumps list`](#shortdumps) so that the richer dump columns (author,
+timestamp) are shown.
+
+## shortdumps
+
+Work with ABAP runtime short dumps.
+
+### list
+
+Lists the runtime short dumps available on the system.
+
+```bash
+sapcli abap shortdumps list
+```
+
+Example output:
+
+```
+Author    | Title                                  | Updated              | Id
+----------|----------------------------------------|----------------------|-------
+DEVELOPER | CX_SY_ZERODIVIDE Division by zero      | 2024-01-15T10:30:00Z | ABC123
+TESTER    | CX_SY_ITAB_LINE_NOT_FOUND              | 2024-01-16T11:00:00Z | DEF456
+```
+
+### show
+
+Prints a single short dump, formatted by the system, identified by its ID (the
+`Id` value shown by `shortdumps list`).
+
+```bash
+sapcli abap shortdumps show DUMP_ID
+```
+
+* _DUMP\_ID_ the short dump ID (e.g. `ABC123`)
+
+```bash
+sapcli abap shortdumps show ABC123
 ```
