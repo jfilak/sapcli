@@ -15,6 +15,15 @@ from fixtures_adt_system import (
     RESPONSE_SYSTEM_INFORMATION,
     RESPONSE_JSON_SYSTEM_INFORMATION,
 )
+from fixtures_adt_feeds import (
+    FEEDS_XML as FIXTURE_FEEDS,
+    FEEDS_XML_EMPTY as FIXTURE_FEEDS_EMPTY,
+)
+from fixtures_adt_shortdumps import (
+    DUMPS_FEED_XML as FIXTURE_DUMPS_FEED,
+    DUMPS_FEED_XML_NO_AUTHOR as FIXTURE_DUMPS_FEED_NO_AUTHOR,
+    DUMP_FORMATTED as FIXTURE_DUMP_FORMATTED,
+)
 
 FIXTURE_SEARCH_RESPONSE_TWO_RESULTS = """<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
@@ -524,6 +533,202 @@ class TestAbapFind(unittest.TestCase):
             args.execute(Connection(), args)
 
         self.assertIn('must be positive', str(caught.exception))
+
+
+class TestAbapShortDumpList(unittest.TestCase):
+
+    def test_list_sends_request(self):
+        connection = Connection([Response(text=FIXTURE_DUMPS_FEED, status_code=200)])
+        args = parse_args(['shortdumps', 'list'])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'GET')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/runtime/dumps')
+
+    def test_list_prints_table_with_entries(self):
+        connection = Connection([Response(text=FIXTURE_DUMPS_FEED, status_code=200)])
+        args = parse_args(['shortdumps', 'list'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        lines = console.capout.strip().split('\n')
+        # header + separator + 2 entries
+        self.assertEqual(len(lines), 4)
+        self.assertIn('Author', lines[0])
+        self.assertIn('Title', lines[0])
+        self.assertIn('Updated', lines[0])
+        self.assertIn('Id', lines[0])
+
+        self.assertIn('DEVELOPER', lines[2])
+        # The newline inside the title is replaced with a space
+        self.assertIn('CX_SY_ZERODIVIDE Division by zero', lines[2])
+        self.assertIn('2024-01-15T10:30:00Z', lines[2])
+        # Only the last URL segment of the id is displayed
+        self.assertIn('ABC123', lines[2])
+
+        self.assertIn('TESTER', lines[3])
+        self.assertIn('DEF456', lines[3])
+
+    def test_list_entry_without_author_does_not_crash(self):
+        connection = Connection([Response(text=FIXTURE_DUMPS_FEED_NO_AUTHOR, status_code=200)])
+        args = parse_args(['shortdumps', 'list'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        lines = console.capout.strip().split('\n')
+        # header + separator + 1 entry
+        self.assertEqual(len(lines), 3)
+        self.assertIn('ABC123', lines[2])
+
+
+class TestAbapShortDumpShow(unittest.TestCase):
+
+    def test_show_sends_request(self):
+        connection = Connection([Response(text=FIXTURE_DUMP_FORMATTED, status_code=200)])
+        args = parse_args(['shortdumps', 'show', 'ABC123'])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'GET')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/runtime/dump/ABC123/formatted')
+
+    def test_show_prints_output(self):
+        connection = Connection([Response(text=FIXTURE_DUMP_FORMATTED, status_code=200)])
+        args = parse_args(['shortdumps', 'show', 'ABC123'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(console.capout, FIXTURE_DUMP_FORMATTED + '\n')
+
+    def test_show_empty_id_raises(self):
+        args = parse_args(['shortdumps', 'show', '   '])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(Connection(), args)
+
+        self.assertIn('No dump ID provided', str(caught.exception))
+
+
+class TestAbapFeedsList(unittest.TestCase):
+
+    def test_list_sends_request(self):
+        connection = Connection([Response(text=FIXTURE_FEEDS, status_code=200)])
+        args = parse_args(['feeds', 'list'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'GET')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/feeds')
+
+    def test_list_prints_table_with_entries(self):
+        connection = Connection([Response(text=FIXTURE_FEEDS, status_code=200)])
+        args = parse_args(['feeds', 'list'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        lines = console.capout.strip().split('\n')
+        # header + separator + 2 entries
+        self.assertEqual(len(lines), 4)
+        self.assertIn('Title', lines[0])
+        self.assertIn('Id', lines[0])
+
+        self.assertIn('ABAP Runtime Errors', lines[2])
+        self.assertIn('/sap/bc/adt/runtime/dumps', lines[2])
+
+        self.assertIn('System Log', lines[3])
+        self.assertIn('/sap/bc/adt/runtime/syslog', lines[3])
+
+    def test_list_empty_prints_header_only(self):
+        connection = Connection([Response(text=FIXTURE_FEEDS_EMPTY, status_code=200)])
+        args = parse_args(['feeds', 'list'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        lines = console.capout.strip().split('\n')
+        # header + separator only
+        self.assertEqual(len(lines), 2)
+        self.assertIn('Title', lines[0])
+        self.assertIn('Id', lines[0])
+
+
+class TestAbapFeedsRead(unittest.TestCase):
+
+    def test_read_sends_request_to_complete_url(self):
+        connection = Connection([Response(text=FIXTURE_FEEDS, status_code=200)])
+        args = parse_args(['feeds', 'read', '/sap/bc/adt/runtime/syslog'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].method, 'GET')
+        # complete_url=True means the id is used verbatim as the URL
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/runtime/syslog')
+
+    def test_read_prints_table_with_entries(self):
+        connection = Connection([Response(text=FIXTURE_FEEDS, status_code=200)])
+        args = parse_args(['feeds', 'read', '/sap/bc/adt/runtime/syslog'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        lines = console.capout.strip().split('\n')
+        self.assertEqual(len(lines), 4)
+        self.assertIn('Title', lines[0])
+        self.assertIn('Id', lines[0])
+        self.assertIn('ABAP Runtime Errors', lines[2])
+        self.assertIn('System Log', lines[3])
+
+    def test_read_dumps_feed_redirects_to_dump_list(self):
+        connection = Connection([Response(text=FIXTURE_DUMPS_FEED, status_code=200)])
+        args = parse_args(['feeds', 'read', '/sap/bc/adt/runtime/dumps'])
+        console, factory = make_console_factory()
+        args.console_factory = factory
+
+        args.execute(connection, args)
+
+        # The redirect uses the dumps-specific endpoint and columns
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/runtime/dumps')
+
+        lines = console.capout.strip().split('\n')
+        self.assertIn('Author', lines[0])
+        self.assertIn('Updated', lines[0])
+        self.assertIn('DEVELOPER', lines[2])
+
+    def test_read_empty_id_raises(self):
+        args = parse_args(['feeds', 'read', '   '])
+        _, factory = make_console_factory()
+        args.console_factory = factory
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(Connection(), args)
+
+        self.assertIn('No feed', str(caught.exception))
 
 
 if __name__ == '__main__':

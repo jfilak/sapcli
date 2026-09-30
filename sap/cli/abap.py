@@ -4,10 +4,43 @@ import sys
 
 import sap.cli.core
 import sap.cli.helpers
+import sap.adt.feeds
 import sap.adt.search
+import sap.adt.shortdumps
 import sap.adt.system
 import sap.errors
 import sap.platform.abap.run
+
+
+# The runtime dumps feed is handled by a dedicated command with richer columns.
+_DUMPS_FEED_URL = '/sap/bc/adt/runtime/dumps'
+
+
+def _print_feed_entries(console, entries):
+    """Prints ATOM feed entries as a Title/Id table."""
+
+    columns = (
+        sap.cli.helpers.TableWriter.Columns()
+        ('title', 'Title', formatter=lambda x: x.replace('\n', ' '))
+        ('id', 'Id')
+        .done()
+    )
+
+    sap.cli.helpers.TableWriter(entries, columns).printout(console)
+
+
+class FeedsCommandGroup(sap.cli.core.CommandGroup):
+    """Commands for ADT feeds"""
+
+    def __init__(self):
+        super().__init__('feeds')
+
+
+class ShortDumpsCommandGroup(sap.cli.core.CommandGroup):
+    """Commands for ABAP runtime short dumps"""
+
+    def __init__(self):
+        super().__init__('shortdumps')
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -15,6 +48,17 @@ class CommandGroup(sap.cli.core.CommandGroup):
 
     def __init__(self):
         super().__init__('abap')
+        self.short_dumps_grp = ShortDumpsCommandGroup()
+        self.feeds_grp = FeedsCommandGroup()
+
+    def install_parser(self, arg_parser):
+        activation_group = super().install_parser(arg_parser)
+
+        feeds_parser = activation_group.add_parser(self.feeds_grp.name)
+        self.feeds_grp.install_parser(feeds_parser)
+
+        short_dumps_parser = activation_group.add_parser(self.short_dumps_grp.name)
+        self.short_dumps_grp.install_parser(short_dumps_parser)
 
 
 def _parse_definitions(define_args):
@@ -114,3 +158,61 @@ def find(connection, args):
     )
 
     sap.cli.helpers.TableWriter(results.references, columns).printout(console)
+
+
+@FeedsCommandGroup.command('list')
+def feeds_list(connection, args):
+    """List the ADT feeds available on the system"""
+
+    console = args.console_factory()
+
+    _print_feed_entries(console, sap.adt.feeds.list_feeds(connection))
+
+
+@FeedsCommandGroup.argument('id', type=str, help='ADT Feed URL')
+@FeedsCommandGroup.command('read')
+def feeds_read(connection, args):
+    """Read a single ADT feed by its URL"""
+
+    console = args.console_factory()
+
+    feed_url = args.id.strip()
+    if not feed_url:
+        raise sap.errors.SAPCliError('No feed URL provided')
+
+    if feed_url == _DUMPS_FEED_URL:
+        # The runtime dumps feed is a special case with its own richer command
+        dump_list(connection, args)
+        return
+
+    _print_feed_entries(console, sap.adt.feeds.read_feed(connection, feed_url))
+
+
+@ShortDumpsCommandGroup.command('list')
+def dump_list(connection, args):
+    """List ABAP runtime short dumps"""
+
+    console = args.console_factory()
+
+    entries = sap.adt.shortdumps.list_dumps(connection)
+
+    columns = (
+        sap.cli.helpers.TableWriter.Columns()
+        ('author', 'Author', default='')
+        ('title', 'Title', formatter=lambda x: x.replace('\n', ' '))
+        ('updated', 'Updated')
+        ('id', 'Id', formatter=lambda x: x.split('/')[-1])
+        .done()
+    )
+
+    sap.cli.helpers.TableWriter(entries, columns).printout(console)
+
+
+@ShortDumpsCommandGroup.argument('id', type=str, help='Dump ID')
+@ShortDumpsCommandGroup.command('show')
+def dump_show(connection, args):
+    """Show a formatted ABAP runtime short dump by its ID"""
+
+    console = args.console_factory()
+
+    console.printout(sap.adt.shortdumps.read_dump(connection, args.id))
