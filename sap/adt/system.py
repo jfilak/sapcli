@@ -1,11 +1,8 @@
 """ADT System Information wrappers"""
 
-from xml.etree import ElementTree
-
+import sap.adt.feeds
 from sap.adt.core import Connection
 
-
-XMLNS_ATOM = '{http://www.w3.org/2005/Atom}'
 
 JSON_KEY_MAPPING = {
     'systemID': 'SID',
@@ -50,15 +47,7 @@ def _fetch_xml_entries(connection):
         accept='application/atom+xml;type=feed',
     )
 
-    root = ElementTree.fromstring(resp.text)
-
-    entries = []
-    for entry_elem in root.findall(f'{XMLNS_ATOM}entry'):
-        identity = entry_elem.find(f'{XMLNS_ATOM}id').text
-        title = entry_elem.find(f'{XMLNS_ATOM}title').text
-        entries.append(SystemInfoEntry(identity, title))
-
-    return entries
+    return [SystemInfoEntry(entry['id'], entry['title']) for entry in sap.adt.feeds.parse_feed(resp.text)]
 
 
 def _fetch_json_entries(connection):
