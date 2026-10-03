@@ -28,6 +28,26 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('checkout')
 
 
+def context_destdir(args):
+    """Returns <config_dir>/<context>/ as destdir when an active context is configured."""
+
+    config_file = getattr(args, 'config_file', None)
+    if config_file is None:
+        return None
+
+    context = config_file.current_context
+    if not context:
+        return None
+
+    destdir = os.path.join(config_file.path.parent, context)
+    try:
+        os.makedirs(destdir, exist_ok=True)
+    except OSError:
+        # Fall back to CWD if the directory cannot be created
+        return None
+    return destdir
+
+
 def build_filename(object_name, typsfx, fileext, destdir=None):
     """Creates file name"""
 
@@ -124,7 +144,7 @@ def checkout_class(connection, name, destdir=None):
 def abapclass(connection, args):
     """Download all class sources command wrapper"""
 
-    checkout_class(connection, args.name.upper())
+    checkout_class(connection, args.name.upper(), context_destdir(args))
 
 
 def build_program_abap_attributes(adt_program):
@@ -164,7 +184,7 @@ def checkout_program(connection, name, destdir=None):
 def program(connection, args):
     """Download program sources command wrapper"""
 
-    checkout_program(connection, args.name.upper())
+    checkout_program(connection, args.name.upper(), context_destdir(args))
 
 
 def build_interface_abap_attributes(adt_intf):
@@ -201,7 +221,7 @@ def checkout_interface(connection, name, destdir=None):
 def interface(connection, args):
     """Download interface sources command wrapper"""
 
-    checkout_interface(connection, args.name.upper())
+    checkout_interface(connection, args.name.upper(), context_destdir(args))
 
 
 def build_function_module_abap_attributes(func_module):
@@ -347,7 +367,7 @@ def function_group(connection, args):
     """Download function group sources command wrapper"""
 
     try:
-        checkout_function_group(connection, args.name.upper(), source_format=SourceCodeFormat(args.format))
+        checkout_function_group(connection, args.name.upper(), context_destdir(args), source_format=SourceCodeFormat(args.format))
     except sap.cli.core.SAPCliError as ex:
         sap.cli.core.printerr(f'Checkout failed: {str(ex)}')
         return 1
