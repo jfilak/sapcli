@@ -2234,6 +2234,10 @@ class TestgCTSRepoActivities(ConsoleOutputTestCase, PatcherTestCase):
         query_params = self.fake_repo.activities.call_args.args[0]
         self.assertEqual(query_params.get_params(), expected_params)
 
+    def assert_query_pid(self, expected_pid):
+        query_params = self.fake_repo.activities.call_args.args[0]
+        self.assertEqual(query_params.pid, expected_pid)
+
     @patch('sap.cli.gcts.get_repository')
     def test_activities_no_params(self, fake_get_repository):
         fake_get_repository.return_value = self.fake_repo
@@ -2278,6 +2282,33 @@ class TestgCTSRepoActivities(ConsoleOutputTestCase, PatcherTestCase):
 
         expected_params = {'limit': '15', 'offset': '10', 'fromCommit': '123', 'toCommit': '456', 'type': 'CLONE'}
         self.assert_query_params(expected_params)
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_activities_pid_param(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.activities_cmd('the_repo', '--pid', 'ABC')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+        self.assertEqual(exit_code, 0)
+
+        self.fake_repo.activities.assert_called_once()
+
+        expected_params = {'limit': '10', 'offset': '0'}
+        self.assert_query_params(expected_params)
+        self.assert_query_pid('ABC')
+
+    @patch('sap.cli.gcts.get_repository')
+    def test_activities_all_query_params_with_pid(self, fake_get_repository):
+        fake_get_repository.return_value = self.fake_repo
+
+        the_cmd = self.activities_cmd('the_repo', '--limit', '15', '--offset', '10', '--fromcommit', '123',
+                                      '--tocommit', '456', '--operation', 'CLONE', '--pid', 'ABC')
+        exit_code = the_cmd.execute(self.fake_connection, the_cmd)
+        self.assertEqual(exit_code, 0)
+
+        expected_params = {'limit': '15', 'offset': '10', 'fromCommit': '123', 'toCommit': '456', 'type': 'CLONE'}
+        self.assert_query_params(expected_params)
+        self.assert_query_pid('ABC')
 
     @patch('sys.stderr', new_callable=StringIO)
     def test_activities_incorrect_operation(self, mock_stderr):

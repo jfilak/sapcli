@@ -320,7 +320,7 @@ List activities (history) of a repository.
 Note, the `operation` parameter corresponds to the type of activity.
 
 ```bash
-sapcli gcts repo activities PACKAGE [--limit LIMIT] [--offset OFFSET] [--fromcommit FROMCOMMIT] [--tocommit TOCOMMIT] [--operation] {COMMIT,PULL,CLONE,BRANCH_SW} [--noheadings] [--columns] [-f|--format] {HUMAN|JSON}
+sapcli gcts repo activities PACKAGE [--limit LIMIT] [--offset OFFSET] [--fromcommit FROMCOMMIT] [--tocommit TOCOMMIT] [--operation] {COMMIT,PULL,CLONE,BRANCH_SW} [--pid PID] [--noheadings] [--columns] [-f|--format] {HUMAN|JSON}
 ```
 
 **Parameters**:
@@ -330,6 +330,7 @@ sapcli gcts repo activities PACKAGE [--limit LIMIT] [--offset OFFSET] [--fromcom
 - `--fromcommit FROMCOMMIT`: The From Commit hash of activities to return
 - `--tocommit TOCOMMIT`: The To Commit hash of activities to return
 - `--operation {COMMIT,PULL,CLONE,BRANCH_SW}`: The type of activities to return. Possible values follow domain of `SCTS_ABAP_VCS_COMMIT_TYPE`.
+- `--pid PID`: Return only the history item with the given Process ID. The gCTS endpoint does not support filtering by Process ID, so the full history is fetched and filtered on the client side. If no item matches, an empty result is returned.
 - `--noheadings`: Do not display a header line
 - `--columns`: Comma-separated list of visible columns; available columns:
   checkoutTime, caller, type, request, fromCommit, toCommit, state, rc

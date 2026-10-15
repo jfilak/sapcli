@@ -709,6 +709,81 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertEqual(str(cm.exception), 'A successful gcts getHistory request did not return result')
 
+    def test_activities_pid_filter_match(self):
+        expected_params = {'limit': '10', 'offset': '0'}
+        history = [{'pid': 'AAA', 'type': 'CLONE'}, {'pid': 'BBB', 'type': 'PULL'}]
+
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams().set_pid('BBB')
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': history})
+        )
+
+        self.assert_repo_activities(query_params, [{'pid': 'BBB', 'type': 'PULL'}], expected_params)
+
+    def test_activities_pid_filter_no_match(self):
+        expected_params = {'limit': '10', 'offset': '0'}
+        history = [{'pid': 'AAA', 'type': 'CLONE'}, {'pid': 'BBB', 'type': 'PULL'}]
+
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams().set_pid('CCC')
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': history})
+        )
+
+        self.assert_repo_activities(query_params, [], expected_params)
+
+    def test_activities_pid_not_set(self):
+        expected_params = {'limit': '10', 'offset': '0'}
+        history = [{'pid': 'AAA', 'type': 'CLONE'}, {'pid': 'BBB', 'type': 'PULL'}]
+
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams()
+        self.assertIsNone(query_params.pid)
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': history})
+        )
+
+        self.assert_repo_activities(query_params, history, expected_params)
+
+    def test_activities_pid_filter_spans_multiple_pages(self):
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams().set_limit(2).set_pid('BBB')
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': [{'pid': 'AAA', 'n': 1},
+                                                                  {'pid': 'BBB', 'n': 2}]}),
+            Response.with_json(status_code=200, json={'result': [{'pid': 'CCC', 'n': 3},
+                                                                  {'pid': 'BBB', 'n': 4}]}),
+            Response.with_json(status_code=200, json={'result': [{'pid': 'DDD', 'n': 5}]}),
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+        result = repo.activities(query_params)
+
+        self.assertEqual(result, [{'pid': 'BBB', 'n': 2}, {'pid': 'BBB', 'n': 4}])
+        self.assertEqual(len(self.conn.execs), 3)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/getHistory',
+                                                        params={'limit': '2', 'offset': '0'}), self)
+        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/getHistory',
+                                                        params={'limit': '2', 'offset': '2'}), self)
+        self.conn.execs[2].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/getHistory',
+                                                        params={'limit': '2', 'offset': '4'}), self)
+
+    def test_activities_pid_filter_applies_limit_and_offset_after_pagination(self):
+        query_params = sap.rest.gcts.remote_repo.RepoActivitiesQueryParams()\
+            .set_limit(2).set_offset(1).set_pid('BBB')
+        self.conn.set_responses(
+            Response.with_json(status_code=200, json={'result': [{'pid': 'BBB', 'n': 1},
+                                                                  {'pid': 'BBB', 'n': 2}]}),
+            Response.with_json(status_code=200, json={'result': [{'pid': 'BBB', 'n': 3}]}),
+        )
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
+        result = repo.activities(query_params)
+
+        self.assertEqual(result, [{'pid': 'BBB', 'n': 2}, {'pid': 'BBB', 'n': 3}])
+        self.assertEqual(len(self.conn.execs), 2)
+        self.conn.execs[0].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/getHistory',
+                                                        params={'limit': '2', 'offset': '0'}), self)
+        self.conn.execs[1].assertEqual(Request.get_json(uri=f'repository/{self.repo_rid}/getHistory',
+                                                        params={'limit': '2', 'offset': '2'}), self)
+
     def assert_repo_messages(self, query_params, expected_result, expected_path, expected_params):
         repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid)
         result = repo.messages(query_params)
