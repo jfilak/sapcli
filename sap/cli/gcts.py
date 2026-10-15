@@ -394,6 +394,8 @@ REPO_ACTIVITIES_COLUMNS = (
 @RepoCommandGroup.argument('-f', '--format', type=str, choices=['HUMAN', 'JSON'], default='HUMAN')
 @RepoCommandGroup.argument('--operation', type=str, choices=RepoActivitiesQueryParams.allowed_operations(),
                            default=None)
+@RepoCommandGroup.argument('--pid', type=str, default=None,
+                           help='Filter history items by Process ID (client-side filter)')
 @RepoCommandGroup.argument('--tocommit', type=str, default=None)
 @RepoCommandGroup.argument('--fromcommit', type=str, default=None)
 @RepoCommandGroup.argument('--offset', type=int, default=0)
@@ -408,6 +410,7 @@ def activities(connection, args):
 
     params = RepoActivitiesQueryParams().set_limit(args.limit).set_offset(args.offset)
     params.set_tocommit(args.tocommit).set_fromcommit(args.fromcommit).set_operation(args.operation)
+    params.set_pid(args.pid)
 
     repo = get_repository(connection, args.package)
     repo_activities = repo.activities(params)

@@ -156,6 +156,7 @@ class RepoActivitiesQueryParams:
 
     def __init__(self):
         self._params = {}
+        self._pid = None
 
         self.set_limit(10)
         self.set_offset(0)
@@ -219,6 +220,35 @@ class RepoActivitiesQueryParams:
             self._params['type'] = value
 
         return self
+
+    def set_pid(self, value: 'str') -> 'RepoActivitiesQueryParams':
+        """Set the Process ID used to filter the history on the client side.
+
+        The gCTS getHistory endpoint does not support filtering by Process ID,
+        so the filtering is applied after the data is fetched. If None, the
+        filter is removed.
+        """
+
+        self._pid = value or None
+        return self
+
+    @property
+    def pid(self) -> Optional[str]:
+        """Return the Process ID client-side filter"""
+
+        return self._pid
+
+    @property
+    def limit(self) -> int:
+        """Return the requested limit"""
+
+        return int(self._params['limit'])
+
+    @property
+    def offset(self) -> int:
+        """Return the requested offset"""
+
+        return int(self._params['offset'])
 
     def get_params(self) -> dict:
         """Get the query parameters"""
@@ -598,6 +628,9 @@ class Repository:
     def activities(self, history_params: RepoActivitiesQueryParams):
         """Fetches gCTS repository activities (not git logs)"""
 
+        if history_params.pid is not None:
+            return self._activities_filtered_by_pid(history_params)
+
         response = self._http.get_json('getHistory', params=history_params.get_params())
         if not response:
             return []
@@ -607,6 +640,42 @@ class Repository:
             raise SAPCliError('A successful gcts getHistory request did not return result')
 
         return result
+
+    def _activities_filtered_by_pid(self, history_params: RepoActivitiesQueryParams) -> list[dict]:
+        """Fetches gCTS activities page by page and keeps only those matching the
+           requested Process ID.
+
+           The gCTS getHistory endpoint does not support filtering by Process ID,
+           so successive pages are fetched until the whole history is scanned and
+           the requested limit and offset are applied to the matching activities.
+        """
+
+        page_size = history_params.limit if history_params.limit > 0 else 10
+
+        matched: list[dict] = []
+        offset = 0
+        while True:
+            page_params = dict(history_params.get_params())
+            page_params['limit'] = str(page_size)
+            page_params['offset'] = str(offset)
+
+            response = self._http.get_json('getHistory', params=page_params)
+            if not response:
+                break
+
+            result = response.get('result')
+            if result is None:
+                raise SAPCliError('A successful gcts getHistory request did not return result')
+
+            matched.extend(item for item in result if item.get('pid') == history_params.pid)
+
+            if len(result) < page_size:
+                break
+
+            offset += page_size
+
+        start = history_params.offset
+        return matched[start:start + history_params.limit]
 
     def objects(self):
         """Fetches the list of objects of the repository"""
