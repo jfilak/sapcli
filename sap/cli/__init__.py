@@ -55,6 +55,7 @@ class CommandsCache:
         import sap.cli.table
         import sap.cli.badi
         import sap.cli.structure
+        import sap.cli.tabletype
         import sap.cli.dataelement
         import sap.cli.domain
         import sap.cli.authorizationfield
@@ -88,6 +89,7 @@ class CommandsCache:
             (adt_connection_from_args, sap.cli.srvb.CommandGroup()),
             (adt_connection_from_args, sap.cli.table.CommandGroup()),
             (adt_connection_from_args, sap.cli.structure.CommandGroup()),
+            (adt_connection_from_args, sap.cli.tabletype.CommandGroup()),
             (adt_connection_from_args, sap.cli.dataelement.CommandGroup()),
             (adt_connection_from_args, sap.cli.domain.CommandGroup()),
             (adt_connection_from_args, sap.cli.authorizationfield.CommandGroup()),
