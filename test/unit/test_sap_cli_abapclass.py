@@ -11,6 +11,7 @@ from mock import Connection, Response, patch_get_print_console_with_buffer
 from fixtures_adt import (EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 from fixtures_adt_clas import GET_CLASS_ADT_XML
+from fixtures_sap_adt_textelements import GET_CLASS_TEXT_ELEMENTS_XML
 
 
 FIXTURE_ELEMENTARY_CLASS_XML="""<?xml version="1.0" encoding="UTF-8"?>
@@ -235,6 +236,73 @@ class TestClassIncludes(unittest.TestCase):
 
     def test_class_write_tests_activate(self):
         self.write_test_with_activation('testclasses')
+
+
+class TestClassTextElements(unittest.TestCase):
+
+    def test_class_read_textelements(self):
+        conn = Connection([Response(text='@MaxLength:20\r\n001=Hello, world!', status_code=200, headers={})])
+        args = parse_args(['read', 'ZCL_READER', '--type', 'textelements'])
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            args.execute(conn, args)
+
+        self.assertEqual(conn.mock_methods(), [('GET', '/sap/bc/adt/textelements/classes/zcl_reader/source/symbols')])
+        self.assertEqual(fake_console.capout, '@MaxLength:20\n001=Hello, world!\n')
+
+    def test_class_write_textelements(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        args = parse_args(['write', 'ZCL_WRITER', '--type', 'textelements', '-', '--corrnr', '420'])
+
+        with patch('sys.stdin', StringIO('@MaxLength:20\n001=Hello, world!\n')):
+            args.execute(conn, args)
+
+        self.assertEqual(conn.mock_methods(),
+                         [('POST', '/sap/bc/adt/textelements/classes/zcl_writer'),
+                          ('PUT', '/sap/bc/adt/textelements/classes/zcl_writer/source/symbols'),
+                          ('POST', '/sap/bc/adt/textelements/classes/zcl_writer')])
+
+        self.assertEqual(conn.execs[1].params, {'lockHandle': 'win', 'corrNr': '420'})
+        self.assertEqual(conn.execs[1].body, b'@MaxLength:20\r\n001=Hello, world!\r\n')
+
+    def test_class_write_textelements_check_is_skipped(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        args = parse_args(['write', 'ZCL_WRITER', '--type', 'textelements', '-', '--check'])
+
+        with patch('sys.stdin', StringIO('@MaxLength:20\n001=Hello, world!\n')):
+            args.execute(conn, args)
+
+        self.assertEqual(conn.mock_methods(),
+                         [('POST', '/sap/bc/adt/textelements/classes/zcl_writer'),
+                          ('PUT', '/sap/bc/adt/textelements/classes/zcl_writer/source/symbols'),
+                          ('POST', '/sap/bc/adt/textelements/classes/zcl_writer')])
+
+    def test_class_write_textelements_activate(self):
+        conn = Connection([
+            LOCK_RESPONSE_OK,
+            EMPTY_RESPONSE_OK,
+            EMPTY_RESPONSE_OK,
+            EMPTY_RESPONSE_OK,
+            Response(text=GET_CLASS_TEXT_ELEMENTS_XML.replace('ZCL_JAKUB_TEXTS', 'ZCL_WRITER')
+                                                     .replace('"inactive"', '"active"'),
+                     status_code=200, headers={})
+        ])
+        args = parse_args(['write', 'ZCL_WRITER', '--type', 'textelements', '-', '--activate'])
+
+        with patch('sys.stdin', StringIO('@MaxLength:20\n001=Hello, world!\n')):
+            exit_code = args.execute(conn, args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(conn.mock_methods(),
+                         [('POST', '/sap/bc/adt/textelements/classes/zcl_writer'),
+                          ('PUT', '/sap/bc/adt/textelements/classes/zcl_writer/source/symbols'),
+                          ('POST', '/sap/bc/adt/textelements/classes/zcl_writer'),
+                          ('POST', '/sap/bc/adt/activation'),
+                          ('GET', '/sap/bc/adt/textelements/classes/zcl_writer')])
+
+        activate_request = conn.execs[3]
+        self.assertIn('adtcore:uri="/sap/bc/adt/textelements/classes/zcl_writer"', activate_request.body)
+        self.assertIn('adtcore:name="ZCL_WRITER"', activate_request.body)
 
 
 class TestClassAttributes(unittest.TestCase):

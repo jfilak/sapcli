@@ -1,12 +1,13 @@
 """ADT proxy for ABAP Class (OO)"""
 
 import sap.adt
+import sap.adt.textelements
 import sap.adt.wb
 import sap.cli.core
 import sap.cli.object
 
 
-SOURCE_TYPES = ['main', 'definitions', 'implementations', 'testclasses']
+SOURCE_TYPES = ['main', 'definitions', 'implementations', 'testclasses', 'textelements']
 
 FILE_NAME_SUFFIX_TYPES = {
     'clas.abap': None,
@@ -36,6 +37,9 @@ def instance_from_args(connection, name, typ, args, metadata):
     if typ == 'testclasses':
         return clas.test_classes
 
+    if typ == 'textelements':
+        return sap.adt.textelements.ClassTextElements(connection, name.upper())
+
     return clas
 
 
@@ -63,6 +67,18 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
             raise sap.cli.core.InvalidCommandLineError(f'Unknown class file name suffix: "{suffix}"') from ex
 
         return instance_from_args(connection, name, typ, args, metadata)
+
+    def _save_object_text(self, obj, code, check_before_save, corrnr=None, editor=None):
+        if not isinstance(obj, sap.adt.textelements.ClassTextElements):
+            super()._save_object_text(obj, code, check_before_save, corrnr=corrnr, editor=editor)
+            return
+
+        # Text symbols are not ABAP source code, so abapCheckRun cannot check them
+        if editor is not None:
+            editor.write(code)
+        else:
+            with obj.open_editor(corrnr=corrnr) as new_editor:
+                new_editor.write(code)
 
     def define_read(self, commands):
         read_cmd = super().define_read(commands)
