@@ -3,6 +3,7 @@
 
 # pylint: disable=protected-access,missing-function-docstring
 
+import os
 import unittest
 from unittest.mock import Mock, patch, call
 
@@ -12,6 +13,8 @@ from mock import (
 )
 
 import sap.cli.abapgit
+from sap.errors import SAPCliError
+from sap.rfc.bapi import BAPIReturn
 
 from infra import generate_parse_args
 
@@ -40,6 +43,7 @@ class TestAbapgitLink(ConsoleOutputTestCase, PatcherTestCase):
         self.connection = Mock()
 
         self.patch_console(console=self.console)
+        self.patch('os.environ', new={})
         self.link_patch = self.patch('sap.adt.abapgit.Repository.link')
         self.link_patch.return_value = Mock()
 
@@ -99,6 +103,183 @@ class TestAbapgitLink(ConsoleOutputTestCase, PatcherTestCase):
 
         self.assertConsoleContents(console=self.console, stderr=f'''Failed to link repository: PKG {self.link_patch.return_value}
 ''')
+
+    def test_link_repo_default_branch(self):
+        self.link_patch.return_value.status_code = 200
+
+        args = parse_args('link', self.param_package, self.param_url)
+        args.execute(self.connection, args)
+
+        self.assertEqual(self.link_patch.call_args.args[1]['branchName'], 'refs/heads/master')
+
+    def test_link_repo_explicit_steampunk(self):
+        self.link_patch.return_value.status_code = 200
+
+        args = parse_args('link', '--api', 'steampunk', self.param_package, self.param_url)
+        args.execute(self.connection, args)
+
+        self.link_patch.assert_called_once()
+
+    def test_link_repo_steampunk_from_env(self):
+        self.link_patch.return_value.status_code = 200
+
+        os.environ['SAPCLI_ABAPGIT_API'] = 'steampunk'
+        args = parse_args('link', self.param_package, self.param_url)
+        args.execute(self.connection, args)
+
+        self.link_patch.assert_called_once()
+
+    def test_link_repo_unknown_api_from_env(self):
+        os.environ['SAPCLI_ABAPGIT_API'] = 'foo'
+        args = parse_args('link', self.param_package, self.param_url)
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'Unknown abapGit API "foo" (SAPCLI_ABAPGIT_API) - use one of: steampunk, rfc-via-classrun')
+        self.link_patch.assert_not_called()
+
+    def test_link_repo_steampunk_rejects_folder_logic(self):
+        args = parse_args('link', '--folder-logic', 'FULL', self.param_package, self.param_url)
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'The parameter --folder-logic is supported only by the API rfc-via-classrun')
+        self.link_patch.assert_not_called()
+
+    def test_link_repo_steampunk_rejects_starting_folder(self):
+        args = parse_args('link', '--starting-folder', '/abap/', self.param_package, self.param_url)
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'The parameter --starting-folder is supported only by the API rfc-via-classrun')
+
+    def test_link_repo_steampunk_rejects_ignore_subpackages(self):
+        args = parse_args('link', '--ignore-subpackages', self.param_package, self.param_url)
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'The parameter --ignore-subpackages is supported only by the API rfc-via-classrun')
+
+    def test_link_repo_steampunk_rejects_main_lang_only(self):
+        args = parse_args('link', '--main-lang-only', self.param_package, self.param_url)
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'The parameter --main-lang-only is supported only by the API rfc-via-classrun')
+
+
+class TestAbapgitLinkRfcViaClassrun(ConsoleOutputTestCase, PatcherTestCase):
+    '''Test Abapgit Link command with the API rfc-via-classrun'''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+
+        self.connection = Mock()
+
+        self.patch_console(console=self.console)
+        self.patch('os.environ', new={})
+        self.steampunk_patch = self.patch('sap.adt.abapgit.Repository.link')
+        self.link_patch = self.patch('sap.platform.abap.abapgit_rfc.link')
+        self.link_patch.return_value = BAPIReturn([
+            {'TYPE': 'I', 'ID': '', 'NUMBER': '', 'MESSAGE': 'Running migrations'},
+            {'TYPE': 'I', 'ID': '', 'NUMBER': '', 'MESSAGE': 'Done'},
+        ])
+
+    def test_link_all_params(self):
+        args = parse_args(
+            'link',
+            '--api', 'rfc-via-classrun',
+            '--remote-user', 'user',
+            '--remote-password', 'password',
+            '--branch', 'refs/heads/main',
+            '--folder-logic', 'FULL',
+            '--starting-folder', '/abap/',
+            '--ignore-subpackages',
+            '--main-lang-only',
+            'pkg',
+            'URL')
+        args.execute(self.connection, args)
+
+        self.link_patch.assert_called_once_with(
+            self.connection,
+            package='PKG',
+            url='URL',
+            user='user',
+            password='password',
+            branch='refs/heads/main',
+            folder_logic='FULL',
+            starting_folder='/abap/',
+            ignore_subpackages=True,
+            main_lang_only=True)
+        self.steampunk_patch.assert_not_called()
+
+        self.assertConsoleContents(console=self.console, stdout='''Info: Running migrations
+Info: Done
+''')
+
+    def test_link_defaults(self):
+        args = parse_args('link', '--api', 'rfc-via-classrun', 'PKG', 'URL')
+        args.execute(self.connection, args)
+
+        self.link_patch.assert_called_once_with(
+            self.connection,
+            package='PKG',
+            url='URL',
+            user='',
+            password='',
+            branch='',
+            folder_logic='PREFIX',
+            starting_folder='/src/',
+            ignore_subpackages=False,
+            main_lang_only=False)
+
+    def test_link_api_from_env(self):
+        os.environ['SAPCLI_ABAPGIT_API'] = 'rfc-via-classrun'
+        args = parse_args('link', 'PKG', 'URL')
+        args.execute(self.connection, args)
+
+        self.link_patch.assert_called_once()
+        self.steampunk_patch.assert_not_called()
+
+    def test_link_api_parameter_overrides_env(self):
+        os.environ['SAPCLI_ABAPGIT_API'] = 'steampunk'
+        args = parse_args('link', '--api', 'rfc-via-classrun', 'PKG', 'URL')
+        args.execute(self.connection, args)
+
+        self.link_patch.assert_called_once()
+        self.steampunk_patch.assert_not_called()
+
+    def test_link_rejects_corrnr(self):
+        args = parse_args('link', '--api', 'rfc-via-classrun', '--corrnr', 'C50K000001', 'PKG', 'URL')
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'The parameter --corrnr is not supported by the API rfc-via-classrun')
+        self.link_patch.assert_not_called()
 
 
 class TestAbapgitPull(ConsoleOutputTestCase, PatcherTestCase):

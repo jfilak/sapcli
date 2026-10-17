@@ -95,6 +95,18 @@ class TestConfigGet(unittest.TestCase):
 
         self.assertEqual(timeout, 0.777)
 
+    def test_abapgit_api_default(self):
+        with patch('os.environ', {}):
+            self.assertEqual(sap.config.config_get('abapgit_api'), 'steampunk')
+
+    def test_abapgit_api_caller_default(self):
+        with patch('os.environ', {}):
+            self.assertEqual(sap.config.config_get('abapgit_api', 'rfc-via-classrun'), 'rfc-via-classrun')
+
+    def test_abapgit_api_from_env(self):
+        with patch('os.environ', {'SAPCLI_ABAPGIT_API': 'rfc-via-classrun'}):
+            self.assertEqual(sap.config.config_get('abapgit_api'), 'rfc-via-classrun')
+
     def test_check_before_save_default(self):
         with patch('os.environ', {}):
             self.assertTrue(sap.config.config_get('check_before_save'))

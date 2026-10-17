@@ -904,6 +904,7 @@ targeting different systems. It also composes well with tools like
 - `SAPCLI_CONTEXT` : name of the context to use (overrides `current-context` in the config file; overridden by `--context` CLI flag)
 - `SAPCLI_LOG_LEVEL` : pass the desired log level - the lower number the more
   messages (`CRITICAL=50, ERROR=40, WARNING=30, INFO=20, DEBUG=10, NOTSET=0`)
+- `SAPCLI_ABAPGIT_API` : default abapGit API of the command `abapgit link` (`steampunk` or `rfc-via-classrun`); overridden by `--api`; default=steampunk
 - `SAPCLI_HTTP_TIMEOUT` : floating point number representing timeout for HTTP requests; default=900s
 - `SAPCLI_ABAP_USER_DUMMY_PASSWORD` : string representing a dummy password which is used as a temporary password when changing user's password to productive; default='DummyPwd123!'
 - `SAPCLI_CHECK_BEFORE_SAVE` : enables the ADT `abapCheckRun` reporter
