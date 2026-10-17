@@ -25,11 +25,12 @@
 23. [dataelement](commands/dataelement.md) - ABAP DDIC Data Elements
 24. [domain](commands/domain.md) - ABAP DDIC Domains
 25. [structure](commands/structure.md) - ABAP DDIC structures
-26. [table](commands/table.md) - ABAP DDIC transparent tables
-27. [badi](commands/badi.md) - New style (Enhancements) BAdI operations
-28. [featuretoggle](commands/featuretoggles.md) - Feature Toggles
-29. [authorizations](commands/authorizations.md) - Authorization Fields, Objects, Transactions, and Defaults
-30. [abap](commands/abap.md) - ABAP utilities like run or find
-31. [messageclass](commands/messageclass.md) - Message Classes
-32. [ddlx](commands/metadata_extension.md) - CDS Metadata Extension
-33. [enhs](commands/enhs.md) - Enhancement Spots
+26. [tabletype](commands/tabletype.md) - ABAP DDIC table types
+27. [table](commands/table.md) - ABAP DDIC transparent tables
+28. [badi](commands/badi.md) - New style (Enhancements) BAdI operations
+29. [featuretoggle](commands/featuretoggles.md) - Feature Toggles
+30. [authorizations](commands/authorizations.md) - Authorization Fields, Objects, Transactions, and Defaults
+31. [abap](commands/abap.md) - ABAP utilities like run or find
+32. [messageclass](commands/messageclass.md) - Message Classes
+33. [ddlx](commands/metadata_extension.md) - CDS Metadata Extension
+34. [enhs](commands/enhs.md) - Enhancement Spots
