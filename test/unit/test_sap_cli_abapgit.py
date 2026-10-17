@@ -471,3 +471,95 @@ Info: Finished
         self.assertEqual(str(caught.exception),
                          'The parameter --branch is not supported by the API rfc-via-classrun')
         self.pull_patch.assert_not_called()
+
+
+class TestAbapgitList(ConsoleOutputTestCase, PatcherTestCase):
+    '''Test Abapgit List command'''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+
+        self.connection = Mock()
+
+        self.patch_console(console=self.console)
+        self.patch('os.environ', new={})
+        self.list_patch = self.patch('sap.platform.abap.abapgit_rfc.list_repositories')
+        self.list_patch.return_value = [
+            {
+                'REPO_KEY': '000000000007',
+                'NAME': 'CLAS',
+                'ABAP_PACKAGE': '$SAPCLI_AGRFC',
+                'URL': 'https://github.com/abapGit-tests/CLAS.git',
+                'BRANCH_NAME': 'refs/heads/main',
+                'DESERIALIZED_AT': '20261017200708.0661700',
+            },
+            {
+                'REPO_KEY': '000000000008',
+                'NAME': 'sapcli',
+                'ABAP_PACKAGE': '$SAPCLI',
+                'URL': 'https://github.com/jfilak/sapcli.git',
+                'BRANCH_NAME': 'refs/heads/master',
+                'DESERIALIZED_AT': '0.0000000',
+            },
+        ]
+
+    def test_list_rfc_via_classrun(self):
+        args = parse_args('list', '--api', 'rfc-via-classrun')
+        args.execute(self.connection, args)
+
+        self.list_patch.assert_called_once_with(self.connection)
+        self.assertConsoleContents(console=self.console, stdout=(
+            'Key          | Package       | Name   | URL                                       | Branch            | Deserialized At    \n'
+            + '-' * 123 + '\n'
+            + '000000000007 | $SAPCLI_AGRFC | CLAS   | https://github.com/abapGit-tests/CLAS.git | refs/heads/main   | 2026-10-17 20:07:08\n'
+            '000000000008 | $SAPCLI       | sapcli | https://github.com/jfilak/sapcli.git      | refs/heads/master |                    \n'
+        ))
+
+    def test_list_no_repositories(self):
+        self.list_patch.return_value = []
+
+        args = parse_args('list', '--api', 'rfc-via-classrun')
+        args.execute(self.connection, args)
+
+        self.assertConsoleContents(console=self.console, stdout=(
+            'Key | Package | Name | URL | Branch | Deserialized At\n'
+            '-----------------------------------------------------\n'
+        ))
+
+    def test_list_api_from_env(self):
+        os.environ['SAPCLI_ABAPGIT_API'] = 'rfc-via-classrun'
+        args = parse_args('list')
+        args.execute(self.connection, args)
+
+        self.list_patch.assert_called_once_with(self.connection)
+
+    def test_list_steampunk_not_implemented(self):
+        args = parse_args('list')
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception), 'not implemented')
+        self.list_patch.assert_not_called()
+
+    def test_list_unknown_api_from_env(self):
+        os.environ['SAPCLI_ABAPGIT_API'] = 'foo'
+        args = parse_args('list')
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'Unknown abapGit API "foo" (SAPCLI_ABAPGIT_API) - use one of: steampunk, rfc-via-classrun')

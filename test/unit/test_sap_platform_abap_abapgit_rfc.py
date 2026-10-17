@@ -9,9 +9,12 @@ from sap.platform.abap.abapgit_rfc import (
     abap_string_literal,
     build_link_code,
     build_pull_code,
+    build_list_code,
     parse_return,
+    parse_rows,
     link,
     pull,
+    list_repositories,
 )
 
 from fixtures_sap_platform_abap_abapgit_rfc import (
@@ -23,6 +26,9 @@ from fixtures_sap_platform_abap_abapgit_rfc import (
     PULL_ABAP_CODE,
     PULL_OUTPUT_OK,
     PULL_OUTPUT_ERROR,
+    LIST_ABAP_CODE,
+    LIST_OUTPUT_OK,
+    LIST_OUTPUT_ERROR,
 )
 
 
@@ -90,6 +96,43 @@ class TestBuildPullCode(unittest.TestCase):
             corrnr='C50K000001')
 
         self.assertEqual(code, PULL_ABAP_CODE)
+
+
+class TestBuildListCode(unittest.TestCase):
+
+    def test_list(self):
+        self.assertEqual(build_list_code(), LIST_ABAP_CODE)
+
+
+class TestParseRows(unittest.TestCase):
+
+    def test_two_rows(self):
+        rows = parse_rows(LIST_OUTPUT_OK, 'REPOSITORIES')
+
+        self.assertEqual(rows, [
+            {
+                'REPO_KEY': '000000000007',
+                'NAME': 'CLAS | test',
+                'ABAP_PACKAGE': '$SAPCLI_AGRFC',
+                'URL': 'https://github.com/abapGit-tests/CLAS.git',
+                'BRANCH_NAME': 'refs/heads/main',
+                'DESERIALIZED_AT': '20261017200708.0661700',
+            },
+            {
+                'REPO_KEY': '000000000008',
+                'NAME': 'sapcli',
+                'ABAP_PACKAGE': '$SAPCLI',
+                'URL': 'https://github.com/jfilak/sapcli.git',
+                'BRANCH_NAME': 'refs/heads/master',
+                'DESERIALIZED_AT': '0.0000000',
+            },
+        ])
+
+    def test_other_table(self):
+        self.assertEqual(parse_rows(LIST_OUTPUT_OK, 'OTHER'), [])
+
+    def test_no_rows(self):
+        self.assertEqual(parse_rows(LIST_OUTPUT_ERROR, 'REPOSITORIES'), [])
 
 
 class TestParseReturn(unittest.TestCase):
@@ -188,6 +231,28 @@ class TestPull(unittest.TestCase):
         self.assertEqual(str(caught.exception),
                          'Info: Run migration\nError: Unable to find repo for package $PKG!')
         self.assertEqual(caught.exception.response, PULL_OUTPUT_ERROR)
+
+
+class TestListRepositories(unittest.TestCase):
+
+    @patch('sap.platform.abap.run.execute_abap')
+    def test_list_ok(self, fake_execute):
+        fake_execute.return_value = LIST_OUTPUT_OK
+        connection = Mock()
+
+        repositories = list_repositories(connection)
+
+        fake_execute.assert_called_once_with(connection, LIST_ABAP_CODE)
+        self.assertEqual([repo['REPO_KEY'] for repo in repositories], ['000000000007', '000000000008'])
+
+    @patch('sap.platform.abap.run.execute_abap')
+    def test_list_error(self, fake_execute):
+        fake_execute.return_value = LIST_OUTPUT_ERROR
+
+        with self.assertRaises(BAPIError) as caught:
+            list_repositories(Mock())
+
+        self.assertEqual(str(caught.exception), 'Info: Running migrations\nError: Migration failed')
 
 
 if __name__ == '__main__':

@@ -87,3 +87,49 @@ PULL_OUTPUT_ERROR = '''SAPCLI-BAPIRET|I|||Run migration
 SAPCLI-BAPIRET|E|||Unable to find repo for package $PKG!
 SAPCLI-END
 '''
+
+LIST_ABAP_CODE = '''DATA lt_return TYPE bapiret2_t.
+DATA lt_repositories TYPE zabapgit_api_rfc_repo_t.
+CALL FUNCTION 'ZABAPGIT_API_RFC_LIST'
+  TABLES
+    repositories = lt_repositories
+    return = lt_return.
+LOOP AT lt_repositories INTO DATA(ls_repositories).
+  out->write( `SAPCLI-ROW|REPOSITORIES` ).
+  out->write( |SAPCLI-FIELD\\|REPO_KEY\\|{ ls_repositories-repo_key }| ).
+  out->write( |SAPCLI-FIELD\\|NAME\\|{ ls_repositories-name }| ).
+  out->write( |SAPCLI-FIELD\\|ABAP_PACKAGE\\|{ ls_repositories-abap_package }| ).
+  out->write( |SAPCLI-FIELD\\|URL\\|{ ls_repositories-url }| ).
+  out->write( |SAPCLI-FIELD\\|BRANCH_NAME\\|{ ls_repositories-branch_name }| ).
+  out->write( |SAPCLI-FIELD\\|DESERIALIZED_AT\\|{ ls_repositories-deserialized_at }| ).
+ENDLOOP.
+LOOP AT lt_return INTO DATA(ls_return).
+  out->write( |SAPCLI-BAPIRET\\|{ ls_return-type }\\|{ ls_return-id }\\|{ ls_return-number }\\|{ ls_return-message }| ).
+ENDLOOP.
+out->write( `SAPCLI-END` ).'''
+
+LIST_OUTPUT_OK = '''SAPCLI-ROW|REPOSITORIES
+SAPCLI-FIELD|REPO_KEY|000000000007
+SAPCLI-FIELD|NAME|CLAS | test
+SAPCLI-FIELD|ABAP_PACKAGE|$SAPCLI_AGRFC
+SAPCLI-FIELD|URL|https://github.com/abapGit-tests/CLAS.git
+SAPCLI-FIELD|BRANCH_NAME|refs/heads/main
+SAPCLI-FIELD|DESERIALIZED_AT|20261017200708.0661700
+
+SAPCLI-ROW|REPOSITORIES
+SAPCLI-FIELD|REPO_KEY|000000000008
+SAPCLI-FIELD|NAME|sapcli
+SAPCLI-FIELD|ABAP_PACKAGE|$SAPCLI
+SAPCLI-FIELD|URL|https://github.com/jfilak/sapcli.git
+SAPCLI-FIELD|BRANCH_NAME|refs/heads/master
+SAPCLI-FIELD|DESERIALIZED_AT|0.0000000
+
+SAPCLI-BAPIRET|I|||Running migrations
+SAPCLI-BAPIRET|I|||Found 2 repositories
+SAPCLI-END
+'''
+
+LIST_OUTPUT_ERROR = '''SAPCLI-BAPIRET|I|||Running migrations
+SAPCLI-BAPIRET|E|||Migration failed
+SAPCLI-END
+'''

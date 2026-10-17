@@ -161,3 +161,39 @@ def pull(connection, args):
         console.printerr(repository.get_error_log())
     else:
         console.printout(repository.get_status_text())
+
+
+def _format_timestamp(timestamp):
+    """Formats ABAP TIMESTAMPL (e.g. 20261017200708.0661700) as YYYY-MM-DD HH:MM:SS"""
+
+    value = timestamp.split('.')[0].zfill(14)
+    if int(value) == 0:
+        return ''
+
+    return f'{value[0:4]}-{value[4:6]}-{value[6:8]} {value[8:10]}:{value[10:12]}:{value[12:14]}'
+
+
+@CommandGroup.argument('--api', type=str, choices=APIS, default=None,
+                       help=f'abapGit API (default: SAPCLI_ABAPGIT_API or {API_STEAMPUNK})')
+@CommandGroup.command('list')
+def list_repositories(connection, args):
+    """ list linked git repositories
+    """
+
+    if _get_api(args) != API_RFC_VIA_CLASSRUN:
+        raise SAPCliError('not implemented')
+
+    repositories = sap.platform.abap.abapgit_rfc.list_repositories(connection)
+
+    columns = (
+        sap.cli.helpers.TableWriter.Columns()
+        ('REPO_KEY', 'Key')
+        ('ABAP_PACKAGE', 'Package')
+        ('NAME', 'Name')
+        ('URL', 'URL')
+        ('BRANCH_NAME', 'Branch')
+        ('DESERIALIZED_AT', 'Deserialized At', formatter=_format_timestamp)
+        .done()
+    )
+
+    sap.cli.helpers.TableWriter(repositories, columns).printout(args.console_factory())
