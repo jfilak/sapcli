@@ -185,6 +185,18 @@ class TestADTTableType(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(Marshal().serialize(table_type), TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML)
 
+    def test_table_type_set_predefined_row_type(self):
+        _, table_type = fetch_table_type(TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML)
+
+        table_type.set_predefined_row_type('DEC', '000010', '000002')
+
+        self.assertEqual(table_type.row_type.type_kind, 'predefinedAbapType')
+        self.assertEqual(table_type.row_type.type_name, '')
+        self.assertEqual(table_type.row_type.built_in_type.data_type, 'DEC')
+        self.assertEqual(table_type.row_type.built_in_type.length, '000010')
+        self.assertEqual(table_type.row_type.built_in_type.decimals, '000002')
+        self.assertEqual(table_type.row_type.range_type, '')
+
     def test_table_type_set_primary_key(self):
         _, table_type = fetch_table_type(TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML)
 

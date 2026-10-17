@@ -14,9 +14,13 @@ from sap.adt.textelements import TextSymbol
 import sap.platform.abap.abapgit
 import sap.adt
 
-from mock import Connection, patch, PatcherTestCase, ConsoleOutputTestCase
+from mock import Connection, Response, patch, PatcherTestCase, ConsoleOutputTestCase
 from test.unit.fixtures_cli_checkout import FUNCTION_GROUP_XML, FUNCTION_INCLUDE_1_XML, FUNCTION_INCLUDE_2_XML, FUNCTION_MODULE_1_CODE, FUNCTION_MODULE_2_CODE,\
-    FUNCTION_MODULE_1_CODE_ABAPGIT, FUNCTION_MODULE_2_CODE_ABAPGIT
+    FUNCTION_MODULE_1_CODE_ABAPGIT, FUNCTION_MODULE_2_CODE_ABAPGIT, TTYP_SORTED_ABAPGIT_XML, TTYP_PREDEFINED_ABAPGIT_XML, \
+    TTYP_STRING_ABAPGIT_XML, TTYP_SECONDARY_KEYS_ABAPGIT_XML
+from test.unit.fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
+    TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML, TABLE_TYPE_ADT_GET_SECONDARY_KEYS_RESPONSE_XML, \
+    TABLE_TYPE_ADT_GET_RANGE_RESPONSE_XML, TABLE_TYPE_ADT_GET_STRING_RESPONSE_XML
 
 
 def parse_args(argv):
@@ -779,6 +783,97 @@ class TestCheckoutFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
         fake_build_funcgrp.assert_called_once()
         fake_dump.assert_called_once()
         self.assertConsoleContents(self.console, stdout='TEST_FUNCGRP\nSkipping system generated "UXX" function group include: TESTUXX.\n')
+
+
+class TestCheckoutTableType(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+    def checkout(self, adt_response_xml, destdir=None):
+        connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
+
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+            sap.cli.checkout.checkout_table_type(connection, TABLE_TYPE_NAME, destdir=destdir)
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].adt_uri, f'/sap/bc/adt/ddic/tabletypes/{TABLE_TYPE_NAME.lower()}')
+
+        return fake_open
+
+    def assert_wrote_abapgit_file(self, fake_open, file_name, contents):
+        fake_open.assert_called_once_with(file_name, 'w', encoding='utf8')
+
+        written = ''.join(write_call.args[0] for write_call in fake_open().write.call_args_list)
+        self.maxDiff = None
+        self.assertEqual(written, contents)
+
+    def test_checkout_ttyp_sorted_key_components(self):
+        fake_open = self.checkout(TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML)
+
+        self.assert_wrote_abapgit_file(fake_open, f'{TABLE_TYPE_NAME.lower()}.ttyp.xml', TTYP_SORTED_ABAPGIT_XML)
+        self.assertConsoleContents(self.console, stdout=f'{TABLE_TYPE_NAME}\n- {TABLE_TYPE_NAME.lower()}.ttyp.xml\n')
+
+    def test_checkout_ttyp_predefined(self):
+        fake_open = self.checkout(TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML)
+
+        self.assert_wrote_abapgit_file(fake_open, f'{TABLE_TYPE_NAME.lower()}.ttyp.xml', TTYP_PREDEFINED_ABAPGIT_XML)
+
+    def test_checkout_ttyp_predefined_ddic_data_type(self):
+        fake_open = self.checkout(TABLE_TYPE_ADT_GET_STRING_RESPONSE_XML)
+
+        self.assert_wrote_abapgit_file(fake_open, f'{TABLE_TYPE_NAME.lower()}.ttyp.xml', TTYP_STRING_ABAPGIT_XML)
+
+    def test_checkout_ttyp_destdir(self):
+        fake_open = self.checkout(TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, destdir='src')
+
+        fake_open.assert_called_once_with(os.path.join('src', f'{TABLE_TYPE_NAME.lower()}.ttyp.xml'), 'w',
+                                          encoding='utf8')
+
+    def test_checkout_ttyp_secondary_keys_skipped(self):
+        fake_open = self.checkout(TABLE_TYPE_ADT_GET_SECONDARY_KEYS_RESPONSE_XML)
+
+        self.assert_wrote_abapgit_file(fake_open, f'{TABLE_TYPE_NAME.lower()}.ttyp.xml',
+                                       TTYP_SECONDARY_KEYS_ABAPGIT_XML)
+        self.assertEqual(self.console.caperr, f'Skipping unsupported secondary keys of {TABLE_TYPE_NAME}\n')
+
+    def test_checkout_ttyp_range_not_supported(self):
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            fake_open = self.checkout(TABLE_TYPE_ADT_GET_RANGE_RESPONSE_XML)
+            # Dead code ...
+            fake_open.assert_not_called()
+
+        self.assertEqual(str(caught.exception),
+                         f'Checkout of table type {TABLE_TYPE_NAME} failed: unsupported row type kind'
+                         ' rangeTypeOnDataelement')
+
+    def test_checkout_ttyp_command(self):
+        args = parse_args(['tabletype', TABLE_TYPE_NAME.lower()])
+
+        with patch('sap.cli.checkout.checkout_table_type') as fake_checkout:
+            args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', TABLE_TYPE_NAME)
+
+    def test_checkout_objects_ttyp(self):
+        objects = [SimpleNamespace(typ='TTYP/DA', name=TABLE_TYPE_NAME)]
+
+        with patch('sap.cli.checkout.checkout_table_type') as fake_checkout, \
+             patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', TABLE_TYPE_NAME, 'src')
 
 
 if __name__ == '__main__':

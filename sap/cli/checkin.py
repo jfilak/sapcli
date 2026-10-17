@@ -21,7 +21,14 @@ from sap.platform.abap.ddic import (
     SUBC_INCLUDE,
     AREAT,
     INCLUDES,
-    FUNCTIONS
+    FUNCTIONS,
+    DD40V,
+    DD42V_TABLE,
+    DD43V_TABLE,
+    DD40L_EXTRA,
+    DD40V_ACCESSMODE_TO_ADT,
+    DD40V_KEYDEF_TO_ADT,
+    DD40V_KEYKIND_TO_ADT,
 )
 import sap.adt
 import sap.adt.checks
@@ -301,19 +308,22 @@ def checkin_package(connection, repo_package, args):
 
 def _resolve_dependencies(objects):
 
+    ddic = []
     libs = []
     bins = []
     others = []
 
     for obj in objects:
-        if obj.code in ['intf', 'clas']:
+        if obj.code in ['ttyp']:
+            ddic.append(obj)
+        elif obj.code in ['intf', 'clas']:
             libs.append(obj)
         elif obj.code in ['prog']:
             bins.append(obj)
         else:
             others.append(obj)
 
-    return [libs, bins, others]
+    return [ddic, libs, bins, others]
 
 
 def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
@@ -736,11 +746,78 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult(abap_objs_inactive, used_files)
 
 
+def _dd40v_code_to_adt(mapping, dd40v, field, object_name):
+    """Returns ADT value of the given DD40V field"""
+
+    code = getattr(dd40v, field)
+    try:
+        return mapping[code]
+    except KeyError as ex:
+        raise sap.adt.errors.ExceptionCheckinFailure(
+            f'Unsupported {field} "{code}" of table type {object_name}') from ex
+
+
+# pylint: disable=unused-argument
+def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False):
+    """Checkin ADT Table Type"""
+
+    sap.cli.core.printout('Creating Table Type:', repo_obj.name)
+
+    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
+        # DD40L_EXTRA is parsed only to accept files of newer abapGit versions
+        results = sap.platform.abap.abapgit.from_xml(
+            [DD40V, sap.platform.abap.abapgit.OptionalBody(DD42V_TABLE),
+             sap.platform.abap.abapgit.OptionalBody(DD43V_TABLE),
+             sap.platform.abap.abapgit.OptionalBody(DD40L_EXTRA)],
+            abap_data_file.read())
+
+    dd40v = results['DD40V']
+    if dd40v.ROWKIND not in (None, 'S', 'E', 'L') or dd40v.REFTYPE or dd40v.TTYPKIND:
+        raise sap.adt.errors.ExceptionCheckinFailure(f'Unsupported row type of table type {repo_obj.name}:'
+                                                     ' only dictionary and predefined types are supported')
+
+    access_type = _dd40v_code_to_adt(DD40V_ACCESSMODE_TO_ADT, dd40v, 'ACCESSMODE', repo_obj.name)
+    key_definition = _dd40v_code_to_adt(DD40V_KEYDEF_TO_ADT, dd40v, 'KEYDEF', repo_obj.name)
+    key_kind = _dd40v_code_to_adt(DD40V_KEYKIND_TO_ADT, dd40v, 'KEYKIND', repo_obj.name)
+    key_components = [line.KEYFIELD for line in results.get('DD42V', []) if not line.SECKEYNAME]
+
+    if results.get('DD43V'):
+        sap.cli.core.printerr(f'Skipping unsupported secondary keys of {repo_obj.name}')
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
+                                   description=dd40v.DDTEXT)
+    tabletype = sap.adt.TableType(connection, repo_obj.name.upper(), package=repo_obj.package.name,
+                                  metadata=metadata)
+
+    try:
+        tabletype.create(corrnr)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    # ADT fills in the definition defaults on creation
+    tabletype.fetch()
+
+    if dd40v.ROWKIND:
+        tabletype.set_dictionary_row_type(dd40v.ROWTYPE)
+    else:
+        tabletype.set_predefined_row_type(dd40v.DATATYPE, dd40v.LENG or '0', dd40v.DECIMALS or '0')
+
+    tabletype.access_type = access_type
+    tabletype.set_primary_key(key_definition, key_kind, key_components)
+
+    sap.cli.core.printout('Writing Table Type:', repo_obj.name)
+    with tabletype.open_editor(corrnr=corrnr) as editor:
+        editor.push()
+
+    return ObjectCheckinResult([tabletype], [])
+
+
 OBJECT_CHECKIN_HANDLERS = {
     'intf': checkin_intf,
     'clas': checkin_clas,
     'prog': checkin_prog,
     'fugr': checkin_fugr,
+    'ttyp': checkin_ttyp,
 }
 
 

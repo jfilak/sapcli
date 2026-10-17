@@ -27,7 +27,14 @@ Fetches objects of given function group and stores objects' source codes to a lo
 sapcli checkout function_group zhello_world
 ```
 
-Fetches source codes of classes, programs and interfaces of the given package
+Fetches attributes of the given table type and stores them in a local file.
+
+```bash
+sapcli checkout tabletype zhello_world_tab
+```
+
+Fetches source codes of classes, programs, interfaces, function groups, and
+table types of the given package
 and stores them in corresponding files in a local file system directory.
 
 The new directory is populated with the file _.abapgit.xml_ which has the format
@@ -69,3 +76,19 @@ pool entries such as selection texts (ID `S`) and list headings (IDs `H` and
 (ID `R`) are used as program descriptions as before. Includes do not have own
 text elements, so checkin skips their text symbols with a warning too.
 
+
+## Table types
+
+Table types are stored in the files _.ttyp.xml_ with the sections `DD40V`
+(header) and `DD42V` (primary key components) the same way as abapGit does.
+Only table types of DDIC types (structures, tables, data elements, table types)
+and of predefined ABAP types are supported - range table types and table types
+of references are not.
+
+The command `sapcli checkin package` creates table types before classes,
+interfaces, and programs to allow them to use the table types. Secondary keys
+(`DD43V`) are not supported yet - both checkin and checkout skip them with
+a warning.
+
+Checkout does not write the fields `TYPELEN` and `ROWTYPEPOS` because ADT does
+not provide them. Checkin does not need them.

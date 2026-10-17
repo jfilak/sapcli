@@ -25,7 +25,12 @@ from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, CLAS_WITH_DESCRIPTI
     CLAS_WITH_TPOOL_XML, PROG_WITH_TEXTS_XML, INCLUDE_WITH_TEXTS_XML, \
     FUNCTION_GROUP_XML, FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, \
     FUNCTION_MODULE_CODE_NO_PARAMS_ADT, FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, \
-    FUNCTION_GROUP_XML_NO_RFC
+    FUNCTION_GROUP_XML_NO_RFC, TTYP_STANDARD_XML, TTYP_SORTED_XML, TTYP_PREDEFINED_XML, TTYP_SECONDARY_KEYS_XML, \
+    TTYP_RANGE_XML
+from fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
+    TABLE_TYPE_ADT_NEW_OBJECT_REQUEST_XML, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML, \
+    TABLE_TYPE_ADT_DEFINE_SORTED_REQUEST_XML, TABLE_TYPE_ADT_ALREADY_EXISTS_RESPONSE_XML
+from mock import Connection, Response
 from infra import generate_parse_args
 
 
@@ -473,6 +478,7 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
         self.assertConsoleContents(self.console,
                                    stdout='''Creating packages ...
 Creating objects ...
+Creating objects ...
 Activating objects ...
 Creating objects ...
 Activating objects ...
@@ -486,12 +492,13 @@ Activating objects ...
         intf = sap.cli.checkin.RepoObject(code='intf', name='if_ace', path='./if_ace', package=None, files=[])
         prog = sap.cli.checkin.RepoObject(code='prog', name='program', path='./program', package=None, files=[])
         fugr = sap.cli.checkin.RepoObject(code='fugr', name='function_group', path='./function_group', package=None, files=[])
+        ttyp = sap.cli.checkin.RepoObject(code='ttyp', name='table_type', path='./table_type', package=None, files=[])
 
-        objects = [clas, prog, intf, fugr]
+        objects = [clas, prog, intf, fugr, ttyp]
 
         deps = sap.cli.checkin._resolve_dependencies(objects)
 
-        self.assertEqual(deps, [[clas, intf], [prog], [fugr]])
+        self.assertEqual(deps, [[ttyp], [clas, intf], [prog], [fugr]])
 
     @patch('sap.cli.checkin._checkin_dependency_group')
     @patch('sap.cli.checkin._resolve_dependencies')
@@ -1589,6 +1596,135 @@ class TestWriteSourceFileChecks(unittest.TestCase):
                 sap.cli.checkin._write_source_file('CODE', adt_object)
 
         fake_check.assert_called_once()
+
+
+TTYP_MIME = 'application/vnd.sap.adt.tabletype.v1+xml; charset=utf-8'
+
+
+@patch('sap.adt.objects.ADTObject.unlock')
+@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
+class TestCheckInTableType(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.repo_obj = sap.cli.checkin.RepoObject('ttyp', TABLE_TYPE_NAME.lower(),
+                                                   f'./src/{TABLE_TYPE_NAME.lower()}.ttyp.xml', self.package, [])
+
+    def checkin(self, abapgit_xml, responses):
+        connection = Connection(responses, user='DEVELOPER')
+
+        with patch('sap.cli.checkin.open', mock_open(read_data=abapgit_xml)) as fake_open:
+            result = sap.cli.checkin.checkin_ttyp(connection, self.repo_obj)
+
+        fake_open.assert_called_once_with(self.repo_obj.path, encoding='utf-8')
+
+        return (connection, result)
+
+    def responses_ok(self):
+        return [
+            Response(text='', status_code=200, headers={}),
+            Response(text=TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ]
+
+    def assert_requests(self, connection, define_request_xml):
+        self.assertEqual(len(connection.execs), 3)
+
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/ddic/tabletypes')
+        self.assertEqual(connection.execs[0].body, bytes(TABLE_TYPE_ADT_NEW_OBJECT_REQUEST_XML, 'utf-8'))
+
+        self.assertEqual(connection.execs[1].method, 'GET')
+        self.assertEqual(connection.execs[1].adt_uri, f'/sap/bc/adt/ddic/tabletypes/{TABLE_TYPE_NAME.lower()}')
+
+        self.assertEqual(connection.execs[2].method, 'PUT')
+        self.assertEqual(connection.execs[2].adt_uri, f'/sap/bc/adt/ddic/tabletypes/{TABLE_TYPE_NAME.lower()}')
+        self.assertEqual(connection.execs[2].headers, {'Content-Type': TTYP_MIME})
+        self.assertEqual(connection.execs[2].params, {'lockHandle': 'lock_handle'})
+        self.maxDiff = None
+        self.assertEqual(connection.execs[2].body.decode('utf-8'), define_request_xml)
+
+    def test_checkin_ttyp_standard(self, fake_lock, fake_unlock):
+        connection, result = self.checkin(TTYP_STANDARD_XML, self.responses_ok())
+
+        self.assert_requests(connection, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML)
+        fake_lock.assert_called_once()
+        fake_unlock.assert_called_once()
+
+        self.assertEqual(len(result.abap_objects), 1)
+        self.assertEqual(result.abap_objects[0].name, TABLE_TYPE_NAME)
+        self.assertEqual(result.used_files, [])
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Table Type: {TABLE_TYPE_NAME.lower()}
+Writing Table Type: {TABLE_TYPE_NAME.lower()}
+''')
+
+    def test_checkin_ttyp_sorted_key_components(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(TTYP_SORTED_XML, self.responses_ok())
+
+        self.assert_requests(connection, TABLE_TYPE_ADT_DEFINE_SORTED_REQUEST_XML)
+
+    def test_checkin_ttyp_predefined(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(TTYP_PREDEFINED_XML, self.responses_ok())
+
+        self.assertEqual(len(connection.execs), 3)
+        self.assertIn('''<ttyp:rowType>
+<ttyp:typeKind>predefinedAbapType</ttyp:typeKind>
+<ttyp:typeName></ttyp:typeName>
+<ttyp:builtInType>
+<ttyp:dataType>STRG</ttyp:dataType>
+<ttyp:length>0</ttyp:length>
+<ttyp:decimals>0</ttyp:decimals>
+</ttyp:builtInType>
+<ttyp:rangeType></ttyp:rangeType>
+</ttyp:rowType>''', connection.execs[2].body.decode('utf-8'))
+
+    def test_checkin_ttyp_secondary_keys_skipped(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(TTYP_SECONDARY_KEYS_XML, self.responses_ok())
+
+        self.assert_requests(connection, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML)
+        self.assertEqual(self.console.caperr,
+                         f'Skipping unsupported secondary keys of {TABLE_TYPE_NAME.lower()}\n')
+
+    def test_checkin_ttyp_already_exists(self, fake_lock, fake_unlock):
+        responses = self.responses_ok()
+        responses[0] = Response(text=TABLE_TYPE_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                                headers={'content-type': 'application/xml'})
+
+        connection, _ = self.checkin(TTYP_STANDARD_XML, responses)
+
+        self.assert_requests(connection, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML)
+
+    def test_checkin_ttyp_range_not_supported(self, fake_lock, fake_unlock):
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin(TTYP_RANGE_XML, [])
+
+        self.assertEqual(str(caught.exception),
+                         f'Unsupported row type of table type {TABLE_TYPE_NAME.lower()}:'
+                         ' only dictionary and predefined types are supported')
+        fake_lock.assert_not_called()
+
+    def test_checkin_ttyp_unknown_access_mode(self, fake_lock, fake_unlock):
+        abapgit_xml = TTYP_STANDARD_XML.replace('<ACCESSMODE>T</ACCESSMODE>', '<ACCESSMODE>Q</ACCESSMODE>')
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin(abapgit_xml, [])
+
+        self.assertEqual(str(caught.exception),
+                         f'Unsupported ACCESSMODE "Q" of table type {TABLE_TYPE_NAME.lower()}')
 
 
 if __name__ == '__main__':

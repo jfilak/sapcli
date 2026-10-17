@@ -330,3 +330,31 @@ TABLE_TYPE_ADT_ACTIVATE_REQUEST_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
 </adtcore:objectReferences>'''
 
 TABLE_TYPE_ADT_ALREADY_EXISTS_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceAlreadyExists"/><message lang="EN">Resource Table Type {TABLE_TYPE_NAME} does already exist.</message><localizedMessage lang="EN">Resource Table Type {TABLE_TYPE_NAME} does already exist.</localizedMessage><properties/></exc:exception>'''
+
+# Response to GET of a table type of a predefined type (taken from STRING_TABLE)
+TABLE_TYPE_ADT_GET_STRING_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<ttyp:tableType adtcore:responsible="SAP" adtcore:masterLanguage="DE" adtcore:masterSystem="SAP" adtcore:abapLanguageVersion="standard" adtcore:name="{TABLE_TYPE_NAME}" adtcore:type="TTYP/DA" adtcore:changedAt="2001-03-01T10:53:31Z" adtcore:version="active" adtcore:changedBy="SAP" adtcore:createdBy="SAP" adtcore:description="Tabelle von Strings" adtcore:descriptionTextLimit="60" adtcore:language="EN" xmlns:ttyp="http://www.sap.com/dictionary/tabletype" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/sool" adtcore:type="DEVC/K" adtcore:name="SOOL" adtcore:description="Object-Oriented Basis Classes"/>
+  <ttyp:rowType>
+    <ttyp:typeKind>predefinedAbapType</ttyp:typeKind>
+    <ttyp:typeName/>
+    <ttyp:builtInType>
+      <ttyp:dataType>STRING</ttyp:dataType>
+      <ttyp:length>000000</ttyp:length>
+      <ttyp:decimals>000000</ttyp:decimals>
+    </ttyp:builtInType>
+    <ttyp:rangeType/>
+  </ttyp:rowType>
+  <ttyp:initialRowCount>00000</ttyp:initialRowCount>
+  <ttyp:accessType>standard</ttyp:accessType>
+  <ttyp:primaryKey ttyp:isVisible="true" ttyp:isEditable="true">
+    <ttyp:definition>standard</ttyp:definition>
+    <ttyp:kind>nonUnique</ttyp:kind>
+    <ttyp:components ttyp:isVisible="false"/>
+    <ttyp:alias/>
+  </ttyp:primaryKey>
+  <ttyp:secondaryKeys ttyp:isVisible="true" ttyp:isEditable="true">
+    <ttyp:allowed>notSpecified</ttyp:allowed>
+  </ttyp:secondaryKeys>
+  {TABLE_TYPE_ADT_VALUE_HELPS_XML}
+</ttyp:tableType>'''

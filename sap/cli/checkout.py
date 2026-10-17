@@ -9,7 +9,8 @@ import sap.cli.core
 
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
-    TPOOL_LINE
+    TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
+    DDIC_DATATYPE_TO_ADT
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -384,15 +385,101 @@ def function_group(connection, args):
     return 0
 
 
+ADT_TO_DD40V_ACCESSMODE = {adt: code for code, adt in DD40V_ACCESSMODE_TO_ADT.items()}
+ADT_TO_DD40V_KEYDEF = {adt: code for code, adt in DD40V_KEYDEF_TO_ADT.items()}
+ADT_TO_DD40V_KEYKIND = {adt: code for code, adt in DD40V_KEYKIND_TO_ADT.items()}
+ADT_TO_DDIC_DATATYPE = {adt: ddic for ddic, adt in DDIC_DATATYPE_TO_ADT.items()}
+
+
+def _ddic_number(value, width):
+    """Returns the number formatted as DDIC does or None for 0 because abapGit
+       does not write initial values.
+    """
+
+    number = int(value or '0')
+    return f'{number:0{width}d}' if number else None
+
+
+def build_table_type_abap_attributes(adt_tabletype):
+    """Returns populated ABAP structures with attributes"""
+
+    row_type = adt_tabletype.row_type
+    if row_type.type_kind not in ('dictionaryType', 'predefinedAbapType'):
+        raise sap.cli.core.SAPCliError(f'unsupported row type kind {row_type.type_kind}')
+
+    data_type = row_type.built_in_type.data_type
+    data_type = ADT_TO_DDIC_DATATYPE.get(data_type, data_type)
+
+    components = [component.name for component in adt_tabletype.primary_key.components]
+
+    dd40v = DD40V()
+    dd40v.TYPENAME = adt_tabletype.name
+    dd40v.DDLANGUAGE = iso_code_to_sap_code(adt_tabletype.master_language)
+
+    if row_type.type_kind == 'dictionaryType':
+        dd40v.ROWTYPE = row_type.type_name
+        dd40v.ROWKIND = {'STRU': 'S', 'TTYP': 'L'}.get(data_type, 'E')
+
+    dd40v.DATATYPE = data_type
+    dd40v.LENG = _ddic_number(row_type.built_in_type.length, 6)
+    dd40v.DECIMALS = _ddic_number(row_type.built_in_type.decimals, 6)
+    dd40v.ACCESSMODE = ADT_TO_DD40V_ACCESSMODE[adt_tabletype.access_type]
+    dd40v.KEYDEF = ADT_TO_DD40V_KEYDEF[adt_tabletype.primary_key.definition]
+    dd40v.KEYKIND = ADT_TO_DD40V_KEYKIND[adt_tabletype.primary_key.kind]
+    dd40v.KEYFDCOUNT = _ddic_number(len(components), 4)
+    dd40v.DDTEXT = adt_tabletype.description
+
+    if not components:
+        return (dd40v,)
+
+    # ADT does not provide ROWTYPEPOS - the position of the component in the row type
+    dd42v = DD42V_TABLE()
+    for position, component in enumerate(components, start=1):
+        dd42v.append(DD42V(TYPENAME=adt_tabletype.name, KEYFDPOS=f'{position:04d}', KEYFIELD=component))
+
+    return (dd40v, dd42v)
+
+
+def checkout_table_type(connection, name, destdir=None):
+    """Download table type attributes"""
+
+    sap.cli.core.printout(name)
+    adt_tabletype = sap.adt.TableType(connection, name)
+    adt_tabletype.fetch()
+
+    try:
+        abap_attributes = build_table_type_abap_attributes(adt_tabletype)
+    except sap.cli.core.SAPCliError as ex:
+        raise sap.cli.core.SAPCliError(f'Checkout of table type {name} failed: {ex}')
+
+    if adt_tabletype.secondary_keys.keys:
+        sap.cli.core.printerr(f'Skipping unsupported secondary keys of {name}')
+
+    dump_attributes_to_file(name, abap_attributes, '.ttyp', 'LCL_OBJECT_TTYP', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def tabletype(connection, args):
+    """Download table type attributes command wrapper"""
+
+    checkout_table_type(connection, args.name.upper())
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
     # This could be a global variable but it breaks mock patching in tests
+    #
+    # The checkout function shall return None and errors should be reported by
+    # raising an SAPCliError because the command handler prints out
+    # human friendly text.
     checkouters = {
         sap.adt.Program.OBJTYPE.code: checkout_program,
         sap.adt.Class.OBJTYPE.code: checkout_class,
         sap.adt.Interface.OBJTYPE.code: checkout_interface,
         sap.adt.FunctionGroup.OBJTYPE.code: checkout_function_group,
+        sap.adt.TableType.OBJTYPE.code: checkout_table_type,
     }
 
     if not os.path.isdir(destdir):

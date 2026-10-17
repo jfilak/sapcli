@@ -334,3 +334,128 @@ class CUA(Structure):
     PFK: PFK_TYPE
     SET: SET_TYPE
     DOC: DOC_TYPE
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
+class DD40V(Structure):
+    """Table type header"""
+
+    TYPENAME: str
+    DDLANGUAGE: str
+    ROWTYPE: str
+    # Row type kind:
+    # ' ' Predefined ABAP type
+    # E Data element
+    # S Structure or Table
+    # L Table type
+    # R Reference
+    ROWKIND: str
+    DATATYPE: str
+    LENG: str
+    DECIMALS: str
+    ACCESSMODE: str
+    KEYDEF: str
+    KEYKIND: str
+    KEYFDCOUNT: str
+    GENERIC: str
+    AS4USER: str
+    AS4DATE: str
+    AS4TIME: str
+    DDTEXT: str
+    TYPELEN: str
+    ACTFLAG: str
+    # R for range tables
+    TTYPKIND: str
+    RANGE_CTYP: str
+    CTDATATYPE: str
+    CTLENG: str
+    CTDECIMALS: str
+    REFTYPE: str
+    OCCURS: str
+    PROXYTYPE: str
+    ALIAS: str
+    FURTHERSECKEY: str
+    ABAP_LANGUAGE_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DD42V(Structure):
+    """Table type key component - SECKEYNAME is empty for the primary key"""
+
+    TYPENAME: str
+    SECKEYNAME: str
+    KEYFDPOS: str
+    ROWTYPEPOS: str
+    KEYFIELD: str
+
+
+DD42V_TABLE = InternalTable.define('DD42V', DD42V)  # type: Any
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DD43V(Structure):
+    """Table type secondary key"""
+
+    TYPENAME: str
+    SECKEYNAME: str
+    DDLANGUAGE: str
+    SECKEYUNIQUE: str
+    ACCESSMODE: str
+    KIND: str
+    KEYDESCRIPTION: str
+
+
+DD43V_TABLE = InternalTable.define('DD43V', DD43V)  # type: Any
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DD40L_EXTRA(Structure):
+    """abapGit's table type extra attributes"""
+
+    ABAP_LANGUAGE_VERSION: str
+
+
+# DD40V codes to the corresponding ADT values
+DD40V_ACCESSMODE_TO_ADT = {
+    'T': 'standard',
+    'S': 'sorted',
+    'H': 'hashed',
+    'I': 'index',
+    'A': 'notSpecified',
+}
+
+DD40V_KEYDEF_TO_ADT = {
+    'D': 'standard',
+    'T': 'rowType',
+    'K': 'keyComponents',
+    'E': 'empty',
+    'G': 'notSpecified',
+}
+
+DD40V_KEYKIND_TO_ADT = {
+    'U': 'unique',
+    'N': 'nonUnique',
+    'G': 'notSpecified',
+}
+
+# DDIC data types which ADT names differently - ADT accepts the DDIC names on input
+DDIC_DATATYPE_TO_ADT = {
+    'STRG': 'STRING',
+    'RSTR': 'RAWSTRING',
+    'SSTR': 'SSTRING',
+    'D16D': 'DF16_DEC',
+    'D16R': 'DF16_RAW',
+    'D16S': 'DF16_SCL',
+    'D16N': 'DECFLOAT16',
+    'D34D': 'DF34_DEC',
+    'D34R': 'DF34_RAW',
+    'D34S': 'DF34_SCL',
+    'D34N': 'DECFLOAT34',
+    'GGM1': 'GEOM_EWKB',
+    'UTCL': 'UTCLONG',
+}
