@@ -52,8 +52,18 @@ sapcli class write "ZCL_HELLOWORLD" --type implementations zcl_helloworld.implem
 Changes test classes source code of the given class without activation
 
 ```bash
-sapcli class write "ZCL_HELLOWORLD" --type testclassess zcl_helloworld.testclasses.abap
+sapcli class write "ZCL_HELLOWORLD" --type testclasses zcl_helloworld.testclasses.abap
 ```
+
+Replaces text symbols (the class text pool) of the given class without
+activation - see [Text elements](#text-elements) for the file format
+
+```bash
+sapcli class write "ZCL_HELLOWORLD" --type textelements zcl_helloworld.textelements.txt
+```
+
+The options _--check_ and _--no-check_ have no effect for text elements because
+`abapCheckRun` checks only ABAP source code.
 
 ## activate
 
@@ -87,6 +97,50 @@ Downloads test classes source codes of the given public class
 
 ```bash
 sapcli class read ZCL_HELLOWORLD --type testclasses
+```
+
+Downloads text symbols (the class text pool) of the given public class in the
+logon language
+
+```bash
+sapcli class read ZCL_HELLOWORLD --type textelements
+```
+
+### Text elements
+
+Text symbols are what ABAP code references as `TEXT-001` or `'literal'(001)`.
+The command `write --type textelements` replaces the whole text pool of the
+class, so symbols missing in the file are removed. Text symbols are
+language dependent and sapcli reads and writes them in the logon language.
+
+The file is line based and every symbol is defined by two lines:
+the line `@MaxLength:<n>` with the maximum length of the text,
+followed by the line `<ID>=<text>`. Empty lines are ignored and the text
+can contain the character `=`.
+
+```
+@MaxLength:20
+001=Hello, world!
+@MaxLength:25
+002=Second symbol
+```
+
+The written text symbols are inactive until they are activated:
+
+* `write --type textelements --activate` activates only the text elements and
+  leaves inactive class source code untouched
+* `sapcli class activate` activates the inactive class source code together with
+  the inactive text elements; if the source code activation fails, the text
+  elements remain inactive too
+
+Use
+`read --type textelements` to get a file in the right format to start
+with:
+
+```bash
+sapcli class read ZCL_HELLOWORLD --type textelements > zcl_helloworld.textelements.txt
+# edit the file
+sapcli class write ZCL_HELLOWORLD --type textelements zcl_helloworld.textelements.txt --activate
 ```
 
 ## delete
