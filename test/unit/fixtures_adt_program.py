@@ -55,3 +55,8 @@ GET_INCLUDE_PROGRAM_WITH_CONTEXT_ADT_XML = '''<?xml version="1.0" encoding="UTF-
   <include:contextRef adtcore:uri="/sap/bc/adt/programs/programs/zjakub_is_handsome_genius" adtcore:type="PROG/P" adtcore:name="ZJAKUB_IS_HANDSOME_GENIUS" adtcore:packageName="$TEST" adtcore:description="The ultimate truth"/>
 </include:abapInclude>
 '''
+
+PROGRAM_RUN_OUTPUT = '''17.10.2026                               test                                      1
+------------------------------------------------------------------------------------
+Hello, world!     
+'''

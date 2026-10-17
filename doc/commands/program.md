@@ -6,6 +6,7 @@
 	- [activate](#activate)
 	- [read](#read)
 	- [delete](#delete)
+	- [execute](#execute)
 	- [whereused](#whereused)
 
 ## create
@@ -60,6 +61,15 @@ Delete program
 
 ```bash
 sapcli program delete NAME [NAME ...] [--corrnr TRANSPORT]
+```
+
+## execute
+
+Runs the executable program and prints its raw list output including the page
+header. Selection screen parameters get their default values.
+
+```bash
+sapcli program execute ZPROG_HELLO_WORLD
 ```
 
 ## whereused

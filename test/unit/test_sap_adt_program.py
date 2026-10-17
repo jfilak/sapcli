@@ -3,11 +3,12 @@
 import unittest
 
 import sap.adt
+import sap.http
 
 from mock import Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
 
-from fixtures_adt_program import CREATE_EXECUTABLE_PROGRAM_ADT_XML, GET_EXECUTABLE_PROGRAM_ADT_XML
+from fixtures_adt_program import CREATE_EXECUTABLE_PROGRAM_ADT_XML, GET_EXECUTABLE_PROGRAM_ADT_XML, PROGRAM_RUN_OUTPUT
 
 FIXTURE_REPORT_CODE='report zhello_world.\n\n  write: \'Hello, World!\'.\n'
 
@@ -73,6 +74,33 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(program.fix_point_arithmetic, True)
         self.assertEqual(program.case_sensitive, True)
         self.assertEqual(program.application_database, 'S')
+
+    def test_adt_program_execute(self):
+        conn = Connection([Response(text=PROGRAM_RUN_OUTPUT, status_code=200, headers={'Content-Type': 'text/plain'})])
+        program = sap.adt.Program(conn, 'ZPROG_HELLO_WORLD')
+
+        actual = program.execute()
+
+        self.assertEqual(actual, PROGRAM_RUN_OUTPUT)
+        self.assertEqual(len(conn.execs), 1)
+        self.assertEqual(conn.execs[0].method, 'POST')
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/programs/programrun/ZPROG_HELLO_WORLD')
+        self.assertEqual(conn.execs[0].headers['Accept'], 'text/plain')
+
+    def test_adt_program_execute_namespace(self):
+        conn = Connection([Response(text=PROGRAM_RUN_OUTPUT, status_code=200, headers={'Content-Type': 'text/plain'})])
+        program = sap.adt.Program(conn, '/ABC/ZPROG')
+
+        program.execute()
+
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/programs/programrun/%2FABC%2FZPROG')
+
+    def test_adt_program_execute_unexpected_content(self):
+        conn = Connection([Response(text='<html/>', status_code=200, headers={'Content-Type': 'text/html'})])
+        program = sap.adt.Program(conn, 'ZPROG_HELLO_WORLD')
+
+        with self.assertRaises(sap.http.UnexpectedResponseContent):
+            program.execute()
 
 
 if __name__ == '__main__':
