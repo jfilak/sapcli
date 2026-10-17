@@ -197,3 +197,39 @@ def list_repositories(connection, args):
     )
 
     sap.cli.helpers.TableWriter(repositories, columns).printout(args.console_factory())
+
+
+@CommandGroup.argument('--api', type=str, choices=APIS, default=None,
+                       help=f'abapGit API (default: SAPCLI_ABAPGIT_API or {API_STEAMPUNK})')
+@CommandGroup.argument('--author-email', type=str, default=None)
+@CommandGroup.argument('--author-name', type=str, default=None)
+@CommandGroup.argument('--committer-email', type=str, default=None)
+@CommandGroup.argument('--committer-name', type=str, default=None)
+@CommandGroup.argument('--description', type=str, default=None, help='Commit message body')
+@CommandGroup.argument('-m', '--message', type=str, required=True, help='Commit message summary')
+@CommandGroup.argument('--remote-user', type=str, nargs='?')
+@CommandGroup.argument('--remote-password', type=str, nargs='?')
+@CommandGroup.argument('package')
+@CommandGroup.command()
+def commit(connection, args):
+    """ commit all changes of ABAP package and push them to linked git repository
+    """
+
+    if _get_api(args) != API_RFC_VIA_CLASSRUN:
+        raise SAPCliError('not implemented')
+
+    bapiret = sap.platform.abap.abapgit_rfc.commit(
+        connection,
+        package=args.package.upper(),
+        user=args.remote_user or '',
+        password=args.remote_password or '',
+        comment=args.message,
+        body=args.description or '',
+        committer_name=args.committer_name or '',
+        committer_email=args.committer_email or '',
+        author_name=args.author_name or '',
+        author_email=args.author_email or '')
+
+    console = args.console_factory()
+    for line in bapiret.message_lines():
+        console.printout(line)

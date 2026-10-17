@@ -2,7 +2,7 @@
 
 ## abapGit APIs
 
-The commands `link`, `pull` and `list` accept the parameter `--api` which selects the abapGit API:
+The commands `link`, `pull`, `list` and `commit` accept the parameter `--api` which selects the abapGit API:
 
 - `steampunk` (default) - the ADT abapGit API of SAP's abapGit fork for SAP BTP ABAP Environment
 - `rfc-via-classrun` - the function modules `ZABAPGIT_API_RFC_*` of
@@ -73,3 +73,26 @@ Key          | Package       | Name | URL                                       
 --------------------------------------------------------------------------------------------------------------------
 000000000008 | $SAPCLI_AGRFC | CLAS | https://github.com/abapGit-tests/CLAS.git | refs/heads/main | 2026-10-17 20:09:31
 ```
+
+## Commit
+
+Commits all changes of a package and pushes them to the linked remote repository.
+
+```bash
+sapcli abapgit commit [--api {steampunk,rfc-via-classrun}] [--remote-user USER] [--remote-password PASSWORD]
+                      -m MESSAGE [--description DESCRIPTION]
+                      [--committer-name NAME] [--committer-email EMAIL] [--author-name NAME] [--author-email EMAIL]
+                      PACKAGE
+```
+
+The parameter `--api` selects the abapGit API - see [abapGit APIs](#abapgit-apis).
+The command is implemented only for `rfc-via-classrun` and fails with the message
+`not implemented` for `steampunk`.
+
+The parameter `--message` is the commit summary and `--description` is the commit
+body which may span several lines. If the committer is not given, abapGit settings
+of the repository, abapGit default settings, the user master record and finally
+the SAP user name are used.
+
+The messages of the function module, including the list of committed objects,
+are printed and the command fails if there is an error message.

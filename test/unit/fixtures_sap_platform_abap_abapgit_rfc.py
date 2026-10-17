@@ -133,3 +133,57 @@ LIST_OUTPUT_ERROR = '''SAPCLI-BAPIRET|I|||Running migrations
 SAPCLI-BAPIRET|E|||Migration failed
 SAPCLI-END
 '''
+
+COMMIT_ABAP_CODE = '''DATA lt_return TYPE bapiret2_t.
+DATA lv_abap_package TYPE devclass.
+lv_abap_package = `$PKG`.
+DATA lv_git_user TYPE string.
+lv_git_user = `user`.
+DATA lv_git_password TYPE string.
+lv_git_password = `pass``word`.
+DATA lv_comment TYPE string.
+lv_comment = `Fix bug`.
+DATA lv_body TYPE string.
+lv_body = `First line`
+  && cl_abap_char_utilities=>newline
+  && `Second line`.
+DATA lv_all TYPE xfeld.
+lv_all = `X`.
+DATA lv_committer_name TYPE string.
+lv_committer_name = `Committer`.
+DATA lv_committer_email TYPE string.
+lv_committer_email = `committer@example.com`.
+DATA lv_author_name TYPE string.
+lv_author_name = `Author`.
+DATA lv_author_email TYPE string.
+lv_author_email = `author@example.com`.
+CALL FUNCTION 'ZABAPGIT_API_RFC_COMMITPUSH'
+  EXPORTING
+    abap_package = lv_abap_package
+    git_user = lv_git_user
+    git_password = lv_git_password
+    comment = lv_comment
+    body = lv_body
+    all = lv_all
+    committer_name = lv_committer_name
+    committer_email = lv_committer_email
+    author_name = lv_author_name
+    author_email = lv_author_email
+  TABLES
+    return = lt_return.
+LOOP AT lt_return INTO DATA(ls_return).
+  out->write( |SAPCLI-BAPIRET\\|{ ls_return-type }\\|{ ls_return-id }\\|{ ls_return-number }\\|{ ls_return-message }| ).
+ENDLOOP.
+out->write( `SAPCLI-END` ).'''
+
+COMMIT_OUTPUT_OK = '''SAPCLI-BAPIRET|I|||Running migrations
+SAPCLI-BAPIRET|I|||Pushing as Committer <committer@example.com>
+SAPCLI-BAPIRET|S|||Committed: CLAS ZCL_AG_UNIT_TEST
+SAPCLI-BAPIRET|I|||Pushed 1 objects
+SAPCLI-BAPIRET|I|||Done
+SAPCLI-END
+'''
+
+COMMIT_OUTPUT_ERROR = '''SAPCLI-BAPIRET|E|||Cannot push offline repo of the package $PKG
+SAPCLI-END
+'''
