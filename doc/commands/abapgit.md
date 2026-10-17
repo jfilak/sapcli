@@ -2,7 +2,7 @@
 
 ## abapGit APIs
 
-The commands `link` and `pull` accept the parameter `--api` which selects the abapGit API:
+The commands `link`, `pull` and `list` accept the parameter `--api` which selects the abapGit API:
 
 - `steampunk` (default) - the ADT abapGit API of SAP's abapGit fork for SAP BTP ABAP Environment
 - `rfc-via-classrun` - the function modules `ZABAPGIT_API_RFC_*` of
@@ -52,3 +52,24 @@ With `rfc-via-classrun`, the messages of the function module are printed and
 the command fails if there is an error message. The branch linked to the package
 is pulled, hence the parameter `--branch` is not supported. Locally modified
 objects and objects from unexpected packages are overwritten.
+
+## List
+
+Lists git repositories linked to ABAP packages.
+
+```bash
+sapcli abapgit list [--api {steampunk,rfc-via-classrun}]
+```
+
+The parameter `--api` selects the abapGit API - see [abapGit APIs](#abapgit-apis).
+The command is implemented only for `rfc-via-classrun` and fails with the message
+`not implemented` for `steampunk`.
+
+The repositories are printed as a table with the columns Key, Package, Name, URL,
+Branch and Deserialized At (UTC).
+
+```
+Key          | Package       | Name | URL                                       | Branch          | Deserialized At
+--------------------------------------------------------------------------------------------------------------------
+000000000008 | $SAPCLI_AGRFC | CLAS | https://github.com/abapGit-tests/CLAS.git | refs/heads/main | 2026-10-17 20:09:31
+```
