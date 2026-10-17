@@ -104,6 +104,16 @@ class Program(BaseProgram):
 
         return self._logical_dabase
 
+    def execute(self):
+        """Runs the executable program and returns its list output"""
+
+        resp = self._connection.execute(
+            'POST',
+            'programs/programrun/' + urllib.parse.quote_plus(self.name),
+            accept='text/plain')
+
+        return resp.text
+
 
 class Include(BaseProgram):
     """ABAP Program Include"""

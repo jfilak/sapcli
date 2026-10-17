@@ -9,7 +9,7 @@ import sap.cli.program
 
 from mock import Connection, Response
 from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
-from fixtures_adt_program import GET_EXECUTABLE_PROGRAM_ADT_XML
+from fixtures_adt_program import GET_EXECUTABLE_PROGRAM_ADT_XML, PROGRAM_RUN_OUTPUT
 
 
 FIXTURE_STDIN_REPORT_SRC='report stdin.\n\n" Salute!\n\nwrite: \'hello, command line!\'\n'
@@ -83,6 +83,21 @@ class TestProgramActivate(unittest.TestCase):
 
         self.assertEqual(len(conn.execs), 2)
         self.assertIn('test_activation', conn.execs[0].body)
+
+
+class TestProgramExecute(unittest.TestCase):
+
+    def test_execute(self):
+        conn = Connection([Response(text=PROGRAM_RUN_OUTPUT, status_code=200, headers={'Content-Type': 'text/plain'})])
+
+        args = parse_args('execute', 'zprog_hello_world')
+        with patch('sys.stdout', new_callable=StringIO) as fake_stdout:
+            args.execute(conn, args)
+
+        self.assertEqual(len(conn.execs), 1)
+        self.assertEqual(conn.execs[0].method, 'POST')
+        self.assertEqual(conn.execs[0].adt_uri, '/sap/bc/adt/programs/programrun/ZPROG_HELLO_WORLD')
+        self.assertEqual(fake_stdout.getvalue(), PROGRAM_RUN_OUTPUT + '\n')
 
 
 if __name__ == '__main__':

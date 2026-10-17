@@ -20,3 +20,12 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
             package = args.package
 
         return sap.adt.Program(connection, name.upper(), package=package, metadata=metadata)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def execute(connection, args):
+    """Runs the executable program and prints its output"""
+
+    program = sap.adt.Program(connection, args.name.upper())
+    print(program.execute())
