@@ -664,6 +664,9 @@ def config_get(option: str, default: Any = None) -> Any:
     if option == 'http_timeout':
         return float(os.environ.get('SAPCLI_HTTP_TIMEOUT', 900))
 
+    if option == 'abapgit_api':
+        return os.environ.get('SAPCLI_ABAPGIT_API', default or 'steampunk')
+
     if option == 'check_before_save':
         fallback = True if default is None else bool(default)
         return _env_bool('SAPCLI_CHECK_BEFORE_SAVE', fallback)
