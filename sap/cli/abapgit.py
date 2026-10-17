@@ -107,8 +107,27 @@ def link(connection, args):
         _link_steampunk(connection, args)
 
 
+def _pull_rfc_via_classrun(connection, args):
+    if args.branch:
+        raise SAPCliError(f'The parameter --branch is not supported by the API {API_RFC_VIA_CLASSRUN}')
+
+    bapiret = sap.platform.abap.abapgit_rfc.pull(
+        connection,
+        package=args.package.upper(),
+        user=args.remote_user or '',
+        password=args.remote_password or '',
+        corrnr=args.corrnr or '')
+
+    console = args.console_factory()
+    for line in bapiret.message_lines():
+        console.printout(line)
+
+
+@CommandGroup.argument('--api', type=str, choices=APIS, default=None,
+                       help=f'abapGit API (default: SAPCLI_ABAPGIT_API or {API_STEAMPUNK})')
 @CommandGroup.argument('--corrnr', type=str, nargs='?')
-@CommandGroup.argument('--branch', type=str, nargs='?', default=None)
+@CommandGroup.argument('--branch', type=str, nargs='?', default=None,
+                       help=f'Branch ({API_STEAMPUNK} only)')
 @CommandGroup.argument('--remote-user', type=str, nargs='?')
 @CommandGroup.argument('--remote-password', type=str, nargs='?')
 @CommandGroup.argument('package')
@@ -116,6 +135,10 @@ def link(connection, args):
 def pull(connection, args):
     """ pull git repository branch to linked ABAP package
     """
+
+    if _get_api(args) == API_RFC_VIA_CLASSRUN:
+        _pull_rfc_via_classrun(connection, args)
+        return
 
     repository = sap.adt.abapgit.Repository(connection, args.package.upper())
     repository.fetch()

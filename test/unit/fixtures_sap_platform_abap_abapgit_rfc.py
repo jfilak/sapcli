@@ -54,3 +54,36 @@ SAPCLI-END
 
 LINK_OUTPUT_TRUNCATED = '''SAPCLI-BAPIRET|I|||Running migrations
 '''
+
+PULL_ABAP_CODE = '''DATA lt_return TYPE bapiret2_t.
+DATA lv_abap_package TYPE devclass.
+lv_abap_package = `$PKG`.
+DATA lv_git_user TYPE string.
+lv_git_user = `user`.
+DATA lv_git_password TYPE string.
+lv_git_password = `pass``word`.
+DATA lv_corrnr TYPE trkorr.
+lv_corrnr = `C50K000001`.
+CALL FUNCTION 'ZABAPGIT_API_RFC_PULL'
+  EXPORTING
+    abap_package = lv_abap_package
+    git_user = lv_git_user
+    git_password = lv_git_password
+    corrnr = lv_corrnr
+  TABLES
+    return = lt_return.
+LOOP AT lt_return INTO DATA(ls_return).
+  out->write( |SAPCLI-BAPIRET\\|{ ls_return-type }\\|{ ls_return-id }\\|{ ls_return-number }\\|{ ls_return-message }| ).
+ENDLOOP.
+out->write( `SAPCLI-END` ).'''
+
+PULL_OUTPUT_OK = '''SAPCLI-BAPIRET|I|||Run migration
+SAPCLI-BAPIRET|I|||Deserializing
+SAPCLI-BAPIRET|I|||Finished
+SAPCLI-END
+'''
+
+PULL_OUTPUT_ERROR = '''SAPCLI-BAPIRET|I|||Run migration
+SAPCLI-BAPIRET|E|||Unable to find repo for package $PKG!
+SAPCLI-END
+'''

@@ -303,6 +303,7 @@ class TestAbapgitPull(ConsoleOutputTestCase, PatcherTestCase):
         self.connection = Mock()
 
         self.patch_console(console=self.console)
+        self.patch('os.environ', new={})
         self.heartbeat_patch = self.patch('sap.cli.helpers.ConsoleHeartBeat')
         self.repo_patch = self.patch('sap.adt.abapgit.Repository')
 
@@ -369,3 +370,104 @@ class TestAbapgitPull(ConsoleOutputTestCase, PatcherTestCase):
         self.assertConsoleContents(console=self.console, stderr='''STATUS_TEXT
 ERROR_LOG
 ''')
+
+    @patch('time.sleep')
+    def test_pull_repo_steampunk_from_env(self, sleep_patch):
+        self.repo_inst.get_status = Mock(return_value='S')
+
+        os.environ['SAPCLI_ABAPGIT_API'] = 'steampunk'
+        self.execute_pull_all_params()
+
+        self.repo_inst.pull.assert_called_once()
+
+    def test_pull_repo_unknown_api_from_env(self):
+        os.environ['SAPCLI_ABAPGIT_API'] = 'foo'
+        args = parse_args('pull', self.param_package)
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'Unknown abapGit API "foo" (SAPCLI_ABAPGIT_API) - use one of: steampunk, rfc-via-classrun')
+        self.repo_patch.assert_not_called()
+
+
+class TestAbapgitPullRfcViaClassrun(ConsoleOutputTestCase, PatcherTestCase):
+    '''Test Abapgit Pull command with the API rfc-via-classrun'''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+
+        self.connection = Mock()
+
+        self.patch_console(console=self.console)
+        self.patch('os.environ', new={})
+        self.repo_patch = self.patch('sap.adt.abapgit.Repository')
+        self.pull_patch = self.patch('sap.platform.abap.abapgit_rfc.pull')
+        self.pull_patch.return_value = BAPIReturn([
+            {'TYPE': 'I', 'ID': '', 'NUMBER': '', 'MESSAGE': 'Deserializing'},
+            {'TYPE': 'I', 'ID': '', 'NUMBER': '', 'MESSAGE': 'Finished'},
+        ])
+
+    def test_pull_all_params(self):
+        args = parse_args(
+            'pull',
+            '--api', 'rfc-via-classrun',
+            '--remote-user', 'user',
+            '--remote-password', 'password',
+            '--corrnr', 'C50K000001',
+            'pkg')
+        args.execute(self.connection, args)
+
+        self.pull_patch.assert_called_once_with(
+            self.connection,
+            package='PKG',
+            user='user',
+            password='password',
+            corrnr='C50K000001')
+        self.repo_patch.assert_not_called()
+
+        self.assertConsoleContents(console=self.console, stdout='''Info: Deserializing
+Info: Finished
+''')
+
+    def test_pull_defaults(self):
+        args = parse_args('pull', '--api', 'rfc-via-classrun', 'PKG')
+        args.execute(self.connection, args)
+
+        self.pull_patch.assert_called_once_with(
+            self.connection,
+            package='PKG',
+            user='',
+            password='',
+            corrnr='')
+
+    def test_pull_api_from_env(self):
+        os.environ['SAPCLI_ABAPGIT_API'] = 'rfc-via-classrun'
+        args = parse_args('pull', 'PKG')
+        args.execute(self.connection, args)
+
+        self.pull_patch.assert_called_once()
+        self.repo_patch.assert_not_called()
+
+    def test_pull_rejects_branch(self):
+        args = parse_args('pull', '--api', 'rfc-via-classrun', '--branch', 'main', 'PKG')
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception),
+                         'The parameter --branch is not supported by the API rfc-via-classrun')
+        self.pull_patch.assert_not_called()

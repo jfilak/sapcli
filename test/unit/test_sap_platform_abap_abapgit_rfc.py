@@ -8,8 +8,10 @@ from sap.rfc.bapi import BAPIError
 from sap.platform.abap.abapgit_rfc import (
     abap_string_literal,
     build_link_code,
+    build_pull_code,
     parse_return,
     link,
+    pull,
 )
 
 from fixtures_sap_platform_abap_abapgit_rfc import (
@@ -18,6 +20,9 @@ from fixtures_sap_platform_abap_abapgit_rfc import (
     LINK_OUTPUT_ERROR,
     LINK_OUTPUT_NOISE,
     LINK_OUTPUT_TRUNCATED,
+    PULL_ABAP_CODE,
+    PULL_OUTPUT_OK,
+    PULL_OUTPUT_ERROR,
 )
 
 
@@ -73,6 +78,18 @@ class TestBuildLinkCode(unittest.TestCase):
             main_lang_only=False)
 
         self.assertEqual(code, LINK_ABAP_CODE)
+
+
+class TestBuildPullCode(unittest.TestCase):
+
+    def test_all_parameters(self):
+        code = build_pull_code(
+            package='$PKG',
+            user='user',
+            password='pass`word',
+            corrnr='C50K000001')
+
+        self.assertEqual(code, PULL_ABAP_CODE)
 
 
 class TestParseReturn(unittest.TestCase):
@@ -140,6 +157,37 @@ class TestLink(unittest.TestCase):
         self.assertEqual(str(caught.exception),
                          'Info: Running migrations\nError: Repository already exists | in package $PKG')
         self.assertEqual(caught.exception.response, LINK_OUTPUT_ERROR)
+
+
+class TestPull(unittest.TestCase):
+
+    def call_pull(self, connection):
+        return pull(connection,
+                    package='$PKG',
+                    user='user',
+                    password='pass`word',
+                    corrnr='C50K000001')
+
+    @patch('sap.platform.abap.run.execute_abap')
+    def test_pull_ok(self, fake_execute):
+        fake_execute.return_value = PULL_OUTPUT_OK
+        connection = Mock()
+
+        bapiret = self.call_pull(connection)
+
+        fake_execute.assert_called_once_with(connection, PULL_ABAP_CODE)
+        self.assertEqual(bapiret.message_lines()[-1], 'Info: Finished')
+
+    @patch('sap.platform.abap.run.execute_abap')
+    def test_pull_error(self, fake_execute):
+        fake_execute.return_value = PULL_OUTPUT_ERROR
+
+        with self.assertRaises(BAPIError) as caught:
+            self.call_pull(Mock())
+
+        self.assertEqual(str(caught.exception),
+                         'Info: Run migration\nError: Unable to find repo for package $PKG!')
+        self.assertEqual(caught.exception.response, PULL_OUTPUT_ERROR)
 
 
 if __name__ == '__main__':
