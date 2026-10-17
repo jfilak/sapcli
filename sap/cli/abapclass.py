@@ -68,18 +68,6 @@ class CommandGroup(sap.cli.object.CommandGroupObjectMaster):
 
         return instance_from_args(connection, name, typ, args, metadata)
 
-    def _save_object_text(self, obj, code, check_before_save, corrnr=None, editor=None):
-        if not isinstance(obj, sap.adt.textelements.ClassTextElements):
-            super()._save_object_text(obj, code, check_before_save, corrnr=corrnr, editor=editor)
-            return
-
-        # Text symbols are not ABAP source code, so abapCheckRun cannot check them
-        if editor is not None:
-            editor.write(code)
-        else:
-            with obj.open_editor(corrnr=corrnr) as new_editor:
-                new_editor.write(code)
-
     def define_read(self, commands):
         read_cmd = super().define_read(commands)
         read_cmd.insert_argument(1, '--type', default=SOURCE_TYPES[0], choices=SOURCE_TYPES)

@@ -58,11 +58,16 @@ with adt_object.open_editor() as editor:
 
 Text elements (the text pool) are not a part of the ADT object they belong to.
 ADT exposes them as a sibling ADT object with its own URI, lock and activation
-status - for ABAP Classes it is `/sap/bc/adt/textelements/classes/{name}`
-and the text symbols are its source `source/symbols` of the MIME type
+status - `/sap/bc/adt/textelements/classes/{name}` for ABAP Classes and
+`/sap/bc/adt/textelements/programs/{name}` for ABAP Programs. The text symbols
+are its source `source/symbols` of the MIME type
 `application/vnd.sap.adt.textelements.symbols.v1`. Hence, they are not
-modeled as a class include but as an independent `ADTObject` child
-`ClassTextElements` in the module `sap/adt/textelements.py`.
+modeled as a class include but as independent `ADTObject` children
+`ClassTextElements` and `ProgramTextElements` of the common base `TextElements`
+in the module `sap/adt/textelements.py`.
+
+Programs have also the text element sources `source/selections` (selection
+texts) and `source/headings` (list headings) which sapcli does not support yet.
 
 The module also provides the type `TextSymbol` and the functions `parse_symbols()`
 and `serialize_symbols()` converting between the ADT text symbols format
@@ -85,9 +90,20 @@ with texts.open_editor(corrnr=corrnr) as editor:
 sap.adt.wb.activate(texts)
 ```
 
-Activating `ClassTextElements` activates only the text elements. Activating
-the parent `Class` activates its inactive text elements too, all or nothing.
-Deleting the class deletes its text elements.
+Activating `ClassTextElements` or `ProgramTextElements` activates only the text
+elements. Activating the parent `Class` activates its inactive text elements
+too, all or nothing. But activating the parent `Program` does not activate its
+inactive text elements - pass them as a dependent to activate both, all or
+nothing (the command `sapcli program activate` does it):
+
+```python
+program = sap.adt.Program(connection, 'ZHELLO_WORLD')
+texts = ProgramTextElements(connection, 'ZHELLO_WORLD')
+
+sap.adt.wb.activate(program, dependents=[texts])
+```
+
+Deleting the class or the program deletes its text elements.
 
 The editor validates the written content with `parse_symbols()` and raises
 `SAPCliError` before the content is sent if the content is malformed.

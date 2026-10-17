@@ -118,6 +118,11 @@ class ObjectActivationWorker:
         if (error and not self.continue_on_errors):
             raise StopObjectActivation('Stopped activation because of errors', stats, name, obj)
 
+    def activate_object(self, obj):
+        """Activates the object - for children to customize"""
+
+        return sap.adt.wb.try_activate(obj)
+
     def activate_sequentially(self, name_and_obj_tuples, count=None):
         """Sequentially goes from the enumerable name_and_obj_tuples and tries
         to activate each object.
@@ -129,7 +134,7 @@ class ObjectActivationWorker:
             name, obj = item
 
             self.start_object(name, index, count)
-            results, _ = sap.adt.wb.try_activate(obj)
+            results, _ = self.activate_object(obj)
             self.handle_results(name, obj, results, stats)
 
         return stats

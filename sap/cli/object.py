@@ -14,6 +14,7 @@ import sap.errors
 import sap.adt
 import sap.adt.checks
 import sap.adt.errors
+import sap.adt.textelements
 import sap.adt.wb
 import sap.adt.whereused
 import sap.cli.wb
@@ -382,6 +383,16 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
            so the PUT happens while the caller's lock is still held. Otherwise
            the object is locked and unlocked implicitly around the write.
         """
+
+        if isinstance(obj, sap.adt.textelements.TextElements):
+            # Text symbols are not ABAP source code, so abapCheckRun cannot check them
+            if editor is not None:
+                editor.write(code)
+            else:
+                with obj.open_editor(corrnr=corrnr) as new_editor:
+                    new_editor.write(code)
+
+            return
 
         if check_before_save:
             result = sap.adt.checks.run_object_check(obj, code)
