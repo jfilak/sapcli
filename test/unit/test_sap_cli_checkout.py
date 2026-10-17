@@ -10,6 +10,7 @@ from io import StringIO
 
 import sap.cli.checkout
 import sap.platform.abap
+from sap.adt.textelements import TextSymbol
 import sap.platform.abap.abapgit
 import sap.adt
 
@@ -136,6 +137,66 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(vseoclass.UNICODE, 'X')
 
     @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.adt.textelements.ClassTextElements')
+    @patch('sap.adt.Class')
+    def test_checkout_class_with_text_symbols(self, fake_clas, fake_texts, fake_writer):
+        fake_inst = Mock()
+        fake_inst.name = 'ZCL_HELLO_WORLD'
+        fake_inst.description = 'Cowabunga'
+        fake_inst.master_language = 'EN'
+        fake_inst.active = 'active'
+        fake_inst.modeled = False
+        fake_inst.fix_point_arithmetic = True
+        fake_inst.text = 'class zcl_hello_world'
+        fake_inst.definitions.text = '* definitions'
+        fake_inst.implementations.text = '* implementations'
+        fake_inst.test_classes.text = '* tests'
+        fake_clas.return_value = fake_inst
+
+        fake_texts.return_value.text = '@MaxLength:20\n001=Hello, world!\n\n@MaxLength:10\n002=a=b'
+
+        added = list()
+        fake_writer.return_value.add.side_effect = added.append
+
+        conn = Connection()
+        args = parse_args(['class', 'ZCL_HELLO_WORLD'])
+        with patch('sap.cli.checkout.open', mock_open()):
+            args.execute(conn, args)
+
+        fake_texts.assert_called_once_with(conn, 'ZCL_HELLO_WORLD')
+
+        self.assertEqual(len(added), 2)
+        self.assertEqual(added[0].CLSNAME, 'ZCL_HELLO_WORLD')
+
+        tpool = added[1]
+        self.assertEqual(len(tpool), 2)
+        self.assertEqual((tpool[0].ID, tpool[0].KEY, tpool[0].ENTRY, tpool[0].LENGTH), ('I', '001', 'Hello, world!', 20))
+        self.assertEqual((tpool[1].ID, tpool[1].KEY, tpool[1].ENTRY, tpool[1].LENGTH), ('I', '002', 'a=b', 10))
+
+    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.adt.textelements.ClassTextElements')
+    @patch('sap.adt.Class')
+    def test_checkout_class_text_symbols_error(self, fake_clas, fake_texts, fake_writer):
+        fake_inst = Mock()
+        fake_inst.name = 'ZCL_HELLO_WORLD'
+        fake_inst.master_language = 'EN'
+        fake_clas.return_value = fake_inst
+
+        type(fake_texts.return_value).text = PropertyMock(
+            side_effect=sap.adt.errors.ExceptionResourceNotFound('Cannot access text elements'))
+
+        added = list()
+        fake_writer.return_value.add.side_effect = added.append
+
+        args = parse_args(['class', 'ZCL_HELLO_WORLD'])
+        with patch('sap.cli.checkout.open', mock_open()), \
+             patch('sap.cli.core.printerr') as fake_printerr:
+            args.execute(Connection(), args)
+
+        fake_printerr.assert_called_once_with('Download of text elements failed: Cannot access text elements')
+        self.assertEqual(len(added), 1)
+
+    @patch('sap.cli.checkout.XMLWriter')
     @patch('sap.adt.Interface.fetch')
     @patch('sap.adt.Interface.text', new_callable=PropertyMock)
     def test_checkout_interface(self, fake_text, fake_fetch, fake_writer):
@@ -237,6 +298,36 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(item.LENGTH, len('Cowabunga'))
 
 
+    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.adt.textelements.ProgramTextElements')
+    @patch('sap.adt.Program')
+    def test_checkout_program_with_text_symbols(self, fake_program, fake_texts, fake_writer):
+        fake_inst = Mock()
+        fake_inst.name = 'Z_HELLO_WORLD'
+        fake_inst.description = 'Cowabunga'
+        fake_inst.text = 'REPORT z_hello_world'
+        fake_inst.active = 'active'
+        fake_inst.program_type = '1'
+        fake_program.return_value = fake_inst
+
+        fake_texts.return_value.text = '@MaxLength:20\n001=Hello, world!'
+
+        added = list()
+        fake_writer.return_value.add.side_effect = added.append
+
+        conn = Connection()
+        args = parse_args(['program', 'Z_HELLO_WORLD'])
+        with patch('sap.cli.checkout.open', mock_open()):
+            args.execute(conn, args)
+
+        fake_texts.assert_called_once_with(conn, 'Z_HELLO_WORLD')
+
+        tpool = added[1]
+        self.assertEqual(len(tpool), 2)
+        self.assertEqual((tpool[0].ID, tpool[0].KEY, tpool[0].ENTRY, tpool[0].LENGTH), ('I', '001', 'Hello, world!', 20))
+        self.assertEqual((tpool[1].ID, tpool[1].KEY, tpool[1].ENTRY, tpool[1].LENGTH), ('R', None, 'Cowabunga', 9))
+
+
 class TestCheckoutClass(unittest.TestCase):
 
     @patch('sap.adt.Class')
@@ -313,6 +404,18 @@ class TestCheckoutProgram(unittest.TestCase):
         self.assertEqual(descr.ID, 'R')
         self.assertEqual(descr.ENTRY, 'Say hello!')
         self.assertEqual(descr.LENGTH, len('Say hello!'))
+
+    def test_build_program_attributes_with_text_symbols(self):
+        prog = sap.adt.Program(Mock(), 'ZHELLO_WORLD')
+        prog.description = 'Say hello!'
+
+        _, tpool = sap.cli.checkout.build_program_abap_attributes(
+            prog, text_symbols=[TextSymbol('001', 'Hello, world!', 20), TextSymbol('002', 'a=b', 10)])
+
+        self.assertEqual(len(tpool), 3)
+        self.assertEqual((tpool[0].ID, tpool[0].KEY, tpool[0].ENTRY, tpool[0].LENGTH), ('I', '001', 'Hello, world!', 20))
+        self.assertEqual((tpool[1].ID, tpool[1].KEY, tpool[1].ENTRY, tpool[1].LENGTH), ('I', '002', 'a=b', 10))
+        self.assertEqual((tpool[2].ID, tpool[2].KEY, tpool[2].ENTRY, tpool[2].LENGTH), ('R', None, 'Say hello!', 10))
 
 
 class TestCheckoutPackage(unittest.TestCase):

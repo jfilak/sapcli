@@ -17,9 +17,12 @@ from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionCheckinFailu
 
 from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 
+FIXTURE_TEXT_SYMBOLS = '@MaxLength:20\r\n001=Hello, world!\r\n@MaxLength:10\r\n002=a=b\r\n'
+
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
 from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, CLAS_WITH_DESCRIPTIONS_SUB_XML, INTF_XML, \
     INTF_WITH_DESCRIPTIONS_SUB_XML, PROG_XML, PROG_WITH_CUA_XML, INCLUDE_XML, INVALID_TYPE_XML, \
+    CLAS_WITH_TPOOL_XML, PROG_WITH_TEXTS_XML, INCLUDE_WITH_TEXTS_XML, \
     FUNCTION_GROUP_XML, FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, \
     FUNCTION_MODULE_CODE_NO_PARAMS_ADT, FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, \
     FUNCTION_GROUP_XML_NO_RFC
@@ -768,6 +771,13 @@ class TestCheckInClass(ConsoleOutputTestCase, PatcherTestCase):
         self.clas.test_classes.open_editor.return_value = self.clas_editor
         self.fake_class.return_value = self.clas
 
+        self.fake_class_text_elements = self.patch('sap.adt.textelements.ClassTextElements')
+        self.texts_editor = MagicMock()
+        self.texts_editor.__enter__.return_value = self.texts_editor
+        self.texts = MagicMock()
+        self.texts.open_editor.return_value = self.texts_editor
+        self.fake_class_text_elements.return_value = self.texts
+
         self.connection = Mock()
         self.connection.user = 'test_user'
         self.package = sap.cli.checkin.RepoPackage('test_package', '/src/package.devc.xml', '/src', None)
@@ -835,6 +845,36 @@ Writing Clas: {self.clas_object.name} clas
 Writing Clas: {self.clas_object.name} locals_def
 Writing Clas: {self.clas_object.name} locals_imp
 Writing Clas: {self.clas_object.name} testclasses
+''')
+
+    def test_checkin_clas_without_text_pool(self):
+        source_files_content = ['class_body', 'locals_def_body', 'locals_imp_body', 'test_body']
+        self.fake_open.side_effect = [StringIOFile(content) for content in
+                                      [CLAS_XML] + source_files_content]
+
+        sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
+
+        self.fake_class_text_elements.assert_not_called()
+
+    def test_checkin_clas_with_text_pool(self):
+        source_files_content = ['class_body', 'locals_def_body', 'locals_imp_body', 'test_body']
+        self.fake_open.side_effect = [StringIOFile(content) for content in
+                                      [CLAS_WITH_TPOOL_XML] + source_files_content]
+
+        result = sap.cli.checkin.checkin_clas(self.connection, self.clas_object, 'corrnr')
+
+        self.assertEqual(result.abap_objects, [self.clas, self.texts])
+        self.assertEqual(result.used_files, ['foo.clas.abap', 'foo.locals_def.abap', 'foo.locals_imp.abap',
+                                             'foo.testclasses.abap'])
+        self.fake_class_text_elements.assert_called_once_with(self.connection, self.clas_object.name.upper())
+        self.texts.open_editor.assert_called_once_with(corrnr='corrnr')
+        self.texts_editor.write.assert_called_once_with(FIXTURE_TEXT_SYMBOLS)
+        self.assertConsoleContents(self.console, stdout=f'''Creating Class: {self.clas_object.name}
+Writing Clas: {self.clas_object.name} clas
+Writing Clas: {self.clas_object.name} locals_def
+Writing Clas: {self.clas_object.name} locals_imp
+Writing Clas: {self.clas_object.name} testclasses
+Writing Clas: {self.clas_object.name} text elements
 ''')
 
     def test_checkin_clas_already_exists(self):
@@ -1068,6 +1108,13 @@ class TestCheckInProgram(ConsoleOutputTestCase, PatcherTestCase):
         self.include.open_editor.return_value = self.include_editor
         self.fake_include.return_value = self.include
 
+        self.fake_program_text_elements = self.patch('sap.adt.textelements.ProgramTextElements')
+        self.texts_editor = MagicMock()
+        self.texts_editor.__enter__.return_value = self.texts_editor
+        self.texts = MagicMock()
+        self.texts.open_editor.return_value = self.texts_editor
+        self.fake_program_text_elements.return_value = self.texts
+
         self.connection = Mock()
         self.connection.user = 'test_user'
         self.package = sap.cli.checkin.RepoPackage('test_package', '/src/package.devc.xml', '/src', None)
@@ -1131,6 +1178,45 @@ class TestCheckInProgram(ConsoleOutputTestCase, PatcherTestCase):
         self.program_editor.write.assert_called_once_with('test_prog_body')
         self.assertConsoleContents(self.console, stdout=f'''Creating Program: {self.prog_object.name}
 Writing Program: {self.prog_object.name}
+''')
+
+    def test_checkin_prog_without_text_symbols(self):
+        self.fake_open.side_effect = [StringIOFile(PROG_XML), StringIOFile('test_prog_body')]
+
+        sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        self.fake_program_text_elements.assert_not_called()
+
+    def test_checkin_prog_with_text_symbols(self):
+        self.fake_open.side_effect = [StringIOFile(PROG_WITH_TEXTS_XML), StringIOFile('test_prog_body')]
+
+        result = sap.cli.checkin.checkin_prog(self.connection, self.prog_object, 'corrnr')
+
+        self.assertEqual(result.abap_objects, [self.program, self.texts])
+        self.assertEqual(result.used_files, ['foo.prog.abap'])
+        self.assertEqual(self.program.description, 'Test program desc')
+        self.program_editor.write.assert_called_once_with('test_prog_body')
+        self.fake_program_text_elements.assert_called_once_with(self.connection, self.prog_object.name.upper())
+        self.texts.open_editor.assert_called_once_with(corrnr='corrnr')
+        self.texts_editor.write.assert_called_once_with(FIXTURE_TEXT_SYMBOLS)
+        self.assertConsoleContents(self.console, stdout=f'''Creating Program: {self.prog_object.name}
+Writing Program: {self.prog_object.name}
+Writing Program: {self.prog_object.name} text elements
+''', stderr=f'''Skipping unsupported text pool entry S P_MATNR of {self.prog_object.name}
+''')
+
+    def test_checkin_prog_include_with_text_symbols(self):
+        self.fake_open.side_effect = [StringIOFile(INCLUDE_WITH_TEXTS_XML), StringIOFile('test_include_body')]
+
+        result = sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
+
+        self.assertEqual(result.abap_objects, [self.include])
+        self.assertEqual(self.include.description, 'Test include desc')
+        self.fake_program_text_elements.assert_not_called()
+        self.assertConsoleContents(self.console, stdout=f'''Creating Program: {self.prog_object.name}
+Creating Include: {self.prog_object.name}
+Writing Program: {self.prog_object.name}
+''', stderr=f'''Skipping unsupported text pool entry I 001 of {self.prog_object.name}
 ''')
 
     def test_checkin_prog_with_cua(self):

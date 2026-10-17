@@ -4,6 +4,7 @@ import os
 import sys
 
 import sap.adt
+import sap.adt.textelements
 import sap.cli.core
 
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
@@ -84,6 +85,26 @@ def download_abap_source(object_name, source_object, typsfx, destdir=None):
         write_source(text, object_name, typsfx, destdir)
 
 
+def download_text_symbols(text_elements):
+    """Returns text symbols of the given text elements"""
+
+    try:
+        return sap.adt.textelements.parse_symbols(text_elements.text)
+    except sap.adt.errors.ADTError as err:
+        sap.cli.core.printerr(f'Download of text elements failed: {err}')
+        return []
+
+
+def build_text_pool(text_symbols):
+    """Returns TPOOL populated with the given text symbols"""
+
+    tpool = TPOOL()
+    for symbol in text_symbols:
+        tpool.append(ID='I', KEY=symbol.id, ENTRY=symbol.text, LENGTH=symbol.max_length)
+
+    return tpool
+
+
 def build_class_abap_attributes(clas):
     """Returns populated ABAP structure with attributes"""
 
@@ -116,7 +137,13 @@ def checkout_class(connection, name, destdir=None):
     download_abap_source(name, clas.test_classes, '.clas.testclasses', destdir=destdir)
 
     vseoclass = build_class_abap_attributes(clas)
-    dump_attributes_to_file(name, (vseoclass,), '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
+    abap_attributes = (vseoclass,)
+
+    text_symbols = download_text_symbols(sap.adt.textelements.ClassTextElements(connection, name))
+    if text_symbols:
+        abap_attributes += (build_text_pool(text_symbols),)
+
+    dump_attributes_to_file(name, abap_attributes, '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
 
 
 @CommandGroup.argument('name')
@@ -127,7 +154,7 @@ def abapclass(connection, args):
     checkout_class(connection, args.name.upper())
 
 
-def build_program_abap_attributes(adt_program):
+def build_program_abap_attributes(adt_program, text_symbols=()):
     """Returns populated ABAP structure with attributes"""
 
     progdir = PROGDIR()
@@ -140,7 +167,8 @@ def build_program_abap_attributes(adt_program):
     progdir.LDBNAME = adt_program.logical_database.reference.name
     progdir.UCCHECK = 'X'
 
-    tpool = TPOOL()
+    # text symbols (I) precede the title (R) to keep the entries ordered by ID
+    tpool = build_text_pool(text_symbols)
     tpool.append(ID='R', ENTRY=adt_program.description, LENGTH=len(adt_program.description))
 
     return (progdir, tpool)
@@ -155,7 +183,8 @@ def checkout_program(connection, name, destdir=None):
 
     download_abap_source(name, adt_program, '.prog', destdir=destdir)
 
-    progdir, tpool = build_program_abap_attributes(adt_program)
+    text_symbols = download_text_symbols(sap.adt.textelements.ProgramTextElements(connection, name))
+    progdir, tpool = build_program_abap_attributes(adt_program, text_symbols=text_symbols)
     dump_attributes_to_file(name, (progdir, tpool), '.prog', 'LCL_OBJECT_PROG', destdir=destdir)
 
 

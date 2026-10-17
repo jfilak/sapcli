@@ -147,9 +147,13 @@ class TPOOL_LINE(Structure):
     # pylint: disable=invalid-name
     ID: str
     # pylint: disable=invalid-name
+    KEY: str
+    # pylint: disable=invalid-name
     ENTRY: str
     # pylint: disable=invalid-name
     LENGTH: str
+    # pylint: disable=invalid-name
+    SPLIT: str
 
 
 TPOOL = ItemizedTable.define('TPOOL', TPOOL_LINE)

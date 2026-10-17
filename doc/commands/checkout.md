@@ -45,3 +45,27 @@ sapcli checkout package '$hello_world' [directory] [--recursive] [--starting-fol
 
 * _--recursive_ forces sapcli to download also the sub-packages into sub-directories
 
+## Text elements
+
+Text symbols of classes and programs (`TEXT-001`) are stored as the entries
+with ID `I` in the section `TPOOL` of the files _.clas.xml_ and _.prog.xml_
+the same way as abapGit does. They are read in the logon language.
+
+```xml
+   <TPOOL>
+    <item>
+     <ID>I</ID>
+     <KEY>001</KEY>
+     <ENTRY>Hello, world!</ENTRY>
+     <LENGTH>20</LENGTH>
+    </item>
+   </TPOOL>
+```
+
+The command `sapcli checkin package` writes the text symbols in the logon
+language and activates them together with the class or the program. Other text
+pool entries such as selection texts (ID `S`) and list headings (IDs `H` and
+`T`) are not supported yet - checkin skips them with a warning. Program titles
+(ID `R`) are used as program descriptions as before. Includes do not have own
+text elements, so checkin skips their text symbols with a warning too.
+

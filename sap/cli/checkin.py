@@ -27,6 +27,7 @@ import sap.adt
 import sap.adt.checks
 import sap.adt.objects
 import sap.adt.errors
+import sap.adt.textelements
 import sap.adt.wb
 import sap.cli.wb
 from sap.config import config_get
@@ -357,8 +358,33 @@ def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([interface], [source_file])
 
 
+def _text_symbols_from_tpool(tpool, object_name, known_ids=(), supported_ids=('I',)):
+    """Returns text symbols (TPOOL entries with ID I) and reports the other
+       entries not handled by the caller (known_ids) as skipped.
+    """
+
+    text_symbols = []
+
+    for text in tpool:
+        if text.ID in supported_ids:
+            text_symbols.append(sap.adt.textelements.TextSymbol(text.KEY, text.ENTRY, int(text.LENGTH)))
+        elif text.ID not in known_ids:
+            entry = f'{text.ID} {text.KEY}' if text.KEY else text.ID
+            sap.cli.core.printerr(f'Skipping unsupported text pool entry {entry} of {object_name}')
+
+    return text_symbols
+
+
+def _write_text_symbols(text_elements, text_symbols, corrnr):
+    """Replaces text symbols of the given text elements"""
+
+    with text_elements.open_editor(corrnr=corrnr) as editor:
+        editor.write(sap.adt.textelements.serialize_symbols(text_symbols))
+
+
 def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
     """Checkin ADT Clas"""
+    # pylint: disable=too-many-locals
 
     sap.cli.core.printout('Creating Class:', repo_obj.name)
 
@@ -368,9 +394,13 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         # DESCRIPTIONS_SUB is parsed only to detect abapGit XML format changes
         # - ADT generates the sub-component descriptions from source code
-        abap_data = sap.platform.abap.abapgit.from_xml(
-            [VSEOCLASS, sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
-            abap_data_file.read())['VSEOCLASS']
+        results = sap.platform.abap.abapgit.from_xml(
+            [VSEOCLASS, sap.platform.abap.abapgit.OptionalBody(TPOOL),
+             sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
+            abap_data_file.read())
+
+    abap_data = results['VSEOCLASS']
+    text_symbols = _text_symbols_from_tpool(results.get('TPOOL', []), repo_obj.name)
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=abap_data.DESCRIPT)
@@ -422,11 +452,20 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
 
         used_files.append(source_file)
 
-    return ObjectCheckinResult([clas], used_files)
+    abap_objects = [clas]
+
+    if text_symbols:
+        sap.cli.core.printout('Writing Clas:', repo_obj.name, 'text elements')
+        text_elements = sap.adt.textelements.ClassTextElements(connection, repo_obj.name.upper())
+        _write_text_symbols(text_elements, text_symbols, corrnr)
+        abap_objects.append(text_elements)
+
+    return ObjectCheckinResult(abap_objects, used_files)
 
 
 def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
     """Checkin ADT Program"""
+    # pylint: disable=too-many-locals
 
     sap.cli.core.printout('Creating Program:', repo_obj.name)
 
@@ -462,6 +501,10 @@ def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
         if text.ID == 'R':
             program.description = text.ENTRY
 
+    # ADT does not allow editing text elements of includes
+    supported_ids = ('I',) if progdir.SUBC == SUBC_EXECUTABLE_PROGRAM else ()
+    text_symbols = _text_symbols_from_tpool(tpool, repo_obj.name, known_ids=('R',), supported_ids=supported_ids)
+
     try:
         program.create(corrnr)
     except sap.adt.errors.ExceptionResourceCreationFailure as err:
@@ -476,7 +519,16 @@ def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
                            source_label=source_file,
                            check_before_save=check_before_save)
 
-    return ObjectCheckinResult([program], [source_file])
+    abap_objects = [program]
+
+    if text_symbols:
+        sap.cli.core.printout('Writing Program:', repo_obj.name, 'text elements')
+        text_elements = sap.adt.textelements.ProgramTextElements(connection, repo_obj.name.upper())
+        _write_text_symbols(text_elements, text_symbols, corrnr)
+        # ADT does not activate inactive text elements together with the program
+        abap_objects.append(text_elements)
+
+    return ObjectCheckinResult(abap_objects, [source_file])
 
 
 def _check_fugr_source_files(repo_obj, functions, includes):
