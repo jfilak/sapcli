@@ -54,6 +54,46 @@ with adt_object.open_editor() as editor:
     editor.write("METHOD foo. ENDMETHOD.")
 ```
 
+### Text elements
+
+Text elements (the text pool) are not a part of the ADT object they belong to.
+ADT exposes them as a sibling ADT object with its own URI, lock and activation
+status - for ABAP Classes it is `/sap/bc/adt/textelements/classes/{name}`
+and the text symbols are its source `source/symbols` of the MIME type
+`application/vnd.sap.adt.textelements.symbols.v1`. Hence, they are not
+modeled as a class include but as an independent `ADTObject` child
+`ClassTextElements` in the module `sap/adt/textelements.py`.
+
+The module also provides the type `TextSymbol` and the functions `parse_symbols()`
+and `serialize_symbols()` converting between the ADT text symbols format
+(`@MaxLength:<n>` line followed by `<ID>=<text>` line) and Python objects.
+
+```python
+import sap.adt.wb
+from sap.adt.textelements import ClassTextElements, TextSymbol, parse_symbols, serialize_symbols
+
+texts = ClassTextElements(connection, 'ZCL_HELLO_WORLD')
+
+symbols = parse_symbols(texts.text)
+symbols.append(TextSymbol(id='002', text='Second symbol', max_length=25))
+
+# the editor locks the text elements object, not the class
+with texts.open_editor(corrnr=corrnr) as editor:
+    editor.write(serialize_symbols(symbols))
+
+# written text symbols are inactive until activated
+sap.adt.wb.activate(texts)
+```
+
+Activating `ClassTextElements` activates only the text elements. Activating
+the parent `Class` activates its inactive text elements too, all or nothing.
+Deleting the class deletes its text elements.
+
+The editor validates the written content with `parse_symbols()` and raises
+`SAPCliError` before the content is sent if the content is malformed.
+Writing replaces the whole text pool and the texts are read and written
+in the logon language.
+
 ### Functions
 
 ABAP function modules s are organized in function groups which are something
