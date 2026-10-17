@@ -333,12 +333,18 @@ def try_mass_activate(connection, references):
     return None
 
 
-def try_activate(adt_object):
+def try_activate(adt_object, dependents=None):
     """Tries to activate the given object. In case of an error, returns the results.
+
+       The dependents are activated together with the object - e.g. Text
+       Elements of Program which are not activated with the Program.
     """
 
     references = ADTObjectReferences()
     references.add_object(adt_object)
+
+    for dependent in dependents or []:
+        references.add_object(dependent)
 
     results, resp = mass_activate(adt_object.connection, references)
 
@@ -348,10 +354,10 @@ def try_activate(adt_object):
     return results, resp
 
 
-def activate(adt_object):
-    """Activates the given object"""
+def activate(adt_object, dependents=None):
+    """Activates the given object together with its dependents"""
 
-    results, resp = try_activate(adt_object)
+    results, resp = try_activate(adt_object, dependents=dependents)
 
     if adt_object.active != ADT_OBJECT_VERSION_ACTIVE:
         raise ActivationError(f'Could not activate: {resp.text}', resp, results)

@@ -95,6 +95,27 @@ class TestADTWBActivate(unittest.TestCase):
         sap.adt.wb.activate(adt_object)
         self.assert_single_request(adt_object)
 
+    def test_adt_wb_activate_object_with_dependents(self):
+        adt_object = self.create_fake_object(FIXTURES_EXP_FULL_ADT_URI, FIXTURES_EXP_OBJECT_NAME)
+        adt_object.active = 'active'
+
+        dependent = Mock()
+        dependent.full_adt_uri = '/unit/test/mobject/dependent'
+        dependent.name = 'mobject'
+
+        sap.adt.wb.activate(adt_object, dependents=[dependent])
+
+        conn = adt_object.connection
+        self.assertEqual(conn.mock_methods(), [('POST', '/sap/bc/adt/activation')])
+        self.assertEqual(conn.execs[0].body, f'''<?xml version="1.0" encoding="UTF-8"?>
+<adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
+<adtcore:objectReference adtcore:uri="{FIXTURES_EXP_FULL_ADT_URI}" adtcore:name="{FIXTURES_EXP_OBJECT_NAME}"/>
+<adtcore:objectReference adtcore:uri="/unit/test/mobject/dependent" adtcore:name="MOBJECT"/>
+</adtcore:objectReferences>''')
+
+        self.assertTrue(adt_object.fetch.called)
+        self.assertFalse(dependent.fetch.called)
+
     def test_adt_wb_activate_object_ok_with_props(self):
         adt_object = self.create_fake_object(FIXTURES_EXP_FULL_ADT_URI,
                                              FIXTURES_EXP_OBJECT_NAME.lower(),

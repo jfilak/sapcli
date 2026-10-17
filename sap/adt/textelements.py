@@ -105,22 +105,15 @@ class TextElementsEditor(ADTObjectSourceEditor):
             raise
 
 
-class ClassTextElements(ADTObject):
-    """Text Elements (text pool) of ABAP OO Class"""
+class TextElements(ADTObject):
+    """Text Elements (text pool) of an ABAP object - children must define
+       OBJTYPE and OWNER_LABEL which is used in error messages.
+    """
 
-    OBJTYPE = ADTObjectType(
-        'CLAS/OCX',
-        'textelements/classes',
-        XMLNS_REPT,
-        TEXT_ELEMENTS_MIMETYPE,
-        {SYMBOLS_MIMETYPE: 'source/symbols'},
-        'textElement',
-        editor_factory=TextElementsEditor,
-        source_mimetype=SYMBOLS_MIMETYPE
-    )
+    OWNER_LABEL = 'object'
 
     def _not_found_error(self):
-        return ExceptionResourceNotFound(f'Cannot access text elements: class {self.name} does not exist')
+        return ExceptionResourceNotFound(f'Cannot access text elements: {self.OWNER_LABEL} {self.name} does not exist')
 
     @property
     def text(self):
@@ -138,3 +131,37 @@ class ClassTextElements(ADTObject):
             super().fetch()
         except ExceptionResourceNotFound as ex:
             raise self._not_found_error() from ex
+
+
+class ClassTextElements(TextElements):
+    """Text Elements (text pool) of ABAP OO Class"""
+
+    OBJTYPE = ADTObjectType(
+        'CLAS/OCX',
+        'textelements/classes',
+        XMLNS_REPT,
+        TEXT_ELEMENTS_MIMETYPE,
+        {SYMBOLS_MIMETYPE: 'source/symbols'},
+        'textElement',
+        editor_factory=TextElementsEditor,
+        source_mimetype=SYMBOLS_MIMETYPE
+    )
+
+    OWNER_LABEL = 'class'
+
+
+class ProgramTextElements(TextElements):
+    """Text Elements (text pool) of ABAP Program (Report)"""
+
+    OBJTYPE = ADTObjectType(
+        'PROG/PX',
+        'textelements/programs',
+        XMLNS_REPT,
+        TEXT_ELEMENTS_MIMETYPE,
+        {SYMBOLS_MIMETYPE: 'source/symbols'},
+        'textElement',
+        editor_factory=TextElementsEditor,
+        source_mimetype=SYMBOLS_MIMETYPE
+    )
+
+    OWNER_LABEL = 'program'

@@ -186,6 +186,15 @@ class TestObjectActivationWorker(unittest.TestCase):
         self.assert_ok_stats(stats)
 
 
+    def test_activate_object(self):
+        with patch('sap.adt.wb.try_activate') as fake_try_activate:
+            fake_try_activate.return_value = ('results', 'response')
+
+            self.assertEqual(self.worker.activate_object(self.activated_object), ('results', 'response'))
+
+        fake_try_activate.assert_called_once_with(self.activated_object)
+
+
 class TestActivate(unittest.TestCase):
 
     def setUp(self):
