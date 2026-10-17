@@ -563,3 +563,99 @@ class TestAbapgitList(ConsoleOutputTestCase, PatcherTestCase):
 
         self.assertEqual(str(caught.exception),
                          'Unknown abapGit API "foo" (SAPCLI_ABAPGIT_API) - use one of: steampunk, rfc-via-classrun')
+
+
+class TestAbapgitCommit(ConsoleOutputTestCase, PatcherTestCase):
+    '''Test Abapgit Commit command'''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+        assert self.console is not None
+
+        self.connection = Mock()
+
+        self.patch_console(console=self.console)
+        self.patch('os.environ', new={})
+        self.commit_patch = self.patch('sap.platform.abap.abapgit_rfc.commit')
+        self.commit_patch.return_value = BAPIReturn([
+            {'TYPE': 'S', 'ID': '', 'NUMBER': '', 'MESSAGE': 'Committed: CLAS ZCL_AG_UNIT_TEST'},
+            {'TYPE': 'I', 'ID': '', 'NUMBER': '', 'MESSAGE': 'Done'},
+        ])
+
+    def test_commit_all_params(self):
+        args = parse_args(
+            'commit',
+            '--api', 'rfc-via-classrun',
+            '--remote-user', 'user',
+            '--remote-password', 'password',
+            '-m', 'Fix bug',
+            '--description', 'First line\nSecond line',
+            '--committer-name', 'Committer',
+            '--committer-email', 'committer@example.com',
+            '--author-name', 'Author',
+            '--author-email', 'author@example.com',
+            'pkg')
+        args.execute(self.connection, args)
+
+        self.commit_patch.assert_called_once_with(
+            self.connection,
+            package='PKG',
+            user='user',
+            password='password',
+            comment='Fix bug',
+            body='First line\nSecond line',
+            committer_name='Committer',
+            committer_email='committer@example.com',
+            author_name='Author',
+            author_email='author@example.com')
+
+        self.assertConsoleContents(console=self.console, stdout='''Success: Committed: CLAS ZCL_AG_UNIT_TEST
+Info: Done
+''')
+
+    def test_commit_defaults(self):
+        args = parse_args('commit', '--api', 'rfc-via-classrun', '--message', 'Fix bug', 'PKG')
+        args.execute(self.connection, args)
+
+        self.commit_patch.assert_called_once_with(
+            self.connection,
+            package='PKG',
+            user='',
+            password='',
+            comment='Fix bug',
+            body='',
+            committer_name='',
+            committer_email='',
+            author_name='',
+            author_email='')
+
+    def test_commit_api_from_env(self):
+        os.environ['SAPCLI_ABAPGIT_API'] = 'rfc-via-classrun'
+        args = parse_args('commit', '-m', 'Fix bug', 'PKG')
+        args.execute(self.connection, args)
+
+        self.commit_patch.assert_called_once()
+
+    def test_commit_steampunk_not_implemented(self):
+        args = parse_args('commit', '-m', 'Fix bug', 'PKG')
+
+        with self.assertRaises(SAPCliError) as caught:
+            args.execute(self.connection, args)
+
+        self.assertEqual(str(caught.exception), 'not implemented')
+        self.commit_patch.assert_not_called()
+
+    def test_commit_message_required(self):
+        with self.assertRaises(SystemExit):
+            parse_args('commit', '--api', 'rfc-via-classrun', 'PKG')

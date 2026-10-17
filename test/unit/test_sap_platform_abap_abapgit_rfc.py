@@ -10,11 +10,13 @@ from sap.platform.abap.abapgit_rfc import (
     build_link_code,
     build_pull_code,
     build_list_code,
+    build_commit_code,
     parse_return,
     parse_rows,
     link,
     pull,
     list_repositories,
+    commit,
 )
 
 from fixtures_sap_platform_abap_abapgit_rfc import (
@@ -29,6 +31,9 @@ from fixtures_sap_platform_abap_abapgit_rfc import (
     LIST_ABAP_CODE,
     LIST_OUTPUT_OK,
     LIST_OUTPUT_ERROR,
+    COMMIT_ABAP_CODE,
+    COMMIT_OUTPUT_OK,
+    COMMIT_OUTPUT_ERROR,
 )
 
 
@@ -58,15 +63,25 @@ class TestAbapStringLiteral(unittest.TestCase):
 
         self.assertEqual(abap_string_literal(value), expected)
 
-    def test_newline_rejected(self):
-        with self.assertRaises(SAPCliError) as caught:
-            abap_string_literal('a\nb')
+    def test_newline(self):
+        self.assertEqual(abap_string_literal('a\nb'),
+                         '`a`\n  && cl_abap_char_utilities=>newline\n  && `b`')
 
-        self.assertEqual(str(caught.exception), 'Line breaks are not supported in values passed to ABAP')
+    def test_newline_empty_lines(self):
+        self.assertEqual(abap_string_literal('a\n\nb\n'),
+                         '`a`\n  && cl_abap_char_utilities=>newline\n  && ``'
+                         '\n  && cl_abap_char_utilities=>newline\n  && `b`'
+                         '\n  && cl_abap_char_utilities=>newline\n  && ``')
+
+    def test_newline_long_line_split(self):
+        self.assertEqual(abap_string_literal('a' * 101 + '\nb'),
+                         '`' + 'a' * 100 + '`\n  && `a`\n  && cl_abap_char_utilities=>newline\n  && `b`')
 
     def test_carriage_return_rejected(self):
-        with self.assertRaises(SAPCliError):
-            abap_string_literal('a\rb')
+        with self.assertRaises(SAPCliError) as caught:
+            abap_string_literal('a\r\nb')
+
+        self.assertEqual(str(caught.exception), 'Carriage returns are not supported in values passed to ABAP')
 
 
 class TestBuildLinkCode(unittest.TestCase):
@@ -102,6 +117,23 @@ class TestBuildListCode(unittest.TestCase):
 
     def test_list(self):
         self.assertEqual(build_list_code(), LIST_ABAP_CODE)
+
+
+class TestBuildCommitCode(unittest.TestCase):
+
+    def test_all_parameters(self):
+        code = build_commit_code(
+            package='$PKG',
+            user='user',
+            password='pass`word',
+            comment='Fix bug',
+            body='First line\nSecond line',
+            committer_name='Committer',
+            committer_email='committer@example.com',
+            author_name='Author',
+            author_email='author@example.com')
+
+        self.assertEqual(code, COMMIT_ABAP_CODE)
 
 
 class TestParseRows(unittest.TestCase):
@@ -253,6 +285,44 @@ class TestListRepositories(unittest.TestCase):
             list_repositories(Mock())
 
         self.assertEqual(str(caught.exception), 'Info: Running migrations\nError: Migration failed')
+
+
+class TestCommit(unittest.TestCase):
+
+    def call_commit(self, connection):
+        return commit(connection,
+                      package='$PKG',
+                      user='user',
+                      password='pass`word',
+                      comment='Fix bug',
+                      body='First line\nSecond line',
+                      committer_name='Committer',
+                      committer_email='committer@example.com',
+                      author_name='Author',
+                      author_email='author@example.com')
+
+    @patch('sap.platform.abap.run.execute_abap')
+    def test_commit_ok(self, fake_execute):
+        fake_execute.return_value = COMMIT_OUTPUT_OK
+        connection = Mock()
+
+        bapiret = self.call_commit(connection)
+
+        fake_execute.assert_called_once_with(connection, COMMIT_ABAP_CODE)
+        self.assertEqual(bapiret.message_lines()[-3:], [
+            'Success: Committed: CLAS ZCL_AG_UNIT_TEST',
+            'Info: Pushed 1 objects',
+            'Info: Done',
+        ])
+
+    @patch('sap.platform.abap.run.execute_abap')
+    def test_commit_error(self, fake_execute):
+        fake_execute.return_value = COMMIT_OUTPUT_ERROR
+
+        with self.assertRaises(BAPIError) as caught:
+            self.call_commit(Mock())
+
+        self.assertEqual(str(caught.exception), 'Error: Cannot push offline repo of the package $PKG')
 
 
 if __name__ == '__main__':
