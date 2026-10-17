@@ -239,3 +239,93 @@ FUNCTION_MODULE_2_CODE_ABAPGIT = '''FUNCTION test_function_2.
 
 ENDFUNCTION.
 '''
+
+TTYP_SORTED_ABAPGIT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TTYP" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD40V>
+    <TYPENAME>ZSAPCLI_TT_DATA</TYPENAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <ROWTYPE>BAPIRET2</ROWTYPE>
+    <ROWKIND>S</ROWKIND>
+    <DATATYPE>STRU</DATATYPE>
+    <ACCESSMODE>S</ACCESSMODE>
+    <KEYDEF>K</KEYDEF>
+    <KEYKIND>U</KEYKIND>
+    <KEYFDCOUNT>0002</KEYFDCOUNT>
+    <DDTEXT>Test table type</DDTEXT>
+   </DD40V>
+   <DD42V>
+    <DD42V>
+     <TYPENAME>ZSAPCLI_TT_DATA</TYPENAME>
+     <KEYFDPOS>0001</KEYFDPOS>
+     <KEYFIELD>TYPE</KEYFIELD>
+    </DD42V>
+    <DD42V>
+     <TYPENAME>ZSAPCLI_TT_DATA</TYPENAME>
+     <KEYFDPOS>0002</KEYFDPOS>
+     <KEYFIELD>ID</KEYFIELD>
+    </DD42V>
+   </DD42V>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+TTYP_PREDEFINED_ABAPGIT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TTYP" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD40V>
+    <TYPENAME>ZSAPCLI_TT_DATA</TYPENAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DATATYPE>CHAR</DATATYPE>
+    <LENG>000001</LENG>
+    <ACCESSMODE>T</ACCESSMODE>
+    <KEYDEF>D</KEYDEF>
+    <KEYKIND>N</KEYKIND>
+    <DDTEXT>Test table type</DDTEXT>
+   </DD40V>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+TTYP_STRING_ABAPGIT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TTYP" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD40V>
+    <TYPENAME>ZSAPCLI_TT_DATA</TYPENAME>
+    <DDLANGUAGE>D</DDLANGUAGE>
+    <DATATYPE>STRG</DATATYPE>
+    <ACCESSMODE>T</ACCESSMODE>
+    <KEYDEF>D</KEYDEF>
+    <KEYKIND>N</KEYKIND>
+    <DDTEXT>Tabelle von Strings</DDTEXT>
+   </DD40V>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+TTYP_SECONDARY_KEYS_ABAPGIT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TTYP" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD40V>
+    <TYPENAME>ZSAPCLI_TT_DATA</TYPENAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <ROWTYPE>/AIF/CDATA_S</ROWTYPE>
+    <ROWKIND>S</ROWKIND>
+    <DATATYPE>STRU</DATATYPE>
+    <ACCESSMODE>T</ACCESSMODE>
+    <KEYDEF>D</KEYDEF>
+    <KEYKIND>N</KEYKIND>
+    <DDTEXT>Table for changed data (fields)</DDTEXT>
+   </DD40V>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''

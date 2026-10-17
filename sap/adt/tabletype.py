@@ -138,17 +138,25 @@ class TableType(ADTObject):
 
         self._metadata.package_reference.name = package
 
+    def _set_row_type(self, type_kind, type_name, data_type, length, decimals):
+        self.row_type = TableTypeRowType()
+        self.row_type.type_kind = type_kind
+        self.row_type.type_name = type_name
+        self.row_type.built_in_type = TableTypeBuiltInType()
+        self.row_type.built_in_type.data_type = data_type
+        self.row_type.built_in_type.length = length
+        self.row_type.built_in_type.decimals = decimals
+        self.row_type.range_type = ''
+
     def set_dictionary_row_type(self, type_name):
         """Sets the row type to the given DDIC type - e.g. a structure"""
 
-        self.row_type = TableTypeRowType()
-        self.row_type.type_kind = 'dictionaryType'
-        self.row_type.type_name = type_name
-        self.row_type.built_in_type = TableTypeBuiltInType()
-        self.row_type.built_in_type.data_type = ''
-        self.row_type.built_in_type.length = '0'
-        self.row_type.built_in_type.decimals = '0'
-        self.row_type.range_type = ''
+        self._set_row_type('dictionaryType', type_name, '', '0', '0')
+
+    def set_predefined_row_type(self, data_type, length, decimals):
+        """Sets the row type to the given predefined ABAP type - e.g. CHAR"""
+
+        self._set_row_type('predefinedAbapType', '', data_type, length, decimals)
 
     def set_primary_key(self, definition, kind, component_names):
         """Sets the primary key of the fetched table type"""
