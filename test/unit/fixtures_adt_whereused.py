@@ -74,7 +74,7 @@ WHEREUSED_SEARCH_RESPONSE_WITH_RESULTS_XML = \
       <usagereferences:adtObject xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="Local Test Classes">
         <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24abapgit_env" adtcore:type="DEVC/K" adtcore:name="$ABAPGIT_ENV"/>
       </usagereferences:adtObject>
-      <objectIdentifier>ABAPFullName;ZCL_ABAPGIT_ABAP_LANGUAGE_VERSCP;ZCL_ABAPGIT_ABAP_LANGUAGE_VERSCCAU;\TY:ZCL_ABAPGIT_FACTORY</objectIdentifier>
+      <objectIdentifier>ABAPFullName;ZCL_ABAPGIT_ABAP_LANGUAGE_VERSCP;ZCL_ABAPGIT_ABAP_LANGUAGE_VERSCCAU;\\TY:ZCL_ABAPGIT_FACTORY</objectIdentifier>
     </usagereferences:referencedObject>
   </usagereferences:referencedObjects>
 </usagereferences:usageReferenceResult>'''

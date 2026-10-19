@@ -105,7 +105,7 @@ class TestIncludeActivate(unittest.TestCase):
         args.execute(conn, args)
 
         self.assertEqual(len(conn.execs), 2)
-        self.assertRegex(conn.execs[0].body, '.*adtcore:uri=[^?]*test_activation\?context=[^"]*master_report".*')
+        self.assertRegex(conn.execs[0].body, '.*adtcore:uri=[^?]*test_activation\\?context=[^"]*master_report".*')
 
 
 class TestIncludeAttributes(ConsoleOutputTestCase, PatcherTestCase):
