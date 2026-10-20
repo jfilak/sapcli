@@ -406,3 +406,32 @@ DCLS_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
  </asx:abap>
 </abapGit>
 '''
+
+DDLX_NAME = 'ZSAPCLI_DDLX'
+
+DDLX_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="UTF-8"?><ddlx:ddlxSource xmlns:ddlx="http://www.sap.com/adt/ddic/ddlxsources" abapsource:sourceUri="./{DDLX_NAME.lower()}/source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:abapLanguageVersion="standard" adtcore:name="{DDLX_NAME}" adtcore:type="DDLX/EX" adtcore:changedAt="2026-10-20T21:33:07Z" adtcore:version="active" adtcore:createdAt="2026-10-20T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Test metadata extension" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:packageName="$TMP" adtcore:description="Local objects"/>
+</ddlx:ddlxSource>'''
+
+DDLX_SOURCE_CODE = f'''@Metadata.layer: #CORE
+annotate entity {DDLS_NAME} with
+{{
+  @UI.lineItem: [{{ position: 10 }}]
+  pgmid;
+}}'''
+
+DDLX_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLX" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLX>
+    <METADATA>
+     <NAME>{DDLX_NAME}</NAME>
+     <DESCRIPTION>Test metadata extension</DESCRIPTION>
+     <MASTER_LANGUAGE>EN</MASTER_LANGUAGE>
+    </METADATA>
+   </DDLX>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''

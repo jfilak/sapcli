@@ -19,7 +19,7 @@ from test.unit.fixtures_cli_checkout import FUNCTION_GROUP_XML, FUNCTION_INCLUDE
     FUNCTION_MODULE_1_CODE_ABAPGIT, FUNCTION_MODULE_2_CODE_ABAPGIT, TTYP_SORTED_ABAPGIT_XML, TTYP_PREDEFINED_ABAPGIT_XML, \
     TTYP_STRING_ABAPGIT_XML, TTYP_SECONDARY_KEYS_ABAPGIT_XML, DDLS_NAME, DDLS_ADT_GET_RESPONSE_XML, DDLS_SOURCE_CODE, \
     DDLS_ABAPGIT_XML, DDLS_NO_SOURCE_TYPE_ABAPGIT_XML, DCLS_NAME, DCLS_ADT_GET_RESPONSE_XML, DCLS_SOURCE_CODE, \
-    DCLS_ABAPGIT_XML
+    DCLS_ABAPGIT_XML, DDLX_NAME, DDLX_ADT_GET_RESPONSE_XML, DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML
 from test.unit.fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
     TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML, TABLE_TYPE_ADT_GET_SECONDARY_KEYS_RESPONSE_XML, \
     TABLE_TYPE_ADT_GET_RANGE_RESPONSE_XML, TABLE_TYPE_ADT_GET_STRING_RESPONSE_XML
@@ -1123,6 +1123,83 @@ class TestCheckoutAccessControl(ConsoleOutputTestCase, PatcherTestCase):
             sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
 
         fake_checkout.assert_called_once_with('connection', DCLS_NAME, 'src')
+
+
+
+class TestCheckoutMetadataExtension(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+    def checkout(self, destdir=None):
+        connection = Connection([Response(text=DDLX_ADT_GET_RESPONSE_XML, status_code=200, headers={}),
+                                 Response(text=DDLX_SOURCE_CODE, status_code=200,
+                                          headers={'Content-Type': 'text/plain; charset=utf-8'})])
+        written = {}
+
+        def open_file(path, mode, encoding):
+            self.assertEqual(mode, 'w')
+            self.assertEqual(encoding, 'utf8')
+
+            written[path] = StringIOFile('')
+            return written[path]
+
+        with patch('sap.cli.checkout.open', side_effect=open_file):
+            sap.cli.checkout.checkout_metadata_extension(connection, DDLX_NAME, destdir=destdir)
+
+        self.assertEqual(connection.mock_methods(), [
+            ('GET', f'/sap/bc/adt/ddic/ddlx/sources/{DDLX_NAME.lower()}'),
+            ('GET', f'/sap/bc/adt/ddic/ddlx/sources/{DDLX_NAME.lower()}/source/main'),
+        ])
+
+        return written
+
+    def test_checkout_ddlx(self):
+        written = self.checkout()
+
+        self.assertEqual(list(written), [f'{DDLX_NAME.lower()}.ddlx.asddlxs', f'{DDLX_NAME.lower()}.ddlx.xml'])
+        # abapGit writes the source code of metadata extensions as it is
+        self.assertEqual(written[f'{DDLX_NAME.lower()}.ddlx.asddlxs'].getvalue(), DDLX_SOURCE_CODE)
+        self.maxDiff = None
+        self.assertEqual(written[f'{DDLX_NAME.lower()}.ddlx.xml'].getvalue(), DDLX_ABAPGIT_XML)
+        self.assertConsoleContents(self.console, stdout=f'''{DDLX_NAME}
+- {DDLX_NAME.lower()}.ddlx.asddlxs
+- {DDLX_NAME.lower()}.ddlx.xml
+''')
+
+    def test_checkout_ddlx_destdir(self):
+        written = self.checkout(destdir='src')
+
+        self.assertEqual(list(written), [os.path.join('src', f'{DDLX_NAME.lower()}.ddlx.asddlxs'),
+                                         os.path.join('src', f'{DDLX_NAME.lower()}.ddlx.xml')])
+
+    def test_checkout_ddlx_command(self):
+        args = parse_args(['ddlx', DDLX_NAME.lower()])
+
+        with patch('sap.cli.checkout.checkout_metadata_extension') as fake_checkout:
+            args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', DDLX_NAME)
+
+    def test_checkout_objects_ddlx(self):
+        objects = [SimpleNamespace(typ='DDLX/EX', name=DDLX_NAME)]
+
+        with patch('sap.cli.checkout.checkout_metadata_extension') as fake_checkout, \
+             patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', DDLX_NAME, 'src')
 
 
 if __name__ == '__main__':
