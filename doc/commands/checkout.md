@@ -40,8 +40,15 @@ them in local files.
 sapcli checkout ddl zhello_world_cds
 ```
 
+Fetches source code and attributes of the given CDS access control and stores
+them in local files.
+
+```bash
+sapcli checkout dcl zhello_world_role
+```
+
 Fetches source codes of classes, programs, interfaces, function groups,
-table types, and CDS data definitions of the given package
+table types, CDS data definitions, and CDS access controls of the given package
 and stores them in corresponding files in a local file system directory.
 
 The new directory is populated with the file _.abapgit.xml_ which has the format
@@ -117,3 +124,14 @@ Checkout does not write the files _.ddls.baseinfo_ and the field
 checkout derives them from the definition statement - `V` (view), `W` (view
 entity), `P` (projection view), `F` (table function), and `A` (abstract entity).
 Checkout leaves out `SOURCE_TYPE` of other data definitions with a warning.
+
+
+## Access controls
+
+CDS access controls (DCL sources) are stored in the files _.dcls.asdcls_
+(source code) and _.dcls.xml_ (attributes in the section `DCLS`) the same way
+as abapGit does.
+
+The command `sapcli checkin package` creates access controls after all other
+objects to allow them to use the data definitions the same way as abapGit
+deserializes them in the late step.

@@ -481,3 +481,16 @@ class DDLS(Structure):
     SOURCE_TYPE: str
     SOURCE_ORIGIN: str
     ABAP_LANGUAGE_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DCLS(Structure):
+    """CDS Access Control (DCL source) - abapGit's ACM_S_DCLSRC without the
+       source code and the fields abapGit does not serialize
+    """
+
+    DCLNAME: str
+    DCLLANGUAGE: str
+    DDTEXT: str
+    ABAP_LANGUAGE_VERSION: str
