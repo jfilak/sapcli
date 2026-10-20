@@ -47,8 +47,16 @@ them in local files.
 sapcli checkout dcl zhello_world_role
 ```
 
+Fetches source code and attributes of the given CDS metadata extension and
+stores them in local files.
+
+```bash
+sapcli checkout ddlx zhello_world_ext
+```
+
 Fetches source codes of classes, programs, interfaces, function groups,
-table types, CDS data definitions, and CDS access controls of the given package
+table types, CDS data definitions, CDS access controls, and CDS metadata
+extensions of the given package
 and stores them in corresponding files in a local file system directory.
 
 The new directory is populated with the file _.abapgit.xml_ which has the format
@@ -135,3 +143,16 @@ as abapGit does.
 The command `sapcli checkin package` creates access controls after all other
 objects to allow them to use the data definitions the same way as abapGit
 deserializes them in the late step.
+
+
+## Metadata extensions
+
+CDS metadata extensions are stored in the files _.ddlx.asddlxs_ (source code)
+and _.ddlx.xml_ (attributes in the section `DDLX`) the same way as abapGit
+does. Unlike the other objects, the section `DDLX` holds the original language
+as an ISO code (e.g. `EN`).
+
+The command `sapcli checkin package` creates metadata extensions after data
+definitions to allow them to annotate the data definitions. Old abapGit
+versions stored the source code in the file _.ddlx.xml_ - checkin does not
+support such files and reports the missing file _.ddlx.asddlxs_ instead.

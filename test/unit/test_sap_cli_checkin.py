@@ -28,7 +28,8 @@ from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, CLAS_WITH_DESCRIPTI
     FUNCTION_GROUP_XML_NO_RFC, TTYP_STANDARD_XML, TTYP_SORTED_XML, TTYP_PREDEFINED_XML, TTYP_SECONDARY_KEYS_XML, \
     TTYP_RANGE_XML, DDLS_NAME, DDLS_XML, DDLS_ALL_FIELDS_XML, DDLS_SOURCE_CODE, DDLS_ADT_NEW_OBJECT_REQUEST_XML, \
     DDLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DCLS_NAME, DCLS_XML, DCLS_ABAP_LANGUAGE_VERSION_XML, DCLS_SOURCE_CODE, \
-    DCLS_ADT_NEW_OBJECT_REQUEST_XML, DCLS_ADT_ALREADY_EXISTS_RESPONSE_XML
+    DCLS_ADT_NEW_OBJECT_REQUEST_XML, DCLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DDLX_NAME, DDLX_XML, \
+    DDLX_ABAP_LANGUAGE_VERSION_XML, DDLX_SOURCE_CODE, DDLX_ADT_NEW_OBJECT_REQUEST_XML, DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML
 from fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
     TABLE_TYPE_ADT_NEW_OBJECT_REQUEST_XML, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML, \
     TABLE_TYPE_ADT_DEFINE_SORTED_REQUEST_XML, TABLE_TYPE_ADT_ALREADY_EXISTS_RESPONSE_XML
@@ -517,12 +518,13 @@ Activating objects ...
         ttyp = sap.cli.checkin.RepoObject(code='ttyp', name='table_type', path='./table_type', package=None, files=[])
         ddls = sap.cli.checkin.RepoObject(code='ddls', name='cds_view', path='./cds_view', package=None, files=[])
         dcls = sap.cli.checkin.RepoObject(code='dcls', name='cds_role', path='./cds_role', package=None, files=[])
+        ddlx = sap.cli.checkin.RepoObject(code='ddlx', name='cds_ext', path='./cds_ext', package=None, files=[])
 
-        objects = [clas, dcls, ddls, prog, intf, fugr, ttyp]
+        objects = [clas, dcls, ddls, ddlx, prog, intf, fugr, ttyp]
 
         deps = sap.cli.checkin._resolve_dependencies(objects)
 
-        self.assertEqual(deps, [[ddls, ttyp], [clas, intf], [prog], [dcls, fugr]])
+        self.assertEqual(deps, [[ddls, ttyp], [clas, intf], [prog], [dcls, ddlx, fugr]])
 
     @patch('sap.cli.checkin._checkin_dependency_group')
     @patch('sap.cli.checkin._resolve_dependencies')
@@ -2001,6 +2003,126 @@ Writing Access Control: {DCLS_NAME.lower()}
 
     def test_checkin_dcls_handler(self, fake_lock, fake_unlock):
         self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['dcls'], sap.cli.checkin.checkin_dcls)
+
+
+
+@patch('sap.adt.objects.ADTObject.unlock')
+@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
+class TestCheckInMetadataExtension(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.source_file = f'./src/{DDLX_NAME.lower()}.ddlx.asddlxs'
+        self.repo_obj = sap.cli.checkin.RepoObject('ddlx', DDLX_NAME.lower(),
+                                                   f'./src/{DDLX_NAME.lower()}.ddlx.xml', self.package,
+                                                   [self.source_file])
+
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_open.side_effect = [StringIOFile(DDLX_XML), StringIOFile(DDLX_SOURCE_CODE)]
+
+    def responses_ok(self):
+        return [
+            Response(text='', status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ]
+
+    def assert_requests(self, connection, create_params=None, write_params=None):
+        self.assertEqual(len(connection.execs), 2)
+
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/ddic/ddlx/sources')
+        self.assertEqual(connection.execs[0].params, create_params)
+        self.maxDiff = None
+        self.assertEqual(connection.execs[0].body.decode('utf-8'), DDLX_ADT_NEW_OBJECT_REQUEST_XML)
+
+        self.assertEqual(connection.execs[1].method, 'PUT')
+        self.assertEqual(connection.execs[1].adt_uri, f'/sap/bc/adt/ddic/ddlx/sources/{DDLX_NAME.lower()}/source/main')
+        self.assertEqual(connection.execs[1].headers, {'Content-Type': 'text/plain; charset=utf-8'})
+        self.assertEqual(connection.execs[1].params, write_params or {'lockHandle': 'lock_handle'})
+        self.assertEqual(connection.execs[1].body.decode('utf-8'), DDLX_SOURCE_CODE)
+
+    def test_checkin_ddlx(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        result = sap.cli.checkin.checkin_ddlx(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+        fake_lock.assert_called_once()
+        fake_unlock.assert_called_once()
+
+        self.assertEqual(self.fake_open.call_args_list, [call(self.repo_obj.path, encoding='utf-8'),
+                                                         call(self.source_file, 'r', encoding='utf-8')])
+
+        self.assertEqual(len(result.abap_objects), 1)
+        self.assertEqual(result.abap_objects[0].name, DDLX_NAME)
+        self.assertEqual(result.used_files, [self.source_file])
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Metadata Extension: {DDLX_NAME.lower()}
+Writing Metadata Extension: {DDLX_NAME.lower()}
+''')
+
+    def test_checkin_ddlx_abap_language_version(self, fake_lock, fake_unlock):
+        self.fake_open.side_effect = [StringIOFile(DDLX_ABAP_LANGUAGE_VERSION_XML), StringIOFile(DDLX_SOURCE_CODE)]
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddlx(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_ddlx_with_corrnr(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddlx(connection, self.repo_obj, corrnr='420')
+
+        self.assert_requests(connection, create_params={'corrNr': '420'},
+                             write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
+
+    def test_checkin_ddlx_already_exists(self, fake_lock, fake_unlock):
+        responses = self.responses_ok()
+        responses[0] = Response(text=DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                                headers={'content-type': 'application/xml'})
+        connection = Connection(responses, user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddlx(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_ddlx_no_source_file(self, fake_lock, fake_unlock):
+        # Old abapGit versions stored the source code in the XML file
+        repo_obj = self.repo_obj._replace(files=[])
+        connection = Connection([], user='DEVELOPER')
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            sap.cli.checkin.checkin_ddlx(connection, repo_obj)
+
+        self.assertEqual(str(caught.exception), f'No source file for metadata extension {DDLX_NAME.lower()}')
+        self.assertEqual(connection.execs, [])
+        self.fake_open.assert_not_called()
+
+    def test_checkin_ddlx_check_before_save(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        with patch('sap.cli.checkin._write_source_file') as fake_write:
+            result = sap.cli.checkin.checkin_ddlx(connection, self.repo_obj, check_before_save=True)
+
+        fake_write.assert_called_once_with(DDLX_SOURCE_CODE, result.abap_objects[0], corrnr=None,
+                                           source_label=self.source_file, check_before_save=True)
+
+    def test_checkin_ddlx_handler(self, fake_lock, fake_unlock):
+        self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['ddlx'], sap.cli.checkin.checkin_ddlx)
 
 
 if __name__ == '__main__':
