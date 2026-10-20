@@ -11,7 +11,7 @@ import sap.cli.core
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
-    DDIC_DATATYPE_TO_ADT, DDLS, DCLS
+    DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -553,6 +553,35 @@ def accesscontrol(connection, args):
     checkout_access_control(connection, args.name.upper())
 
 
+def build_metadata_extension_abap_attributes(adt_ddlx):
+    """Returns populated ABAP structure with attributes"""
+
+    return DDLX(METADATA=DDLX_METADATA(NAME=adt_ddlx.name,
+                                       DESCRIPTION=adt_ddlx.description,
+                                       MASTER_LANGUAGE=adt_ddlx.master_language))
+
+
+def checkout_metadata_extension(connection, name, destdir=None):
+    """Download metadata extension source code and attributes"""
+
+    sap.cli.core.printout(name)
+    adt_ddlx = sap.adt.MetadataExtension(connection, name)
+    adt_ddlx.fetch()
+
+    write_source(adt_ddlx.text, name, '.ddlx', destdir=destdir, fileext='asddlxs')
+
+    ddlx = build_metadata_extension_abap_attributes(adt_ddlx)
+    dump_attributes_to_file(name, (ddlx,), '.ddlx', 'LCL_OBJECT_DDLX', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command('ddlx')
+def metadataextension(connection, args):
+    """Download metadata extension source code and attributes command wrapper"""
+
+    checkout_metadata_extension(connection, args.name.upper())
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
@@ -569,6 +598,7 @@ def checkout_objects(connection, objects, destdir=None):
         sap.adt.TableType.OBJTYPE.code: checkout_table_type,
         sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
         sap.adt.AccessControl.OBJTYPE.code: checkout_access_control,
+        sap.adt.MetadataExtension.OBJTYPE.code: checkout_metadata_extension,
     }
 
     if not os.path.isdir(destdir):
