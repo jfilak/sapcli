@@ -33,8 +33,15 @@ Fetches attributes of the given table type and stores them in a local file.
 sapcli checkout tabletype zhello_world_tab
 ```
 
-Fetches source codes of classes, programs, interfaces, function groups, and
-table types of the given package
+Fetches source code and attributes of the given CDS data definition and stores
+them in local files.
+
+```bash
+sapcli checkout ddl zhello_world_cds
+```
+
+Fetches source codes of classes, programs, interfaces, function groups,
+table types, and CDS data definitions of the given package
 and stores them in corresponding files in a local file system directory.
 
 The new directory is populated with the file _.abapgit.xml_ which has the format
@@ -92,3 +99,21 @@ a warning.
 
 Checkout does not write the fields `TYPELEN` and `ROWTYPEPOS` because ADT does
 not provide them. Checkin does not need them.
+
+
+## Data definitions
+
+CDS data definitions (DDL sources) are stored in the files _.ddls.asddls_
+(source code) and _.ddls.xml_ (attributes in the section `DDLS`) the same way
+as abapGit does.
+
+The command `sapcli checkin package` creates data definitions together with
+table types before classes, interfaces, and programs to allow them to use the
+data definitions. Checkin accepts but does not need the files _.ddls.baseinfo_
+because ADT computes the list of used objects from the source code.
+
+Checkout does not write the files _.ddls.baseinfo_ and the field
+`SOURCE_ORIGIN`. ADT does not provide the abapGit codes of `SOURCE_TYPE`, so
+checkout derives them from the definition statement - `V` (view), `W` (view
+entity), `P` (projection view), `F` (table function), and `A` (abstract entity).
+Checkout leaves out `SOURCE_TYPE` of other data definitions with a warning.
