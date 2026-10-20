@@ -377,3 +377,32 @@ DDLS_NO_SOURCE_TYPE_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
  </asx:abap>
 </abapGit>
 '''
+
+DCLS_NAME = 'ZSAPCLI_DCL'
+
+DCLS_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<dcl:dclSource xmlns:dcl="http://www.sap.com/adt/acm/dclsources" abapsource:sourceUri="source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:abapLanguageVersion="standard" adtcore:name="{DCLS_NAME}" adtcore:type="DCLS/DL" adtcore:changedAt="2026-10-20T13:21:01Z" adtcore:version="active" adtcore:createdAt="2026-10-20T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Test access control" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:packageName="$TMP" adtcore:description="Local objects"/>
+</dcl:dclSource>
+'''
+
+DCLS_SOURCE_CODE = f'''@EndUserText.label: 'Test access control'
+@MappingRole: true
+define role {DCLS_NAME} {{
+  grant select on {DDLS_NAME}
+    where ( object ) = aspect pfcg_auth( s_develop, objtype, actvt = '03' );
+}}'''
+
+DCLS_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DCLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DCLS>
+    <DCLNAME>{DCLS_NAME}</DCLNAME>
+    <DCLLANGUAGE>E</DCLLANGUAGE>
+    <DDTEXT>Test access control</DDTEXT>
+   </DCLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
