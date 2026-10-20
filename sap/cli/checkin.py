@@ -29,6 +29,7 @@ from sap.platform.abap.ddic import (
     DD40V_ACCESSMODE_TO_ADT,
     DD40V_KEYDEF_TO_ADT,
     DD40V_KEYKIND_TO_ADT,
+    DDLS,
 )
 import sap.adt
 import sap.adt.checks
@@ -314,7 +315,8 @@ def _resolve_dependencies(objects):
     others = []
 
     for obj in objects:
-        if obj.code in ['ttyp']:
+        # abapGit deserializes data definitions in the DDIC step too
+        if obj.code in ['ttyp', 'ddls']:
             ddic.append(obj)
         elif obj.code in ['intf', 'clas']:
             libs.append(obj)
@@ -812,12 +814,53 @@ def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([tabletype], [])
 
 
+def checkin_ddls(connection, repo_obj, corrnr=None, check_before_save=False):
+    """Checkin ADT Data Definition"""
+
+    sap.cli.core.printout('Creating Data Definition:', repo_obj.name)
+
+    file_path_prefix = repo_obj.path[:-4]
+    source_file = file_path_prefix + '.asddls'
+    if source_file not in repo_obj.files:
+        raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for data definition {repo_obj.name}')
+
+    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
+        ddls = sap.platform.abap.abapgit.from_xml([DDLS], abap_data_file.read())['DDLS']
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
+                                   description=ddls.DDTEXT)
+    ddl = sap.adt.DataDefinition(connection, repo_obj.name.upper(), package=repo_obj.package.name,
+                                 metadata=metadata)
+
+    try:
+        ddl.create(corrnr)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    sap.cli.core.printout('Writing Data Definition:', repo_obj.name)
+    with open(source_file, 'r', encoding='utf-8') as source:
+        _write_source_file(source.read(), ddl, corrnr=corrnr,
+                           source_label=source_file,
+                           check_before_save=check_before_save)
+
+    used_files = [source_file]
+
+    # The base info lists the objects the data definition uses and ADT
+    # computes it from the source code
+    baseinfo_file = file_path_prefix + '.baseinfo'
+    if baseinfo_file in repo_obj.files:
+        used_files.append(baseinfo_file)
+
+    return ObjectCheckinResult([ddl], used_files)
+
+
 OBJECT_CHECKIN_HANDLERS = {
     'intf': checkin_intf,
     'clas': checkin_clas,
     'prog': checkin_prog,
     'fugr': checkin_fugr,
     'ttyp': checkin_ttyp,
+    'ddls': checkin_ddls,
 }
 
 

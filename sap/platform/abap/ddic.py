@@ -459,3 +459,25 @@ DDIC_DATATYPE_TO_ADT = {
     'GGM1': 'GEOM_EWKB',
     'UTCL': 'UTCLONG',
 }
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DDLS(Structure):
+    """CDS Data Definition (DDL source) - abapGit's DDDDLSRCV without the source
+       code and the fields abapGit does not serialize
+    """
+
+    DDLNAME: str
+    DDLANGUAGE: str
+    DDTEXT: str
+    PARENTNAME: str
+    # Source type:
+    # V View
+    # W View entity
+    # P Projection view
+    # F Table function
+    # A Abstract entity
+    SOURCE_TYPE: str
+    SOURCE_ORIGIN: str
+    ABAP_LANGUAGE_VERSION: str
