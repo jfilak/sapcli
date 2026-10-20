@@ -11,7 +11,7 @@ import sap.cli.core
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
-    DDIC_DATATYPE_TO_ADT, DDLS
+    DDIC_DATATYPE_TO_ADT, DDLS, DCLS
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -524,6 +524,35 @@ def datadefinition(connection, args):
     checkout_data_definition(connection, args.name.upper())
 
 
+def build_access_control_abap_attributes(adt_dcl):
+    """Returns populated ABAP structure with attributes"""
+
+    return DCLS(DCLNAME=adt_dcl.name,
+                DCLLANGUAGE=iso_code_to_sap_code(adt_dcl.master_language),
+                DDTEXT=adt_dcl.description)
+
+
+def checkout_access_control(connection, name, destdir=None):
+    """Download access control source code and attributes"""
+
+    sap.cli.core.printout(name)
+    adt_dcl = sap.adt.AccessControl(connection, name)
+    adt_dcl.fetch()
+
+    write_source(adt_dcl.text, name, '.dcls', destdir=destdir, fileext='asdcls')
+
+    dcls = build_access_control_abap_attributes(adt_dcl)
+    dump_attributes_to_file(name, (dcls,), '.dcls', 'LCL_OBJECT_DCLS', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command('dcl')
+def accesscontrol(connection, args):
+    """Download access control source code and attributes command wrapper"""
+
+    checkout_access_control(connection, args.name.upper())
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
@@ -539,6 +568,7 @@ def checkout_objects(connection, objects, destdir=None):
         sap.adt.FunctionGroup.OBJTYPE.code: checkout_function_group,
         sap.adt.TableType.OBJTYPE.code: checkout_table_type,
         sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
+        sap.adt.AccessControl.OBJTYPE.code: checkout_access_control,
     }
 
     if not os.path.isdir(destdir):

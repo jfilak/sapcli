@@ -18,7 +18,8 @@ from mock import Connection, Response, patch, PatcherTestCase, ConsoleOutputTest
 from test.unit.fixtures_cli_checkout import FUNCTION_GROUP_XML, FUNCTION_INCLUDE_1_XML, FUNCTION_INCLUDE_2_XML, FUNCTION_MODULE_1_CODE, FUNCTION_MODULE_2_CODE,\
     FUNCTION_MODULE_1_CODE_ABAPGIT, FUNCTION_MODULE_2_CODE_ABAPGIT, TTYP_SORTED_ABAPGIT_XML, TTYP_PREDEFINED_ABAPGIT_XML, \
     TTYP_STRING_ABAPGIT_XML, TTYP_SECONDARY_KEYS_ABAPGIT_XML, DDLS_NAME, DDLS_ADT_GET_RESPONSE_XML, DDLS_SOURCE_CODE, \
-    DDLS_ABAPGIT_XML, DDLS_NO_SOURCE_TYPE_ABAPGIT_XML
+    DDLS_ABAPGIT_XML, DDLS_NO_SOURCE_TYPE_ABAPGIT_XML, DCLS_NAME, DCLS_ADT_GET_RESPONSE_XML, DCLS_SOURCE_CODE, \
+    DCLS_ABAPGIT_XML
 from test.unit.fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
     TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML, TABLE_TYPE_ADT_GET_SECONDARY_KEYS_RESPONSE_XML, \
     TABLE_TYPE_ADT_GET_RANGE_RESPONSE_XML, TABLE_TYPE_ADT_GET_STRING_RESPONSE_XML
@@ -1045,6 +1046,83 @@ class TestCheckoutDataDefinition(ConsoleOutputTestCase, PatcherTestCase):
             sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
 
         fake_checkout.assert_called_once_with('connection', DDLS_NAME, 'src')
+
+
+
+class TestCheckoutAccessControl(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+    def checkout(self, destdir=None):
+        connection = Connection([Response(text=DCLS_ADT_GET_RESPONSE_XML, status_code=200, headers={}),
+                                 Response(text=DCLS_SOURCE_CODE, status_code=200,
+                                          headers={'Content-Type': 'text/plain; charset=utf-8'})])
+        written = {}
+
+        def open_file(path, mode, encoding):
+            self.assertEqual(mode, 'w')
+            self.assertEqual(encoding, 'utf8')
+
+            written[path] = StringIOFile('')
+            return written[path]
+
+        with patch('sap.cli.checkout.open', side_effect=open_file):
+            sap.cli.checkout.checkout_access_control(connection, DCLS_NAME, destdir=destdir)
+
+        self.assertEqual(connection.mock_methods(), [
+            ('GET', f'/sap/bc/adt/acm/dcl/sources/{DCLS_NAME.lower()}'),
+            ('GET', f'/sap/bc/adt/acm/dcl/sources/{DCLS_NAME.lower()}/source/main'),
+        ])
+
+        return written
+
+    def test_checkout_dcls(self):
+        written = self.checkout()
+
+        self.assertEqual(list(written), [f'{DCLS_NAME.lower()}.dcls.asdcls', f'{DCLS_NAME.lower()}.dcls.xml'])
+        # abapGit writes the source code of access controls as it is
+        self.assertEqual(written[f'{DCLS_NAME.lower()}.dcls.asdcls'].getvalue(), DCLS_SOURCE_CODE)
+        self.maxDiff = None
+        self.assertEqual(written[f'{DCLS_NAME.lower()}.dcls.xml'].getvalue(), DCLS_ABAPGIT_XML)
+        self.assertConsoleContents(self.console, stdout=f'''{DCLS_NAME}
+- {DCLS_NAME.lower()}.dcls.asdcls
+- {DCLS_NAME.lower()}.dcls.xml
+''')
+
+    def test_checkout_dcls_destdir(self):
+        written = self.checkout(destdir='src')
+
+        self.assertEqual(list(written), [os.path.join('src', f'{DCLS_NAME.lower()}.dcls.asdcls'),
+                                         os.path.join('src', f'{DCLS_NAME.lower()}.dcls.xml')])
+
+    def test_checkout_dcls_command(self):
+        args = parse_args(['dcl', DCLS_NAME.lower()])
+
+        with patch('sap.cli.checkout.checkout_access_control') as fake_checkout:
+            args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', DCLS_NAME)
+
+    def test_checkout_objects_dcls(self):
+        objects = [SimpleNamespace(typ='DCLS/DL', name=DCLS_NAME)]
+
+        with patch('sap.cli.checkout.checkout_access_control') as fake_checkout, \
+             patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', DCLS_NAME, 'src')
 
 
 if __name__ == '__main__':
