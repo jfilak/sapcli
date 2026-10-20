@@ -31,6 +31,7 @@ from sap.platform.abap.ddic import (
     DD40V_KEYKIND_TO_ADT,
     DDLS,
     DCLS,
+    DDLX,
 )
 import sap.adt
 import sap.adt.checks
@@ -816,7 +817,7 @@ def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False):
 
 
 # pylint: disable=too-many-arguments
-def _checkin_cds_source(connection, repo_obj, abap_type, adt_type, source_suffix, label, corrnr,
+def _checkin_cds_source(connection, repo_obj, abap_type, get_description, adt_type, source_suffix, label, corrnr,
                         check_before_save):
     """Creates the CDS source object described by the abapGit XML file of the
        given type and writes its source code. Returns the ADT object and the
@@ -833,7 +834,7 @@ def _checkin_cds_source(connection, repo_obj, abap_type, adt_type, source_suffix
         abap_data = sap.platform.abap.abapgit.from_xml([abap_type], abap_data_file.read())[abap_type.__name__]
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=abap_data.DDTEXT)
+                                   description=get_description(abap_data))
     adt_object = adt_type(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
 
     try:
@@ -853,8 +854,9 @@ def _checkin_cds_source(connection, repo_obj, abap_type, adt_type, source_suffix
 def checkin_ddls(connection, repo_obj, corrnr=None, check_before_save=False):
     """Checkin ADT Data Definition"""
 
-    ddl, source_file = _checkin_cds_source(connection, repo_obj, DDLS, sap.adt.DataDefinition, '.asddls',
-                                           'Data Definition', corrnr, check_before_save)
+    ddl, source_file = _checkin_cds_source(connection, repo_obj, DDLS, lambda ddls: ddls.DDTEXT,
+                                           sap.adt.DataDefinition, '.asddls', 'Data Definition', corrnr,
+                                           check_before_save)
 
     used_files = [source_file]
 
@@ -870,10 +872,23 @@ def checkin_ddls(connection, repo_obj, corrnr=None, check_before_save=False):
 def checkin_dcls(connection, repo_obj, corrnr=None, check_before_save=False):
     """Checkin ADT Access Control"""
 
-    dcl, source_file = _checkin_cds_source(connection, repo_obj, DCLS, sap.adt.AccessControl, '.asdcls',
-                                           'Access Control', corrnr, check_before_save)
+    dcl, source_file = _checkin_cds_source(connection, repo_obj, DCLS, lambda dcls: dcls.DDTEXT,
+                                           sap.adt.AccessControl, '.asdcls', 'Access Control', corrnr,
+                                           check_before_save)
 
     return ObjectCheckinResult([dcl], [source_file])
+
+
+def checkin_ddlx(connection, repo_obj, corrnr=None, check_before_save=False):
+    """Checkin ADT Metadata Extension"""
+
+    # Old abapGit versions stored the source code in the XML file but abapGit
+    # has been writing it to the file .asddlxs for years
+    ddlx, source_file = _checkin_cds_source(connection, repo_obj, DDLX, lambda ddlx: ddlx.METADATA.DESCRIPTION,
+                                            sap.adt.MetadataExtension, '.asddlxs', 'Metadata Extension', corrnr,
+                                            check_before_save)
+
+    return ObjectCheckinResult([ddlx], [source_file])
 
 
 OBJECT_CHECKIN_HANDLERS = {
@@ -884,6 +899,7 @@ OBJECT_CHECKIN_HANDLERS = {
     'ttyp': checkin_ttyp,
     'ddls': checkin_ddls,
     'dcls': checkin_dcls,
+    'ddlx': checkin_ddlx,
 }
 
 

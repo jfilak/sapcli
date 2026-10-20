@@ -494,3 +494,27 @@ class DCLS(Structure):
     DCLLANGUAGE: str
     DDTEXT: str
     ABAP_LANGUAGE_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DDLX_METADATA(Structure):
+    """CDS Metadata Extension attributes - abapGit does not serialize the other
+       fields of the workbench object metadata
+    """
+
+    NAME: str
+    DESCRIPTION: str
+    # ISO code - e.g. EN
+    MASTER_LANGUAGE: str
+    ABAP_LANGU_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DDLX(Structure):
+    """CDS Metadata Extension (DDLX) - abapGit's workbench object data without
+       the source code
+    """
+
+    METADATA: DDLX_METADATA
