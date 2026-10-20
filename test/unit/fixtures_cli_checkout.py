@@ -329,3 +329,51 @@ TTYP_SECONDARY_KEYS_ABAPGIT_XML = '''<?xml version="1.0" encoding="utf-8"?>
  </asx:abap>
 </abapGit>
 '''
+
+DDLS_NAME = 'ZSAPCLI_CDS'
+
+DDLS_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<ddl:ddlSource xmlns:ddl="http://www.sap.com/adt/ddic/ddlsources" ddl:source_origin="0" ddl:source_type="view" ddl:source_type_description="View Entity" ddl:source_origin_description="ABAP Development Tools" abapsource:sourceUri="source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:name="{DDLS_NAME}" adtcore:type="DDLS/DF" adtcore:changedAt="2026-10-20T07:45:34Z" adtcore:version="active" adtcore:createdAt="2026-10-20T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Test CDS view" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:packageName="$TMP" adtcore:description="Local objects"/>
+</ddl:ddlSource>
+'''
+
+DDLS_SOURCE_CODE = f'''@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Test CDS view'
+define view entity {DDLS_NAME}
+  as select from tadir
+{{
+  pgmid,
+  object,
+  obj_name
+}}
+'''
+
+DDLS_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLS>
+    <DDLNAME>{DDLS_NAME}</DDLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>Test CDS view</DDTEXT>
+    <SOURCE_TYPE>W</SOURCE_TYPE>
+   </DDLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+DDLS_NO_SOURCE_TYPE_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLS>
+    <DDLNAME>{DDLS_NAME}</DDLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>Test CDS view</DDTEXT>
+   </DDLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
