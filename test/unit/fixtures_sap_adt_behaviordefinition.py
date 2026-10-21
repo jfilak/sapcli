@@ -1,0 +1,10 @@
+BDEF_NAME = 'ZSAPCLI_BDEF'
+
+# The links are the ones abapGit stores in the files .bdef.xml
+BDEF_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="UTF-8"?><blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" abapsource:sourceUri="./{BDEF_NAME.lower()}/source/main" abapsource:fixPointArithmetic="true" abapsource:activeUnicodeCheck="true" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:abapLanguageVersion="standard" adtcore:name="{BDEF_NAME}" adtcore:type="BDEF/BDO" adtcore:changedAt="2026-10-21T08:15:42Z" adtcore:version="active" adtcore:createdAt="2026-10-20T22:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Test behavior definition" adtcore:descriptionTextLimit="60" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="./{BDEF_NAME.lower()}/source/main/versions" rel="http://www.sap.com/adt/relations/versions" title="Historic versions"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="/sap/bc/adt/repository/informationsystem/abaplanguageversions?uri=%2Fsap%2Fbc%2Fadt%2Fbo%2Fbehaviordefinitions%2F{BDEF_NAME.lower()}" rel="http://www.sap.com/adt/relations/informationsystem/abaplanguageversions" type="application/vnd.sap.adt.nameditems.v1+xml" title="Allowed ABAP language versions"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="./{BDEF_NAME.lower()}/source/main" rel="http://www.sap.com/adt/relations/source" type="text/plain" title="Source Content" etag="20261021081542001"/>
+  <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="./{BDEF_NAME.lower()}/source/main" rel="http://www.sap.com/adt/relations/source" type="text/html" title="Source Content (HTML)" etag=""/>
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:description="Local objects"/>
+</blue:blueSource>'''
