@@ -54,9 +54,16 @@ stores them in local files.
 sapcli checkout ddlx zhello_world_ext
 ```
 
+Fetches source code and attributes of the given CDS behavior definition and
+stores them in local files.
+
+```bash
+sapcli checkout bdef zhello_world_bo
+```
+
 Fetches source codes of classes, programs, interfaces, function groups,
-table types, CDS data definitions, CDS access controls, and CDS metadata
-extensions of the given package
+table types, CDS data definitions, CDS access controls, CDS metadata
+extensions, and CDS behavior definitions of the given package
 and stores them in corresponding files in a local file system directory.
 
 The new directory is populated with the file _.abapgit.xml_ which has the format
@@ -156,3 +163,18 @@ The command `sapcli checkin package` creates metadata extensions after data
 definitions to allow them to annotate the data definitions. Old abapGit
 versions stored the source code in the file _.ddlx.xml_ - checkin does not
 support such files and reports the missing file _.ddlx.asddlxs_ instead.
+
+
+## Behavior definitions
+
+CDS behavior definitions are stored in the files _.bdef.asbdef_ (source code)
+and _.bdef.xml_ (attributes in the section `BDEF`) the same way as abapGit
+does. The section `BDEF` holds the object attributes as ADT returns them -
+including the relations to other ADT resources (`LINKS`) - so checkout writes
+the same file as abapGit running on the same system.
+
+The command `sapcli checkin package` creates behavior definitions right before
+classes and activates them together because behavior pools are classes for
+behavior of the behavior definitions which refer to the behavior pools. Behavior
+extensions are created as plain behavior definitions - use the command
+`sapcli bdef extend` to create them before running checkin.

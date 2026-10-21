@@ -518,3 +518,41 @@ class DDLX(Structure):
     """
 
     METADATA: DDLX_METADATA
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class BDEF_LINK(Structure):
+    """Relation of a Behavior Definition to another ADT resource"""
+
+    HREF: str
+    REL: str
+    TYPE: str
+    TITLE: str
+
+
+BDEF_LINKS = ItemizedTable.define('LINKS', BDEF_LINK)  # type: Any
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
+class BDEF(Structure):
+    """CDS Behavior Definition - abapGit's workbench object metadata without
+       the fields abapGit does not serialize
+    """
+
+    NAME: str
+    TYPE: str
+    DESCRIPTION: str
+    DESCRIPTION_TEXT_LIMIT: str
+    # ISO code - e.g. EN
+    LANGUAGE: str
+    LINKS: BDEF_LINKS
+    # ISO code - e.g. EN
+    MASTER_LANGUAGE: str
+    ABAP_LANGU_VERSION: str
+    SOURCE_URI: str
+    SOURCE_TYPE: str
+    SOURCE_FIXED_POINT_ARITHMETIC: str
+    SOURCE_UNICODE_CHECKS_ACTIVE: str

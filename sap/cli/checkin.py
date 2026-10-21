@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """ADT Object import"""
 import os
 import glob
@@ -32,6 +33,7 @@ from sap.platform.abap.ddic import (
     DDLS,
     DCLS,
     DDLX,
+    BDEF,
 )
 import sap.adt
 import sap.adt.checks
@@ -312,6 +314,7 @@ def checkin_package(connection, repo_package, args):
 def _resolve_dependencies(objects):
 
     ddic = []
+    behaviors = []
     libs = []
     bins = []
     others = []
@@ -320,6 +323,11 @@ def _resolve_dependencies(objects):
         # abapGit deserializes data definitions in the DDIC step too
         if obj.code in ['ttyp', 'ddls']:
             ddic.append(obj)
+        # Behavior definitions refer to their behavior pools and behavior
+        # pools are classes FOR BEHAVIOR OF behavior definitions, hence they
+        # must be activated together but the behavior definitions go first
+        elif obj.code in ['bdef']:
+            behaviors.append(obj)
         elif obj.code in ['intf', 'clas']:
             libs.append(obj)
         elif obj.code in ['prog']:
@@ -327,7 +335,7 @@ def _resolve_dependencies(objects):
         else:
             others.append(obj)
 
-    return [ddic, libs, bins, others]
+    return [ddic, behaviors + libs, bins, others]
 
 
 def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
@@ -891,6 +899,16 @@ def checkin_ddlx(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([ddlx], [source_file])
 
 
+def checkin_bdef(connection, repo_obj, corrnr=None, check_before_save=False):
+    """Checkin ADT Behavior Definition"""
+
+    bdef, source_file = _checkin_cds_source(connection, repo_obj, BDEF, lambda bdef: bdef.DESCRIPTION,
+                                            sap.adt.BehaviorDefinition, '.asbdef', 'Behavior Definition', corrnr,
+                                            check_before_save)
+
+    return ObjectCheckinResult([bdef], [source_file])
+
+
 OBJECT_CHECKIN_HANDLERS = {
     'intf': checkin_intf,
     'clas': checkin_clas,
@@ -900,6 +918,7 @@ OBJECT_CHECKIN_HANDLERS = {
     'ddls': checkin_ddls,
     'dcls': checkin_dcls,
     'ddlx': checkin_ddlx,
+    'bdef': checkin_bdef,
 }
 
 
