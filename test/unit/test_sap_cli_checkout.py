@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import sys
 from argparse import ArgumentParser
 import unittest
@@ -19,7 +20,9 @@ from test.unit.fixtures_cli_checkout import FUNCTION_GROUP_XML, FUNCTION_INCLUDE
     FUNCTION_MODULE_1_CODE_ABAPGIT, FUNCTION_MODULE_2_CODE_ABAPGIT, TTYP_SORTED_ABAPGIT_XML, TTYP_PREDEFINED_ABAPGIT_XML, \
     TTYP_STRING_ABAPGIT_XML, TTYP_SECONDARY_KEYS_ABAPGIT_XML, DDLS_NAME, DDLS_ADT_GET_RESPONSE_XML, DDLS_SOURCE_CODE, \
     DDLS_ABAPGIT_XML, DDLS_NO_SOURCE_TYPE_ABAPGIT_XML, DCLS_NAME, DCLS_ADT_GET_RESPONSE_XML, DCLS_SOURCE_CODE, \
-    DCLS_ABAPGIT_XML, DDLX_NAME, DDLX_ADT_GET_RESPONSE_XML, DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML
+    DCLS_ABAPGIT_XML, DDLX_NAME, DDLX_ADT_GET_RESPONSE_XML, DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML, BDEF_ABAPGIT_XML, \
+    BDEF_SOURCE_CODE
+from test.unit.fixtures_sap_adt_behaviordefinition import BDEF_NAME, BDEF_ADT_GET_RESPONSE_XML
 from test.unit.fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
     TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML, TABLE_TYPE_ADT_GET_SECONDARY_KEYS_RESPONSE_XML, \
     TABLE_TYPE_ADT_GET_RANGE_RESPONSE_XML, TABLE_TYPE_ADT_GET_STRING_RESPONSE_XML
@@ -1200,6 +1203,104 @@ class TestCheckoutMetadataExtension(ConsoleOutputTestCase, PatcherTestCase):
             sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
 
         fake_checkout.assert_called_once_with('connection', DDLX_NAME, 'src')
+
+
+
+class TestCheckoutBehaviorDefinition(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+    def checkout(self, adt_response_xml, destdir=None):
+        connection = Connection([Response(text=adt_response_xml, status_code=200, headers={}),
+                                 Response(text=BDEF_SOURCE_CODE, status_code=200,
+                                          headers={'Content-Type': 'text/plain; charset=utf-8'})])
+        written = {}
+
+        def open_file(path, mode, encoding):
+            self.assertEqual(mode, 'w')
+            self.assertEqual(encoding, 'utf8')
+
+            written[path] = StringIOFile('')
+            return written[path]
+
+        with patch('sap.cli.checkout.open', side_effect=open_file):
+            sap.cli.checkout.checkout_behavior_definition(connection, BDEF_NAME, destdir=destdir)
+
+        self.assertEqual(connection.mock_methods(), [
+            ('GET', f'/sap/bc/adt/bo/behaviordefinitions/{BDEF_NAME.lower()}'),
+            ('GET', f'/sap/bc/adt/bo/behaviordefinitions/{BDEF_NAME.lower()}/source/main'),
+        ])
+
+        return written
+
+    def test_checkout_bdef(self):
+        written = self.checkout(BDEF_ADT_GET_RESPONSE_XML)
+
+        self.assertEqual(list(written), [f'{BDEF_NAME.lower()}.bdef.asbdef', f'{BDEF_NAME.lower()}.bdef.xml'])
+        # abapGit writes the source code of behavior definitions as it is
+        self.assertEqual(written[f'{BDEF_NAME.lower()}.bdef.asbdef'].getvalue(), BDEF_SOURCE_CODE)
+        self.maxDiff = None
+        self.assertEqual(written[f'{BDEF_NAME.lower()}.bdef.xml'].getvalue(), BDEF_ABAPGIT_XML)
+        self.assertConsoleContents(self.console, stdout=f'''{BDEF_NAME}
+- {BDEF_NAME.lower()}.bdef.asbdef
+- {BDEF_NAME.lower()}.bdef.xml
+''')
+
+    def test_checkout_bdef_cloud_development(self):
+        written = self.checkout(BDEF_ADT_GET_RESPONSE_XML.replace('adtcore:abapLanguageVersion="standard"',
+                                                                  'adtcore:abapLanguageVersion="cloudDevelopment"'))
+
+        self.assertIn('    <ABAP_LANGU_VERSION>5</ABAP_LANGU_VERSION>\n',
+                      written[f'{BDEF_NAME.lower()}.bdef.xml'].getvalue())
+
+    def test_checkout_bdef_key_user(self):
+        written = self.checkout(BDEF_ADT_GET_RESPONSE_XML.replace('adtcore:abapLanguageVersion="standard"',
+                                                                  'adtcore:abapLanguageVersion="keyUser"'))
+
+        self.assertIn('    <ABAP_LANGU_VERSION>2</ABAP_LANGU_VERSION>\n',
+                      written[f'{BDEF_NAME.lower()}.bdef.xml'].getvalue())
+
+    def test_checkout_bdef_without_links(self):
+        written = self.checkout(re.sub(r'\s*<atom:link [^>]*/>', '', BDEF_ADT_GET_RESPONSE_XML))
+
+        self.maxDiff = None
+        self.assertEqual(written[f'{BDEF_NAME.lower()}.bdef.xml'].getvalue(),
+                         re.sub(r'    <LINKS>\n.*    </LINKS>\n', '', BDEF_ABAPGIT_XML, flags=re.DOTALL))
+
+    def test_checkout_bdef_destdir(self):
+        written = self.checkout(BDEF_ADT_GET_RESPONSE_XML, destdir='src')
+
+        self.assertEqual(list(written), [os.path.join('src', f'{BDEF_NAME.lower()}.bdef.asbdef'),
+                                         os.path.join('src', f'{BDEF_NAME.lower()}.bdef.xml')])
+
+    def test_checkout_bdef_command(self):
+        args = parse_args(['bdef', BDEF_NAME.lower()])
+
+        with patch('sap.cli.checkout.checkout_behavior_definition') as fake_checkout:
+            args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', BDEF_NAME)
+
+    def test_checkout_objects_bdef(self):
+        objects = [SimpleNamespace(typ='BDEF/BDO', name=BDEF_NAME)]
+
+        with patch('sap.cli.checkout.checkout_behavior_definition') as fake_checkout, \
+             patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', BDEF_NAME, 'src')
 
 
 if __name__ == '__main__':

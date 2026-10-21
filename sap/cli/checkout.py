@@ -11,7 +11,7 @@ import sap.cli.core
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
-    DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA
+    DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -582,6 +582,56 @@ def metadataextension(connection, args):
     checkout_metadata_extension(connection, args.name.upper())
 
 
+# ABAP language versions of source code based objects
+ADT_TO_ABAP_LANGU_VERSION = {
+    'standard': 'X',
+    'keyUser': '2',
+    'cloudDevelopment': '5',
+}
+
+
+def build_behavior_definition_abap_attributes(adt_bdef):
+    """Returns populated ABAP structure with attributes"""
+
+    links = BDEF_LINKS([BDEF_LINK(HREF=link.href, REL=link.rel, TYPE=link.typ, TITLE=link.title)
+                        for link in adt_bdef.links])
+
+    return BDEF(NAME=adt_bdef.name,
+                TYPE=adt_bdef.objtype.code,
+                DESCRIPTION=adt_bdef.description,
+                DESCRIPTION_TEXT_LIMIT=adt_bdef.description_text_limit,
+                LANGUAGE=adt_bdef.language,
+                LINKS=links or None,
+                MASTER_LANGUAGE=adt_bdef.master_language,
+                ABAP_LANGU_VERSION=ADT_TO_ABAP_LANGU_VERSION.get(adt_bdef.abap_language_version),
+                SOURCE_URI=adt_bdef.source_uri,
+                # The type of the workbench object source code which ADT does not provide
+                SOURCE_TYPE='ABAP_SOURCE',
+                SOURCE_FIXED_POINT_ARITHMETIC=adt_bdef.fix_point_arithmetic,
+                SOURCE_UNICODE_CHECKS_ACTIVE=adt_bdef.active_unicode_check)
+
+
+def checkout_behavior_definition(connection, name, destdir=None):
+    """Download behavior definition source code and attributes"""
+
+    sap.cli.core.printout(name)
+    adt_bdef = sap.adt.BehaviorDefinition(connection, name)
+    adt_bdef.fetch()
+
+    write_source(adt_bdef.text, name, '.bdef', destdir=destdir, fileext='asbdef')
+
+    bdef = build_behavior_definition_abap_attributes(adt_bdef)
+    dump_attributes_to_file(name, (bdef,), '.bdef', 'LCL_OBJECT_BDEF', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command('bdef')
+def behaviordefinition(connection, args):
+    """Download behavior definition source code and attributes command wrapper"""
+
+    checkout_behavior_definition(connection, args.name.upper())
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
@@ -599,6 +649,7 @@ def checkout_objects(connection, objects, destdir=None):
         sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
         sap.adt.AccessControl.OBJTYPE.code: checkout_access_control,
         sap.adt.MetadataExtension.OBJTYPE.code: checkout_metadata_extension,
+        sap.adt.BehaviorDefinition.OBJTYPE.code: checkout_behavior_definition,
     }
 
     if not os.path.isdir(destdir):
