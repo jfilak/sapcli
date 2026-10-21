@@ -57,6 +57,15 @@ class NamedItemList:
         return NamedItemList(total_count, items)
 
 
+class AtomLink(metaclass=OrderedClassMembers):
+    """A relation of an ADT object to another resource (atom:link)"""
+
+    href = XmlNodeAttributeProperty('href')
+    rel = XmlNodeAttributeProperty('rel')
+    typ = XmlNodeAttributeProperty('type')
+    title = XmlNodeAttributeProperty('title')
+
+
 class ADTTemplateProperty(metaclass=OrderedClassMembers):
     """A single property in an ADT template"""
 
