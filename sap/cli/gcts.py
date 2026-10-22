@@ -725,7 +725,7 @@ def _resolve_vcs_auth(args):
          SAPCliError
     """
 
-    vcs_token = args.vcs_token
+    vcs_token = args.vcs_token or os.environ.get('SAPCLI_GCTS_VCS_TOKEN')
     vcs_auth_user = args.vcs_auth_user or os.environ.get('SAPCLI_GCTS_VCS_AUTH_USER')
     vcs_auth_pwd = args.vcs_auth_pwd or os.environ.get('SAPCLI_GCTS_VCS_AUTH_PWD')
 
@@ -761,7 +761,9 @@ def _resolve_vcs_auth(args):
 @CommandGroup.argument('--sync-clone', default=False, action='store_true')
 @CommandGroup.argument('--poll-period', type=int, nargs='?', default=30,
                        help='Period in seconds to poll the repository clone task status when cloning asynchronously.')
-@CommandGroup.argument('--vcs-token', type=str, nargs='?')
+@CommandGroup.argument('--vcs-token', type=str, nargs='?',
+                       help='Authentication token for the VCS.'
+                            ' Can also be set via the SAPCLI_GCTS_VCS_TOKEN environment variable.')
 @CommandGroup.argument('--vcs-auth-user', type=str, nargs='?',
                        help='Username for VCS authentication.'
                             ' Can also be set via the SAPCLI_GCTS_VCS_AUTH_USER environment variable.')
