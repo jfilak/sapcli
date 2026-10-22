@@ -180,6 +180,28 @@ class TestgCTSGetRepository(unittest.TestCase, PatcherTestCase):
         )
         self.fake_fetch_repos.assert_called_once_with(self.connection)
 
+    def test_get_repository_without_gitsuffix_server(self):
+        repo_rid = 'repo-id'
+        repo_url = 'https://github.com/the_repo'
+
+        fake_repo = mock_repository(self.fake_fetch_repos, rid=repo_rid, url=repo_url)
+        repo = sap.cli.gcts.get_repository(self.connection, repo_url + '.git')
+
+        self.assertEqual(repo, fake_repo)
+        self.fake_fetch_repos.assert_called_once_with(self.connection)
+        repo.wipe_data.assert_called_once()
+
+    def test_get_repository_without_gitsuffix_client(self):
+        repo_rid = 'repo-id'
+        repo_url = 'https://github.com/the_repo'
+
+        fake_repo = mock_repository(self.fake_fetch_repos, rid=repo_rid, url=repo_url + '.git')
+        repo = sap.cli.gcts.get_repository(self.connection, repo_url)
+
+        self.assertEqual(repo, fake_repo)
+        self.fake_fetch_repos.assert_called_once_with(self.connection)
+        repo.wipe_data.assert_called_once()
+
 
 class TestgCTSCloneSync(ConsoleOutputTestCase, PatcherTestCase):
 
