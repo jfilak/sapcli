@@ -498,6 +498,32 @@ Cloned repository:
         self.assertEqual(kwargs['vcs_auth_user'], 'envuser')
         self.assertEqual(kwargs['vcs_auth_pwd'], 'envpwd')
 
+    def test_clone_vcs_token_from_env(self):
+        args = self.clone('https://example.org/repo/git/sample.git', '--sync-clone')
+
+        with patch.dict('os.environ', {'SAPCLI_GCTS_VCS_TOKEN': 'envtoken'}):
+            exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+
+        kwargs = self.fake_simple_clone.call_args.kwargs
+        self.assertEqual(kwargs['vcs_token'], 'envtoken')
+
+    def test_clone_vcs_token_cli_overrides_env(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vcs-token', 'clitoken',
+            '--sync-clone',
+        )
+
+        with patch.dict('os.environ', {'SAPCLI_GCTS_VCS_TOKEN': 'envtoken'}):
+            exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+
+        kwargs = self.fake_simple_clone.call_args.kwargs
+        self.assertEqual(kwargs['vcs_token'], 'clitoken')
+
     def test_clone_vcs_auth_cli_overrides_env(self):
         args = self.clone(
             'https://example.org/repo/git/sample.git',

@@ -77,7 +77,7 @@ sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-ex
 - `--starting-folder FOLDER`: The directory inside the repository where ABAP files are stored; configured in the repository layout. The layout is only updated if not yet set for the repository. The deprecated `VCS_TARGET_DIR` property is also set for backward compatibility. Default is **src/**.
 - `--role ROLE`: Either SOURCE (Development) or TARGET (Provided); default is **SOURCE**
 - `--type TYPE`: Either GIT or GITHUB; default is **GITHUB**
-- `--vcs-token TOKEN`: Authentication token
+- `--vcs-token TOKEN`: Authentication token. Can also be set via the `SAPCLI_GCTS_VCS_TOKEN` environment variable.
 - `--vcs-auth-user USER`: Username for VCS (basic) authentication. Can also be set via the `SAPCLI_GCTS_VCS_AUTH_USER` environment variable.
 - `--vcs-auth-pwd PWD`: Password for VCS (basic) authentication. Can also be set via the `SAPCLI_GCTS_VCS_AUTH_PWD` environment variable. If a username is provided without a password, you are prompted for it once (an error is raised instead when there is no interactive terminal, e.g. in CI).
 - `URL`: Repository HTTP URL
