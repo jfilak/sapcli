@@ -110,7 +110,8 @@ def _ensure_start_dir(repo, start_dir):
 
 def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
           error_exists=True, role='SOURCE', typ='GITHUB', no_import=False,
-          buffer_only=False, progress_consumer: Optional[SugarOperationProgress] = None) -> Repository:
+          buffer_only=False, progress_consumer: Optional[SugarOperationProgress] = None,
+          vcs_auth_user=None, vcs_auth_pwd=None) -> Repository:
     """Creates and clones the repository in the target systems"""
 
     repo = create(
@@ -123,6 +124,8 @@ def clone(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
         error_exists=error_exists,
         role=role,
         typ=typ,
+        vcs_auth_user=vcs_auth_user,
+        vcs_auth_pwd=vcs_auth_pwd,
     )
 
     if repo.is_cloned:
@@ -160,6 +163,7 @@ def fetch_process_messages_for_task(repo: Repository, task: RepositoryTask) -> L
 
 # pylint: disable=too-many-locals
 def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
+                    vcs_auth_user=None, vcs_auth_pwd=None,
                     error_exists=True, role='SOURCE', typ='GITHUB', no_import=False,
                     buffer_only=False, wait_for_ready: int = 600, poll_period: int = 30,
                     progress_consumer: LogTaskOperationProgress | None = None) -> Repository:
@@ -175,6 +179,8 @@ def clone_with_task(connection, url, rid, vsid='6IT', start_dir='src/', vcs_toke
         error_exists=error_exists,
         role=role,
         typ=typ,
+        vcs_auth_user=vcs_auth_user,
+        vcs_auth_pwd=vcs_auth_pwd,
     )
     if progress_consumer:
         progress_consumer.progress_message(f'Repository "{repo.rid}" has been created.')
@@ -240,14 +246,21 @@ def schedule_clone(connection, repo, branch=None) -> Optional[RepositoryTask]:
 
 # start_dir is unsused but I want to keep for backward compatibility with the previous version of the API
 # pylint: disable=unused-argument
-def create(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None, error_exists=True,
-           role='SOURCE', typ='GITHUB'):
+def create(connection, url, rid, vsid='6IT', start_dir='src/', vcs_token=None,
+           error_exists=True, role='SOURCE', typ='GITHUB',
+           vcs_auth_user=None, vcs_auth_pwd=None):
     """Creates the repository in the target systems"""
 
     config = {}
 
     if vcs_token:
         config['CLIENT_VCS_AUTH_TOKEN'] = vcs_token
+
+    if vcs_auth_user:
+        config['CLIENT_VCS_AUTH_USER'] = vcs_auth_user
+
+    if vcs_auth_pwd:
+        config['CLIENT_VCS_AUTH_PWD'] = vcs_auth_pwd
 
     repo = Repository(connection, rid)
 

@@ -60,7 +60,8 @@ not given, the name is taken from repository name.
 ```bash
 sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-exists] \
                   [--vsid VSID] [--starting-folder FOLDER] [--role ROLE] [--type TYPE] \
-                  [--vcs-token TOKEN] [--sync-clone] [--poll-period SECONDS] \
+                  [--vcs-token TOKEN] [--vcs-auth-user USER] [--vcs-auth-pwd PWD] \
+                  [--sync-clone] [--poll-period SECONDS] \
                   [--no-import] [--buffer-only] URL [package]
 ```
 
@@ -77,8 +78,12 @@ sapcli gcts clone [--wait-for-ready SECONDS] [--heartbeat SECONDS] [--no-fail-ex
 - `--role ROLE`: Either SOURCE (Development) or TARGET (Provided); default is **SOURCE**
 - `--type TYPE`: Either GIT or GITHUB; default is **GITHUB**
 - `--vcs-token TOKEN`: Authentication token
+- `--vcs-auth-user USER`: Username for VCS (basic) authentication. Can also be set via the `SAPCLI_GCTS_VCS_AUTH_USER` environment variable.
+- `--vcs-auth-pwd PWD`: Password for VCS (basic) authentication. Can also be set via the `SAPCLI_GCTS_VCS_AUTH_PWD` environment variable. If a username is provided without a password, you are prompted for it once (an error is raised instead when there is no interactive terminal, e.g. in CI).
 - `URL`: Repository HTTP URL
 - `package`: gCTS repository name; if no provided, deduced from URL
+
+Token authentication (`--vcs-token`) and basic authentication (`--vcs-auth-user`/`--vcs-auth-pwd`) are mutually exclusive. A password cannot be provided without a username.
 
 When run without `--sync-clone`, the clone is scheduled as a gCTS task. Use `--wait-for-ready` to wait until the repository is ready. If the task doesn't finish within the wait period or if `--wait-for-ready` is set to 0, the command prints a hint; you can check the task status using `gcts task list` to see all tasks for the repository.
 
