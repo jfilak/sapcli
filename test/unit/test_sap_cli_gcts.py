@@ -236,6 +236,8 @@ class TestgCTSCloneSync(ConsoleOutputTestCase, PatcherTestCase):
             start_dir='src/',
             vsid='6IT',
             vcs_token=None,
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             error_exists=True,
             typ='GITHUB',
             role='SOURCE',
@@ -277,6 +279,8 @@ Cloned repository:
             start_dir='backend/src/',
             vsid='GIT',
             vcs_token='12345',
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             error_exists=False,
             typ='GIT',
             role='TARGET',
@@ -316,6 +320,8 @@ Cloned repository:
             start_dir='backend/src/',
             vsid='GIT',
             vcs_token='12345',
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             error_exists=False,
             typ='GIT',
             role='TARGET',
@@ -354,6 +360,8 @@ Cloned repository:
             start_dir='backend/src/',
             vsid='GIT',
             vcs_token='12345',
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             error_exists=False,
             typ='GIT',
             role='TARGET',
@@ -365,6 +373,150 @@ Cloned repository:
         progress_consumer = call_args.kwargs['progress_consumer']
         self.assertIsInstance(progress_consumer, sap.cli.gcts_utils.ConsoleSugarOperationProgress)
         self.spy_is_clone_activity_success.assert_called_once()
+
+    def test_clone_vcs_auth_user_and_pwd(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vcs-auth-user', 'johndoe',
+            '--vcs-auth-pwd', 's3cr3t',
+            '--sync-clone',
+        )
+
+        with patch('sap.cli.gcts.getpass.getpass') as fake_getpass:
+            exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+        fake_getpass.assert_not_called()
+
+        kwargs = self.fake_simple_clone.call_args.kwargs
+        self.assertEqual(kwargs['vcs_auth_user'], 'johndoe')
+        self.assertEqual(kwargs['vcs_auth_pwd'], 's3cr3t')
+
+    def test_clone_vcs_auth_user_prompts_for_password(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vcs-auth-user', 'johndoe',
+            '--sync-clone',
+        )
+
+        with patch('sap.cli.gcts.sys.stdin') as fake_stdin, \
+                patch('sap.cli.gcts.getpass.getpass', return_value='s3cr3t') as fake_getpass:
+            fake_stdin.isatty.return_value = True
+            exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+        fake_getpass.assert_called_once()
+
+        kwargs = self.fake_simple_clone.call_args.kwargs
+        self.assertEqual(kwargs['vcs_auth_user'], 'johndoe')
+        self.assertEqual(kwargs['vcs_auth_pwd'], 's3cr3t')
+
+    def test_clone_vcs_auth_user_without_tty_fails(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vcs-auth-user', 'johndoe',
+            '--sync-clone',
+        )
+
+        with patch('sap.cli.gcts.sys.stdin') as fake_stdin:
+            fake_stdin.isatty.return_value = False
+            exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_clone.assert_not_called()
+        self.assertConsoleContents(
+            self.console,
+            stderr='--vcs-auth-user was provided without a password and no terminal is available'
+                   ' to prompt; pass --vcs-auth-pwd or set SAPCLI_GCTS_VCS_AUTH_PWD.\n'
+        )
+
+    def test_clone_vcs_token_and_user_mutually_exclusive(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vcs-token', '12345',
+            '--vcs-auth-user', 'johndoe',
+            '--sync-clone',
+        )
+
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_clone.assert_not_called()
+        self.assertConsoleContents(
+            self.console,
+            stderr='Cannot combine token authentication (--vcs-token) with basic authentication'
+                   ' (--vcs-auth-user/--vcs-auth-pwd).\n'
+        )
+
+    def test_clone_vcs_token_and_pwd_mutually_exclusive(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vcs-token', '12345',
+            '--vcs-auth-pwd', 's3cr3t',
+            '--sync-clone',
+        )
+
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_clone.assert_not_called()
+        self.assertConsoleContents(
+            self.console,
+            stderr='Cannot combine token authentication (--vcs-token) with basic authentication'
+                   ' (--vcs-auth-user/--vcs-auth-pwd).\n'
+        )
+
+    def test_clone_vcs_auth_pwd_requires_user(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vcs-auth-pwd', 's3cr3t',
+            '--sync-clone',
+        )
+
+        exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 1)
+        self.fake_simple_clone.assert_not_called()
+        self.assertConsoleContents(
+            self.console,
+            stderr='--vcs-auth-pwd (or SAPCLI_GCTS_VCS_AUTH_PWD) requires --vcs-auth-user'
+                   ' (or SAPCLI_GCTS_VCS_AUTH_USER).\n'
+        )
+
+    def test_clone_vcs_auth_from_env(self):
+        args = self.clone('https://example.org/repo/git/sample.git', '--sync-clone')
+
+        with patch.dict('os.environ', {
+            'SAPCLI_GCTS_VCS_AUTH_USER': 'envuser',
+            'SAPCLI_GCTS_VCS_AUTH_PWD': 'envpwd'
+        }):
+            exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+
+        kwargs = self.fake_simple_clone.call_args.kwargs
+        self.assertEqual(kwargs['vcs_auth_user'], 'envuser')
+        self.assertEqual(kwargs['vcs_auth_pwd'], 'envpwd')
+
+    def test_clone_vcs_auth_cli_overrides_env(self):
+        args = self.clone(
+            'https://example.org/repo/git/sample.git',
+            '--vcs-auth-user', 'cliuser',
+            '--vcs-auth-pwd', 'clipwd',
+            '--sync-clone',
+        )
+
+        with patch.dict('os.environ', {
+            'SAPCLI_GCTS_VCS_AUTH_USER': 'envuser',
+            'SAPCLI_GCTS_VCS_AUTH_PWD': 'envpwd'
+        }):
+            exit_code = args.execute(self.conn, args)
+
+        self.assertEqual(exit_code, 0)
+
+        kwargs = self.fake_simple_clone.call_args.kwargs
+        self.assertEqual(kwargs['vcs_auth_user'], 'cliuser')
+        self.assertEqual(kwargs['vcs_auth_pwd'], 'clipwd')
 
     def test_clone_existing(self):
         repo_url = 'https://example.org/repo/git/sample.git'
@@ -378,6 +530,8 @@ Cloned repository:
             start_dir='src/',
             vsid='6IT',
             vcs_token=None,
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             error_exists=False,
             typ='GITHUB',
             role='SOURCE',
@@ -624,6 +778,8 @@ class TestgCTSCloneAsync(ConsoleOutputTestCase, PatcherTestCase):
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
             vcs_token=None,
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             vsid=self.defaults['vsid'],
             error_exists=True,
             role=self.defaults['role'],
@@ -675,6 +831,8 @@ class TestgCTSCloneAsync(ConsoleOutputTestCase, PatcherTestCase):
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.command_arguments['starting_folder'],
             vcs_token=self.command_arguments['vcs-token'],
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             vsid=self.command_arguments['vsid'],
             error_exists=False,
             role=self.command_arguments['role'],
@@ -710,6 +868,8 @@ class TestgCTSCloneAsync(ConsoleOutputTestCase, PatcherTestCase):
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
             vcs_token=None,
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             vsid=self.defaults['vsid'],
             error_exists=True,
             role=self.defaults['role'],
@@ -745,6 +905,8 @@ class TestgCTSCloneAsync(ConsoleOutputTestCase, PatcherTestCase):
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
             vcs_token=None,
+            vcs_auth_user=None,
+            vcs_auth_pwd=None,
             vsid=self.defaults['vsid'],
             error_exists=True,
             role=self.defaults['role'],
@@ -779,6 +941,7 @@ class TestgCTSCloneAsync(ConsoleOutputTestCase, PatcherTestCase):
             package_name_from_url(self.command_arguments['url']),
             start_dir=self.defaults['starting_folder'],
             vcs_token=None, vsid=self.defaults['vsid'],
+            vcs_auth_user=None, vcs_auth_pwd=None,
             error_exists=True,
             role=self.defaults['role'],
             typ=self.defaults['type'],

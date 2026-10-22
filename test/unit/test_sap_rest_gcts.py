@@ -2211,6 +2211,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 vsid=self.repo_vsid,
                 start_dir=self.repo_start_dir,
                 vcs_token=self.repo_vcs_token,
+                vcs_auth_user=None,
+                vcs_auth_pwd=None,
                 error_exists=True,
                 role='SOURCE',
                 typ='GITHUB'
@@ -2642,6 +2644,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 vsid=self.repo_vsid,
                 start_dir=self.repo_start_dir,
                 vcs_token=self.repo_vcs_token,
+                vcs_auth_user=None,
+                vcs_auth_pwd=None,
                 error_exists=True,
                 role='SOURCE',
                 typ='GITHUB'
@@ -2680,6 +2684,8 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
                 vsid='6IT',  # default vsid
                 start_dir='src/',  # default start dir
                 vcs_token=None,  # default vcs token
+                vcs_auth_user=None,  # default vcs auth user
+                vcs_auth_pwd=None,  # default vcs auth pwd
                 error_exists=True,  # default error exists
                 role='SOURCE',  # default role
                 typ='GITHUB'  # default type
@@ -2795,6 +2801,105 @@ class TestgCTSSimpleAPI(GCTSTestSetUp, unittest.TestCase):
         data['type'] = 'GIT'
         data['config'] = [
             {'key': 'CLIENT_VCS_AUTH_TOKEN', 'value': 'THE_TOKEN'}
+        ]
+
+        request_load = {
+            'repository': self.repo_rid,
+            'data': data
+        }
+
+        self.assertEqual(len(self.conn.execs), 1)
+        self.conn.execs[CALL_ID_CREATE].assertEqual(Request.post_json(uri='repository', body=request_load, accept='application/json'), self, json_body=True)
+        self.assertIsNotNone(repo)
+
+    @patch('sap.rest.gcts.simple.Repository')
+    def test_simple_create_with_vcs_auth_user_and_pwd(self, mock_repository_class):
+        mock_repo_instance = Mock()
+        mock_repository_class.return_value = mock_repo_instance
+
+        repo = sap.rest.gcts.simple.create(
+            self.conn,
+            self.repo_url,
+            self.repo_rid,
+            vcs_auth_user='johndoe',
+            vcs_auth_pwd='s3cr3t'
+        )
+
+        mock_repo_instance.create.assert_called_once_with(
+            self.repo_url,
+            '6IT',
+            config={
+                'CLIENT_VCS_AUTH_USER': 'johndoe',
+                'CLIENT_VCS_AUTH_PWD': 's3cr3t'
+            },
+            role='SOURCE',
+            typ='GITHUB'
+        )
+
+        self.assertEqual(repo, mock_repo_instance)
+
+    @patch('sap.rest.gcts.simple.Repository')
+    def test_simple_create_with_vcs_auth_user_only(self, mock_repository_class):
+        mock_repo_instance = Mock()
+        mock_repository_class.return_value = mock_repo_instance
+
+        sap.rest.gcts.simple.create(
+            self.conn,
+            self.repo_url,
+            self.repo_rid,
+            vcs_auth_user='johndoe'
+        )
+
+        mock_repo_instance.create.assert_called_once_with(
+            self.repo_url,
+            '6IT',
+            config={'CLIENT_VCS_AUTH_USER': 'johndoe'},
+            role='SOURCE',
+            typ='GITHUB'
+        )
+
+    @patch('sap.rest.gcts.simple.Repository')
+    def test_simple_create_with_vcs_auth_pwd_only(self, mock_repository_class):
+        mock_repo_instance = Mock()
+        mock_repository_class.return_value = mock_repo_instance
+
+        sap.rest.gcts.simple.create(
+            self.conn,
+            self.repo_url,
+            self.repo_rid,
+            vcs_auth_pwd='s3cr3t'
+        )
+
+        mock_repo_instance.create.assert_called_once_with(
+            self.repo_url,
+            '6IT',
+            config={'CLIENT_VCS_AUTH_PWD': 's3cr3t'},
+            role='SOURCE',
+            typ='GITHUB'
+        )
+
+    def test_simple_create_with_vcs_auth_user_and_pwd_http(self):
+        CALL_ID_CREATE = 0
+
+        repository = dict(self.repo_server_data)
+        repository['status'] = 'CREATED'
+
+        self.conn.set_responses(
+            Response.with_json(status_code=201, json={'repository': repository})
+        )
+
+        repo = sap.rest.gcts.simple.create(
+            self.conn,
+            self.repo_url,
+            self.repo_rid,
+            vcs_auth_user='johndoe',
+            vcs_auth_pwd='s3cr3t'
+        )
+
+        data = dict(self.repo_data)
+        data['config'] = [
+            {'key': 'CLIENT_VCS_AUTH_USER', 'value': 'johndoe'},
+            {'key': 'CLIENT_VCS_AUTH_PWD', 'value': 's3cr3t'}
         ]
 
         request_load = {

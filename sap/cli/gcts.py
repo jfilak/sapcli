@@ -2,6 +2,8 @@
 """gCTS methods"""
 
 import os
+import sys
+import getpass
 import warnings
 from functools import partial
 
@@ -713,6 +715,38 @@ def repolist(connection, args):
     return 0
 
 
+def _resolve_vcs_auth(args):
+    """Resolves and validates the VCS authentication parameters from the command
+       line arguments and the environment variables.
+
+       Returns a tuple (vcs_token, vcs_auth_user, vcs_auth_pwd).
+
+       Raises:
+         SAPCliError
+    """
+
+    vcs_token = args.vcs_token
+    vcs_auth_user = args.vcs_auth_user or os.environ.get('SAPCLI_GCTS_VCS_AUTH_USER')
+    vcs_auth_pwd = args.vcs_auth_pwd or os.environ.get('SAPCLI_GCTS_VCS_AUTH_PWD')
+
+    if vcs_token and (vcs_auth_user or vcs_auth_pwd):
+        raise SAPCliError('Cannot combine token authentication (--vcs-token) with basic authentication'
+                          ' (--vcs-auth-user/--vcs-auth-pwd).')
+
+    if vcs_auth_pwd and not vcs_auth_user:
+        raise SAPCliError('--vcs-auth-pwd (or SAPCLI_GCTS_VCS_AUTH_PWD) requires --vcs-auth-user'
+                          ' (or SAPCLI_GCTS_VCS_AUTH_USER).')
+
+    if vcs_auth_user and not vcs_auth_pwd:
+        if not sys.stdin.isatty():
+            raise SAPCliError('--vcs-auth-user was provided without a password and no terminal is available'
+                              ' to prompt; pass --vcs-auth-pwd or set SAPCLI_GCTS_VCS_AUTH_PWD.')
+
+        vcs_auth_pwd = getpass.getpass('VCS password: ')
+
+    return vcs_token, vcs_auth_user, vcs_auth_pwd
+
+
 @CommandGroup.argument('--no-import', default=False, action='store_true')
 @CommandGroup.argument('--buffer-only', default=False, action='store_true')
 @CommandGroup.argument('--wait-for-ready', type=int, nargs='?', default=600)
@@ -728,6 +762,13 @@ def repolist(connection, args):
 @CommandGroup.argument('--poll-period', type=int, nargs='?', default=30,
                        help='Period in seconds to poll the repository clone task status when cloning asynchronously.')
 @CommandGroup.argument('--vcs-token', type=str, nargs='?')
+@CommandGroup.argument('--vcs-auth-user', type=str, nargs='?',
+                       help='Username for VCS authentication.'
+                            ' Can also be set via the SAPCLI_GCTS_VCS_AUTH_USER environment variable.')
+@CommandGroup.argument('--vcs-auth-pwd', type=str, nargs='?',
+                       help='Password for VCS authentication.'
+                            ' Can also be set via the SAPCLI_GCTS_VCS_AUTH_PWD environment variable.'
+                            ' If a username is provided without a password, you will be prompted for it.')
 @CommandGroup.argument('-t', '--type', choices=['GITHUB', 'GIT'], default='GITHUB')
 @CommandGroup.argument('-r', '--role', choices=['SOURCE', 'TARGET'], default='SOURCE',
                        help='SOURCE=Development, TARGET=Provided')
@@ -745,10 +786,14 @@ def clone(connection, args):
     clone_action = None
     delayed_exc = None
 
+    vcs_token, vcs_auth_user, vcs_auth_pwd = _resolve_vcs_auth(args)
+
     parameters = {
         'vsid': args.vsid,
         'start_dir': args.starting_folder,
-        'vcs_token': args.vcs_token,
+        'vcs_token': vcs_token,
+        'vcs_auth_user': vcs_auth_user,
+        'vcs_auth_pwd': vcs_auth_pwd,
         'error_exists': not args.no_fail_exists,
         'role': args.role,
         'typ': args.type,
