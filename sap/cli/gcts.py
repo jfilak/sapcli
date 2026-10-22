@@ -57,7 +57,8 @@ def get_repository(connection, package):
 
     if package.startswith(('http://', 'https://')):
         repositories = sap.rest.gcts.simple.fetch_repos(connection)
-        repositories = [repo for repo in repositories if repo.url == package]
+        normalized_url = package.removesuffix('.git')
+        repositories = [repo for repo in repositories if repo.url and repo.url.removesuffix('.git') == normalized_url]
 
         if not repositories:
             raise SAPCliError(f'No repository found with the URL "{package}".')
