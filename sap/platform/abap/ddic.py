@@ -459,3 +459,100 @@ DDIC_DATATYPE_TO_ADT = {
     'GGM1': 'GEOM_EWKB',
     'UTCL': 'UTCLONG',
 }
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DDLS(Structure):
+    """CDS Data Definition (DDL source) - abapGit's DDDDLSRCV without the source
+       code and the fields abapGit does not serialize
+    """
+
+    DDLNAME: str
+    DDLANGUAGE: str
+    DDTEXT: str
+    PARENTNAME: str
+    # Source type:
+    # V View
+    # W View entity
+    # P Projection view
+    # F Table function
+    # A Abstract entity
+    SOURCE_TYPE: str
+    SOURCE_ORIGIN: str
+    ABAP_LANGUAGE_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DCLS(Structure):
+    """CDS Access Control (DCL source) - abapGit's ACM_S_DCLSRC without the
+       source code and the fields abapGit does not serialize
+    """
+
+    DCLNAME: str
+    DCLLANGUAGE: str
+    DDTEXT: str
+    ABAP_LANGUAGE_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DDLX_METADATA(Structure):
+    """CDS Metadata Extension attributes - abapGit does not serialize the other
+       fields of the workbench object metadata
+    """
+
+    NAME: str
+    DESCRIPTION: str
+    # ISO code - e.g. EN
+    MASTER_LANGUAGE: str
+    ABAP_LANGU_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DDLX(Structure):
+    """CDS Metadata Extension (DDLX) - abapGit's workbench object data without
+       the source code
+    """
+
+    METADATA: DDLX_METADATA
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class BDEF_LINK(Structure):
+    """Relation of a Behavior Definition to another ADT resource"""
+
+    HREF: str
+    REL: str
+    TYPE: str
+    TITLE: str
+
+
+BDEF_LINKS = ItemizedTable.define('LINKS', BDEF_LINK)  # type: Any
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
+class BDEF(Structure):
+    """CDS Behavior Definition - abapGit's workbench object metadata without
+       the fields abapGit does not serialize
+    """
+
+    NAME: str
+    TYPE: str
+    DESCRIPTION: str
+    DESCRIPTION_TEXT_LIMIT: str
+    # ISO code - e.g. EN
+    LANGUAGE: str
+    LINKS: BDEF_LINKS
+    # ISO code - e.g. EN
+    MASTER_LANGUAGE: str
+    ABAP_LANGU_VERSION: str
+    SOURCE_URI: str
+    SOURCE_TYPE: str
+    SOURCE_FIXED_POINT_ARITHMETIC: str
+    SOURCE_UNICODE_CHECKS_ACTIVE: str

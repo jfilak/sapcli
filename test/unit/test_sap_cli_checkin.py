@@ -26,7 +26,11 @@ from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, CLAS_WITH_DESCRIPTI
     FUNCTION_GROUP_XML, FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, \
     FUNCTION_MODULE_CODE_NO_PARAMS_ADT, FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, \
     FUNCTION_GROUP_XML_NO_RFC, TTYP_STANDARD_XML, TTYP_SORTED_XML, TTYP_PREDEFINED_XML, TTYP_SECONDARY_KEYS_XML, \
-    TTYP_RANGE_XML
+    TTYP_RANGE_XML, DDLS_NAME, DDLS_XML, DDLS_ALL_FIELDS_XML, DDLS_SOURCE_CODE, DDLS_ADT_NEW_OBJECT_REQUEST_XML, \
+    DDLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DCLS_NAME, DCLS_XML, DCLS_ABAP_LANGUAGE_VERSION_XML, DCLS_SOURCE_CODE, \
+    DCLS_ADT_NEW_OBJECT_REQUEST_XML, DCLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DDLX_NAME, DDLX_XML, \
+    DDLX_ABAP_LANGUAGE_VERSION_XML, DDLX_SOURCE_CODE, DDLX_ADT_NEW_OBJECT_REQUEST_XML, DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, \
+    BDEF_NAME, BDEF_XML, BDEF_SOURCE_CODE, BDEF_ADT_NEW_OBJECT_REQUEST_XML, BDEF_ADT_ALREADY_EXISTS_RESPONSE_XML
 from fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
     TABLE_TYPE_ADT_NEW_OBJECT_REQUEST_XML, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML, \
     TABLE_TYPE_ADT_DEFINE_SORTED_REQUEST_XML, TABLE_TYPE_ADT_ALREADY_EXISTS_RESPONSE_XML
@@ -106,6 +110,13 @@ class DirContentBuilder:
         self._files.append(f'{name}.fugr.module.abap')
         self._files.append(f'{name}.fugr.include.xml')
         self._files.append(f'{name}.fugr.include.abap')
+
+        return self
+
+    def add_data_definition(self, name):
+        self._files.append(f'{name}.ddls.asddls')
+        self._files.append(f'{name}.ddls.baseinfo')
+        self._files.append(f'{name}.ddls.xml')
 
         return self
 
@@ -434,6 +445,19 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
                           './src/test_fugr.fugr.include.xml',
                           './src/test_fugr.fugr.module.abap'])
 
+    def test_load_objects_data_definition(self):
+        root = DirContentBuilder('./src/').add_data_definition('zcds')
+        self.walk_stands = [root.walk_stand()]
+        self.files = root.files()
+
+        config = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX)
+        repo = sap.cli.checkin.Repository('unittest', config)
+
+        sap.cli.checkin._load_objects(repo)
+
+        self.assertEqual([(obj.code, obj.name, obj.path, obj.files) for obj in repo.objects],
+                         [('ddls', 'zcds', './src/zcds.ddls.xml', ['./src/zcds.ddls.asddls', './src/zcds.ddls.baseinfo'])])
+
     def test_load_objects_ignores_files_without_dot(self):
         root = DirContentBuilder('./src/').add_abap_program('run_report').add_file('README').add_file('ztable.tabl.xml')
         self.walk_stands = [root.walk_stand()]
@@ -493,12 +517,16 @@ Activating objects ...
         prog = sap.cli.checkin.RepoObject(code='prog', name='program', path='./program', package=None, files=[])
         fugr = sap.cli.checkin.RepoObject(code='fugr', name='function_group', path='./function_group', package=None, files=[])
         ttyp = sap.cli.checkin.RepoObject(code='ttyp', name='table_type', path='./table_type', package=None, files=[])
+        ddls = sap.cli.checkin.RepoObject(code='ddls', name='cds_view', path='./cds_view', package=None, files=[])
+        dcls = sap.cli.checkin.RepoObject(code='dcls', name='cds_role', path='./cds_role', package=None, files=[])
+        ddlx = sap.cli.checkin.RepoObject(code='ddlx', name='cds_ext', path='./cds_ext', package=None, files=[])
+        bdef = sap.cli.checkin.RepoObject(code='bdef', name='cds_bo', path='./cds_bo', package=None, files=[])
 
-        objects = [clas, prog, intf, fugr, ttyp]
+        objects = [clas, dcls, ddls, ddlx, prog, intf, fugr, ttyp, bdef]
 
         deps = sap.cli.checkin._resolve_dependencies(objects)
 
-        self.assertEqual(deps, [[ttyp], [clas, intf], [prog], [fugr]])
+        self.assertEqual(deps, [[ddls, ttyp], [bdef, clas, intf], [prog], [dcls, ddlx, fugr]])
 
     @patch('sap.cli.checkin._checkin_dependency_group')
     @patch('sap.cli.checkin._resolve_dependencies')
@@ -1725,6 +1753,490 @@ Writing Table Type: {TABLE_TYPE_NAME.lower()}
 
         self.assertEqual(str(caught.exception),
                          f'Unsupported ACCESSMODE "Q" of table type {TABLE_TYPE_NAME.lower()}')
+
+
+DDLS_SOURCE_MIME = 'text/plain; charset=utf-8'
+
+
+@patch('sap.adt.objects.ADTObject.unlock')
+@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
+class TestCheckInDataDefinition(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.source_file = f'./src/{DDLS_NAME.lower()}.ddls.asddls'
+        self.baseinfo_file = f'./src/{DDLS_NAME.lower()}.ddls.baseinfo'
+        self.repo_obj = sap.cli.checkin.RepoObject('ddls', DDLS_NAME.lower(),
+                                                   f'./src/{DDLS_NAME.lower()}.ddls.xml', self.package,
+                                                   [self.source_file])
+
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_open.side_effect = [StringIOFile(DDLS_XML), StringIOFile(DDLS_SOURCE_CODE)]
+
+    def responses_ok(self):
+        return [
+            Response(text='', status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ]
+
+    def assert_requests(self, connection, create_params=None, write_params=None):
+        self.assertEqual(len(connection.execs), 2)
+
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/ddic/ddl/sources')
+        self.assertEqual(connection.execs[0].params, create_params)
+        self.maxDiff = None
+        self.assertEqual(connection.execs[0].body.decode('utf-8'), DDLS_ADT_NEW_OBJECT_REQUEST_XML)
+
+        self.assertEqual(connection.execs[1].method, 'PUT')
+        self.assertEqual(connection.execs[1].adt_uri, f'/sap/bc/adt/ddic/ddl/sources/{DDLS_NAME.lower()}/source/main')
+        self.assertEqual(connection.execs[1].headers, {'Content-Type': DDLS_SOURCE_MIME})
+        self.assertEqual(connection.execs[1].params, write_params or {'lockHandle': 'lock_handle'})
+        self.assertEqual(connection.execs[1].body.decode('utf-8'), DDLS_SOURCE_CODE[:-1])
+
+    def test_checkin_ddls(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        result = sap.cli.checkin.checkin_ddls(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+        fake_lock.assert_called_once()
+        fake_unlock.assert_called_once()
+
+        self.assertEqual(self.fake_open.call_args_list, [call(self.repo_obj.path, encoding='utf-8'),
+                                                         call(self.source_file, 'r', encoding='utf-8')])
+
+        self.assertEqual(len(result.abap_objects), 1)
+        self.assertEqual(result.abap_objects[0].name, DDLS_NAME)
+        self.assertEqual(result.used_files, [self.source_file])
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Data Definition: {DDLS_NAME.lower()}
+Writing Data Definition: {DDLS_NAME.lower()}
+''')
+
+    def test_checkin_ddls_with_baseinfo(self, fake_lock, fake_unlock):
+        self.repo_obj.files.append(self.baseinfo_file)
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        result = sap.cli.checkin.checkin_ddls(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+        self.assertEqual(self.fake_open.call_args_list, [call(self.repo_obj.path, encoding='utf-8'),
+                                                         call(self.source_file, 'r', encoding='utf-8')])
+        self.assertEqual(result.used_files, [self.source_file, self.baseinfo_file])
+
+    def test_checkin_ddls_all_fields(self, fake_lock, fake_unlock):
+        self.fake_open.side_effect = [StringIOFile(DDLS_ALL_FIELDS_XML), StringIOFile(DDLS_SOURCE_CODE)]
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddls(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_ddls_with_corrnr(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddls(connection, self.repo_obj, corrnr='420')
+
+        self.assert_requests(connection, create_params={'corrNr': '420'},
+                             write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
+
+    def test_checkin_ddls_already_exists(self, fake_lock, fake_unlock):
+        responses = self.responses_ok()
+        responses[0] = Response(text=DDLS_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                                headers={'content-type': 'application/xml'})
+        connection = Connection(responses, user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddls(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_ddls_no_source_file(self, fake_lock, fake_unlock):
+        repo_obj = self.repo_obj._replace(files=[self.baseinfo_file])
+        connection = Connection([], user='DEVELOPER')
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            sap.cli.checkin.checkin_ddls(connection, repo_obj)
+
+        self.assertEqual(str(caught.exception), f'No source file for data definition {DDLS_NAME.lower()}')
+        self.assertEqual(connection.execs, [])
+        self.fake_open.assert_not_called()
+
+    def test_checkin_ddls_check_before_save(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        with patch('sap.cli.checkin._write_source_file') as fake_write:
+            result = sap.cli.checkin.checkin_ddls(connection, self.repo_obj, check_before_save=True)
+
+        fake_write.assert_called_once_with(DDLS_SOURCE_CODE, result.abap_objects[0], corrnr=None,
+                                           source_label=self.source_file, check_before_save=True)
+
+    def test_checkin_ddls_handler(self, fake_lock, fake_unlock):
+        self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['ddls'], sap.cli.checkin.checkin_ddls)
+
+
+
+@patch('sap.adt.objects.ADTObject.unlock')
+@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
+class TestCheckInAccessControl(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.source_file = f'./src/{DCLS_NAME.lower()}.dcls.asdcls'
+        self.repo_obj = sap.cli.checkin.RepoObject('dcls', DCLS_NAME.lower(),
+                                                   f'./src/{DCLS_NAME.lower()}.dcls.xml', self.package,
+                                                   [self.source_file])
+
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_open.side_effect = [StringIOFile(DCLS_XML), StringIOFile(DCLS_SOURCE_CODE)]
+
+    def responses_ok(self):
+        return [
+            Response(text='', status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ]
+
+    def assert_requests(self, connection, create_params=None, write_params=None):
+        self.assertEqual(len(connection.execs), 2)
+
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/acm/dcl/sources')
+        self.assertEqual(connection.execs[0].params, create_params)
+        self.maxDiff = None
+        self.assertEqual(connection.execs[0].body.decode('utf-8'), DCLS_ADT_NEW_OBJECT_REQUEST_XML)
+
+        self.assertEqual(connection.execs[1].method, 'PUT')
+        self.assertEqual(connection.execs[1].adt_uri, f'/sap/bc/adt/acm/dcl/sources/{DCLS_NAME.lower()}/source/main')
+        self.assertEqual(connection.execs[1].headers, {'Content-Type': 'text/plain; charset=utf-8'})
+        self.assertEqual(connection.execs[1].params, write_params or {'lockHandle': 'lock_handle'})
+        self.assertEqual(connection.execs[1].body.decode('utf-8'), DCLS_SOURCE_CODE[:-1])
+
+    def test_checkin_dcls(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        result = sap.cli.checkin.checkin_dcls(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+        fake_lock.assert_called_once()
+        fake_unlock.assert_called_once()
+
+        self.assertEqual(self.fake_open.call_args_list, [call(self.repo_obj.path, encoding='utf-8'),
+                                                         call(self.source_file, 'r', encoding='utf-8')])
+
+        self.assertEqual(len(result.abap_objects), 1)
+        self.assertEqual(result.abap_objects[0].name, DCLS_NAME)
+        self.assertEqual(result.used_files, [self.source_file])
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Access Control: {DCLS_NAME.lower()}
+Writing Access Control: {DCLS_NAME.lower()}
+''')
+
+    def test_checkin_dcls_abap_language_version(self, fake_lock, fake_unlock):
+        self.fake_open.side_effect = [StringIOFile(DCLS_ABAP_LANGUAGE_VERSION_XML), StringIOFile(DCLS_SOURCE_CODE)]
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_dcls(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_dcls_with_corrnr(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_dcls(connection, self.repo_obj, corrnr='420')
+
+        self.assert_requests(connection, create_params={'corrNr': '420'},
+                             write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
+
+    def test_checkin_dcls_already_exists(self, fake_lock, fake_unlock):
+        responses = self.responses_ok()
+        responses[0] = Response(text=DCLS_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                                headers={'content-type': 'application/xml'})
+        connection = Connection(responses, user='DEVELOPER')
+
+        sap.cli.checkin.checkin_dcls(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_dcls_no_source_file(self, fake_lock, fake_unlock):
+        repo_obj = self.repo_obj._replace(files=[])
+        connection = Connection([], user='DEVELOPER')
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            sap.cli.checkin.checkin_dcls(connection, repo_obj)
+
+        self.assertEqual(str(caught.exception), f'No source file for access control {DCLS_NAME.lower()}')
+        self.assertEqual(connection.execs, [])
+        self.fake_open.assert_not_called()
+
+    def test_checkin_dcls_check_before_save(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        with patch('sap.cli.checkin._write_source_file') as fake_write:
+            result = sap.cli.checkin.checkin_dcls(connection, self.repo_obj, check_before_save=True)
+
+        fake_write.assert_called_once_with(DCLS_SOURCE_CODE, result.abap_objects[0], corrnr=None,
+                                           source_label=self.source_file, check_before_save=True)
+
+    def test_checkin_dcls_handler(self, fake_lock, fake_unlock):
+        self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['dcls'], sap.cli.checkin.checkin_dcls)
+
+
+
+@patch('sap.adt.objects.ADTObject.unlock')
+@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
+class TestCheckInMetadataExtension(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.source_file = f'./src/{DDLX_NAME.lower()}.ddlx.asddlxs'
+        self.repo_obj = sap.cli.checkin.RepoObject('ddlx', DDLX_NAME.lower(),
+                                                   f'./src/{DDLX_NAME.lower()}.ddlx.xml', self.package,
+                                                   [self.source_file])
+
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_open.side_effect = [StringIOFile(DDLX_XML), StringIOFile(DDLX_SOURCE_CODE)]
+
+    def responses_ok(self):
+        return [
+            Response(text='', status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ]
+
+    def assert_requests(self, connection, create_params=None, write_params=None):
+        self.assertEqual(len(connection.execs), 2)
+
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/ddic/ddlx/sources')
+        self.assertEqual(connection.execs[0].params, create_params)
+        self.maxDiff = None
+        self.assertEqual(connection.execs[0].body.decode('utf-8'), DDLX_ADT_NEW_OBJECT_REQUEST_XML)
+
+        self.assertEqual(connection.execs[1].method, 'PUT')
+        self.assertEqual(connection.execs[1].adt_uri, f'/sap/bc/adt/ddic/ddlx/sources/{DDLX_NAME.lower()}/source/main')
+        self.assertEqual(connection.execs[1].headers, {'Content-Type': 'text/plain; charset=utf-8'})
+        self.assertEqual(connection.execs[1].params, write_params or {'lockHandle': 'lock_handle'})
+        self.assertEqual(connection.execs[1].body.decode('utf-8'), DDLX_SOURCE_CODE)
+
+    def test_checkin_ddlx(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        result = sap.cli.checkin.checkin_ddlx(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+        fake_lock.assert_called_once()
+        fake_unlock.assert_called_once()
+
+        self.assertEqual(self.fake_open.call_args_list, [call(self.repo_obj.path, encoding='utf-8'),
+                                                         call(self.source_file, 'r', encoding='utf-8')])
+
+        self.assertEqual(len(result.abap_objects), 1)
+        self.assertEqual(result.abap_objects[0].name, DDLX_NAME)
+        self.assertEqual(result.used_files, [self.source_file])
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Metadata Extension: {DDLX_NAME.lower()}
+Writing Metadata Extension: {DDLX_NAME.lower()}
+''')
+
+    def test_checkin_ddlx_abap_language_version(self, fake_lock, fake_unlock):
+        self.fake_open.side_effect = [StringIOFile(DDLX_ABAP_LANGUAGE_VERSION_XML), StringIOFile(DDLX_SOURCE_CODE)]
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddlx(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_ddlx_with_corrnr(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddlx(connection, self.repo_obj, corrnr='420')
+
+        self.assert_requests(connection, create_params={'corrNr': '420'},
+                             write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
+
+    def test_checkin_ddlx_already_exists(self, fake_lock, fake_unlock):
+        responses = self.responses_ok()
+        responses[0] = Response(text=DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                                headers={'content-type': 'application/xml'})
+        connection = Connection(responses, user='DEVELOPER')
+
+        sap.cli.checkin.checkin_ddlx(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_ddlx_no_source_file(self, fake_lock, fake_unlock):
+        # Old abapGit versions stored the source code in the XML file
+        repo_obj = self.repo_obj._replace(files=[])
+        connection = Connection([], user='DEVELOPER')
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            sap.cli.checkin.checkin_ddlx(connection, repo_obj)
+
+        self.assertEqual(str(caught.exception), f'No source file for metadata extension {DDLX_NAME.lower()}')
+        self.assertEqual(connection.execs, [])
+        self.fake_open.assert_not_called()
+
+    def test_checkin_ddlx_check_before_save(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        with patch('sap.cli.checkin._write_source_file') as fake_write:
+            result = sap.cli.checkin.checkin_ddlx(connection, self.repo_obj, check_before_save=True)
+
+        fake_write.assert_called_once_with(DDLX_SOURCE_CODE, result.abap_objects[0], corrnr=None,
+                                           source_label=self.source_file, check_before_save=True)
+
+    def test_checkin_ddlx_handler(self, fake_lock, fake_unlock):
+        self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['ddlx'], sap.cli.checkin.checkin_ddlx)
+
+
+
+@patch('sap.adt.objects.ADTObject.unlock')
+@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
+class TestCheckInBehaviorDefinition(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.source_file = f'./src/{BDEF_NAME.lower()}.bdef.asbdef'
+        self.repo_obj = sap.cli.checkin.RepoObject('bdef', BDEF_NAME.lower(),
+                                                   f'./src/{BDEF_NAME.lower()}.bdef.xml', self.package,
+                                                   [self.source_file])
+
+        self.fake_open = self.patch('sap.cli.checkin.open')
+        self.fake_open.side_effect = [StringIOFile(BDEF_XML), StringIOFile(BDEF_SOURCE_CODE)]
+
+    def responses_ok(self):
+        return [
+            Response(text='', status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ]
+
+    def assert_requests(self, connection, create_params=None, write_params=None):
+        self.assertEqual(len(connection.execs), 2)
+
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/bo/behaviordefinitions')
+        self.assertEqual(connection.execs[0].params, create_params)
+        self.maxDiff = None
+        self.assertEqual(connection.execs[0].body.decode('utf-8'), BDEF_ADT_NEW_OBJECT_REQUEST_XML)
+
+        self.assertEqual(connection.execs[1].method, 'PUT')
+        self.assertEqual(connection.execs[1].adt_uri,
+                         f'/sap/bc/adt/bo/behaviordefinitions/{BDEF_NAME.lower()}/source/main')
+        self.assertEqual(connection.execs[1].headers, {'Content-Type': 'text/plain; charset=utf-8'})
+        self.assertEqual(connection.execs[1].params, write_params or {'lockHandle': 'lock_handle'})
+        self.assertEqual(connection.execs[1].body.decode('utf-8'), BDEF_SOURCE_CODE)
+
+    def test_checkin_bdef(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        result = sap.cli.checkin.checkin_bdef(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+        fake_lock.assert_called_once()
+        fake_unlock.assert_called_once()
+
+        self.assertEqual(self.fake_open.call_args_list, [call(self.repo_obj.path, encoding='utf-8'),
+                                                         call(self.source_file, 'r', encoding='utf-8')])
+
+        self.assertEqual(len(result.abap_objects), 1)
+        self.assertEqual(result.abap_objects[0].name, BDEF_NAME)
+        self.assertEqual(result.used_files, [self.source_file])
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Behavior Definition: {BDEF_NAME.lower()}
+Writing Behavior Definition: {BDEF_NAME.lower()}
+''')
+
+    def test_checkin_bdef_with_corrnr(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        sap.cli.checkin.checkin_bdef(connection, self.repo_obj, corrnr='420')
+
+        self.assert_requests(connection, create_params={'corrNr': '420'},
+                             write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
+
+    def test_checkin_bdef_already_exists(self, fake_lock, fake_unlock):
+        responses = self.responses_ok()
+        responses[0] = Response(text=BDEF_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                                headers={'content-type': 'application/xml'})
+        connection = Connection(responses, user='DEVELOPER')
+
+        sap.cli.checkin.checkin_bdef(connection, self.repo_obj)
+
+        self.assert_requests(connection)
+
+    def test_checkin_bdef_no_source_file(self, fake_lock, fake_unlock):
+        repo_obj = self.repo_obj._replace(files=[])
+        connection = Connection([], user='DEVELOPER')
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            sap.cli.checkin.checkin_bdef(connection, repo_obj)
+
+        self.assertEqual(str(caught.exception), f'No source file for behavior definition {BDEF_NAME.lower()}')
+        self.assertEqual(connection.execs, [])
+        self.fake_open.assert_not_called()
+
+    def test_checkin_bdef_check_before_save(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        with patch('sap.cli.checkin._write_source_file') as fake_write:
+            result = sap.cli.checkin.checkin_bdef(connection, self.repo_obj, check_before_save=True)
+
+        fake_write.assert_called_once_with(BDEF_SOURCE_CODE, result.abap_objects[0], corrnr=None,
+                                           source_label=self.source_file, check_before_save=True)
+
+    def test_checkin_bdef_handler(self, fake_lock, fake_unlock):
+        self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['bdef'], sap.cli.checkin.checkin_bdef)
 
 
 if __name__ == '__main__':

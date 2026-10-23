@@ -329,3 +329,172 @@ TTYP_SECONDARY_KEYS_ABAPGIT_XML = '''<?xml version="1.0" encoding="utf-8"?>
  </asx:abap>
 </abapGit>
 '''
+
+DDLS_NAME = 'ZSAPCLI_CDS'
+
+DDLS_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<ddl:ddlSource xmlns:ddl="http://www.sap.com/adt/ddic/ddlsources" ddl:source_origin="0" ddl:source_type="view" ddl:source_type_description="View Entity" ddl:source_origin_description="ABAP Development Tools" abapsource:sourceUri="source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:name="{DDLS_NAME}" adtcore:type="DDLS/DF" adtcore:changedAt="2026-10-20T07:45:34Z" adtcore:version="active" adtcore:createdAt="2026-10-20T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Test CDS view" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:packageName="$TMP" adtcore:description="Local objects"/>
+</ddl:ddlSource>
+'''
+
+DDLS_SOURCE_CODE = f'''@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Test CDS view'
+define view entity {DDLS_NAME}
+  as select from tadir
+{{
+  pgmid,
+  object,
+  obj_name
+}}
+'''
+
+DDLS_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLS>
+    <DDLNAME>{DDLS_NAME}</DDLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>Test CDS view</DDTEXT>
+    <SOURCE_TYPE>W</SOURCE_TYPE>
+   </DDLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+DDLS_NO_SOURCE_TYPE_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLS>
+    <DDLNAME>{DDLS_NAME}</DDLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <DDTEXT>Test CDS view</DDTEXT>
+   </DDLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+DCLS_NAME = 'ZSAPCLI_DCL'
+
+DCLS_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<dcl:dclSource xmlns:dcl="http://www.sap.com/adt/acm/dclsources" abapsource:sourceUri="source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:abapLanguageVersion="standard" adtcore:name="{DCLS_NAME}" adtcore:type="DCLS/DL" adtcore:changedAt="2026-10-20T13:21:01Z" adtcore:version="active" adtcore:createdAt="2026-10-20T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Test access control" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:packageName="$TMP" adtcore:description="Local objects"/>
+</dcl:dclSource>
+'''
+
+DCLS_SOURCE_CODE = f'''@EndUserText.label: 'Test access control'
+@MappingRole: true
+define role {DCLS_NAME} {{
+  grant select on {DDLS_NAME}
+    where ( object ) = aspect pfcg_auth( s_develop, objtype, actvt = '03' );
+}}'''
+
+DCLS_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DCLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DCLS>
+    <DCLNAME>{DCLS_NAME}</DCLNAME>
+    <DCLLANGUAGE>E</DCLLANGUAGE>
+    <DDTEXT>Test access control</DDTEXT>
+   </DCLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+DDLX_NAME = 'ZSAPCLI_DDLX'
+
+DDLX_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="UTF-8"?><ddlx:ddlxSource xmlns:ddlx="http://www.sap.com/adt/ddic/ddlxsources" abapsource:sourceUri="./{DDLX_NAME.lower()}/source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:abapLanguageVersion="standard" adtcore:name="{DDLX_NAME}" adtcore:type="DDLX/EX" adtcore:changedAt="2026-10-20T21:33:07Z" adtcore:version="active" adtcore:createdAt="2026-10-20T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Test metadata extension" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:packageName="$TMP" adtcore:description="Local objects"/>
+</ddlx:ddlxSource>'''
+
+DDLX_SOURCE_CODE = f'''@Metadata.layer: #CORE
+annotate entity {DDLS_NAME} with
+{{
+  @UI.lineItem: [{{ position: 10 }}]
+  pgmid;
+}}'''
+
+DDLX_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLX" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLX>
+    <METADATA>
+     <NAME>{DDLX_NAME}</NAME>
+     <DESCRIPTION>Test metadata extension</DESCRIPTION>
+     <MASTER_LANGUAGE>EN</MASTER_LANGUAGE>
+    </METADATA>
+   </DDLX>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+BDEF_NAME = 'ZSAPCLI_BDEF'
+
+# The file zroot_cds.bdef.xml of the repository abapGit-tests/BDEF with replaced name and description
+BDEF_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_BDEF" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <BDEF>
+    <NAME>{BDEF_NAME}</NAME>
+    <TYPE>BDEF/BDO</TYPE>
+    <DESCRIPTION>Test behavior definition</DESCRIPTION>
+    <DESCRIPTION_TEXT_LIMIT>60</DESCRIPTION_TEXT_LIMIT>
+    <LANGUAGE>EN</LANGUAGE>
+    <LINKS>
+     <item>
+      <HREF>./{BDEF_NAME.lower()}/source/main/versions</HREF>
+      <REL>http://www.sap.com/adt/relations/versions</REL>
+      <TITLE>Historic versions</TITLE>
+     </item>
+     <item>
+      <HREF>/sap/bc/adt/repository/informationsystem/abaplanguageversions?uri=%2Fsap%2Fbc%2Fadt%2Fbo%2Fbehaviordefinitions%2F{BDEF_NAME.lower()}</HREF>
+      <REL>http://www.sap.com/adt/relations/informationsystem/abaplanguageversions</REL>
+      <TYPE>application/vnd.sap.adt.nameditems.v1+xml</TYPE>
+      <TITLE>Allowed ABAP language versions</TITLE>
+     </item>
+     <item>
+      <HREF>./{BDEF_NAME.lower()}/source/main</HREF>
+      <REL>http://www.sap.com/adt/relations/source</REL>
+      <TYPE>text/plain</TYPE>
+      <TITLE>Source Content</TITLE>
+     </item>
+     <item>
+      <HREF>./{BDEF_NAME.lower()}/source/main</HREF>
+      <REL>http://www.sap.com/adt/relations/source</REL>
+      <TYPE>text/html</TYPE>
+      <TITLE>Source Content (HTML)</TITLE>
+     </item>
+    </LINKS>
+    <MASTER_LANGUAGE>EN</MASTER_LANGUAGE>
+    <ABAP_LANGU_VERSION>X</ABAP_LANGU_VERSION>
+    <SOURCE_URI>./{BDEF_NAME.lower()}/source/main</SOURCE_URI>
+    <SOURCE_TYPE>ABAP_SOURCE</SOURCE_TYPE>
+    <SOURCE_FIXED_POINT_ARITHMETIC>true</SOURCE_FIXED_POINT_ARITHMETIC>
+    <SOURCE_UNICODE_CHECKS_ACTIVE>true</SOURCE_UNICODE_CHECKS_ACTIVE>
+   </BDEF>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+BDEF_SOURCE_CODE = '''managed implementation in class zbp_sapcli_bdef unique;
+strict ( 2 );
+
+define behavior for ZSAPCLI_CDS alias Root
+persistent table tadir
+lock master
+authorization master ( instance )
+{
+  create;
+  update;
+  delete;
+}'''
