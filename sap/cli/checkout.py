@@ -1,6 +1,7 @@
 """ADT Object export"""
 import enum
 import os
+import re
 import sys
 
 import sap.adt
@@ -10,7 +11,7 @@ import sap.cli.core
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
-    DDIC_DATATYPE_TO_ADT
+    DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -55,10 +56,10 @@ def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer,
         writer.close()
 
 
-def write_source(source, object_name, typsfx, destdir=None):
+def write_source(source, object_name, typsfx, destdir=None, fileext='abap'):
     """Write source code to file"""
 
-    filename = build_filename(object_name, typsfx, 'abap', destdir=destdir)
+    filename = build_filename(object_name, typsfx, fileext, destdir=destdir)
     sap.cli.core.printout(f'- {os.path.basename(filename)}')
     with open(filename, 'w', encoding='utf8') as dest:
         dest.write(source)
@@ -466,6 +467,171 @@ def tabletype(connection, args):
     checkout_table_type(connection, args.name.upper())
 
 
+# ADT does not provide the source type codes, so they are derived from the
+# definition statement - the first matching pattern wins
+DDLS_SOURCE_TYPE_PATTERNS = (
+    ('P', re.compile(r'\bas\s+projection\s+on\b', re.IGNORECASE)),
+    ('W', re.compile(r'\bdefine\s+(root\s+)?view\s+entity\b', re.IGNORECASE)),
+    ('V', re.compile(r'\bdefine\s+(root\s+)?view\b', re.IGNORECASE)),
+    ('F', re.compile(r'\bdefine\s+table\s+function\b', re.IGNORECASE)),
+    ('A', re.compile(r'\bdefine\s+(root\s+)?abstract\s+entity\b', re.IGNORECASE)),
+)
+
+
+def ddls_source_type(source):
+    """Returns the abapGit source type of the given data definition source code
+       or None if the source type is not known.
+    """
+
+    return next((source_type for source_type, pattern in DDLS_SOURCE_TYPE_PATTERNS if pattern.search(source)), None)
+
+
+def build_data_definition_abap_attributes(adt_ddl, source):
+    """Returns populated ABAP structure with attributes"""
+
+    return DDLS(DDLNAME=adt_ddl.name,
+                DDLANGUAGE=iso_code_to_sap_code(adt_ddl.master_language),
+                DDTEXT=adt_ddl.description,
+                SOURCE_TYPE=ddls_source_type(source))
+
+
+def checkout_data_definition(connection, name, destdir=None):
+    """Download data definition source code and attributes"""
+
+    sap.cli.core.printout(name)
+    adt_ddl = sap.adt.DataDefinition(connection, name)
+    adt_ddl.fetch()
+
+    source = adt_ddl.text
+    # abapGit makes sure the source code ends with a new line
+    if not source.endswith('\n'):
+        source += '\n'
+
+    write_source(source, name, '.ddls', destdir=destdir, fileext='asddls')
+
+    ddls = build_data_definition_abap_attributes(adt_ddl, source)
+    if ddls.SOURCE_TYPE is None:
+        sap.cli.core.printerr(f'Unknown source type of data definition {name}')
+
+    dump_attributes_to_file(name, (ddls,), '.ddls', 'LCL_OBJECT_DDLS', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command('ddl')
+def datadefinition(connection, args):
+    """Download data definition source code and attributes command wrapper"""
+
+    checkout_data_definition(connection, args.name.upper())
+
+
+def build_access_control_abap_attributes(adt_dcl):
+    """Returns populated ABAP structure with attributes"""
+
+    return DCLS(DCLNAME=adt_dcl.name,
+                DCLLANGUAGE=iso_code_to_sap_code(adt_dcl.master_language),
+                DDTEXT=adt_dcl.description)
+
+
+def checkout_access_control(connection, name, destdir=None):
+    """Download access control source code and attributes"""
+
+    sap.cli.core.printout(name)
+    adt_dcl = sap.adt.AccessControl(connection, name)
+    adt_dcl.fetch()
+
+    write_source(adt_dcl.text, name, '.dcls', destdir=destdir, fileext='asdcls')
+
+    dcls = build_access_control_abap_attributes(adt_dcl)
+    dump_attributes_to_file(name, (dcls,), '.dcls', 'LCL_OBJECT_DCLS', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command('dcl')
+def accesscontrol(connection, args):
+    """Download access control source code and attributes command wrapper"""
+
+    checkout_access_control(connection, args.name.upper())
+
+
+def build_metadata_extension_abap_attributes(adt_ddlx):
+    """Returns populated ABAP structure with attributes"""
+
+    return DDLX(METADATA=DDLX_METADATA(NAME=adt_ddlx.name,
+                                       DESCRIPTION=adt_ddlx.description,
+                                       MASTER_LANGUAGE=adt_ddlx.master_language))
+
+
+def checkout_metadata_extension(connection, name, destdir=None):
+    """Download metadata extension source code and attributes"""
+
+    sap.cli.core.printout(name)
+    adt_ddlx = sap.adt.MetadataExtension(connection, name)
+    adt_ddlx.fetch()
+
+    write_source(adt_ddlx.text, name, '.ddlx', destdir=destdir, fileext='asddlxs')
+
+    ddlx = build_metadata_extension_abap_attributes(adt_ddlx)
+    dump_attributes_to_file(name, (ddlx,), '.ddlx', 'LCL_OBJECT_DDLX', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command('ddlx')
+def metadataextension(connection, args):
+    """Download metadata extension source code and attributes command wrapper"""
+
+    checkout_metadata_extension(connection, args.name.upper())
+
+
+# ABAP language versions of source code based objects
+ADT_TO_ABAP_LANGU_VERSION = {
+    'standard': 'X',
+    'keyUser': '2',
+    'cloudDevelopment': '5',
+}
+
+
+def build_behavior_definition_abap_attributes(adt_bdef):
+    """Returns populated ABAP structure with attributes"""
+
+    links = BDEF_LINKS([BDEF_LINK(HREF=link.href, REL=link.rel, TYPE=link.typ, TITLE=link.title)
+                        for link in adt_bdef.links])
+
+    return BDEF(NAME=adt_bdef.name,
+                TYPE=adt_bdef.objtype.code,
+                DESCRIPTION=adt_bdef.description,
+                DESCRIPTION_TEXT_LIMIT=adt_bdef.description_text_limit,
+                LANGUAGE=adt_bdef.language,
+                LINKS=links or None,
+                MASTER_LANGUAGE=adt_bdef.master_language,
+                ABAP_LANGU_VERSION=ADT_TO_ABAP_LANGU_VERSION.get(adt_bdef.abap_language_version),
+                SOURCE_URI=adt_bdef.source_uri,
+                # The type of the workbench object source code which ADT does not provide
+                SOURCE_TYPE='ABAP_SOURCE',
+                SOURCE_FIXED_POINT_ARITHMETIC=adt_bdef.fix_point_arithmetic,
+                SOURCE_UNICODE_CHECKS_ACTIVE=adt_bdef.active_unicode_check)
+
+
+def checkout_behavior_definition(connection, name, destdir=None):
+    """Download behavior definition source code and attributes"""
+
+    sap.cli.core.printout(name)
+    adt_bdef = sap.adt.BehaviorDefinition(connection, name)
+    adt_bdef.fetch()
+
+    write_source(adt_bdef.text, name, '.bdef', destdir=destdir, fileext='asbdef')
+
+    bdef = build_behavior_definition_abap_attributes(adt_bdef)
+    dump_attributes_to_file(name, (bdef,), '.bdef', 'LCL_OBJECT_BDEF', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command('bdef')
+def behaviordefinition(connection, args):
+    """Download behavior definition source code and attributes command wrapper"""
+
+    checkout_behavior_definition(connection, args.name.upper())
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
@@ -480,6 +646,10 @@ def checkout_objects(connection, objects, destdir=None):
         sap.adt.Interface.OBJTYPE.code: checkout_interface,
         sap.adt.FunctionGroup.OBJTYPE.code: checkout_function_group,
         sap.adt.TableType.OBJTYPE.code: checkout_table_type,
+        sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
+        sap.adt.AccessControl.OBJTYPE.code: checkout_access_control,
+        sap.adt.MetadataExtension.OBJTYPE.code: checkout_metadata_extension,
+        sap.adt.BehaviorDefinition.OBJTYPE.code: checkout_behavior_definition,
     }
 
     if not os.path.isdir(destdir):

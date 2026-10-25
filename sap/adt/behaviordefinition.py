@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from sap.adt.annotations import xml_element
+from sap.adt.annotations import xml_attribute, xml_element, XmlListNodeProperty
 from sap.adt.objects import (
     xmlns_adtcore_ancestor,
     ADTObject,
@@ -13,6 +13,7 @@ from sap.adt.objects import (
 from sap.adt.common_types import (
     ADTTemplate,
     ADTTemplateProperty,
+    AtomLink,
     NamedItemList,
 )
 
@@ -30,11 +31,53 @@ class BehaviorDefinition(ADTObject):
         editor_factory=ADTObjectSourceEditor.plain_text
     )
 
+    links = XmlListNodeProperty('atom:link', value=[], factory=AtomLink)
+
     def __init__(self, connection, name: str, package: Optional[str] = None, metadata=None):
         super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
         self._template = None
+        self._description_text_limit = None
+        self._source_uri = None
+        self._fix_point_arithmetic = None
+        self._active_unicode_check = None
+
+    @xml_attribute('adtcore:descriptionTextLimit')
+    def description_text_limit(self):
+        """Maximum length of the description"""
+        return self._description_text_limit
+
+    @description_text_limit.setter
+    def description_text_limit(self, value):
+        self._description_text_limit = value
+
+    @xml_attribute('abapsource:sourceUri')
+    def source_uri(self):
+        """URI of the source code relative to the object"""
+        return self._source_uri
+
+    @source_uri.setter
+    def source_uri(self, value):
+        self._source_uri = value
+
+    @xml_attribute('abapsource:fixPointArithmetic')
+    def fix_point_arithmetic(self):
+        """Fixed point arithmetic flag as returned by ADT - true or false"""
+        return self._fix_point_arithmetic
+
+    @fix_point_arithmetic.setter
+    def fix_point_arithmetic(self, value):
+        self._fix_point_arithmetic = value
+
+    @xml_attribute('abapsource:activeUnicodeCheck')
+    def active_unicode_check(self):
+        """Unicode checks flag as returned by ADT - true or false"""
+        return self._active_unicode_check
+
+    @active_unicode_check.setter
+    def active_unicode_check(self, value):
+        self._active_unicode_check = value
 
     @xml_element('adtcore:adtTemplate', ignore_empty=True)
     def template(self):

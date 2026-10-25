@@ -10,6 +10,7 @@ from sap.adt.common_types import ADTTemplate, ADTTemplateProperty
 from mock import Connection, Response
 
 from fixtures_adt import GET_BDEF_ADT_XML, LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
+from fixtures_sap_adt_behaviordefinition import BDEF_NAME, BDEF_ADT_GET_RESPONSE_XML
 
 
 FIXTURE_ACTIVATION_REQUEST_XML='''<?xml version="1.0" encoding="UTF-8"?>
@@ -116,6 +117,57 @@ FIXTURE_LIST_INTERFACES_EMPTY_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <nameditem:namedItemList xmlns:nameditem="http://www.sap.com/adt/nameditem">
   <nameditem:totalItemCount>0</nameditem:totalItemCount>
 </nameditem:namedItemList>'''
+
+
+class TestBehaviorDefinitionFetch(unittest.TestCase):
+
+    def fetch(self):
+        conn = Connection([Response(text=BDEF_ADT_GET_RESPONSE_XML, status_code=200,
+                                    headers={'Content-Type': 'application/vnd.sap.adt.blues.v1+xml; charset=utf-8'})])
+
+        bdef = sap.adt.BehaviorDefinition(conn, BDEF_NAME)
+        bdef.fetch()
+
+        self.assertEqual(conn.mock_methods(), [('GET', f'/sap/bc/adt/bo/behaviordefinitions/{BDEF_NAME.lower()}')])
+
+        return bdef
+
+    def test_bdef_fetch_attributes(self):
+        bdef = self.fetch()
+
+        self.assertEqual(bdef.description, 'Test behavior definition')
+        self.assertEqual(bdef.description_text_limit, '60')
+        self.assertEqual(bdef.language, 'EN')
+        self.assertEqual(bdef.master_language, 'EN')
+        self.assertEqual(bdef.abap_language_version, 'standard')
+        self.assertEqual(bdef.source_uri, f'./{BDEF_NAME.lower()}/source/main')
+        self.assertEqual(bdef.fix_point_arithmetic, 'true')
+        self.assertEqual(bdef.active_unicode_check, 'true')
+
+    def test_bdef_fetch_links(self):
+        bdef = self.fetch()
+
+        self.assertEqual([(link.href, link.rel, link.typ, link.title) for link in bdef.links], [
+            (f'./{BDEF_NAME.lower()}/source/main/versions', 'http://www.sap.com/adt/relations/versions', None,
+             'Historic versions'),
+            ('/sap/bc/adt/repository/informationsystem/abaplanguageversions'
+             f'?uri=%2Fsap%2Fbc%2Fadt%2Fbo%2Fbehaviordefinitions%2F{BDEF_NAME.lower()}',
+             'http://www.sap.com/adt/relations/informationsystem/abaplanguageversions',
+             'application/vnd.sap.adt.nameditems.v1+xml', 'Allowed ABAP language versions'),
+            (f'./{BDEF_NAME.lower()}/source/main', 'http://www.sap.com/adt/relations/source', 'text/plain',
+             'Source Content'),
+            (f'./{BDEF_NAME.lower()}/source/main', 'http://www.sap.com/adt/relations/source', 'text/html',
+             'Source Content (HTML)'),
+        ])
+
+    def test_bdef_new_has_no_fetched_attributes(self):
+        bdef = sap.adt.BehaviorDefinition('CONNECTION', BDEF_NAME)
+
+        self.assertIsNone(bdef.description_text_limit)
+        self.assertIsNone(bdef.source_uri)
+        self.assertIsNone(bdef.fix_point_arithmetic)
+        self.assertIsNone(bdef.active_unicode_check)
+        self.assertEqual(bdef.links, [])
 
 
 class TestBehaviorDefinitionListInterfaces(unittest.TestCase):

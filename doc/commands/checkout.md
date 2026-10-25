@@ -33,8 +33,37 @@ Fetches attributes of the given table type and stores them in a local file.
 sapcli checkout tabletype zhello_world_tab
 ```
 
-Fetches source codes of classes, programs, interfaces, function groups, and
-table types of the given package
+Fetches source code and attributes of the given CDS data definition and stores
+them in local files.
+
+```bash
+sapcli checkout ddl zhello_world_cds
+```
+
+Fetches source code and attributes of the given CDS access control and stores
+them in local files.
+
+```bash
+sapcli checkout dcl zhello_world_role
+```
+
+Fetches source code and attributes of the given CDS metadata extension and
+stores them in local files.
+
+```bash
+sapcli checkout ddlx zhello_world_ext
+```
+
+Fetches source code and attributes of the given CDS behavior definition and
+stores them in local files.
+
+```bash
+sapcli checkout bdef zhello_world_bo
+```
+
+Fetches source codes of classes, programs, interfaces, function groups,
+table types, CDS data definitions, CDS access controls, CDS metadata
+extensions, and CDS behavior definitions of the given package
 and stores them in corresponding files in a local file system directory.
 
 The new directory is populated with the file _.abapgit.xml_ which has the format
@@ -92,3 +121,60 @@ a warning.
 
 Checkout does not write the fields `TYPELEN` and `ROWTYPEPOS` because ADT does
 not provide them. Checkin does not need them.
+
+
+## Data definitions
+
+CDS data definitions (DDL sources) are stored in the files _.ddls.asddls_
+(source code) and _.ddls.xml_ (attributes in the section `DDLS`) the same way
+as abapGit does.
+
+The command `sapcli checkin package` creates data definitions together with
+table types before classes, interfaces, and programs to allow them to use the
+data definitions. Checkin accepts but does not need the files _.ddls.baseinfo_
+because ADT computes the list of used objects from the source code.
+
+Checkout does not write the files _.ddls.baseinfo_ and the field
+`SOURCE_ORIGIN`. ADT does not provide the abapGit codes of `SOURCE_TYPE`, so
+checkout derives them from the definition statement - `V` (view), `W` (view
+entity), `P` (projection view), `F` (table function), and `A` (abstract entity).
+Checkout leaves out `SOURCE_TYPE` of other data definitions with a warning.
+
+
+## Access controls
+
+CDS access controls (DCL sources) are stored in the files _.dcls.asdcls_
+(source code) and _.dcls.xml_ (attributes in the section `DCLS`) the same way
+as abapGit does.
+
+The command `sapcli checkin package` creates access controls after all other
+objects to allow them to use the data definitions the same way as abapGit
+deserializes them in the late step.
+
+
+## Metadata extensions
+
+CDS metadata extensions are stored in the files _.ddlx.asddlxs_ (source code)
+and _.ddlx.xml_ (attributes in the section `DDLX`) the same way as abapGit
+does. Unlike the other objects, the section `DDLX` holds the original language
+as an ISO code (e.g. `EN`).
+
+The command `sapcli checkin package` creates metadata extensions after data
+definitions to allow them to annotate the data definitions. Old abapGit
+versions stored the source code in the file _.ddlx.xml_ - checkin does not
+support such files and reports the missing file _.ddlx.asddlxs_ instead.
+
+
+## Behavior definitions
+
+CDS behavior definitions are stored in the files _.bdef.asbdef_ (source code)
+and _.bdef.xml_ (attributes in the section `BDEF`) the same way as abapGit
+does. The section `BDEF` holds the object attributes as ADT returns them -
+including the relations to other ADT resources (`LINKS`) - so checkout writes
+the same file as abapGit running on the same system.
+
+The command `sapcli checkin package` creates behavior definitions right before
+classes and activates them together because behavior pools are classes for
+behavior of the behavior definitions which refer to the behavior pools. Behavior
+extensions are created as plain behavior definitions - use the command
+`sapcli bdef extend` to create them before running checkin.
