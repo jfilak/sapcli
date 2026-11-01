@@ -11,7 +11,8 @@ import sap.cli.core
 from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
-    DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS
+    DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS, DD02V, DD03P, DD03P_TABLE, \
+    TABCLASS_STRUCTURE, DD02V_EXCLASS_TO_DDL, DDIC_DATATYPE_TO_DDL
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -632,6 +633,249 @@ def behaviordefinition(connection, args):
     checkout_behavior_definition(connection, args.name.upper())
 
 
+DDL_TO_DD02V_EXCLASS = {ddl: code for code, ddl in DD02V_EXCLASS_TO_DDL.items()}
+DDL_TO_DDIC_DATATYPE = {ddl: (ddic, params) for ddic, (ddl, params) in DDIC_DATATYPE_TO_DDL.items()}
+
+# DDIC lengths and decimals of the DDIC built-in data types without DDL parameters
+DDIC_DATATYPE_FIXED_LENGTH = {
+    'INT1': ('3', '0'),
+    'INT2': ('5', '0'),
+    'INT4': ('10', '0'),
+    'INT8': ('19', '0'),
+    'FLTP': ('16', '16'),
+    'CUKY': ('5', '0'),
+    'DATS': ('8', '0'),
+    'TIMS': ('6', '0'),
+    'CLNT': ('3', '0'),
+    'LANG': ('1', '0'),
+    'ACCP': ('6', '0'),
+}
+
+# ABAP internal types of DDIC built-in data types and their lengths in bytes
+# computed from the DDIC lengths - checkout does not write them for the
+# types which are not listed here
+DDIC_DATATYPE_INTERNAL_TYPE = {
+    'CHAR': ('C', lambda length: length * 2),
+    'NUMC': ('N', lambda length: length * 2),
+    'RAW': ('X', lambda length: length),
+    'LRAW': ('X', lambda length: length),
+    'LCHR': ('C', lambda length: length * 2),
+    'STRG': ('g', lambda length: 8),
+    'UNIT': ('C', lambda length: length * 2),
+    'DEC': ('P', lambda length: (length + 2) // 2),
+    'CURR': ('P', lambda length: (length + 2) // 2),
+    'QUAN': ('P', lambda length: (length + 2) // 2),
+    'INT1': ('X', lambda length: 1),
+    'INT2': ('X', lambda length: 2),
+    'INT4': ('X', lambda length: 4),
+    'INT8': ('8', lambda length: 8),
+    'FLTP': ('F', lambda length: 8),
+    'CUKY': ('C', lambda length: length * 2),
+    'DATS': ('D', lambda length: length * 2),
+    'TIMS': ('T', lambda length: length * 2),
+    'CLNT': ('C', lambda length: length * 2),
+    'LANG': ('C', lambda length: length * 2),
+    'ACCP': ('N', lambda length: length * 2),
+}
+
+# Tokens of DDL source code - comments are matched to be skipped
+DDL_TOKENS = re.compile(r"""(?P<comment>//[^\n]*|--[^\n]*|/\*.*?\*/)"""
+                        r"""|(?P<token>'(?:[^']|'')*'|"[^"]*"|[{}():;,]|[^\s{}():;,'"]+)""", re.DOTALL)
+
+
+def _ddl_unquote(token):
+    """Returns the value of the DDL string literal or delimited name"""
+
+    if token[:1] in ('"', "'"):
+        return token[1:-1].replace("''", "'")
+
+    return token
+
+
+class StructureSourceParser:
+    """Parser of DDL source code of structures"""
+
+    def __init__(self, source):
+        self._tokens = [match.group('token') for match in DDL_TOKENS.finditer(source) if match.group('token')]
+        self._index = 0
+
+    def _peek(self):
+        if self._index >= len(self._tokens):
+            raise sap.cli.core.SAPCliError('unexpected end of source code')
+
+        return self._tokens[self._index]
+
+    def _next(self):
+        token = self._peek()
+        self._index += 1
+        return token
+
+    def _expect(self, expected):
+        token = self._next()
+        if token.lower() != expected:
+            raise sap.cli.core.SAPCliError(f'unexpected token "{token}"')
+
+    def _annotations(self, supported):
+        annotations = {}
+
+        while self._peek().startswith('@'):
+            name = self._next()
+            if name.lower() not in supported:
+                raise sap.cli.core.SAPCliError(f'unsupported annotation {name}')
+
+            self._expect(':')
+            annotations[name.lower()] = self._next()
+
+        return annotations
+
+    def _include(self, field):
+        field.FIELDNAME = '.INCLUDE'
+        field.PRECFIELD = self._next().upper()
+
+        if self._peek().lower() == 'with':
+            self._next()
+            self._expect('suffix')
+            field.FIELDNAME = f'.INCLU-{self._next().upper()}'
+
+        field.MASK = '      S'
+        field.COMPTYPE = 'S'
+
+    def _type(self, field):
+        type_name = self._next()
+        if not type_name.lower().startswith('abap.'):
+            field.ROLLNAME = type_name.upper()
+            return
+
+        params = []
+        if self._peek() == '(':
+            self._next()
+            params.append(self._next())
+            if self._peek() == ',':
+                self._next()
+                params.append(self._next())
+            self._expect(')')
+
+        try:
+            datatype, param_count = DDL_TO_DDIC_DATATYPE[type_name.lower()[5:]]
+        except KeyError as ex:
+            raise sap.cli.core.SAPCliError(f'unsupported data type {type_name}') from ex
+
+        if len(params) != param_count:
+            raise sap.cli.core.SAPCliError(f'invalid parameters of data type {type_name}')
+
+        length, decimals = (params + ['0', '0'])[:2] if param_count else DDIC_DATATYPE_FIXED_LENGTH[datatype]
+
+        if datatype in DDIC_DATATYPE_INTERNAL_TYPE:
+            inttype, intlen = DDIC_DATATYPE_INTERNAL_TYPE[datatype]
+            field.INTTYPE = inttype
+            field.INTLEN = _ddic_number(intlen(int(length)), 6)
+
+        field.DATATYPE = datatype
+        field.LENG = _ddic_number(length, 6)
+        field.DECIMALS = _ddic_number(decimals, 6)
+        field.MASK = f'  {datatype}'
+
+    def _field(self):
+        annotations = self._annotations(('@endusertext.label', '@semantics.amount.currencycode',
+                                         '@semantics.quantity.unitofmeasure'))
+
+        # The values are set in the order of the members to keep the order
+        # of XML elements
+        field = DD03P()
+        field.ADMINFIELD = '0'
+
+        name = self._next()
+        if name.lower() == 'include':
+            self._include(field)
+        else:
+            self._expect(':')
+            if self._peek().lower() == 'include':
+                self._next()
+                field.GROUPNAME = _ddl_unquote(name).upper()
+                self._include(field)
+            else:
+                field.FIELDNAME = _ddl_unquote(name).upper()
+                self._type(field)
+
+        self._expect(';')
+
+        if '@endusertext.label' in annotations:
+            field.DDTEXT = _ddl_unquote(annotations['@endusertext.label'])
+
+        reference = annotations.get('@semantics.amount.currencycode',
+                                    annotations.get('@semantics.quantity.unitofmeasure'))
+        if reference:
+            field.REFTABLE, _, field.REFFIELD = _ddl_unquote(reference).upper().partition('.')
+
+        return field
+
+    def parse(self):
+        """Returns the enhancement category and the fields of the structure"""
+
+        annotations = self._annotations(('@endusertext.label', '@abapcatalog.enhancement.category'))
+
+        self._expect('define')
+        self._expect('structure')
+        self._next()
+        self._expect('{')
+
+        fields = DD03P_TABLE()
+        while self._peek() != '}':
+            fields.append(self._field())
+
+        self._next()
+        if self._index < len(self._tokens):
+            raise sap.cli.core.SAPCliError(f'unexpected token "{self._tokens[self._index]}"')
+
+        category = annotations.get('@abapcatalog.enhancement.category')
+        if category is None:
+            return (None, fields)
+
+        try:
+            return (DDL_TO_DD02V_EXCLASS[category.upper()], fields)
+        except KeyError as ex:
+            raise sap.cli.core.SAPCliError(f'unsupported enhancement category {category}') from ex
+
+
+def build_structure_abap_attributes(adt_structure, source):
+    """Returns populated ABAP structures with attributes"""
+
+    exclass, fields = StructureSourceParser(source).parse()
+
+    dd02v = DD02V()
+    dd02v.TABNAME = adt_structure.name
+    dd02v.DDLANGUAGE = iso_code_to_sap_code(adt_structure.master_language)
+    dd02v.TABCLASS = TABCLASS_STRUCTURE
+    dd02v.DDTEXT = adt_structure.description
+    dd02v.MASTERLANG = iso_code_to_sap_code(adt_structure.master_language)
+    dd02v.EXCLASS = exclass
+
+    return (dd02v, fields)
+
+
+def checkout_structure(connection, name, destdir=None):
+    """Download structure attributes"""
+
+    sap.cli.core.printout(name)
+    adt_structure = sap.adt.Structure(connection, name)
+    adt_structure.fetch()
+
+    try:
+        abap_attributes = build_structure_abap_attributes(adt_structure, adt_structure.text)
+    except sap.cli.core.SAPCliError as ex:
+        raise sap.cli.core.SAPCliError(f'Checkout of structure {name} failed: {ex}')
+
+    dump_attributes_to_file(name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def structure(connection, args):
+    """Download structure attributes command wrapper"""
+
+    checkout_structure(connection, args.name.upper())
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
@@ -650,6 +894,7 @@ def checkout_objects(connection, objects, destdir=None):
         sap.adt.AccessControl.OBJTYPE.code: checkout_access_control,
         sap.adt.MetadataExtension.OBJTYPE.code: checkout_metadata_extension,
         sap.adt.BehaviorDefinition.OBJTYPE.code: checkout_behavior_definition,
+        sap.adt.Structure.OBJTYPE.code: checkout_structure,
     }
 
     if not os.path.isdir(destdir):

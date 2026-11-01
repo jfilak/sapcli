@@ -21,7 +21,8 @@ from test.unit.fixtures_cli_checkout import FUNCTION_GROUP_XML, FUNCTION_INCLUDE
     TTYP_STRING_ABAPGIT_XML, TTYP_SECONDARY_KEYS_ABAPGIT_XML, DDLS_NAME, DDLS_ADT_GET_RESPONSE_XML, DDLS_SOURCE_CODE, \
     DDLS_ABAPGIT_XML, DDLS_NO_SOURCE_TYPE_ABAPGIT_XML, DCLS_NAME, DCLS_ADT_GET_RESPONSE_XML, DCLS_SOURCE_CODE, \
     DCLS_ABAPGIT_XML, DDLX_NAME, DDLX_ADT_GET_RESPONSE_XML, DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML, BDEF_ABAPGIT_XML, \
-    BDEF_SOURCE_CODE
+    BDEF_SOURCE_CODE, TABL_NAME, TABL_ADT_GET_RESPONSE_XML, TABL_SOURCE_CODE, TABL_ABAPGIT_XML, \
+    TABL_ALL_FEATURES_SOURCE_CODE, TABL_ALL_FEATURES_ABAPGIT_XML
 from test.unit.fixtures_sap_adt_behaviordefinition import BDEF_NAME, BDEF_ADT_GET_RESPONSE_XML
 from test.unit.fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
     TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML, TABLE_TYPE_ADT_GET_SECONDARY_KEYS_RESPONSE_XML, \
@@ -1301,6 +1302,145 @@ class TestCheckoutBehaviorDefinition(ConsoleOutputTestCase, PatcherTestCase):
             sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
 
         fake_checkout.assert_called_once_with('connection', BDEF_NAME, 'src')
+
+
+class TestCheckoutStructure(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+    def checkout(self, source_code, destdir=None):
+        connection = Connection([Response(text=TABL_ADT_GET_RESPONSE_XML, status_code=200, headers={}),
+                                 Response(text=source_code, status_code=200,
+                                          headers={'Content-Type': 'text/plain; charset=utf-8'})])
+
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+            sap.cli.checkout.checkout_structure(connection, TABL_NAME, destdir=destdir)
+
+        self.assertEqual(connection.mock_methods(), [
+            ('GET', f'/sap/bc/adt/ddic/structures/{TABL_NAME.lower()}'),
+            ('GET', f'/sap/bc/adt/ddic/structures/{TABL_NAME.lower()}/source/main'),
+        ])
+
+        return fake_open
+
+    def checkout_failure(self, source_code):
+        with self.assertRaises(sap.cli.core.SAPCliError) as caught:
+            self.checkout(source_code)
+
+        return str(caught.exception)
+
+    def assert_wrote_abapgit_file(self, fake_open, contents):
+        fake_open.assert_called_once_with(f'{TABL_NAME.lower()}.tabl.xml', 'w', encoding='utf8')
+
+        written = ''.join(write_call.args[0] for write_call in fake_open().write.call_args_list)
+        self.maxDiff = None
+        self.assertEqual(written, contents)
+
+    def test_checkout_tabl(self):
+        fake_open = self.checkout(TABL_SOURCE_CODE)
+
+        self.assert_wrote_abapgit_file(fake_open, TABL_ABAPGIT_XML)
+        self.assertConsoleContents(self.console, stdout=f'{TABL_NAME}\n- {TABL_NAME.lower()}.tabl.xml\n')
+
+    def test_checkout_tabl_all_features(self):
+        fake_open = self.checkout(TABL_ALL_FEATURES_SOURCE_CODE)
+
+        self.assert_wrote_abapgit_file(fake_open, TABL_ALL_FEATURES_ABAPGIT_XML)
+
+    def test_checkout_tabl_no_enhancement_category(self):
+        fake_open = self.checkout(TABL_SOURCE_CODE.replace('@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE\n', ''))
+
+        self.assert_wrote_abapgit_file(fake_open, TABL_ABAPGIT_XML.replace('    <EXCLASS>1</EXCLASS>\n', ''))
+
+    def test_checkout_tabl_destdir(self):
+        fake_open = self.checkout(TABL_SOURCE_CODE, destdir='src')
+
+        fake_open.assert_called_once_with(os.path.join('src', f'{TABL_NAME.lower()}.tabl.xml'), 'w', encoding='utf8')
+
+    def test_checkout_tabl_unsupported_annotation(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE.replace('@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE',
+                                                                 '@AbapCatalog.dataMaintenance : #RESTRICTED'))
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed:'
+                                  ' unsupported annotation @AbapCatalog.dataMaintenance')
+
+    def test_checkout_tabl_unsupported_field_annotation(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE.replace('  created_at',
+                                                                 '  @AbapCatalog.textLanguage\n  created_at'))
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed:'
+                                  ' unsupported annotation @AbapCatalog.textLanguage')
+
+    def test_checkout_tabl_unsupported_enhancement_category(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE.replace('#NOT_EXTENSIBLE', '#FOO'))
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: unsupported enhancement category #FOO')
+
+    def test_checkout_tabl_unsupported_data_type(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE.replace('abap.char(12)', 'abap.utclong'))
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: unsupported data type abap.utclong')
+
+    def test_checkout_tabl_invalid_data_type_parameters(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE.replace('abap.char(12)', 'abap.char(12,2)'))
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: invalid parameters of data type abap.char')
+
+    def test_checkout_tabl_reference(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE.replace('timestampl', 'reference to cl_abap_typedescr'))
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: unexpected token "to"')
+
+    def test_checkout_tabl_foreign_key(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE.replace('devclass;',
+                                                                 'devclass with foreign key tdevc'
+                                                                 ' where devclass = zsapcli_struct.abap_package;'))
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: unexpected token "with"')
+
+    def test_checkout_tabl_table(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE.replace('define structure', 'define table'))
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: unexpected token "table"')
+
+    def test_checkout_tabl_trailing_tokens(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE + ';')
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: unexpected token ";"')
+
+    def test_checkout_tabl_unexpected_end(self):
+        message = self.checkout_failure(TABL_SOURCE_CODE[:-1])
+
+        self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: unexpected end of source code')
+
+    def test_checkout_tabl_command(self):
+        args = parse_args(['structure', TABL_NAME.lower()])
+
+        with patch('sap.cli.checkout.checkout_structure') as fake_checkout:
+            args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', TABL_NAME)
+
+    def test_checkout_objects_tabl(self):
+        objects = [SimpleNamespace(typ='TABL/DS', name=TABL_NAME)]
+
+        with patch('sap.cli.checkout.checkout_structure') as fake_checkout, \
+             patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', TABL_NAME, 'src')
 
 
 if __name__ == '__main__':
