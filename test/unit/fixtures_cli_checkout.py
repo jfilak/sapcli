@@ -498,3 +498,209 @@ authorization master ( instance )
   update;
   delete;
 }'''
+
+TABL_NAME = 'ZSAPCLI_STRUCT'
+
+TABL_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" abapsource:sourceUri="./{TABL_NAME.lower()}/source/main" abapsource:fixPointArithmetic="false" abapsource:activeUnicodeCheck="false" adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:abapLanguageVersion="standard" adtcore:name="{TABL_NAME}" adtcore:type="TABL/DS" adtcore:changedAt="2026-10-21T11:38:40Z" adtcore:version="active" adtcore:createdAt="2026-10-21T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Test structure" adtcore:language="EN" xmlns:abapsource="http://www.sap.com/adt/abapsource" xmlns:adtcore="http://www.sap.com/adt/core">
+  <atom:link href="./{TABL_NAME.lower()}/source/main" rel="http://www.sap.com/adt/relations/source" type="text/plain" title="Source Content" etag="20261021113840001text/plain2" xmlns:atom="http://www.w3.org/2005/Atom"/>
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:description="Local objects"/>
+</blue:blueSource>'''
+
+TABL_SOURCE_CODE = f'''@EndUserText.label : 'Test structure'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+define structure {TABL_NAME.lower()} {{
+
+  repo_key     : abap.char(12);
+  abap_package : devclass;
+  is_offline   : xfeld;
+  created_at   : timestampl;
+
+}}'''
+
+TABL_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD02V>
+    <TABNAME>{TABL_NAME}</TABNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <TABCLASS>INTTAB</TABCLASS>
+    <DDTEXT>Test structure</DDTEXT>
+    <MASTERLANG>E</MASTERLANG>
+    <EXCLASS>1</EXCLASS>
+   </DD02V>
+   <DD03P_TABLE>
+    <DD03P>
+     <FIELDNAME>REPO_KEY</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>C</INTTYPE>
+     <INTLEN>000024</INTLEN>
+     <DATATYPE>CHAR</DATATYPE>
+     <LENG>000012</LENG>
+     <MASK>  CHAR</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>ABAP_PACKAGE</FIELDNAME>
+     <ROLLNAME>DEVCLASS</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>IS_OFFLINE</FIELDNAME>
+     <ROLLNAME>XFELD</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>CREATED_AT</FIELDNAME>
+     <ROLLNAME>TIMESTAMPL</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+    </DD03P>
+   </DD03P_TABLE>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+# Formatted differently than sapcli formats the source code on checkin and
+# with comments to make sure checkout does not depend on the format
+TABL_ALL_FEATURES_SOURCE_CODE = f'''@EndUserText.label:'Developer''s structure'
+@AbapCatalog.enhancement.category: #EXTENSIBLE_ANY
+// the structure for tests
+define structure {TABL_NAME.lower()}
+{{
+  include zsapcli_incl;
+  include zsapcli_incl with suffix _x;
+  admin : include zsapcli_admin;
+  /* currency
+     key */
+  waers : abap.cuky;
+  @Semantics.amount.currencyCode : '{TABL_NAME.lower()}.waers'
+  amount : abap.curr( 15, 2 );
+  @Semantics.amount.currencyCode : '{TABL_NAME.lower()}.waers'
+  wrbtr : wrbtr;
+  meins : abap.unit(3); -- unit of measure
+  @Semantics.quantity.unitOfMeasure : '{TABL_NAME.lower()}.meins'
+  quantity : abap.quan(13,3);
+  counter : abap.int4;
+  @EndUserText.label : 'Developer''s note'
+  note : abap.string(0);
+  "/sapcli/flag" : abap.char(1);
+}}
+'''
+
+TABL_ALL_FEATURES_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD02V>
+    <TABNAME>{TABL_NAME}</TABNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <TABCLASS>INTTAB</TABCLASS>
+    <DDTEXT>Test structure</DDTEXT>
+    <MASTERLANG>E</MASTERLANG>
+    <EXCLASS>4</EXCLASS>
+   </DD02V>
+   <DD03P_TABLE>
+    <DD03P>
+     <FIELDNAME>.INCLUDE</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <PRECFIELD>ZSAPCLI_INCL</PRECFIELD>
+     <MASK>      S</MASK>
+     <COMPTYPE>S</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>.INCLU-_X</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <PRECFIELD>ZSAPCLI_INCL</PRECFIELD>
+     <MASK>      S</MASK>
+     <COMPTYPE>S</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>.INCLUDE</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <PRECFIELD>ZSAPCLI_ADMIN</PRECFIELD>
+     <MASK>      S</MASK>
+     <COMPTYPE>S</COMPTYPE>
+     <GROUPNAME>ADMIN</GROUPNAME>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>WAERS</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>C</INTTYPE>
+     <INTLEN>000010</INTLEN>
+     <DATATYPE>CUKY</DATATYPE>
+     <LENG>000005</LENG>
+     <MASK>  CUKY</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>AMOUNT</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>P</INTTYPE>
+     <INTLEN>000008</INTLEN>
+     <REFTABLE>{TABL_NAME}</REFTABLE>
+     <REFFIELD>WAERS</REFFIELD>
+     <DATATYPE>CURR</DATATYPE>
+     <LENG>000015</LENG>
+     <DECIMALS>000002</DECIMALS>
+     <MASK>  CURR</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>WRBTR</FIELDNAME>
+     <ROLLNAME>WRBTR</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <REFTABLE>{TABL_NAME}</REFTABLE>
+     <REFFIELD>WAERS</REFFIELD>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>MEINS</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>C</INTTYPE>
+     <INTLEN>000006</INTLEN>
+     <DATATYPE>UNIT</DATATYPE>
+     <LENG>000003</LENG>
+     <MASK>  UNIT</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>QUANTITY</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>P</INTTYPE>
+     <INTLEN>000007</INTLEN>
+     <REFTABLE>{TABL_NAME}</REFTABLE>
+     <REFFIELD>MEINS</REFFIELD>
+     <DATATYPE>QUAN</DATATYPE>
+     <LENG>000013</LENG>
+     <DECIMALS>000003</DECIMALS>
+     <MASK>  QUAN</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>COUNTER</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>X</INTTYPE>
+     <INTLEN>000004</INTLEN>
+     <DATATYPE>INT4</DATATYPE>
+     <LENG>000010</LENG>
+     <MASK>  INT4</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>NOTE</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>g</INTTYPE>
+     <INTLEN>000008</INTLEN>
+     <DATATYPE>STRG</DATATYPE>
+     <MASK>  STRG</MASK>
+     <DDTEXT>Developer's note</DDTEXT>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>/SAPCLI/FLAG</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>C</INTTYPE>
+     <INTLEN>000002</INTLEN>
+     <DATATYPE>CHAR</DATATYPE>
+     <LENG>000001</LENG>
+     <MASK>  CHAR</MASK>
+    </DD03P>
+   </DD03P_TABLE>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''

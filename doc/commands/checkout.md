@@ -33,6 +33,12 @@ Fetches attributes of the given table type and stores them in a local file.
 sapcli checkout tabletype zhello_world_tab
 ```
 
+Fetches attributes of the given structure and stores them in a local file.
+
+```bash
+sapcli checkout structure zhello_world_str
+```
+
 Fetches source code and attributes of the given CDS data definition and stores
 them in local files.
 
@@ -62,7 +68,7 @@ sapcli checkout bdef zhello_world_bo
 ```
 
 Fetches source codes of classes, programs, interfaces, function groups,
-table types, CDS data definitions, CDS access controls, CDS metadata
+structures, table types, CDS data definitions, CDS access controls, CDS metadata
 extensions, and CDS behavior definitions of the given package
 and stores them in corresponding files in a local file system directory.
 
@@ -178,3 +184,34 @@ classes and activates them together because behavior pools are classes for
 behavior of the behavior definitions which refer to the behavior pools. Behavior
 extensions are created as plain behavior definitions - use the command
 `sapcli bdef extend` to create them before running checkin.
+
+
+## Structures
+
+Structures are stored in the files _.tabl.xml_ with the sections `DD02V`
+(header) and `DD03P_TABLE` (components) the same way as abapGit does. ADT
+works with structures as DDL source code (`define structure`), so checkin
+generates the source code from the abapGit file and checkout parses the source
+code returned by ADT.
+
+The command `sapcli checkin package` creates structures right before table
+types, which use them as row types, and activates them together before
+classes, interfaces, and programs. Database tables are not supported yet.
+
+Supported are components typed by DDIC types (data elements, structures,
+table types) and by the DDIC built-in types `CHAR`, `NUMC`, `RAW`, `LRAW`,
+`LCHR`, `STRG`, `RSTR`, `SSTR`, `UNIT`, `DEC`, `CURR`, `QUAN`, `INT1`, `INT2`,
+`INT4`, `INT8`, `FLTP`, `CUKY`, `DATS`, `TIMS`, `CLNT`, `LANG`, and `ACCP`,
+includes (with suffixes and group names), labels of components typed by
+built-in types, and currency and unit references. References (`REF TO`),
+foreign keys, search helps, and append structures are not supported.
+
+Checkin determines whether a reference points to a currency or to a unit from
+the data type of the component or of the referenced component of the same
+structure - references between components typed by data elements are not
+supported because abapGit does not write their data types.
+
+Checkout does not write the fields `COMPTYPE`, `SHLPORIGIN`, and `VALEXI` of
+components typed by DDIC types because ADT does not provide them. Checkin does
+not need them. Checkout writes the fields `INTTYPE` and `INTLEN` of
+components typed by built-in types except `RSTR` and `SSTR`.

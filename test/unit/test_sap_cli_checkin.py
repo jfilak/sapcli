@@ -30,7 +30,12 @@ from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, CLAS_WITH_DESCRIPTI
     DDLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DCLS_NAME, DCLS_XML, DCLS_ABAP_LANGUAGE_VERSION_XML, DCLS_SOURCE_CODE, \
     DCLS_ADT_NEW_OBJECT_REQUEST_XML, DCLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DDLX_NAME, DDLX_XML, \
     DDLX_ABAP_LANGUAGE_VERSION_XML, DDLX_SOURCE_CODE, DDLX_ADT_NEW_OBJECT_REQUEST_XML, DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, \
-    BDEF_NAME, BDEF_XML, BDEF_SOURCE_CODE, BDEF_ADT_NEW_OBJECT_REQUEST_XML, BDEF_ADT_ALREADY_EXISTS_RESPONSE_XML
+    BDEF_NAME, BDEF_XML, BDEF_SOURCE_CODE, BDEF_ADT_NEW_OBJECT_REQUEST_XML, BDEF_ADT_ALREADY_EXISTS_RESPONSE_XML, \
+    TABL_NAME, TABL_XML, TABL_SOURCE_CODE, TABL_ALL_FEATURES_XML, TABL_ALL_FEATURES_SOURCE_CODE, TABL_NO_EXCLASS_XML, \
+    TABL_NO_EXCLASS_SOURCE_CODE, TABL_TRANSPARENT_XML, TABL_UNKNOWN_EXCLASS_XML, TABL_REFERENCE_XML, \
+    TABL_UNKNOWN_DATATYPE_XML, TABL_APPEND_XML, TABL_UNKNOWN_REFERENCE_XML, TABL_FOREIGN_KEYS_XML, \
+    TABL_ADT_NEW_OBJECT_REQUEST_XML, TABL_ADT_ALREADY_EXISTS_RESPONSE_XML, TABL_DELIMITED_GROUP_XML, \
+    TABL_DELIMITED_GROUP_SOURCE_CODE
 from fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
     TABLE_TYPE_ADT_NEW_OBJECT_REQUEST_XML, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML, \
     TABLE_TYPE_ADT_DEFINE_SORTED_REQUEST_XML, TABLE_TYPE_ADT_ALREADY_EXISTS_RESPONSE_XML
@@ -459,7 +464,7 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
                          [('ddls', 'zcds', './src/zcds.ddls.xml', ['./src/zcds.ddls.asddls', './src/zcds.ddls.baseinfo'])])
 
     def test_load_objects_ignores_files_without_dot(self):
-        root = DirContentBuilder('./src/').add_abap_program('run_report').add_file('README').add_file('ztable.tabl.xml')
+        root = DirContentBuilder('./src/').add_abap_program('run_report').add_file('README').add_file('zdomain.doma.xml')
         self.walk_stands = [root.walk_stand()]
         self.files = root.files()
 
@@ -472,7 +477,7 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(repo.unused_files,
                          ['./src/README',
                           './src/run_report.prog.abap',
-                          './src/ztable.tabl.xml'])
+                          './src/zdomain.doma.xml'])
 
     @patch('sap.cli.checkin._get_config')
     @patch('sap.cli.checkin.checkin_package')
@@ -522,11 +527,13 @@ Activating objects ...
         ddlx = sap.cli.checkin.RepoObject(code='ddlx', name='cds_ext', path='./cds_ext', package=None, files=[])
         bdef = sap.cli.checkin.RepoObject(code='bdef', name='cds_bo', path='./cds_bo', package=None, files=[])
 
-        objects = [clas, dcls, ddls, ddlx, prog, intf, fugr, ttyp, bdef]
+        tabl = sap.cli.checkin.RepoObject(code='tabl', name='structure', path='./structure', package=None, files=[])
+
+        objects = [clas, dcls, ddls, ddlx, prog, intf, fugr, ttyp, bdef, tabl]
 
         deps = sap.cli.checkin._resolve_dependencies(objects)
 
-        self.assertEqual(deps, [[ddls, ttyp], [bdef, clas, intf], [prog], [dcls, ddlx, fugr]])
+        self.assertEqual(deps, [[tabl, ddls, ttyp], [bdef, clas, intf], [prog], [dcls, ddlx, fugr]])
 
     @patch('sap.cli.checkin._checkin_dependency_group')
     @patch('sap.cli.checkin._resolve_dependencies')
@@ -2237,6 +2244,167 @@ Writing Behavior Definition: {BDEF_NAME.lower()}
 
     def test_checkin_bdef_handler(self, fake_lock, fake_unlock):
         self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['bdef'], sap.cli.checkin.checkin_bdef)
+
+
+@patch('sap.adt.objects.ADTObject.unlock')
+@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
+class TestCheckInStructure(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.repo_obj = sap.cli.checkin.RepoObject('tabl', TABL_NAME.lower(),
+                                                   f'./src/{TABL_NAME.lower()}.tabl.xml', self.package, [])
+
+    def checkin(self, abapgit_xml, responses, corrnr=None):
+        connection = Connection(responses, user='DEVELOPER')
+
+        with patch('sap.cli.checkin.open', mock_open(read_data=abapgit_xml)) as fake_open:
+            result = sap.cli.checkin.checkin_tabl(connection, self.repo_obj, corrnr=corrnr)
+
+        fake_open.assert_called_once_with(self.repo_obj.path, encoding='utf-8')
+
+        return (connection, result)
+
+    def checkin_failure(self, abapgit_xml):
+        connection = Connection([], user='DEVELOPER')
+
+        with patch('sap.cli.checkin.open', mock_open(read_data=abapgit_xml)), \
+             self.assertRaises(ExceptionCheckinFailure) as caught:
+            sap.cli.checkin.checkin_tabl(connection, self.repo_obj)
+
+        self.assertEqual(connection.execs, [])
+
+        return caught.exception.message
+
+    def responses_ok(self):
+        return [
+            Response(text='', status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ]
+
+    def assert_requests(self, connection, source_code, create_params=None, write_params=None):
+        self.assertEqual(len(connection.execs), 2)
+
+        self.assertEqual(connection.execs[0].method, 'POST')
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/ddic/structures')
+        self.assertEqual(connection.execs[0].params, create_params)
+        self.maxDiff = None
+        self.assertEqual(connection.execs[0].body.decode('utf-8'), TABL_ADT_NEW_OBJECT_REQUEST_XML)
+
+        self.assertEqual(connection.execs[1].method, 'PUT')
+        self.assertEqual(connection.execs[1].adt_uri, f'/sap/bc/adt/ddic/structures/{TABL_NAME.lower()}/source/main')
+        self.assertEqual(connection.execs[1].headers, {'Content-Type': 'text/plain; charset=utf-8'})
+        self.assertEqual(connection.execs[1].params, write_params or {'lockHandle': 'lock_handle'})
+        self.assertEqual(connection.execs[1].body.decode('utf-8'), source_code)
+
+    def test_checkin_tabl(self, fake_lock, fake_unlock):
+        connection, result = self.checkin(TABL_XML, self.responses_ok())
+
+        self.assert_requests(connection, TABL_SOURCE_CODE)
+        fake_lock.assert_called_once()
+        fake_unlock.assert_called_once()
+
+        self.assertEqual(len(result.abap_objects), 1)
+        self.assertEqual(result.abap_objects[0].name, TABL_NAME)
+        self.assertEqual(result.used_files, [])
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Structure: {TABL_NAME.lower()}
+Writing Structure: {TABL_NAME.lower()}
+''')
+
+    def test_checkin_tabl_all_features(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(TABL_ALL_FEATURES_XML, self.responses_ok())
+
+        # the description of the new object is not part of the test
+        self.assertEqual(connection.execs[1].body.decode('utf-8'), TABL_ALL_FEATURES_SOURCE_CODE)
+
+    def test_checkin_tabl_no_exclass(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(TABL_NO_EXCLASS_XML, self.responses_ok())
+
+        self.assert_requests(connection, TABL_NO_EXCLASS_SOURCE_CODE)
+
+    def test_checkin_tabl_delimited_group_name(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(TABL_DELIMITED_GROUP_XML, self.responses_ok())
+
+        self.assert_requests(connection, TABL_DELIMITED_GROUP_SOURCE_CODE)
+
+    def test_checkin_tabl_with_corrnr(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(TABL_XML, self.responses_ok(), corrnr='420')
+
+        self.assert_requests(connection, TABL_SOURCE_CODE, create_params={'corrNr': '420'},
+                             write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
+
+    def test_checkin_tabl_already_exists(self, fake_lock, fake_unlock):
+        responses = self.responses_ok()
+        responses[0] = Response(text=TABL_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                                headers={'content-type': 'application/xml'})
+
+        connection, _ = self.checkin(TABL_XML, responses)
+
+        self.assert_requests(connection, TABL_SOURCE_CODE)
+
+    def test_checkin_tabl_check_before_save(self, fake_lock, fake_unlock):
+        connection = Connection(self.responses_ok(), user='DEVELOPER')
+
+        with patch('sap.cli.checkin.open', mock_open(read_data=TABL_XML)), \
+             patch('sap.cli.checkin._write_source_file') as fake_write:
+            result = sap.cli.checkin.checkin_tabl(connection, self.repo_obj, check_before_save=True)
+
+        fake_write.assert_called_once_with(TABL_SOURCE_CODE, result.abap_objects[0], corrnr=None,
+                                           source_label=self.repo_obj.path, check_before_save=True)
+
+    def test_checkin_tabl_transparent_table(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(TABL_TRANSPARENT_XML)
+
+        self.assertEqual(message, f'Unsupported table category "TRANSP" of {TABL_NAME.lower()}:'
+                                  ' only structures are supported')
+
+    def test_checkin_tabl_unknown_exclass(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(TABL_UNKNOWN_EXCLASS_XML)
+
+        self.assertEqual(message, f'Unsupported enhancement category "9" of structure {TABL_NAME.lower()}')
+
+    def test_checkin_tabl_reference(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(TABL_REFERENCE_XML)
+
+        self.assertEqual(message, f'Unsupported reference type of the field OBJECT of structure {TABL_NAME.lower()}')
+
+    def test_checkin_tabl_unknown_datatype(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(TABL_UNKNOWN_DATATYPE_XML)
+
+        self.assertEqual(message, f'Unsupported data type "UTCL" of the field STAMP of structure {TABL_NAME.lower()}')
+
+    def test_checkin_tabl_append(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(TABL_APPEND_XML)
+
+        self.assertEqual(message, f'Unsupported field .APPEND of structure {TABL_NAME.lower()}')
+
+    def test_checkin_tabl_unknown_reference(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(TABL_UNKNOWN_REFERENCE_XML)
+
+        self.assertEqual(message, f'Cannot determine whether the field WRBTR of structure {TABL_NAME.lower()}'
+                                  ' refers to a currency or to a unit')
+
+    def test_checkin_tabl_foreign_keys(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(TABL_FOREIGN_KEYS_XML)
+
+        self.assertEqual(message, f'Unsupported contents of structure {TABL_NAME.lower()}: Got unexpected tag DD08V_TABLE')
+
+    def test_checkin_tabl_handler(self, fake_lock, fake_unlock):
+        self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['tabl'], sap.cli.checkin.checkin_tabl)
 
 
 if __name__ == '__main__':

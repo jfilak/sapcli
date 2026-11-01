@@ -556,3 +556,186 @@ class BDEF(Structure):
     SOURCE_TYPE: str
     SOURCE_FIXED_POINT_ARITHMETIC: str
     SOURCE_UNICODE_CHECKS_ACTIVE: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
+class DD02V(Structure):
+    """Table or structure header"""
+
+    TABNAME: str
+    DDLANGUAGE: str
+    TABCLASS: str
+    SQLTAB: str
+    DATMIN: str
+    DATMAX: str
+    DATAVG: str
+    CLIDEP: str
+    BUFFERED: str
+    COMPRFLAG: str
+    LANGDEP: str
+    DDTEXT: str
+    ACTFLAG: str
+    APPLCLASS: str
+    AUTHCLASS: str
+    AS4USER: str
+    AS4DATE: str
+    AS4TIME: str
+    MASTERLANG: str
+    MAINFLAG: str
+    CONTFLAG: str
+    RESERVETAB: str
+    GLOBALFLAG: str
+    PROZPUFF: str
+    VIEWCLASS: str
+    VIEWGRANT: str
+    MULTIPLEX: str
+    SHLPEXI: str
+    PROXYTYPE: str
+    EXCLASS: str
+    WRONGCL: str
+    ALWAYSTRP: str
+    ALLDATAINCL: str
+    WITH_PARAMETERS: str
+    EXVIEW_INCLUDED: str
+    KEYMAX_FEATURE: str
+    KEYLEN_FEATURE: str
+    TABLEN_FEATURE: str
+    NONTRP_INCLUDED: str
+    VIEWREF: str
+    VIEWREF_ERR: str
+    VIEWREF_POS_CHG: str
+    TBFUNC_INCLUDED: str
+    IS_GTT: str
+    SESSION_VAR_EX: str
+    FROM_ENTITY: str
+    PK_IS_INVHASH: str
+    USED_SESSION_VARS: str
+    HDB_ONLY_ENTITY_INCLUDED: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
+class DD03P(Structure):
+    """Table or structure field"""
+
+    TABNAME: str
+    FIELDNAME: str
+    DDLANGUAGE: str
+    POSITION: str
+    KEYFLAG: str
+    MANDATORY: str
+    ROLLNAME: str
+    CHECKTABLE: str
+    ADMINFIELD: str
+    INTTYPE: str
+    INTLEN: str
+    REFTABLE: str
+    PRECFIELD: str
+    REFFIELD: str
+    CONROUT: str
+    NOTNULL: str
+    DOMNAME: str
+    ROUTPUTLEN: str
+    MEMORYID: str
+    LOGFLAG: str
+    HEADLEN: str
+    SCRLEN1: str
+    SCRLEN2: str
+    SCRLEN3: str
+    DTELGLOBAL: str
+    DTELMASTER: str
+    RESERVEDTE: str
+    DATATYPE: str
+    LENG: str
+    OUTPUTLEN: str
+    DECIMALS: str
+    LOWERCASE: str
+    SIGNFLAG: str
+    LANGFLAG: str
+    VALEXI: str
+    ENTITYTAB: str
+    CONVEXIT: str
+    MASK: str
+    MASKLEN: str
+    ACTFLAG: str
+    DDTEXT: str
+    REPTEXT: str
+    SCRTEXT_S: str
+    SCRTEXT_M: str
+    SCRTEXT_L: str
+    DOMMASTER: str
+    RESERVEDOM: str
+    DOMGLOBAL: str
+    DOMNAME3L: str
+    SHLPORIGIN: str
+    SHLPNAME: str
+    SHLPFIELD: str
+    TABLETYPE: str
+    DEPTH: str
+    COMPTYPE: str
+    DEFFDNAME: str
+    GROUPNAME: str
+    REFTYPE: str
+    PROXYTYPE: str
+    LANGUFLAG: str
+    EXCLASS: str
+    LTRFLDDIS: str
+    BIDICTRLC: str
+    DBPOSITION: str
+    ANONYMOUS: str
+    OUTPUTSTYLE: str
+    NOHISTORY: str
+    AMPMFORMAT: str
+    STREAMORLOC: str
+    STRORLOCPOS: str
+    SQL_PASSVALUE: str
+    IS_VIRTUAL: str
+    IS_CALCULATED: str
+    EXTENDNAME: str
+    SRS_ID: str
+
+
+DD03P_TABLE = InternalTable.define('DD03P_TABLE', DD03P)  # type: Any
+
+# DD02V-TABCLASS of structures
+TABCLASS_STRUCTURE = 'INTTAB'
+
+# DD02V codes to the corresponding DDL values
+DD02V_EXCLASS_TO_DDL = {
+    '0': '#NOT_CLASSIFIED',
+    '1': '#NOT_EXTENSIBLE',
+    '2': '#EXTENSIBLE_CHARACTER',
+    '3': '#EXTENSIBLE_CHARACTER_NUMERIC',
+    '4': '#EXTENSIBLE_ANY',
+}
+
+# DDIC built-in data types to the DDL types abap.<name> and the number of
+# their parameters - length and decimals
+DDIC_DATATYPE_TO_DDL = {
+    'CHAR': ('char', 1),
+    'NUMC': ('numc', 1),
+    'RAW': ('raw', 1),
+    'LRAW': ('lraw', 1),
+    'LCHR': ('lchr', 1),
+    'STRG': ('string', 1),
+    'RSTR': ('rawstring', 1),
+    'SSTR': ('sstring', 1),
+    'UNIT': ('unit', 1),
+    'DEC': ('dec', 2),
+    'CURR': ('curr', 2),
+    'QUAN': ('quan', 2),
+    'INT1': ('int1', 0),
+    'INT2': ('int2', 0),
+    'INT4': ('int4', 0),
+    'INT8': ('int8', 0),
+    'FLTP': ('fltp', 0),
+    'CUKY': ('cuky', 0),
+    'DATS': ('dats', 0),
+    'TIMS': ('tims', 0),
+    'CLNT': ('clnt', 0),
+    'LANG': ('lang', 0),
+    'ACCP': ('accp', 0),
+}

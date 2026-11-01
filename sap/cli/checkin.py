@@ -1,6 +1,7 @@
 # pylint: disable=too-many-lines
 """ADT Object import"""
 import os
+import re
 import glob
 import errno
 import typing
@@ -34,6 +35,11 @@ from sap.platform.abap.ddic import (
     DCLS,
     DDLX,
     BDEF,
+    DD02V,
+    DD03P_TABLE,
+    TABCLASS_STRUCTURE,
+    DD02V_EXCLASS_TO_DDL,
+    DDIC_DATATYPE_TO_DDL,
 )
 import sap.adt
 import sap.adt.checks
@@ -313,6 +319,7 @@ def checkin_package(connection, repo_package, args):
 
 def _resolve_dependencies(objects):
 
+    structures = []
     ddic = []
     behaviors = []
     libs = []
@@ -320,8 +327,11 @@ def _resolve_dependencies(objects):
     others = []
 
     for obj in objects:
+        # Structures go first because table types use them as row types
+        if obj.code in ['tabl']:
+            structures.append(obj)
         # abapGit deserializes data definitions in the DDIC step too
-        if obj.code in ['ttyp', 'ddls']:
+        elif obj.code in ['ttyp', 'ddls']:
             ddic.append(obj)
         # Behavior definitions refer to their behavior pools and behavior
         # pools are classes FOR BEHAVIOR OF behavior definitions, hence they
@@ -335,7 +345,7 @@ def _resolve_dependencies(objects):
         else:
             others.append(obj)
 
-    return [ddic, behaviors + libs, bins, others]
+    return [structures + ddic, behaviors + libs, bins, others]
 
 
 def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
@@ -909,6 +919,171 @@ def checkin_bdef(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([bdef], [source_file])
 
 
+# .INCLUDE or .INCLU-<SUFFIX> but not .INCLU--AP of append structures
+INCLUDE_FIELDNAME = re.compile(r'\.INCLU(DE|-(?P<suffix>\w+))')
+
+
+def _ddl_name(name):
+    """Returns the DDL name - delimited if it is not a plain identifier"""
+
+    name = name.lower()
+    if re.fullmatch(r'[a-z0-9_/]+', name):
+        return name
+
+    return f'"{name}"'
+
+
+def _ddl_string(value):
+    """Returns the DDL string literal"""
+
+    escaped = value.replace("'", "''")
+    return f"'{escaped}'"
+
+
+def _structure_field_type(field, object_name):
+    """Returns DDL type of the given structure field"""
+
+    if field.ROLLNAME:
+        if field.COMPTYPE == 'R':
+            raise sap.adt.errors.ExceptionCheckinFailure(
+                f'Unsupported reference type of the field {field.FIELDNAME} of structure {object_name}')
+
+        return field.ROLLNAME.lower()
+
+    try:
+        ddl_type, params = DDIC_DATATYPE_TO_DDL[field.DATATYPE]
+    except KeyError as ex:
+        raise sap.adt.errors.ExceptionCheckinFailure(
+            f'Unsupported data type "{field.DATATYPE}" of the field {field.FIELDNAME} of structure {object_name}') from ex
+
+    if params == 0:
+        return f'abap.{ddl_type}'
+
+    length = int(field.LENG or '0')
+    if params == 1:
+        return f'abap.{ddl_type}({length})'
+
+    return f'abap.{ddl_type}({length},{int(field.DECIMALS or "0")})'
+
+
+def _structure_field_reference(field, dd02v, fields, object_name):
+    """Returns DDL annotation of the currency or unit reference of the given
+       structure field.
+    """
+
+    # abapGit does not write data types of fields typed by data elements,
+    # so only the data types of the field and of the referenced field in the
+    # same structure can tell the kind of the reference
+    datatypes = {field.DATATYPE}
+    if field.REFTABLE == dd02v.TABNAME:
+        datatypes.update(ref.DATATYPE for ref in fields if ref.FIELDNAME == field.REFFIELD)
+
+    reference = _ddl_string(f'{field.REFTABLE.lower()}.{field.REFFIELD.lower()}')
+
+    if datatypes & {'CURR', 'CUKY'}:
+        return f'@Semantics.amount.currencyCode : {reference}'
+
+    if datatypes & {'QUAN', 'UNIT'}:
+        return f'@Semantics.quantity.unitOfMeasure : {reference}'
+
+    raise sap.adt.errors.ExceptionCheckinFailure(
+        f'Cannot determine whether the field {field.FIELDNAME} of structure {object_name}'
+        ' refers to a currency or to a unit')
+
+
+def build_structure_source(dd02v, fields, object_name):
+    """Returns DDL source code of the structure described by the abapGit
+       sections DD02V and DD03P.
+    """
+
+    lines = [f'@EndUserText.label : {_ddl_string(dd02v.DDTEXT or "")}']
+
+    if dd02v.EXCLASS:
+        try:
+            lines.append(f'@AbapCatalog.enhancement.category : {DD02V_EXCLASS_TO_DDL[dd02v.EXCLASS]}')
+        except KeyError as ex:
+            raise sap.adt.errors.ExceptionCheckinFailure(
+                f'Unsupported enhancement category "{dd02v.EXCLASS}" of structure {object_name}') from ex
+
+    lines.append(f'define structure {dd02v.TABNAME.lower()} {{')
+    lines.append('')
+
+    # Field names are aligned the same way as ADT and abapGit do
+    width = max((len(_ddl_name(field.GROUPNAME or field.FIELDNAME)) for field in fields
+                 if field.GROUPNAME or not field.FIELDNAME.startswith('.')), default=0)
+
+    for field in fields:
+        include = INCLUDE_FIELDNAME.fullmatch(field.FIELDNAME)
+        if include:
+            definition = f'include {field.PRECFIELD.lower()}'
+            if include.group('suffix'):
+                definition += f' with suffix {include.group("suffix").lower()}'
+
+            if field.GROUPNAME:
+                definition = f'{_ddl_name(field.GROUPNAME).ljust(width)} : {definition}'
+
+            lines.append(f'  {definition};')
+            continue
+
+        if field.FIELDNAME.startswith('.'):
+            raise sap.adt.errors.ExceptionCheckinFailure(
+                f'Unsupported field {field.FIELDNAME} of structure {object_name}')
+
+        # abapGit writes texts of fields typed by data elements but they
+        # belong to the data elements
+        if not field.ROLLNAME and field.DDTEXT:
+            lines.append(f'  @EndUserText.label : {_ddl_string(field.DDTEXT)}')
+
+        if field.REFFIELD:
+            lines.append(f'  {_structure_field_reference(field, dd02v, fields, object_name)}')
+
+        lines.append(f'  {_ddl_name(field.FIELDNAME).ljust(width)} : {_structure_field_type(field, object_name)};')
+
+    lines.append('')
+    lines.append('}')
+
+    return '\n'.join(lines)
+
+
+def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False):
+    """Checkin ADT Structure"""
+
+    sap.cli.core.printout('Creating Structure:', repo_obj.name)
+
+    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
+        try:
+            results = sap.platform.abap.abapgit.from_xml(
+                [DD02V, sap.platform.abap.abapgit.OptionalBody(DD03P_TABLE)],
+                abap_data_file.read())
+        except sap.errors.SAPCliError as ex:
+            # e.g. foreign keys or search helps which are not supported yet
+            raise sap.adt.errors.ExceptionCheckinFailure(
+                f'Unsupported contents of structure {repo_obj.name}: {ex}') from ex
+
+    dd02v = results['DD02V']
+    if dd02v.TABCLASS != TABCLASS_STRUCTURE:
+        raise sap.adt.errors.ExceptionCheckinFailure(
+            f'Unsupported table category "{dd02v.TABCLASS}" of {repo_obj.name}: only structures are supported')
+
+    source_code = build_structure_source(dd02v, results.get('DD03P_TABLE', []), repo_obj.name)
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
+                                   description=dd02v.DDTEXT)
+    structure = sap.adt.Structure(connection, repo_obj.name.upper(), package=repo_obj.package.name,
+                                  metadata=metadata)
+
+    try:
+        structure.create(corrnr)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    sap.cli.core.printout('Writing Structure:', repo_obj.name)
+    _write_source_file(source_code, structure, corrnr=corrnr, source_label=repo_obj.path,
+                       check_before_save=check_before_save)
+
+    return ObjectCheckinResult([structure], [])
+
+
 OBJECT_CHECKIN_HANDLERS = {
     'intf': checkin_intf,
     'clas': checkin_clas,
@@ -919,6 +1094,7 @@ OBJECT_CHECKIN_HANDLERS = {
     'dcls': checkin_dcls,
     'ddlx': checkin_ddlx,
     'bdef': checkin_bdef,
+    'tabl': checkin_tabl,
 }
 
 
