@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """ADT Object export"""
 import enum
 import os
@@ -12,7 +13,7 @@ from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, 
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
     DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS, DD02V, DD03P, DD03P_TABLE, \
-    TABCLASS_STRUCTURE, DD02V_EXCLASS_TO_DDL, DDIC_DATATYPE_TO_DDL
+    TABCLASS_STRUCTURE, DD02V_EXCLASS_TO_DDL, DDIC_DATATYPE_TO_DDL, DD01V, DD07V, DD07V_TAB
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -876,6 +877,70 @@ def structure(connection, args):
     checkout_structure(connection, args.name.upper())
 
 
+def _adt_flag_to_abap(value):
+    """Returns ABAP flag of the given ADT boolean value or None for false
+       because abapGit does not write initial values.
+    """
+
+    return 'X' if value == 'true' else None
+
+
+def build_domain_abap_attributes(adt_domain):
+    """Returns populated ABAP structures with attributes"""
+
+    language = iso_code_to_sap_code(adt_domain.master_language)
+    type_information = adt_domain.content.type_information
+    output_information = adt_domain.content.output_information
+    value_information = adt_domain.content.value_information
+
+    # The values are set in the order of the members to keep the order
+    # of XML elements
+    dd01v = DD01V()
+    dd01v.DOMNAME = adt_domain.name
+    dd01v.DDLANGUAGE = language
+    dd01v.DATATYPE = ADT_TO_DDIC_DATATYPE.get(type_information.datatype, type_information.datatype)
+    dd01v.LENG = _ddic_number(type_information.length, 6)
+    dd01v.OUTPUTLEN = _ddic_number(output_information.length, 6)
+    dd01v.DECIMALS = _ddic_number(type_information.decimals, 6)
+    dd01v.LOWERCASE = _adt_flag_to_abap(output_information.lowercase)
+    dd01v.SIGNFLAG = _adt_flag_to_abap(output_information.sign_exists)
+    dd01v.VALEXI = 'X' if value_information.fix_values else None
+    dd01v.ENTITYTAB = value_information.value_table_ref.name or None
+    dd01v.CONVEXIT = output_information.conversion_exit or None
+    dd01v.DDTEXT = adt_domain.description
+    dd01v.OUTPUTSTYLE = _ddic_number(output_information.style, 2)
+    dd01v.AMPMFORMAT = _adt_flag_to_abap(output_information.ampm_format)
+
+    if not value_information.fix_values:
+        return (dd01v,)
+
+    dd07v = DD07V_TAB()
+    for fix_value in value_information.fix_values:
+        dd07v.append(DD07V(VALPOS=fix_value.position, DDLANGUAGE=language, DOMVALUE_L=fix_value.low or None,
+                           DOMVALUE_H=fix_value.high or None, DDTEXT=fix_value.text or None))
+
+    return (dd01v, dd07v)
+
+
+def checkout_domain(connection, name, destdir=None):
+    """Download domain attributes"""
+
+    sap.cli.core.printout(name)
+    adt_domain = sap.adt.Domain(connection, name)
+    adt_domain.fetch()
+
+    dump_attributes_to_file(name, build_domain_abap_attributes(adt_domain), '.doma', 'LCL_OBJECT_DOMA',
+                            destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def domain(connection, args):
+    """Download domain attributes command wrapper"""
+
+    checkout_domain(connection, args.name.upper())
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
@@ -895,6 +960,7 @@ def checkout_objects(connection, objects, destdir=None):
         sap.adt.MetadataExtension.OBJTYPE.code: checkout_metadata_extension,
         sap.adt.BehaviorDefinition.OBJTYPE.code: checkout_behavior_definition,
         sap.adt.Structure.OBJTYPE.code: checkout_structure,
+        sap.adt.Domain.OBJTYPE.code: checkout_domain,
     }
 
     if not os.path.isdir(destdir):
