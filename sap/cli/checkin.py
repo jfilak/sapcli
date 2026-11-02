@@ -37,6 +37,9 @@ from sap.platform.abap.ddic import (
     BDEF,
     DD02V,
     DD03P_TABLE,
+    DD01V,
+    DD07V_TAB,
+    DD01L_EXTRA,
     TABCLASS_STRUCTURE,
     DD02V_EXCLASS_TO_DDL,
     DDIC_DATATYPE_TO_DDL,
@@ -319,6 +322,7 @@ def checkin_package(connection, repo_package, args):
 
 def _resolve_dependencies(objects):
 
+    domains = []
     structures = []
     ddic = []
     behaviors = []
@@ -327,8 +331,11 @@ def _resolve_dependencies(objects):
     others = []
 
     for obj in objects:
-        # Structures go first because table types use them as row types
-        if obj.code in ['tabl']:
+        # Domains go first because other DDIC objects are typed by them
+        if obj.code in ['doma']:
+            domains.append(obj)
+        # Structures go before table types because table types use them as row types
+        elif obj.code in ['tabl']:
             structures.append(obj)
         # abapGit deserializes data definitions in the DDIC step too
         elif obj.code in ['ttyp', 'ddls']:
@@ -345,7 +352,7 @@ def _resolve_dependencies(objects):
         else:
             others.append(obj)
 
-    return [structures + ddic, behaviors + libs, bins, others]
+    return [domains + structures + ddic, behaviors + libs, bins, others]
 
 
 def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
@@ -1084,6 +1091,79 @@ def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([structure], [])
 
 
+def _abap_flag_to_adt(flag):
+    """Returns ADT boolean value of the given ABAP flag"""
+
+    return 'true' if flag else 'false'
+
+
+# pylint: disable=unused-argument
+def checkin_doma(connection, repo_obj, corrnr=None, check_before_save=False):
+    """Checkin ADT Domain"""
+
+    sap.cli.core.printout('Creating Domain:', repo_obj.name)
+
+    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
+        try:
+            # DD01L_EXTRA is parsed only to accept files of newer abapGit versions
+            results = sap.platform.abap.abapgit.from_xml(
+                [DD01V, sap.platform.abap.abapgit.OptionalBody(DD07V_TAB),
+                 sap.platform.abap.abapgit.OptionalBody(DD01L_EXTRA)],
+                abap_data_file.read())
+        except sap.errors.SAPCliError as ex:
+            # e.g. translations or long texts which are not supported yet
+            raise sap.adt.errors.ExceptionCheckinFailure(
+                f'Unsupported contents of domain {repo_obj.name}: {ex}') from ex
+
+    dd01v = results['DD01V']
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
+                                   description=dd01v.DDTEXT)
+    domain = sap.adt.Domain(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
+
+    try:
+        domain.create(corrnr)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    # ADT accepts the content only in modifications of existing domains
+    domain.fetch()
+    domain.description = dd01v.DDTEXT
+
+    type_information = domain.content.type_information
+    type_information.datatype = dd01v.DATATYPE
+    type_information.length = dd01v.LENG or '0'
+    type_information.decimals = dd01v.DECIMALS or '0'
+
+    output_information = domain.content.output_information
+    output_information.length = dd01v.OUTPUTLEN or '0'
+    output_information.style = dd01v.OUTPUTSTYLE or '00'
+    output_information.conversion_exit = dd01v.CONVEXIT or ''
+    output_information.sign_exists = _abap_flag_to_adt(dd01v.SIGNFLAG)
+    output_information.lowercase = _abap_flag_to_adt(dd01v.LOWERCASE)
+    output_information.ampm_format = _abap_flag_to_adt(dd01v.AMPMFORMAT)
+
+    value_information = domain.content.value_information
+    value_information.value_table_ref = sap.adt.domain.DomainValueTableRef()
+    value_information.value_table_ref.name = dd01v.ENTITYTAB
+
+    # abapGit renumbers the fixed values the same way
+    value_information.fix_values = sap.adt.domain.DomainFixValues()
+    for position, dd07v in enumerate(results.get('DD07V_TAB', []), start=1):
+        fix_value = sap.adt.domain.DomainFixValue()
+        fix_value.position = f'{position:04d}'
+        fix_value.low = dd07v.DOMVALUE_L or ''
+        fix_value.high = dd07v.DOMVALUE_H or ''
+        fix_value.text = dd07v.DDTEXT or ''
+        value_information.fix_values.append(fix_value)
+
+    sap.cli.core.printout('Writing Domain:', repo_obj.name)
+    with domain.open_editor(corrnr=corrnr) as editor:
+        editor.push()
+
+    return ObjectCheckinResult([domain], [])
+
+
 OBJECT_CHECKIN_HANDLERS = {
     'intf': checkin_intf,
     'clas': checkin_clas,
@@ -1095,6 +1175,7 @@ OBJECT_CHECKIN_HANDLERS = {
     'ddlx': checkin_ddlx,
     'bdef': checkin_bdef,
     'tabl': checkin_tabl,
+    'doma': checkin_doma,
 }
 
 

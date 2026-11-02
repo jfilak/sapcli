@@ -39,6 +39,12 @@ Fetches attributes of the given structure and stores them in a local file.
 sapcli checkout structure zhello_world_str
 ```
 
+Fetches attributes of the given domain and stores them in a local file.
+
+```bash
+sapcli checkout domain zhello_world_dom
+```
+
 Fetches source code and attributes of the given CDS data definition and stores
 them in local files.
 
@@ -68,7 +74,7 @@ sapcli checkout bdef zhello_world_bo
 ```
 
 Fetches source codes of classes, programs, interfaces, function groups,
-structures, table types, CDS data definitions, CDS access controls, CDS metadata
+domains, structures, table types, CDS data definitions, CDS access controls, CDS metadata
 extensions, and CDS behavior definitions of the given package
 and stores them in corresponding files in a local file system directory.
 
@@ -215,3 +221,22 @@ Checkout does not write the fields `COMPTYPE`, `SHLPORIGIN`, and `VALEXI` of
 components typed by DDIC types because ADT does not provide them. Checkin does
 not need them. Checkout writes the fields `INTTYPE` and `INTLEN` of
 components typed by built-in types except `RSTR` and `SSTR`.
+
+
+## Domains
+
+Domains are stored in the files _.doma.xml_ with the sections `DD01V`
+(header) and `DD07V_TAB` (fixed values) the same way as abapGit does.
+
+The command `sapcli checkin package` creates domains first because other DDIC
+objects are typed by them, and activates them together with structures and
+table types before classes, interfaces, and programs.
+
+Supported are the data type, length, decimals, output length, output style,
+conversion exit, the flags lowercase, sign, and AM/PM format, the value table,
+and fixed values (single values and ranges). Translations (`I18N_LANGS`,
+`DD01_TEXTS`, `DD07_TEXTS`) and long texts are not supported - checkin reports
+such files as unsupported.
+
+Checkin renumbers fixed values the same way as abapGit does. Checkout does not
+write the field `DOMMASTER` because checkin does not need it.

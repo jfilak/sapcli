@@ -739,3 +739,68 @@ DDIC_DATATYPE_TO_DDL = {
     'LANG': ('lang', 0),
     'ACCP': ('accp', 0),
 }
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
+class DD01V(Structure):
+    """Domain header"""
+
+    DOMNAME: str
+    DDLANGUAGE: str
+    DATATYPE: str
+    LENG: str
+    OUTPUTLEN: str
+    DECIMALS: str
+    LOWERCASE: str
+    SIGNFLAG: str
+    LANGFLAG: str
+    VALEXI: str
+    ENTITYTAB: str
+    CONVEXIT: str
+    MASK: str
+    MASKLEN: str
+    DDTEXT: str
+    ACTFLAG: str
+    APPLCLASS: str
+    AUTHCLASS: str
+    AS4USER: str
+    AS4DATE: str
+    AS4TIME: str
+    DOMMASTER: str
+    RESERVEDOM: str
+    DOMGLOBAL: str
+    APPENDNAME: str
+    APPEXIST: str
+    PROXYTYPE: str
+    OUTPUTSTYLE: str
+    AMPMFORMAT: str
+    ABAP_LANGUAGE_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DD07V(Structure):
+    """Domain fixed value"""
+
+    DOMNAME: str
+    VALPOS: str
+    DDLANGUAGE: str
+    DOMVALUE_L: str
+    DOMVALUE_H: str
+    DDTEXT: str
+    DOMVAL_LD: str
+    DOMVAL_HD: str
+    APPVAL: str
+
+
+DD07V_TAB = InternalTable.define('DD07V_TAB', DD07V)  # type: Any
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DD01L_EXTRA(Structure):
+    """abapGit's domain extra attributes"""
+
+    ABAP_LANGUAGE_VERSION: str
