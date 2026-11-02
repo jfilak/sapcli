@@ -42,3 +42,38 @@ DOMAIN_ADT_GET_RESPONSE_XML = '''<?xml version="1.0" encoding="UTF-8"?>
     </doma:valueInformation>
   </doma:content>
 </doma:domain>'''
+
+DOMAIN_NEW_NAME = 'ZABAPGIT_UNIT_TEST'
+
+DOMAIN_ADT_NEW_OBJECT_REQUEST_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<doma:domain xmlns:doma="http://www.sap.com/dictionary/domain" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="DOMA/DD" adtcore:description="Testing" adtcore:language="EN" adtcore:name="{DOMAIN_NEW_NAME}" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER">
+<adtcore:packageRef adtcore:name="$TMP"/>
+</doma:domain>'''
+
+# Response to GET of a domain right after its creation
+DOMAIN_ADT_GET_NEW_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<doma:domain adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="A4H" adtcore:abapLanguageVersion="standard" adtcore:name="{DOMAIN_NEW_NAME}" adtcore:type="DOMA/DD" adtcore:changedAt="2026-11-02T14:55:15Z" adtcore:version="new" adtcore:createdAt="2026-11-02T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="Testing" adtcore:language="EN" xmlns:doma="http://www.sap.com/dictionary/domain" xmlns:adtcore="http://www.sap.com/adt/core">
+  <atom:link href="versions" rel="http://www.sap.com/adt/relations/versions" title="Historic versions" xmlns:atom="http://www.w3.org/2005/Atom"/>
+  <atom:link href="./{DOMAIN_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/source" type="text/html" title="Landing Page (HTML)" xmlns:atom="http://www.w3.org/2005/Atom"/>
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:description="Temporary Objects (never transported!)"/>
+  <doma:content>
+    <doma:typeInformation>
+      <doma:datatype/>
+      <doma:length>000000</doma:length>
+      <doma:decimals>000000</doma:decimals>
+    </doma:typeInformation>
+    <doma:outputInformation>
+      <doma:length>000000</doma:length>
+      <doma:style>00</doma:style>
+      <doma:conversionExit/>
+      <doma:signExists>false</doma:signExists>
+      <doma:lowercase>false</doma:lowercase>
+      <doma:ampmFormat>false</doma:ampmFormat>
+    </doma:outputInformation>
+    <doma:valueInformation>
+      <doma:valueTableRef/>
+      <doma:appendExists>false</doma:appendExists>
+      <doma:fixValues/>
+    </doma:valueInformation>
+  </doma:content>
+</doma:domain>'''

@@ -2,12 +2,13 @@
 
 # pylint: disable=too-few-public-methods
 
-from sap.adt.objects import ADTObject, ADTObjectType
+from sap.adt.objects import ADTObject, ADTObjectType, ADTObjectPropertyEditor
 from sap.adt.annotations import (
     OrderedClassMembers,
     xml_text_node_property,
-    XmlNodeProperty,
+    XmlContainer,
     XmlListNodeProperty,
+    XmlNodeProperty,
     XmlNodeAttributeProperty,
 )
 from sap.adt.objects import XMLNamespace, XMLNS_ADTCORE
@@ -43,6 +44,12 @@ class DomainFixValue(metaclass=OrderedClassMembers):
     text = xml_text_node_property('doma:text')
 
 
+class DomainFixValues(XmlContainer):
+    """List of domain fixed values"""
+
+    items = XmlListNodeProperty('doma:fixValue', factory=DomainFixValue, value=[])
+
+
 class DomainValueTableRef(metaclass=OrderedClassMembers):
     """Domain value table reference"""
 
@@ -56,7 +63,7 @@ class DomainValueInformation(metaclass=OrderedClassMembers):
 
     value_table_ref = XmlNodeProperty('doma:valueTableRef', factory=DomainValueTableRef)
     append_exists = xml_text_node_property('doma:appendExists')
-    fix_values = XmlListNodeProperty('doma:fixValues/doma:fixValue', factory=DomainFixValue)
+    fix_values = XmlNodeProperty('doma:fixValues', factory=DomainFixValues)
 
 
 class DomainContent(metaclass=OrderedClassMembers):
@@ -68,7 +75,11 @@ class DomainContent(metaclass=OrderedClassMembers):
 
 
 class Domain(ADTObject):
-    """ABAP Domain"""
+    """ABAP Domain
+
+       ADT creates the domain from the header only and refuses the content,
+       hence the content is not serialized until it is fetched.
+    """
 
     OBJTYPE = ADTObjectType(
         'DOMA/DD',
@@ -77,16 +88,12 @@ class Domain(ADTObject):
         'application/vnd.sap.adt.domains.v2+xml',
         {'application/vnd.sap.adt.domains.v2+xml': ''},
         'domain',
-        editor_factory=None
+        editor_factory=ADTObjectPropertyEditor
     )
 
-    content = XmlNodeProperty('doma:content', factory=DomainContent)
+    content = XmlNodeProperty('doma:content', factory=DomainContent, ignore_empty=True)
 
     def __init__(self, connection, name, package=None, metadata=None):
-        super().__init__(connection, name, metadata, active_status='active')
+        super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
-        self.content = DomainContent()
-        self.content.type_information = DomainTypeInformation()
-        self.content.output_information = DomainOutputInformation()
-        self.content.value_information = DomainValueInformation()
