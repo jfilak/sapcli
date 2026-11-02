@@ -53,7 +53,7 @@ class ImportChangingBuilder(ParameterBuilder):
         """Set default value of parameter"""
 
         if 'DEFAULT' in self.parts:
-            self.default_value = self.parts[4].replace("'", "&apos;")
+            self.default_value = self.parts[4]
 
     def set_optional(self):
         """Set if parameter is optional"""

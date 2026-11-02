@@ -3,6 +3,7 @@
 
 import xml.sax
 from xml.sax.handler import ContentHandler
+from xml.sax.saxutils import escape
 
 from sap import get_logger
 from sap.errors import InputError, SAPCliError
@@ -196,6 +197,16 @@ class ItemizedTable(InternalTable):
 StringTable = ItemizedTable.define('StringTable', str)
 
 
+# abapGit (iXML) escapes the quotes too
+XML_QUOTE_ENTITIES = {"'": '&apos;', '"': '&quot;'}
+
+
+def escape_xml_text(value):
+    """Returns the value escaped for an XML text node the same way abapGit does"""
+
+    return escape(str(value), XML_QUOTE_ENTITIES)
+
+
 def row_type_name_getter(row):
     """Returns type name of the row"""
 
@@ -261,7 +272,7 @@ class XMLSerializers:
                     self.internal_table_to_xml(value, item_prefix)
                 self.dest.write(prefix)
             else:
-                self.dest.write(f'{value}')
+                self.dest.write(escape_xml_text(value))
 
             self.dest.write(f'</{attr}>\n')
 
