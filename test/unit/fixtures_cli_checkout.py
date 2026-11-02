@@ -688,7 +688,7 @@ TABL_ALL_FEATURES_ABAPGIT_XML = f'''<?xml version="1.0" encoding="utf-8"?>
      <INTLEN>000008</INTLEN>
      <DATATYPE>STRG</DATATYPE>
      <MASK>  STRG</MASK>
-     <DDTEXT>Developer's note</DDTEXT>
+     <DDTEXT>Developer&apos;s note</DDTEXT>
     </DD03P>
     <DD03P>
      <FIELDNAME>/SAPCLI/FLAG</FIELDNAME>

@@ -232,10 +232,10 @@ class TestFunctionModule(unittest.TestCase):
         local_interface = function.get_local_interface()
 
         self.maxDiff=None
-        self.assertEqual(local_interface['IMPORTING'], [RSIMP(PARAMETER='IMPORT_PARAM_1', DEFAULT='&apos;/src/&apos;', OPTIONAL='X', TYP='STRING'),
+        self.assertEqual(local_interface['IMPORTING'], [RSIMP(PARAMETER='IMPORT_PARAM_1', DEFAULT="'/src/'", OPTIONAL='X', TYP='STRING'),
                                                         RSIMP(PARAMETER='IMPORT_PARAM_2', TYP='STRING')])
         self.assertEqual(local_interface['CHANGING'], [RSCHA(PARAMETER='CHANGING_PARAM_1', REFERENCE='X', TYP='BAPIRET2'),
-                                                       RSCHA(PARAMETER='CHANGING_PARAM_2', DEFAULT='&apos;default&apos;', OPTIONAL='X', TYP='BAPIRET2')])
+                                                       RSCHA(PARAMETER='CHANGING_PARAM_2', DEFAULT="'default'", OPTIONAL='X', TYP='BAPIRET2')])
         self.assertEqual(local_interface['EXPORTING'], [RSEXP(PARAMETER='EXPORT_PARAM_1', TYP='BAPIRET2'),
                                                         RSEXP(PARAMETER='EXPORT_PARAM_2', REFERENCE='X', TYP='STRING')])
         self.assertEqual(local_interface['TABLES'], [RSTBL(PARAMETER='TABLES_PARAM_1', TYP='BAPIRET2'),

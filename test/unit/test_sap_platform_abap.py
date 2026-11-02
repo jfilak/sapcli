@@ -336,6 +336,17 @@ class TestSAPPlatformABAPToXML(unittest.TestCase):
 </PLAIN_STRUCT>
 ''')
 
+    def test_to_xml_structure_with_special_characters(self):
+        struct = PLAIN_STRUCT(PYTHON='<Tom & Jerry>', LINUX='\'single\' "double"')
+
+        self.xml_serializer.abap_to_xml(struct, '')
+
+        self.assertEqual(self.dest.getvalue(), '''<PLAIN_STRUCT>
+ <PYTHON>&lt;Tom &amp; Jerry&gt;</PYTHON>
+ <LINUX>&apos;single&apos; &quot;double&quot;</LINUX>
+</PLAIN_STRUCT>
+''')
+
     def test_to_xml_internal_table_in_structure(self):
         distros_type = sap.platform.abap.InternalTable.define('DISTROS', str)
         distros = distros_type()
