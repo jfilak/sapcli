@@ -102,3 +102,23 @@ ACTIVATE_TABLE_BODY = f'''<?xml version="1.0" encoding="UTF-8"?>
 <adtcore:objectReferences xmlns:adtcore="http://www.sap.com/adt/core">
 <adtcore:objectReference adtcore:uri="/sap/bc/adt/ddic/tables/{TABLE_NAME.lower()}" adtcore:name="{TABLE_NAME}"/>
 </adtcore:objectReferences>'''
+
+
+TABLE_SETTINGS_NAME = 'ZSAPCLI_TNOMNT'
+
+TABLE_SETTINGS_ADT_GET_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?><ts:tableSettings adtcore:name="{TABLE_SETTINGS_NAME}" adtcore:type="TABL/DTT" adtcore:changedAt="2026-11-03T18:12:10Z" adtcore:version="active" adtcore:createdAt="2026-11-03T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="No maintenance" adtcore:descriptionTextLimit="-1" adtcore:language="EN" xmlns:ts="http://www.sap.com/dictionary/table/settings" xmlns:adtcore="http://www.sap.com/adt/core"><adtcore:containerRef adtcore:uri="/sap/bc/adt/ddic/tables/{TABLE_SETTINGS_NAME.lower()}" adtcore:type="TABL/DT" adtcore:name="{TABLE_SETTINGS_NAME}"/><atom:link href="versions" rel="http://www.sap.com/adt/relations/versions" title="Historic versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/wb/object_type/tabldtt/object_name/{TABLE_SETTINGS_NAME}" rel="self" type="application/vnd.sap.sapgui" title="Representation in SAP Gui" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/ddic/logs/db/ACTTABT{TABLE_SETTINGS_NAME}" rel="http://www.sap.com/adt/relations/ddic/activationlog" type="application/vnd.sap.adt.logs+xml" title="Activation Log" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="versions" rel="http://www.sap.com/adt/relations/versions" title="Historic versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="./{TABLE_SETTINGS_NAME.lower()}" rel="http://www.sap.com/adt/relations/source" type="text/html" title="Landing Page (HTML)" xmlns:atom="http://www.w3.org/2005/Atom"/><ts:dataClassCategory>APPL0</ts:dataClassCategory><ts:sizeCategory>2</ts:sizeCategory><ts:buffering><ts:allowed>X</ts:allowed><ts:type>G</ts:type><ts:areaKeyFields>1</ts:areaKeyFields></ts:buffering><ts:storageType>C</ts:storageType><ts:sharingType/><ts:loadUnit/><ts:translation ts:value="" ts:isVisible="false" ts:isEditable="false" ts:granularity="2"/><ts:loggingEnabled>false</ts:loggingEnabled><ts:supportsLoggingAssessment>false</ts:supportsLoggingAssessment></ts:tableSettings>'''
+
+TABLE_SETTINGS_ADT_PUT_REQUEST_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<ts:tableSettings xmlns:ts="http://www.sap.com/dictionary/table/settings" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="TABL/DTT" adtcore:description="No maintenance" adtcore:language="EN" adtcore:name="{TABLE_SETTINGS_NAME}" adtcore:version="active">
+<ts:dataClassCategory>APPL1</ts:dataClassCategory>
+<ts:sizeCategory>3</ts:sizeCategory>
+<ts:buffering>
+<ts:allowed>N</ts:allowed>
+<ts:type></ts:type>
+<ts:areaKeyFields>0</ts:areaKeyFields>
+</ts:buffering>
+<ts:storageType>C</ts:storageType>
+<ts:sharingType></ts:sharingType>
+<ts:loadUnit></ts:loadUnit>
+<ts:loggingEnabled>true</ts:loggingEnabled>
+</ts:tableSettings>'''
