@@ -263,7 +263,9 @@ field labels and their lengths, search helps, SET/GET parameters, default
 component names, and the flags change document, input history, and
 bidirectional text. Data elements typed by references (`REF TO`) are not
 supported. Translations (`I18N_LANGS`, `DD04_TEXTS`) and documentation are not
-supported - checkin reports such files as unsupported.
+supported - checkin reports such files as unsupported. Checkin treats data
+elements with `DOMNAME` but without `REFKIND` as typed by the domain the same
+way as DDIC does.
 
 ADT does not provide the output length, so checkout computes the field
 `OUTPUTLEN` the same way as DDIC does for the DDIC built-in types supported in

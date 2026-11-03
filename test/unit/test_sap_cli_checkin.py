@@ -1964,6 +1964,19 @@ Writing Data Element: {DATA_ELEMENT_NEW_NAME.lower()}
                                                                                  'adtcore:description="Domain &amp; labels"')
         self.assert_requests(connection, DATA_ELEMENT_ADT_DEFINE_DOMAIN_REQUEST_XML, new_object_request_xml)
 
+    def test_checkin_dtel_domain_without_refkind(self, fake_lock, fake_unlock):
+        abapgit_xml = DTEL_DOMAIN_XML.replace('    <REFKIND>D</REFKIND>\n', '')
+        responses = self.responses_ok()
+        responses[1] = Response(text=DATA_ELEMENT_ADT_GET_NEW_RESPONSE_XML.replace('adtcore:description="testing"',
+                                                                                  'adtcore:description="Old"'),
+                                status_code=200, headers={})
+
+        connection, _ = self.checkin(abapgit_xml, responses)
+
+        new_object_request_xml = DATA_ELEMENT_ADT_NEW_OBJECT_REQUEST_XML.replace('adtcore:description="testing"',
+                                                                                 'adtcore:description="Domain &amp; labels"')
+        self.assert_requests(connection, DATA_ELEMENT_ADT_DEFINE_DOMAIN_REQUEST_XML, new_object_request_xml)
+
     def test_checkin_dtel_ddic_data_type(self, fake_lock, fake_unlock):
         abapgit_xml = DTEL_XML.replace('<DATATYPE>CHAR</DATATYPE>', '<DATATYPE>D34N</DATATYPE>')
         define_request_xml = DATA_ELEMENT_ADT_DEFINE_SAMPLE_REQUEST_XML.replace('<dtel:dataType>CHAR</dtel:dataType>',

@@ -1209,7 +1209,9 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False):
     dataelement.description = dd04v.DDTEXT
 
     definition = dataelement.definition
-    if dd04v.REFKIND == REFKIND_DOMAIN:
+    # DDIC accepts data elements with the domain name but without
+    # REFKIND which abapGit passes through without any changes
+    if dd04v.REFKIND == REFKIND_DOMAIN or dd04v.DOMNAME:
         definition.typ = 'domain'
         definition.typ_name = dd04v.DOMNAME
         definition.data_type = ''
