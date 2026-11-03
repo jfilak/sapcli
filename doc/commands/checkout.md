@@ -39,6 +39,13 @@ Fetches attributes of the given structure and stores them in a local file.
 sapcli checkout structure zhello_world_str
 ```
 
+Fetches attributes and technical settings of the given database table and
+stores them in a local file.
+
+```bash
+sapcli checkout table zhello_world_tab
+```
+
 Fetches attributes of the given domain and stores them in a local file.
 
 ```bash
@@ -80,7 +87,7 @@ sapcli checkout bdef zhello_world_bo
 ```
 
 Fetches source codes of classes, programs, interfaces, function groups,
-domains, data elements, structures, table types, CDS data definitions, CDS access controls, CDS metadata
+domains, data elements, structures, database tables, table types, CDS data definitions, CDS access controls, CDS metadata
 extensions, and CDS behavior definitions of the given package
 and stores them in corresponding files in a local file system directory.
 
@@ -208,7 +215,7 @@ code returned by ADT.
 
 The command `sapcli checkin package` creates structures right before table
 types, which use them as row types, and activates them together before
-classes, interfaces, and programs. Database tables are not supported yet.
+classes, interfaces, and programs.
 
 Supported are components typed by DDIC types (data elements, structures,
 table types) and by the DDIC built-in types `CHAR`, `NUMC`, `RAW`, `LRAW`,
@@ -271,3 +278,32 @@ ADT does not provide the output length, so checkout computes the field
 `OUTPUTLEN` the same way as DDIC does for the DDIC built-in types supported in
 structures and for `UTCL`, `D16N`, and `D34N`. Checkout leaves it out for other
 types (e.g. `D16D` or `GGM1`). Checkin does not need it.
+
+
+## Database tables
+
+Transparent tables are stored in the files _.tabl.xml_ with the sections
+`DD02V` (header), `DD09L` (technical settings), and `DD03P_TABLE` (fields) the
+same way as abapGit does. ADT works with tables as DDL source code (`define
+table`) and with the technical settings as a separate object, so checkin
+generates the source code from the abapGit file and writes the technical
+settings, and checkout parses the source code returned by ADT and reads the
+technical settings.
+
+The command `sapcli checkin package` creates tables together with structures
+and activates them together with domains, data elements, and table types
+before classes, interfaces, and programs. Activation of a table activates its
+technical settings too.
+
+Supported are key fields, `not null`, the fields supported in structures,
+includes (except key includes), the delivery class, the data maintenance, the
+enhancement category, and the technical settings data class, size category,
+buffering, logging, storage type, sharing type, and load unit. Foreign keys,
+value helps, indexes, search help assignments, translations, other table
+categories (e.g. pool or global temporary tables), and the attributes of
+`TABL_EXTRAS` are not supported - checkin reports such files as unsupported.
+
+Checkout does not write the fields `CLIDEP`, `LANGDEP`, `BUFFERED`, and
+`SHLPEXI` of the header, `TRANSPFLAG` of the technical settings, and
+`SHLPORIGIN` and the descriptions of includes of the fields because DDIC
+computes them and ADT does not provide them. Checkin does not need them.

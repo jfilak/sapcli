@@ -874,3 +874,42 @@ class DD04L_EXTRA(Structure):
     """abapGit's data element extra attributes"""
 
     ABAP_LANGUAGE_VERSION: str
+
+
+# DD02V-TABCLASS of transparent tables
+TABCLASS_TRANSPARENT = 'TRANSP'
+
+# DD02V-MAINFLAG codes to the corresponding DDL values
+DD02V_MAINFLAG_TO_DDL = {
+    '': '#RESTRICTED',
+    'X': '#ALLOWED',
+    'N': '#NOT_ALLOWED',
+}
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
+class DD09L(Structure):
+    """Technical settings of database table"""
+
+    TABNAME: str
+    AS4LOCAL: str
+    AS4VERS: str
+    TABKAT: str
+    TABART: str
+    PUFFERUNG: str
+    SCHFELDANZ: str
+    PROTOKOLL: str
+    SPEICHPUFF: str
+    AS4USER: str
+    AS4DATE: str
+    AS4TIME: str
+    TRANSPFLAG: str
+    RESERVE: str
+    UEBERSETZ: str
+    ACTFLAG: str
+    BUFALLOW: str
+    JAVAONLY: str
+    ROWORCOLST: str
+    SHARINGTYPE: str
+    LOAD_UNIT: str

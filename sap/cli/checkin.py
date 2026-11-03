@@ -44,7 +44,10 @@ from sap.platform.abap.ddic import (
     DD04L_EXTRA,
     REFKIND_DOMAIN,
     TABCLASS_STRUCTURE,
+    TABCLASS_TRANSPARENT,
     DD02V_EXCLASS_TO_DDL,
+    DD02V_MAINFLAG_TO_DDL,
+    DD09L,
     DDIC_DATATYPE_TO_DDL,
     DDIC_DATATYPE_TO_ADT,
 )
@@ -955,13 +958,13 @@ def _ddl_string(value):
     return f"'{escaped}'"
 
 
-def _structure_field_type(field, object_name):
-    """Returns DDL type of the given structure field"""
+def _structure_field_type(field, object_name, kind):
+    """Returns DDL type of the given structure or table field"""
 
     if field.ROLLNAME:
         if field.COMPTYPE == 'R':
             raise sap.adt.errors.ExceptionCheckinFailure(
-                f'Unsupported reference type of the field {field.FIELDNAME} of structure {object_name}')
+                f'Unsupported reference type of the field {field.FIELDNAME} of {kind} {object_name}')
 
         return field.ROLLNAME.lower()
 
@@ -969,7 +972,7 @@ def _structure_field_type(field, object_name):
         ddl_type, params = DDIC_DATATYPE_TO_DDL[field.DATATYPE]
     except KeyError as ex:
         raise sap.adt.errors.ExceptionCheckinFailure(
-            f'Unsupported data type "{field.DATATYPE}" of the field {field.FIELDNAME} of structure {object_name}') from ex
+            f'Unsupported data type "{field.DATATYPE}" of the field {field.FIELDNAME} of {kind} {object_name}') from ex
 
     if params == 0:
         return f'abap.{ddl_type}'
@@ -981,9 +984,9 @@ def _structure_field_type(field, object_name):
     return f'abap.{ddl_type}({length},{int(field.DECIMALS or "0")})'
 
 
-def _structure_field_reference(field, dd02v, fields, object_name):
+def _structure_field_reference(field, dd02v, fields, object_name, kind):
     """Returns DDL annotation of the currency or unit reference of the given
-       structure field.
+       structure or table field.
     """
 
     # abapGit does not write data types of fields typed by data elements,
@@ -1002,13 +1005,23 @@ def _structure_field_reference(field, dd02v, fields, object_name):
         return f'@Semantics.quantity.unitOfMeasure : {reference}'
 
     raise sap.adt.errors.ExceptionCheckinFailure(
-        f'Cannot determine whether the field {field.FIELDNAME} of structure {object_name}'
+        f'Cannot determine whether the field {field.FIELDNAME} of {kind} {object_name}'
         ' refers to a currency or to a unit')
 
 
-def build_structure_source(dd02v, fields, object_name):
-    """Returns DDL source code of the structure described by the abapGit
-       sections DD02V and DD03P.
+def _ddl_field_name(field):
+    """Returns the DDL name of the given field including the keyword key"""
+
+    name = _ddl_name(field.GROUPNAME or field.FIELDNAME)
+    if field.KEYFLAG:
+        return f'key {name}'
+
+    return name
+
+
+def _build_ddl_source(dd02v, fields, object_name, kind, annotations):
+    """Returns DDL source code of the structure or table described by the
+       abapGit sections DD02V and DD03P.
     """
 
     lines = [f'@EndUserText.label : {_ddl_string(dd02v.DDTEXT or "")}']
@@ -1018,18 +1031,23 @@ def build_structure_source(dd02v, fields, object_name):
             lines.append(f'@AbapCatalog.enhancement.category : {DD02V_EXCLASS_TO_DDL[dd02v.EXCLASS]}')
         except KeyError as ex:
             raise sap.adt.errors.ExceptionCheckinFailure(
-                f'Unsupported enhancement category "{dd02v.EXCLASS}" of structure {object_name}') from ex
+                f'Unsupported enhancement category "{dd02v.EXCLASS}" of {kind} {object_name}') from ex
 
-    lines.append(f'define structure {dd02v.TABNAME.lower()} {{')
+    lines.extend(annotations)
+    lines.append(f'define {kind} {dd02v.TABNAME.lower()} {{')
     lines.append('')
 
     # Field names are aligned the same way as ADT and abapGit do
-    width = max((len(_ddl_name(field.GROUPNAME or field.FIELDNAME)) for field in fields
+    width = max((len(_ddl_field_name(field)) for field in fields
                  if field.GROUPNAME or not field.FIELDNAME.startswith('.')), default=0)
 
     for field in fields:
         include = INCLUDE_FIELDNAME.fullmatch(field.FIELDNAME)
         if include:
+            if field.KEYFLAG:
+                raise sap.adt.errors.ExceptionCheckinFailure(
+                    f'Unsupported key include {field.PRECFIELD} of {kind} {object_name}')
+
             definition = f'include {field.PRECFIELD.lower()}'
             if include.group('suffix'):
                 definition += f' with suffix {include.group("suffix").lower()}'
@@ -1042,7 +1060,7 @@ def build_structure_source(dd02v, fields, object_name):
 
         if field.FIELDNAME.startswith('.'):
             raise sap.adt.errors.ExceptionCheckinFailure(
-                f'Unsupported field {field.FIELDNAME} of structure {object_name}')
+                f'Unsupported field {field.FIELDNAME} of {kind} {object_name}')
 
         # abapGit writes texts of fields typed by data elements but they
         # belong to the data elements
@@ -1050,9 +1068,13 @@ def build_structure_source(dd02v, fields, object_name):
             lines.append(f'  @EndUserText.label : {_ddl_string(field.DDTEXT)}')
 
         if field.REFFIELD:
-            lines.append(f'  {_structure_field_reference(field, dd02v, fields, object_name)}')
+            lines.append(f'  {_structure_field_reference(field, dd02v, fields, object_name, kind)}')
 
-        lines.append(f'  {_ddl_name(field.FIELDNAME).ljust(width)} : {_structure_field_type(field, object_name)};')
+        definition = f'{_ddl_field_name(field).ljust(width)} : {_structure_field_type(field, object_name, kind)}'
+        if field.NOTNULL:
+            definition += ' not null'
+
+        lines.append(f'  {definition};')
 
     lines.append('')
     lines.append('}')
@@ -1060,25 +1082,113 @@ def build_structure_source(dd02v, fields, object_name):
     return '\n'.join(lines)
 
 
-def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Structure"""
+def build_structure_source(dd02v, fields, object_name):
+    """Returns DDL source code of the structure described by the abapGit
+       sections DD02V and DD03P.
+    """
 
-    sap.cli.core.printout('Creating Structure:', repo_obj.name)
+    return _build_ddl_source(dd02v, fields, object_name, 'structure', [])
+
+
+def build_table_source(dd02v, fields, object_name):
+    """Returns DDL source code of the transparent table described by
+       the abapGit sections DD02V and DD03P.
+    """
+
+    annotations = ['@AbapCatalog.tableCategory : #TRANSPARENT']
+
+    if dd02v.CONTFLAG:
+        annotations.append(f'@AbapCatalog.deliveryClass : #{dd02v.CONTFLAG}')
+
+    try:
+        annotations.append(f'@AbapCatalog.dataMaintenance : {DD02V_MAINFLAG_TO_DDL[dd02v.MAINFLAG or ""]}')
+    except KeyError as ex:
+        raise sap.adt.errors.ExceptionCheckinFailure(
+            f'Unsupported data maintenance "{dd02v.MAINFLAG}" of table {object_name}') from ex
+
+    return _build_ddl_source(dd02v, fields, object_name, 'table', annotations)
+
+
+def _write_table_settings(connection, name, dd09l, corrnr):
+    """Writes the technical settings of the table - ADT creates them
+       together with the table.
+    """
+
+    settings = sap.adt.TableSettings(connection, name)
+    settings.fetch()
+
+    settings.data_class = dd09l.TABART or ''
+    settings.size_category = dd09l.TABKAT or '0'
+    settings.buffering.allowed = dd09l.BUFALLOW or 'N'
+    settings.buffering.type = dd09l.PUFFERUNG or ''
+    settings.buffering.area_key_fields = str(int(dd09l.SCHFELDANZ or '0'))
+    settings.logging_enabled = _abap_flag_to_adt(dd09l.PROTOKOLL)
+
+    # abapGit does not write the default values which depend on the release
+    if dd09l.ROWORCOLST:
+        settings.storage_type = dd09l.ROWORCOLST
+
+    if dd09l.SHARINGTYPE:
+        settings.sharing_type = dd09l.SHARINGTYPE
+
+    if dd09l.LOAD_UNIT:
+        settings.load_unit = dd09l.LOAD_UNIT
+
+    with settings.open_editor(corrnr=corrnr) as editor:
+        editor.push()
+
+
+def _checkin_table(connection, repo_obj, dd02v, dd09l, fields, corrnr, check_before_save):
+    """Checkin ADT Table"""
+
+    source_code = build_table_source(dd02v, fields, repo_obj.name)
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
+                                   description=dd02v.DDTEXT)
+    table = sap.adt.Table(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
+
+    try:
+        table.create(corrnr)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    sap.cli.core.printout('Writing Table:', repo_obj.name)
+    _write_source_file(source_code, table, corrnr=corrnr, source_label=repo_obj.path,
+                       check_before_save=check_before_save)
+
+    sap.cli.core.printout('Writing Technical Settings:', repo_obj.name)
+    _write_table_settings(connection, repo_obj.name.upper(), dd09l or DD09L(), corrnr)
+
+    # Activation of the table activates its technical settings too
+    return ObjectCheckinResult([table], [])
+
+
+def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False):
+    """Checkin ADT Structure or Table"""
 
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         try:
             results = sap.platform.abap.abapgit.from_xml(
-                [DD02V, sap.platform.abap.abapgit.OptionalBody(DD03P_TABLE)],
+                [DD02V, sap.platform.abap.abapgit.OptionalBody(DD09L),
+                 sap.platform.abap.abapgit.OptionalBody(DD03P_TABLE)],
                 abap_data_file.read())
         except sap.errors.SAPCliError as ex:
             # e.g. foreign keys or search helps which are not supported yet
             raise sap.adt.errors.ExceptionCheckinFailure(
-                f'Unsupported contents of structure {repo_obj.name}: {ex}') from ex
+                f'Unsupported contents of TABL {repo_obj.name}: {ex}') from ex
 
     dd02v = results['DD02V']
+    if dd02v.TABCLASS == TABCLASS_TRANSPARENT:
+        sap.cli.core.printout('Creating Table:', repo_obj.name)
+        return _checkin_table(connection, repo_obj, dd02v, results.get('DD09L'), results.get('DD03P_TABLE', []),
+                              corrnr, check_before_save)
+
     if dd02v.TABCLASS != TABCLASS_STRUCTURE:
         raise sap.adt.errors.ExceptionCheckinFailure(
-            f'Unsupported table category "{dd02v.TABCLASS}" of {repo_obj.name}: only structures are supported')
+            f'Unsupported table category "{dd02v.TABCLASS}" of {repo_obj.name}:'
+            ' only structures and transparent tables are supported')
+
+    sap.cli.core.printout('Creating Structure:', repo_obj.name)
 
     source_code = build_structure_source(dd02v, results.get('DD03P_TABLE', []), repo_obj.name)
 

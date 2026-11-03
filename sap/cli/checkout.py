@@ -13,7 +13,8 @@ from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, 
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
     DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS, DD02V, DD03P, DD03P_TABLE, \
-    TABCLASS_STRUCTURE, DD02V_EXCLASS_TO_DDL, DDIC_DATATYPE_TO_DDL, DD01V, DD07V, DD07V_TAB, DD04V, REFKIND_DOMAIN
+    TABCLASS_STRUCTURE, DD02V_EXCLASS_TO_DDL, DDIC_DATATYPE_TO_DDL, DD01V, DD07V, DD07V_TAB, DD04V, REFKIND_DOMAIN, \
+    TABCLASS_TRANSPARENT, DD02V_MAINFLAG_TO_DDL, DD09L
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -635,6 +636,7 @@ def behaviordefinition(connection, args):
 
 
 DDL_TO_DD02V_EXCLASS = {ddl: code for code, ddl in DD02V_EXCLASS_TO_DDL.items()}
+DDL_TO_DD02V_MAINFLAG = {ddl: code for code, ddl in DD02V_MAINFLAG_TO_DDL.items()}
 DDL_TO_DDIC_DATATYPE = {ddl: (ddic, params) for ddic, (ddl, params) in DDIC_DATATYPE_TO_DDL.items()}
 
 # DDIC lengths and decimals of the DDIC built-in data types without DDL parameters
@@ -693,12 +695,21 @@ def _ddl_unquote(token):
     return token
 
 
-class StructureSourceParser:
-    """Parser of DDL source code of structures"""
+# Supported header annotations of DDL source code of structures and tables
+DDL_HEADER_ANNOTATIONS = {
+    'structure': ('@endusertext.label', '@abapcatalog.enhancement.category'),
+    'table': ('@endusertext.label', '@abapcatalog.enhancement.category', '@abapcatalog.tablecategory',
+              '@abapcatalog.deliveryclass', '@abapcatalog.datamaintenance'),
+}
 
-    def __init__(self, source):
+
+class StructureSourceParser:
+    """Parser of DDL source code of structures and tables"""
+
+    def __init__(self, source, kind='structure'):
         self._tokens = [match.group('token') for match in DDL_TOKENS.finditer(source) if match.group('token')]
         self._index = 0
+        self._kind = kind
 
     def _peek(self):
         if self._index >= len(self._tokens):
@@ -745,6 +756,11 @@ class StructureSourceParser:
         type_name = self._next()
         if not type_name.lower().startswith('abap.'):
             field.ROLLNAME = type_name.upper()
+            # database tables cannot have components typed by structures
+            # or table types
+            if self._kind == 'table':
+                field.COMPTYPE = 'E'
+
             return
 
         params = []
@@ -786,6 +802,13 @@ class StructureSourceParser:
         field.ADMINFIELD = '0'
 
         name = self._next()
+        # the field can be named key
+        if self._kind == 'table' and name.lower() == 'key' and self._peek() != ':':
+            field.KEYFLAG = 'X'
+            name = self._next()
+            if name.lower() == 'include':
+                raise sap.cli.core.SAPCliError('unsupported key include')
+
         if name.lower() == 'include':
             self._include(field)
         else:
@@ -797,6 +820,11 @@ class StructureSourceParser:
             else:
                 field.FIELDNAME = _ddl_unquote(name).upper()
                 self._type(field)
+
+        if self._kind == 'table' and self._peek().lower() == 'not':
+            self._next()
+            self._expect('null')
+            field.NOTNULL = 'X'
 
         self._expect(';')
 
@@ -811,12 +839,12 @@ class StructureSourceParser:
         return field
 
     def parse(self):
-        """Returns the enhancement category and the fields of the structure"""
+        """Returns the header annotations and the fields"""
 
-        annotations = self._annotations(('@endusertext.label', '@abapcatalog.enhancement.category'))
+        annotations = self._annotations(DDL_HEADER_ANNOTATIONS[self._kind])
 
         self._expect('define')
-        self._expect('structure')
+        self._expect(self._kind)
         self._next()
         self._expect('{')
 
@@ -828,20 +856,30 @@ class StructureSourceParser:
         if self._index < len(self._tokens):
             raise sap.cli.core.SAPCliError(f'unexpected token "{self._tokens[self._index]}"')
 
-        category = annotations.get('@abapcatalog.enhancement.category')
-        if category is None:
-            return (None, fields)
+        return (annotations, fields)
 
-        try:
-            return (DDL_TO_DD02V_EXCLASS[category.upper()], fields)
-        except KeyError as ex:
-            raise sap.cli.core.SAPCliError(f'unsupported enhancement category {category}') from ex
+
+def _ddl_annotation_to_code(annotations, name, mapping, label):
+    """Returns the DDIC code of the DDL value of the given annotation or None
+       if the annotation is not present.
+    """
+
+    value = annotations.get(name)
+    if value is None:
+        return None
+
+    try:
+        return mapping[value.upper()]
+    except KeyError as ex:
+        raise sap.cli.core.SAPCliError(f'unsupported {label} {value}') from ex
 
 
 def build_structure_abap_attributes(adt_structure, source):
     """Returns populated ABAP structures with attributes"""
 
-    exclass, fields = StructureSourceParser(source).parse()
+    annotations, fields = StructureSourceParser(source).parse()
+    exclass = _ddl_annotation_to_code(annotations, '@abapcatalog.enhancement.category', DDL_TO_DD02V_EXCLASS,
+                                      'enhancement category')
 
     dd02v = DD02V()
     dd02v.TABNAME = adt_structure.name
@@ -867,6 +905,77 @@ def checkout_structure(connection, name, destdir=None):
         raise sap.cli.core.SAPCliError(f'Checkout of structure {name} failed: {ex}')
 
     dump_attributes_to_file(name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
+
+
+def build_table_abap_attributes(adt_table, source, settings):
+    """Returns populated ABAP structures with attributes"""
+
+    annotations, fields = StructureSourceParser(source, kind='table').parse()
+
+    table_category = annotations.get('@abapcatalog.tablecategory')
+    if table_category is None or table_category.upper() != '#TRANSPARENT':
+        raise sap.cli.core.SAPCliError(f'unsupported table category {table_category}')
+
+    language = iso_code_to_sap_code(adt_table.master_language)
+
+    # The values are set in the order of the members to keep the order
+    # of XML elements
+    dd02v = DD02V()
+    dd02v.TABNAME = adt_table.name
+    dd02v.DDLANGUAGE = language
+    dd02v.TABCLASS = TABCLASS_TRANSPARENT
+    dd02v.DDTEXT = adt_table.description
+    dd02v.MASTERLANG = language
+    # abapGit does not write initial values
+    dd02v.MAINFLAG = _ddl_annotation_to_code(annotations, '@abapcatalog.datamaintenance', DDL_TO_DD02V_MAINFLAG,
+                                             'data maintenance') or None
+    delivery_class = annotations.get('@abapcatalog.deliveryclass')
+    dd02v.CONTFLAG = delivery_class.lstrip('#').upper() if delivery_class else None
+    dd02v.EXCLASS = _ddl_annotation_to_code(annotations, '@abapcatalog.enhancement.category', DDL_TO_DD02V_EXCLASS,
+                                            'enhancement category')
+
+    dd09l = DD09L()
+    dd09l.TABNAME = adt_table.name
+    dd09l.AS4LOCAL = 'A'
+    dd09l.TABKAT = settings.size_category
+    dd09l.TABART = settings.data_class
+    dd09l.PUFFERUNG = settings.buffering.type or None
+    dd09l.SCHFELDANZ = _ddic_number(settings.buffering.area_key_fields, 3)
+    dd09l.PROTOKOLL = _adt_flag_to_abap(settings.logging_enabled)
+    dd09l.BUFALLOW = settings.buffering.allowed or None
+    # abapGit does not write the column store because it is the default value
+    dd09l.ROWORCOLST = settings.storage_type if settings.storage_type not in ('', 'C') else None
+    dd09l.SHARINGTYPE = settings.sharing_type or None
+    dd09l.LOAD_UNIT = settings.load_unit or None
+
+    return (dd02v, dd09l, fields)
+
+
+def checkout_table(connection, name, destdir=None):
+    """Download table attributes"""
+
+    sap.cli.core.printout(name)
+    adt_table = sap.adt.Table(connection, name)
+    adt_table.fetch()
+    source = adt_table.text
+
+    settings = sap.adt.TableSettings(connection, name)
+    settings.fetch()
+
+    try:
+        abap_attributes = build_table_abap_attributes(adt_table, source, settings)
+    except sap.cli.core.SAPCliError as ex:
+        raise sap.cli.core.SAPCliError(f'Checkout of table {name} failed: {ex}')
+
+    dump_attributes_to_file(name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def table(connection, args):
+    """Download table attributes command wrapper"""
+
+    checkout_table(connection, args.name.upper())
 
 
 @CommandGroup.argument('name')
@@ -1086,6 +1195,7 @@ def checkout_objects(connection, objects, destdir=None):
         sap.adt.Structure.OBJTYPE.code: checkout_structure,
         sap.adt.Domain.OBJTYPE.code: checkout_domain,
         sap.adt.DataElement.OBJTYPE.code: checkout_data_element,
+        sap.adt.Table.OBJTYPE.code: checkout_table,
     }
 
     if not os.path.isdir(destdir):

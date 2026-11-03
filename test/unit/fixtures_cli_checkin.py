@@ -1090,8 +1090,8 @@ define structure {TABL_NAME.lower()} {{
 
 }}'''
 
-TABL_TRANSPARENT_XML = tabl_xml('    <TABCLASS>TRANSP</TABCLASS>',
-                                '     <FIELDNAME>REPO_KEY</FIELDNAME>\n     <ROLLNAME>DEVCLASS</ROLLNAME>')
+TABL_POOL_XML = tabl_xml('    <TABCLASS>POOL</TABCLASS>',
+                         '     <FIELDNAME>REPO_KEY</FIELDNAME>\n     <ROLLNAME>DEVCLASS</ROLLNAME>')
 
 TABL_UNKNOWN_EXCLASS_XML = tabl_xml('    <TABCLASS>INTTAB</TABCLASS>\n    <EXCLASS>9</EXCLASS>',
                                     '     <FIELDNAME>REPO_KEY</FIELDNAME>\n     <ROLLNAME>DEVCLASS</ROLLNAME>')
@@ -1321,3 +1321,299 @@ DTEL_REFERENCE_XML = '''<?xml version="1.0" encoding="utf-8"?>
  </asx:abap>
 </abapGit>
 '''
+
+
+DBTAB_NAME = 'ZSAPCLI_TNOMNT'
+
+DBTAB_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD02V>
+    <TABNAME>{DBTAB_NAME}</TABNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <TABCLASS>TRANSP</TABCLASS>
+    <DDTEXT>TBAC Test - Uploaded criteria per solution to generate</DDTEXT>
+    <CONTFLAG>A</CONTFLAG>
+    <EXCLASS>1</EXCLASS>
+   </DD02V>
+   <DD09L>
+    <TABNAME>{DBTAB_NAME}</TABNAME>
+    <AS4LOCAL>A</AS4LOCAL>
+    <TABKAT>0</TABKAT>
+    <TABART>APPL1</TABART>
+    <BUFALLOW>N</BUFALLOW>
+   </DD09L>
+   <DD03P_TABLE>
+    <DD03P>
+     <FIELDNAME>GEN_SOL_ID</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ROLLNAME>ZZDE_SOLUTION_ID</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <NOTNULL>X</NOTNULL>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>CRITERION</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ROLLNAME>ZZDE_CRITERION</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <NOTNULL>X</NOTNULL>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+   </DD03P_TABLE>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+DBTAB_SOURCE_CODE = f'''@EndUserText.label : 'TBAC Test - Uploaded criteria per solution to generate'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table {DBTAB_NAME.lower()} {{
+
+  key gen_sol_id : zzde_solution_id not null;
+  key criterion  : zzde_criterion not null;
+
+}}'''
+
+DBTAB_FULL_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD02V>
+    <TABNAME>{DBTAB_NAME}</TABNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <TABCLASS>TRANSP</TABCLASS>
+    <CLIDEP>X</CLIDEP>
+    <LANGDEP>X</LANGDEP>
+    <DDTEXT>Full table</DDTEXT>
+    <MASTERLANG>E</MASTERLANG>
+    <MAINFLAG>X</MAINFLAG>
+    <CONTFLAG>C</CONTFLAG>
+    <EXCLASS>1</EXCLASS>
+   </DD02V>
+   <DD09L>
+    <TABNAME>{DBTAB_NAME}</TABNAME>
+    <AS4LOCAL>A</AS4LOCAL>
+    <TABKAT>1</TABKAT>
+    <TABART>APPL2</TABART>
+    <PUFFERUNG>X</PUFFERUNG>
+    <PROTOKOLL>X</PROTOKOLL>
+    <BUFALLOW>X</BUFALLOW>
+   </DD09L>
+   <DD03P_TABLE>
+    <DD03P>
+     <FIELDNAME>CLIENT</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ROLLNAME>MANDT</ROLLNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <NOTNULL>X</NOTNULL>
+     <COMPTYPE>E</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>ID</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>N</INTTYPE>
+     <INTLEN>000020</INTLEN>
+     <NOTNULL>X</NOTNULL>
+     <DATATYPE>NUMC</DATATYPE>
+     <LENG>000010</LENG>
+     <MASK>  NUMC</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>AMOUNT</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>P</INTTYPE>
+     <INTLEN>000008</INTLEN>
+     <REFTABLE>{DBTAB_NAME}</REFTABLE>
+     <REFFIELD>CURRENCY</REFFIELD>
+     <DATATYPE>CURR</DATATYPE>
+     <LENG>000015</LENG>
+     <DECIMALS>000002</DECIMALS>
+     <MASK>  CURR</MASK>
+     <DDTEXT>Amount</DDTEXT>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>CURRENCY</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>C</INTTYPE>
+     <INTLEN>000010</INTLEN>
+     <DATATYPE>CUKY</DATATYPE>
+     <LENG>000005</LENG>
+     <MASK>  CUKY</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>DESCRIPTION</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>C</INTTYPE>
+     <INTLEN>000080</INTLEN>
+     <DATATYPE>CHAR</DATATYPE>
+     <LENG>000040</LENG>
+     <MASK>  CHAR</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>.INCLUDE</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <PRECFIELD>ZZS_CRITERIA</PRECFIELD>
+     <MASK>      S</MASK>
+     <DDTEXT>Test</DDTEXT>
+     <COMPTYPE>S</COMPTYPE>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>CREATED_AT</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>D</INTTYPE>
+     <INTLEN>000016</INTLEN>
+     <DATATYPE>DATS</DATATYPE>
+     <LENG>000008</LENG>
+     <MASK>  DATS</MASK>
+     <SHLPORIGIN>T</SHLPORIGIN>
+    </DD03P>
+   </DD03P_TABLE>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+DBTAB_FULL_SOURCE_CODE = f'''@EndUserText.label : 'Full table'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #C
+@AbapCatalog.dataMaintenance : #ALLOWED
+define table {DBTAB_NAME.lower()} {{
+
+  key client  : mandt not null;
+  key id      : abap.numc(10) not null;
+  @EndUserText.label : 'Amount'
+  @Semantics.amount.currencyCode : '{DBTAB_NAME.lower()}.currency'
+  amount      : abap.curr(15,2);
+  currency    : abap.cuky;
+  description : abap.char(40);
+  include zzs_criteria;
+  created_at  : abap.dats;
+
+}}'''
+
+DBTAB_GENERIC_XML = f'''<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_TABL" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DD02V>
+    <TABNAME>{DBTAB_NAME}</TABNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <TABCLASS>TRANSP</TABCLASS>
+    <DDTEXT>No maintenance</DDTEXT>
+    <MASTERLANG>E</MASTERLANG>
+    <MAINFLAG>N</MAINFLAG>
+    <CONTFLAG>L</CONTFLAG>
+    <EXCLASS>4</EXCLASS>
+   </DD02V>
+   <DD09L>
+    <TABNAME>{DBTAB_NAME}</TABNAME>
+    <AS4LOCAL>A</AS4LOCAL>
+    <TABKAT>2</TABKAT>
+    <TABART>APPL0</TABART>
+    <PUFFERUNG>G</PUFFERUNG>
+    <SCHFELDANZ>001</SCHFELDANZ>
+    <BUFALLOW>X</BUFALLOW>
+   </DD09L>
+   <DD03P_TABLE>
+    <DD03P>
+     <FIELDNAME>AREA</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>C</INTTYPE>
+     <INTLEN>000008</INTLEN>
+     <NOTNULL>X</NOTNULL>
+     <DATATYPE>CHAR</DATATYPE>
+     <LENG>000004</LENG>
+     <MASK>  CHAR</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>NAME</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>C</INTTYPE>
+     <INTLEN>000060</INTLEN>
+     <NOTNULL>X</NOTNULL>
+     <DATATYPE>CHAR</DATATYPE>
+     <LENG>000030</LENG>
+     <MASK>  CHAR</MASK>
+    </DD03P>
+    <DD03P>
+     <FIELDNAME>VALUE</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <INTTYPE>g</INTTYPE>
+     <INTLEN>000008</INTLEN>
+     <DATATYPE>STRG</DATATYPE>
+     <MASK>  STRG</MASK>
+    </DD03P>
+   </DD03P_TABLE>
+  </asx:values>
+ </asx:abap>
+</abapGit>
+'''
+
+DBTAB_GENERIC_SOURCE_CODE = f'''@EndUserText.label : 'No maintenance'
+@AbapCatalog.enhancement.category : #EXTENSIBLE_ANY
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #L
+@AbapCatalog.dataMaintenance : #NOT_ALLOWED
+define table {DBTAB_NAME.lower()} {{
+
+  key area : abap.char(4) not null;
+  key name : abap.char(30) not null;
+  value    : abap.string(0);
+
+}}'''
+
+
+def dbtab_settings_xml(data_class, size_category, allowed, buffering_type, area_key_fields, logging_enabled):
+    """Returns the request of technical settings of the table DBTAB_NAME"""
+
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<ts:tableSettings xmlns:ts="http://www.sap.com/dictionary/table/settings" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="TABL/DTT" adtcore:description="No maintenance" adtcore:language="EN" adtcore:name="{DBTAB_NAME}" adtcore:version="active">
+<ts:dataClassCategory>{data_class}</ts:dataClassCategory>
+<ts:sizeCategory>{size_category}</ts:sizeCategory>
+<ts:buffering>
+<ts:allowed>{allowed}</ts:allowed>
+<ts:type>{buffering_type}</ts:type>
+<ts:areaKeyFields>{area_key_fields}</ts:areaKeyFields>
+</ts:buffering>
+<ts:storageType>C</ts:storageType>
+<ts:sharingType></ts:sharingType>
+<ts:loadUnit></ts:loadUnit>
+<ts:loggingEnabled>{logging_enabled}</ts:loggingEnabled>
+</ts:tableSettings>'''
+
+
+DBTAB_SETTINGS_REQUEST_XML = dbtab_settings_xml('APPL1', '0', 'N', '', '0', 'false')
+
+DBTAB_FULL_SETTINGS_REQUEST_XML = dbtab_settings_xml('APPL2', '1', 'X', 'X', '0', 'true')
+
+DBTAB_GENERIC_SETTINGS_REQUEST_XML = dbtab_settings_xml('APPL0', '2', 'X', 'G', '1', 'false')
+
+DBTAB_ADT_NEW_OBJECT_REQUEST_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<blue:blueSource xmlns:blue="http://www.sap.com/wbobj/blue" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="TABL/DT" adtcore:description="TBAC Test - Uploaded criteria per solution to generate" adtcore:language="EN" adtcore:name="{DBTAB_NAME}" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER" adtcore:version="inactive">
+<adtcore:packageRef adtcore:name="$TMP"/>
+</blue:blueSource>'''
+
+DBTAB_FOREIGN_KEYS_XML = DBTAB_XML.replace('''   </DD03P_TABLE>
+''', '''   </DD03P_TABLE>
+   <DD08V_TABLE>
+    <DD08V>
+     <FIELDNAME>CRITERION</FIELDNAME>
+     <CHECKTABLE>ZSAPCLI_CHECK</CHECKTABLE>
+    </DD08V>
+   </DD08V_TABLE>
+''')
+
+DBTAB_KEY_INCLUDE_XML = DBTAB_XML.replace('''     <FIELDNAME>CRITERION</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <ROLLNAME>ZZDE_CRITERION</ROLLNAME>''', '''     <FIELDNAME>.INCLUDE</FIELDNAME>
+     <KEYFLAG>X</KEYFLAG>
+     <PRECFIELD>ZZS_CRITERIA</PRECFIELD>''')

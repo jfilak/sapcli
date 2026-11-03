@@ -32,13 +32,17 @@ from fixtures_cli_checkin import PACKAGE_DEVC_XML, PACKAGE_DEVC_LANGUAGE_XML, PA
     DDLX_ABAP_LANGUAGE_VERSION_XML, DDLX_SOURCE_CODE, DDLX_ADT_NEW_OBJECT_REQUEST_XML, DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, \
     BDEF_NAME, BDEF_XML, BDEF_SOURCE_CODE, BDEF_ADT_NEW_OBJECT_REQUEST_XML, BDEF_ADT_ALREADY_EXISTS_RESPONSE_XML, \
     TABL_NAME, TABL_XML, TABL_SOURCE_CODE, TABL_ALL_FEATURES_XML, TABL_ALL_FEATURES_SOURCE_CODE, TABL_NO_EXCLASS_XML, \
-    TABL_NO_EXCLASS_SOURCE_CODE, TABL_TRANSPARENT_XML, TABL_UNKNOWN_EXCLASS_XML, TABL_REFERENCE_XML, \
+    TABL_NO_EXCLASS_SOURCE_CODE, TABL_POOL_XML, TABL_UNKNOWN_EXCLASS_XML, TABL_REFERENCE_XML, \
     TABL_UNKNOWN_DATATYPE_XML, TABL_APPEND_XML, TABL_UNKNOWN_REFERENCE_XML, TABL_FOREIGN_KEYS_XML, \
     TABL_ADT_NEW_OBJECT_REQUEST_XML, TABL_ADT_ALREADY_EXISTS_RESPONSE_XML, TABL_DELIMITED_GROUP_XML, \
     TABL_DELIMITED_GROUP_SOURCE_CODE, DOMA_XML, DOMA_ALL_FIELDS_XML, DOMA_TRANSLATIONS_XML, \
-    DTEL_XML, DTEL_DOMAIN_XML, DTEL_TRANSLATIONS_XML, DTEL_REFERENCE_XML
+    DTEL_XML, DTEL_DOMAIN_XML, DTEL_TRANSLATIONS_XML, DTEL_REFERENCE_XML, DBTAB_NAME, DBTAB_XML, \
+    DBTAB_SOURCE_CODE, DBTAB_FULL_XML, DBTAB_FULL_SOURCE_CODE, DBTAB_GENERIC_XML, DBTAB_GENERIC_SOURCE_CODE, \
+    DBTAB_SETTINGS_REQUEST_XML, DBTAB_FULL_SETTINGS_REQUEST_XML, DBTAB_GENERIC_SETTINGS_REQUEST_XML, \
+    DBTAB_ADT_NEW_OBJECT_REQUEST_XML, DBTAB_FOREIGN_KEYS_XML, DBTAB_KEY_INCLUDE_XML
 from fixtures_adt_domain import DOMAIN_NEW_NAME, DOMAIN_ADT_NEW_OBJECT_REQUEST_XML, DOMAIN_ADT_GET_NEW_RESPONSE_XML, \
     DOMAIN_ADT_ALREADY_EXISTS_RESPONSE_XML, DOMAIN_ADT_DEFINE_SAMPLE_REQUEST_XML, DOMAIN_ADT_DEFINE_ALL_FIELDS_REQUEST_XML
+from fixtures_adt_table import TABLE_SETTINGS_ADT_GET_RESPONSE_XML
 from fixtures_adt_dataelement import DATA_ELEMENT_NEW_NAME, DATA_ELEMENT_ADT_NEW_OBJECT_REQUEST_XML, \
     DATA_ELEMENT_ADT_GET_NEW_RESPONSE_XML, DATA_ELEMENT_ADT_DEFINE_SAMPLE_REQUEST_XML, \
     DATA_ELEMENT_ADT_DEFINE_DOMAIN_REQUEST_XML, DATA_ELEMENT_ADT_ALREADY_EXISTS_RESPONSE_XML
@@ -2036,6 +2040,117 @@ Writing Data Element: {DATA_ELEMENT_NEW_NAME.lower()}
         fake_lock.assert_not_called()
 
 
+@patch('sap.adt.objects.ADTObject.unlock')
+@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
+class TestCheckInTable(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.repo_obj = sap.cli.checkin.RepoObject('tabl', DBTAB_NAME.lower(),
+                                                   f'./src/{DBTAB_NAME.lower()}.tabl.xml', self.package, [])
+
+    def checkin(self, abapgit_xml, responses):
+        connection = Connection(responses, user='DEVELOPER')
+
+        with patch('sap.cli.checkin.open', mock_open(read_data=abapgit_xml)) as fake_open:
+            result = sap.cli.checkin.checkin_tabl(connection, self.repo_obj)
+
+        fake_open.assert_called_once_with(self.repo_obj.path, encoding='utf-8')
+
+        return (connection, result)
+
+    def checkin_failure(self, abapgit_xml):
+        connection = Connection([], user='DEVELOPER')
+
+        with patch('sap.cli.checkin.open', mock_open(read_data=abapgit_xml)), \
+             self.assertRaises(ExceptionCheckinFailure) as caught:
+            sap.cli.checkin.checkin_tabl(connection, self.repo_obj)
+
+        self.assertEqual(connection.execs, [])
+
+        return caught.exception.message
+
+    def responses_ok(self):
+        return [
+            Response(text='', status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+            Response(text=TABLE_SETTINGS_ADT_GET_RESPONSE_XML, status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ]
+
+    def assert_requests(self, connection, source_code, settings_request_xml):
+        table_uri = f'/sap/bc/adt/ddic/tables/{DBTAB_NAME.lower()}'
+        settings_uri = f'/sap/bc/adt/ddic/db/settings/{DBTAB_NAME.lower()}'
+
+        self.assertEqual(connection.mock_methods(), [
+            ('POST', '/sap/bc/adt/ddic/tables'),
+            ('PUT', f'{table_uri}/source/main'),
+            ('GET', settings_uri),
+            ('PUT', settings_uri),
+        ])
+
+        self.maxDiff = None
+        self.assertEqual(connection.execs[1].headers, {'Content-Type': 'text/plain; charset=utf-8'})
+        self.assertEqual(connection.execs[1].params, {'lockHandle': 'lock_handle'})
+        self.assertEqual(connection.execs[1].body.decode('utf-8'), source_code)
+
+        self.assertEqual(connection.execs[3].headers,
+                         {'Content-Type': 'application/vnd.sap.adt.table.settings.v2+xml; charset=utf-8'})
+        self.assertEqual(connection.execs[3].params, {'lockHandle': 'lock_handle'})
+        self.assertEqual(connection.execs[3].body.decode('utf-8'), settings_request_xml)
+
+    def test_checkin_dbtab(self, fake_lock, fake_unlock):
+        connection, result = self.checkin(DBTAB_XML, self.responses_ok())
+
+        self.assertEqual(connection.execs[0].body.decode('utf-8'), DBTAB_ADT_NEW_OBJECT_REQUEST_XML)
+        self.assert_requests(connection, DBTAB_SOURCE_CODE, DBTAB_SETTINGS_REQUEST_XML)
+        self.assertEqual(fake_lock.call_count, 2)
+        self.assertEqual(fake_unlock.call_count, 2)
+
+        self.assertEqual(len(result.abap_objects), 1)
+        self.assertEqual(result.abap_objects[0].name, DBTAB_NAME)
+        self.assertEqual(result.abap_objects[0].objtype.code, 'TABL/DT')
+        self.assertEqual(result.used_files, [])
+
+        self.assertConsoleContents(self.console, stdout=f'''Creating Table: {DBTAB_NAME.lower()}
+Writing Table: {DBTAB_NAME.lower()}
+Writing Technical Settings: {DBTAB_NAME.lower()}
+''')
+
+    def test_checkin_dbtab_full(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(DBTAB_FULL_XML, self.responses_ok())
+
+        self.assert_requests(connection, DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_SETTINGS_REQUEST_XML)
+
+    def test_checkin_dbtab_generic_buffering(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(DBTAB_GENERIC_XML, self.responses_ok())
+
+        self.assert_requests(connection, DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_SETTINGS_REQUEST_XML)
+
+    def test_checkin_dbtab_foreign_keys(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(DBTAB_FOREIGN_KEYS_XML)
+
+        self.assertEqual(message, f'Unsupported contents of TABL {DBTAB_NAME.lower()}: Got unexpected tag DD08V_TABLE')
+
+    def test_checkin_dbtab_key_include(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(DBTAB_KEY_INCLUDE_XML)
+
+        self.assertEqual(message, f'Unsupported key include ZZS_CRITERIA of table {DBTAB_NAME.lower()}')
+
+
 DDLS_SOURCE_MIME = 'text/plain; charset=utf-8'
 
 
@@ -2640,11 +2755,11 @@ Writing Structure: {TABL_NAME.lower()}
         fake_write.assert_called_once_with(TABL_SOURCE_CODE, result.abap_objects[0], corrnr=None,
                                            source_label=self.repo_obj.path, check_before_save=True)
 
-    def test_checkin_tabl_transparent_table(self, fake_lock, fake_unlock):
-        message = self.checkin_failure(TABL_TRANSPARENT_XML)
+    def test_checkin_tabl_pool_table(self, fake_lock, fake_unlock):
+        message = self.checkin_failure(TABL_POOL_XML)
 
-        self.assertEqual(message, f'Unsupported table category "TRANSP" of {TABL_NAME.lower()}:'
-                                  ' only structures are supported')
+        self.assertEqual(message, f'Unsupported table category "POOL" of {TABL_NAME.lower()}:'
+                                  ' only structures and transparent tables are supported')
 
     def test_checkin_tabl_unknown_exclass(self, fake_lock, fake_unlock):
         message = self.checkin_failure(TABL_UNKNOWN_EXCLASS_XML)
@@ -2675,7 +2790,7 @@ Writing Structure: {TABL_NAME.lower()}
     def test_checkin_tabl_foreign_keys(self, fake_lock, fake_unlock):
         message = self.checkin_failure(TABL_FOREIGN_KEYS_XML)
 
-        self.assertEqual(message, f'Unsupported contents of structure {TABL_NAME.lower()}: Got unexpected tag DD08V_TABLE')
+        self.assertEqual(message, f'Unsupported contents of TABL {TABL_NAME.lower()}: Got unexpected tag DD08V_TABLE')
 
     def test_checkin_tabl_handler(self, fake_lock, fake_unlock):
         self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['tabl'], sap.cli.checkin.checkin_tabl)
