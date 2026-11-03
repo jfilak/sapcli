@@ -3,6 +3,7 @@
 import unittest
 from io import StringIO
 
+import sap.errors
 import sap.platform.abap
 from sap.platform.abap import StringTable
 
@@ -572,6 +573,21 @@ class TestSAPPlatformABAPFromXML(unittest.TestCase):
         self.assertEqual(struct.REVIEWER, 'Jakub Filak')
         self.assertEqual(struct.REPORT.PYTHON, 'Cool')
         self.assertEqual(struct.REPORT.LINUX, 'Fabulous')
+
+    def test_from_xml_structure_unknown_member(self):
+        struct = PLAIN_STRUCT()
+
+        with self.assertRaises(sap.errors.SAPCliError) as cm:
+            sap.platform.abap.from_xml(struct, '''<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+    <PLAIN_STRUCT>
+      <UNKNOWN>foo</UNKNOWN>
+    </PLAIN_STRUCT>
+  </asx:values>
+</asx:abap>\n''')
+
+        self.assertEqual(str(cm.exception), 'PLAIN_STRUCT does not have the member UNKNOWN')
 
     def test_from_xml_simple_object(self):
         simple = type('SIMPLE', (str,), {})

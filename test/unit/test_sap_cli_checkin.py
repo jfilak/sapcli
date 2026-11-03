@@ -20,7 +20,7 @@ from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 FIXTURE_TEXT_SYMBOLS = '@MaxLength:20\r\n001=Hello, world!\r\n@MaxLength:10\r\n002=a=b\r\n'
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
-from fixtures_cli_checkin import PACKAGE_DEVC_XML, CLAS_XML, CLAS_WITH_DESCRIPTIONS_SUB_XML, INTF_XML, \
+from fixtures_cli_checkin import PACKAGE_DEVC_XML, PACKAGE_DEVC_LANGUAGE_XML, PACKAGE_DEVC_UNKNOWN_XML, CLAS_XML, CLAS_WITH_DESCRIPTIONS_SUB_XML, INTF_XML, \
     INTF_WITH_DESCRIPTIONS_SUB_XML, PROG_XML, PROG_WITH_CUA_XML, INCLUDE_XML, INVALID_TYPE_XML, \
     CLAS_WITH_TPOOL_XML, PROG_WITH_TEXTS_XML, INCLUDE_WITH_TEXTS_XML, \
     FUNCTION_GROUP_XML, FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, \
@@ -712,6 +712,29 @@ class TestCheckInPackage(ConsoleOutputTestCase, PatcherTestCase):
             sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0], self.fake_args)
 
         self.assertRegex(str(caught.exception), 'Invalid XML for DEVC:.*')
+
+    def test_devc_file_has_unknown_member(self):
+        self.fake_open.return_value = StringIOFile(PACKAGE_DEVC_UNKNOWN_XML)
+
+        with self.assertRaises(SAPCliError) as caught:
+            sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0], self.fake_args)
+
+        self.assertEqual(str(caught.exception), 'DEVC does not have the member FUTURE_FIELD')
+
+    @patch('sap.adt.Package')
+    @patch('sap.adt.ADTCoreData')
+    def test_checkin_package_with_language(self, fake_core_data, fake_package):
+        self.fake_open.return_value = StringIOFile(PACKAGE_DEVC_LANGUAGE_XML)
+        self.connection.user = 'fake_user'
+        package = Mock()
+        package.super_package.name = None
+        fake_package.return_value = package
+
+        sap.cli.checkin.checkin_package(self.connection, self.repo.packages[0], self.fake_args)
+
+        fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible='FAKE_USER',
+                                               description='Test Package')
+        package.create.assert_called_once()
 
     @patch('sap.cli.checkin.mod_log')
     @patch('sap.adt.package.Package.create')

@@ -6,11 +6,54 @@ from sap.platform.abap import Structure, InternalTable, ItemizedTable
 
 # pylint: disable=invalid-name
 # pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
 class DEVC(Structure):
-    """Class metadata"""
+    """Package attributes - abapGit's SCOMPKDTLN where abapGit clears many
+       of them but older abapGit versions did not clear some of them
+       (e.g. LANGUAGE)
+    """
 
+    DEVCLASS: str
     CTEXT: str
+    DEL_IN_MEM: str
+    LANGUAGE: str
+    MASTERLANG: str
+    KORRFLAG: str
+    AS4USER: str
+    PDEVCLASS: str
+    LAYER_TEXT: str
+    DLVUNIT: str
+    DLVU_TEXT: str
+    COMP_POSID: str
+    COMPONENT: str
+    COMP_TEXT: str
+    NAMESPACE: str
+    TPCLASS: str
+    PARENTCL: str
+    PERMINHER: str
+    INTFPREFX: str
+    PACKTYPE: str
+    PACKKIND: str
+    RESTRICTED: str
+    MAINPACK: str
+    CREATED_BY: str
+    CREATED_ON: str
+    CHANGED_BY: str
+    CHANGED_ON: str
     SRV_CHECK: str
+    CLI_CHECK: str
+    EXT_ALIAS: str
+    PROJECT_GUID: str
+    PROJECT_ID: str
+    PROJECT_SHORT_TEXT: str
+    PROJECT_PASSDOWN: str
+    PROJECT_INHERITED: str
+    SWITCH_ID: str
+    SWITCH_SHORT_TEXT: str
+    TRANSLATION_DEPTH: str
+    TRANSLATION_DEPTH_TEXT: str
+    AS4USER_DESCR: str
+    SUPERPACKAGE_IN_TDEVC: str
 
 
 SUBC_EXECUTABLE_PROGRAM = '1'

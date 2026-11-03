@@ -330,8 +330,8 @@ class ABAPBaseWriter:
         typ = self.get_type()
         try:
             return self.get_type().__annotations__[name]
-        except KeyError:
-            raise RuntimeError(f'{typ.__name__} does not have the member {name}')
+        except KeyError as ex:
+            raise SAPCliError(f'{typ.__name__} does not have the member {name}') from ex
 
     def set_child(self, name, child_obj):
         """Sets the member of the given name in the adapted object"""
