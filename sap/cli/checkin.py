@@ -40,9 +40,13 @@ from sap.platform.abap.ddic import (
     DD01V,
     DD07V_TAB,
     DD01L_EXTRA,
+    DD04V,
+    DD04L_EXTRA,
+    REFKIND_DOMAIN,
     TABCLASS_STRUCTURE,
     DD02V_EXCLASS_TO_DDL,
     DDIC_DATATYPE_TO_DDL,
+    DDIC_DATATYPE_TO_ADT,
 )
 import sap.adt
 import sap.adt.checks
@@ -323,6 +327,7 @@ def checkin_package(connection, repo_package, args):
 def _resolve_dependencies(objects):
 
     domains = []
+    dataelements = []
     structures = []
     ddic = []
     behaviors = []
@@ -334,6 +339,9 @@ def _resolve_dependencies(objects):
         # Domains go first because other DDIC objects are typed by them
         if obj.code in ['doma']:
             domains.append(obj)
+        # Data elements are typed by domains and structures are typed by them
+        elif obj.code in ['dtel']:
+            dataelements.append(obj)
         # Structures go before table types because table types use them as row types
         elif obj.code in ['tabl']:
             structures.append(obj)
@@ -352,7 +360,7 @@ def _resolve_dependencies(objects):
         else:
             others.append(obj)
 
-    return [domains + structures + ddic, behaviors + libs, bins, others]
+    return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
 
 
 def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
@@ -1164,6 +1172,81 @@ def checkin_doma(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([domain], [])
 
 
+# pylint: disable=unused-argument
+def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False):
+    """Checkin ADT Data Element"""
+
+    sap.cli.core.printout('Creating Data Element:', repo_obj.name)
+
+    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
+        try:
+            # DD04L_EXTRA is parsed only to accept files of newer abapGit versions
+            results = sap.platform.abap.abapgit.from_xml(
+                [DD04V, sap.platform.abap.abapgit.OptionalBody(DD04L_EXTRA)],
+                abap_data_file.read())
+        except sap.errors.SAPCliError as ex:
+            # e.g. translations or long texts which are not supported yet
+            raise sap.adt.errors.ExceptionCheckinFailure(
+                f'Unsupported contents of data element {repo_obj.name}: {ex}') from ex
+
+    dd04v = results['DD04V']
+
+    if dd04v.REFKIND not in (None, REFKIND_DOMAIN):
+        raise sap.adt.errors.ExceptionCheckinFailure(
+            f'Unsupported type of data element {repo_obj.name}: REFKIND={dd04v.REFKIND}')
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
+                                   description=dd04v.DDTEXT)
+    dataelement = sap.adt.DataElement(connection, repo_obj.name.upper(), package=repo_obj.package.name,
+                                      metadata=metadata)
+
+    try:
+        dataelement.create(corrnr)
+    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
+        mod_log().info(err.message)
+
+    dataelement.fetch()
+    dataelement.description = dd04v.DDTEXT
+
+    definition = dataelement.definition
+    if dd04v.REFKIND == REFKIND_DOMAIN:
+        definition.typ = 'domain'
+        definition.typ_name = dd04v.DOMNAME
+        definition.data_type = ''
+        definition.data_type_length = '0'
+        definition.data_type_decimals = '0'
+    else:
+        definition.typ = 'predefinedAbapType'
+        definition.typ_name = ''
+        # ADT does not accept DDIC names of data types of data elements
+        definition.data_type = DDIC_DATATYPE_TO_ADT.get(dd04v.DATATYPE, dd04v.DATATYPE)
+        definition.data_type_length = dd04v.LENG or '0'
+        definition.data_type_decimals = dd04v.DECIMALS or '0'
+
+    definition.label_short = dd04v.SCRTEXT_S or ''
+    definition.label_short_length = dd04v.SCRLEN1 or '0'
+    definition.label_medium = dd04v.SCRTEXT_M or ''
+    definition.label_medium_length = dd04v.SCRLEN2 or '0'
+    definition.label_long = dd04v.SCRTEXT_L or ''
+    definition.label_long_length = dd04v.SCRLEN3 or '0'
+    definition.label_heading = dd04v.REPTEXT or ''
+    definition.label_heading_length = dd04v.HEADLEN or '0'
+    definition.search_help = dd04v.SHLPNAME or ''
+    definition.search_help_parameter = dd04v.SHLPFIELD or ''
+    definition.set_get_parameter = dd04v.MEMORYID or ''
+    definition.default_component_name = dd04v.DEFFDNAME or ''
+    definition.deactivate_input_history = _abap_flag_to_adt(dd04v.NOHISTORY)
+    definition.change_document = _abap_flag_to_adt(dd04v.LOGFLAG)
+    definition.left_to_right_direction = _abap_flag_to_adt(dd04v.LTRFLDDIS)
+    definition.deactivate_bidi_filtering = _abap_flag_to_adt(dd04v.BIDICTRLC)
+
+    sap.cli.core.printout('Writing Data Element:', repo_obj.name)
+    with dataelement.open_editor(corrnr=corrnr) as editor:
+        editor.push()
+
+    return ObjectCheckinResult([dataelement], [])
+
+
 OBJECT_CHECKIN_HANDLERS = {
     'intf': checkin_intf,
     'clas': checkin_clas,
@@ -1176,6 +1259,7 @@ OBJECT_CHECKIN_HANDLERS = {
     'bdef': checkin_bdef,
     'tabl': checkin_tabl,
     'doma': checkin_doma,
+    'dtel': checkin_dtel,
 }
 
 

@@ -224,3 +224,111 @@ DOMAIN_ABC_ADT_GET_RESPONSE_XML = '''<?xml version="1.0" encoding="UTF-8"?>
     </doma:valueInformation>
   </doma:content>
 </doma:domain>'''
+
+DATA_ELEMENT_NEW_NAME = 'ZAGT_TEST_DTEL'
+
+DATA_ELEMENT_ADT_NEW_OBJECT_REQUEST_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<blue:wbobj xmlns:blue="http://www.sap.com/wbobj/dictionary/dtel" xmlns:adtcore="http://www.sap.com/adt/core" xmlns:dtel="http://www.sap.com/adt/dictionary/dataelements" adtcore:type="DTEL/DE" adtcore:description="testing" adtcore:language="EN" adtcore:name="{DATA_ELEMENT_NEW_NAME}" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER" adtcore:version="inactive">
+<adtcore:packageRef adtcore:name="$TMP"/>
+<dtel:dataElement>
+<dtel:typeKind/>
+<dtel:typeName/>
+<dtel:dataType/>
+<dtel:dataTypeLength/>
+<dtel:dataTypeDecimals/>
+<dtel:shortFieldLabel/>
+<dtel:shortFieldLength/>
+<dtel:shortFieldMaxLength/>
+<dtel:mediumFieldLabel/>
+<dtel:mediumFieldLength/>
+<dtel:mediumFieldMaxLength/>
+<dtel:longFieldLabel/>
+<dtel:longFieldLength/>
+<dtel:longFieldMaxLength/>
+<dtel:headingFieldLabel/>
+<dtel:headingFieldLength/>
+<dtel:headingFieldMaxLength/>
+<dtel:searchHelp/>
+<dtel:searchHelpParameter/>
+<dtel:setGetParameter/>
+<dtel:defaultComponentName/>
+<dtel:deactivateInputHistory/>
+<dtel:changeDocument/>
+<dtel:leftToRightDirection/>
+<dtel:deactivateBIDIFiltering/>
+</dtel:dataElement>
+</blue:wbobj>'''
+
+DATA_ELEMENT_ADT_GET_NEW_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?><blue:wbobj adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="A4H" adtcore:abapLanguageVersion="standard" adtcore:name="{DATA_ELEMENT_NEW_NAME}" adtcore:type="DTEL/DE" adtcore:changedAt="2026-11-03T08:38:59Z" adtcore:version="new" adtcore:createdAt="2026-11-03T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="testing" adtcore:language="EN" xmlns:blue="http://www.sap.com/wbobj/dictionary/dtel" xmlns:adtcore="http://www.sap.com/adt/core"><atom:link href="versions" rel="http://www.sap.com/adt/relations/versions" title="Historic versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/repository/informationsystem/abaplanguageversions?uri=%2Fsap%2Fbc%2Fadt%2Fddic%2Fdataelements%2F{DATA_ELEMENT_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/informationsystem/abaplanguageversions" type="application/vnd.sap.adt.nameditems.v1+xml" title="Allowed ABAP language versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/wb/object_type/dtelde/object_name/{DATA_ELEMENT_NEW_NAME}" rel="self" type="application/vnd.sap.sapgui" title="Representation in SAP Gui" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/docu/object_type/de/object_name/{DATA_ELEMENT_NEW_NAME.lower()}?masterLanguage=E&amp;mode=edit" rel="http://www.sap.com/adt/relations/documentation" type="application/vnd.sap.sapgui" title="Documentation" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="./{DATA_ELEMENT_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/source" type="text/html" title="Landing Page (HTML)" xmlns:atom="http://www.w3.org/2005/Atom"/><adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:description="Temporary Objects (never transported!)"/><dtel:dataElement xmlns:dtel="http://www.sap.com/adt/dictionary/dataelements"><dtel:typeKind>domain</dtel:typeKind><dtel:typeName/><dtel:dataType/><dtel:dataTypeLength>000000</dtel:dataTypeLength><dtel:dataTypeDecimals>000000</dtel:dataTypeDecimals><dtel:shortFieldLabel/><dtel:shortFieldLength>10</dtel:shortFieldLength><dtel:shortFieldMaxLength>10</dtel:shortFieldMaxLength><dtel:mediumFieldLabel/><dtel:mediumFieldLength>20</dtel:mediumFieldLength><dtel:mediumFieldMaxLength>20</dtel:mediumFieldMaxLength><dtel:longFieldLabel/><dtel:longFieldLength>40</dtel:longFieldLength><dtel:longFieldMaxLength>40</dtel:longFieldMaxLength><dtel:headingFieldLabel/><dtel:headingFieldLength>55</dtel:headingFieldLength><dtel:headingFieldMaxLength>55</dtel:headingFieldMaxLength><dtel:searchHelp/><dtel:searchHelpParameter/><dtel:setGetParameter/><dtel:defaultComponentName/><dtel:deactivateInputHistory>false</dtel:deactivateInputHistory><dtel:changeDocument>false</dtel:changeDocument><dtel:leftToRightDirection>false</dtel:leftToRightDirection><dtel:deactivateBIDIFiltering>false</dtel:deactivateBIDIFiltering></dtel:dataElement></blue:wbobj>'''
+
+DATA_ELEMENT_ADT_DEFINE_SAMPLE_REQUEST_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<blue:wbobj xmlns:blue="http://www.sap.com/wbobj/dictionary/dtel" xmlns:adtcore="http://www.sap.com/adt/core" xmlns:dtel="http://www.sap.com/adt/dictionary/dataelements" adtcore:type="DTEL/DE" adtcore:description="testing" adtcore:language="EN" adtcore:name="{DATA_ELEMENT_NEW_NAME}" adtcore:abapLanguageVersion="standard" adtcore:masterLanguage="EN" adtcore:masterSystem="A4H" adtcore:responsible="DEVELOPER" adtcore:version="new">
+<adtcore:packageRef adtcore:name="$TMP"/>
+<dtel:dataElement>
+<dtel:typeKind>predefinedAbapType</dtel:typeKind>
+<dtel:typeName></dtel:typeName>
+<dtel:dataType>CHAR</dtel:dataType>
+<dtel:dataTypeLength>000001</dtel:dataTypeLength>
+<dtel:dataTypeDecimals>0</dtel:dataTypeDecimals>
+<dtel:shortFieldLabel>testing</dtel:shortFieldLabel>
+<dtel:shortFieldLength>10</dtel:shortFieldLength>
+<dtel:shortFieldMaxLength>10</dtel:shortFieldMaxLength>
+<dtel:mediumFieldLabel>testing</dtel:mediumFieldLabel>
+<dtel:mediumFieldLength>20</dtel:mediumFieldLength>
+<dtel:mediumFieldMaxLength>20</dtel:mediumFieldMaxLength>
+<dtel:longFieldLabel>testing</dtel:longFieldLabel>
+<dtel:longFieldLength>40</dtel:longFieldLength>
+<dtel:longFieldMaxLength>40</dtel:longFieldMaxLength>
+<dtel:headingFieldLabel>testing</dtel:headingFieldLabel>
+<dtel:headingFieldLength>55</dtel:headingFieldLength>
+<dtel:headingFieldMaxLength>55</dtel:headingFieldMaxLength>
+<dtel:searchHelp></dtel:searchHelp>
+<dtel:searchHelpParameter></dtel:searchHelpParameter>
+<dtel:setGetParameter></dtel:setGetParameter>
+<dtel:defaultComponentName></dtel:defaultComponentName>
+<dtel:deactivateInputHistory>false</dtel:deactivateInputHistory>
+<dtel:changeDocument>false</dtel:changeDocument>
+<dtel:leftToRightDirection>false</dtel:leftToRightDirection>
+<dtel:deactivateBIDIFiltering>false</dtel:deactivateBIDIFiltering>
+</dtel:dataElement>
+</blue:wbobj>'''
+
+DATA_ELEMENT_ADT_DEFINE_DOMAIN_REQUEST_XML = f'''<?xml version="1.0" encoding="UTF-8"?>
+<blue:wbobj xmlns:blue="http://www.sap.com/wbobj/dictionary/dtel" xmlns:adtcore="http://www.sap.com/adt/core" xmlns:dtel="http://www.sap.com/adt/dictionary/dataelements" adtcore:type="DTEL/DE" adtcore:description="Domain &amp; labels" adtcore:language="EN" adtcore:name="{DATA_ELEMENT_NEW_NAME}" adtcore:abapLanguageVersion="standard" adtcore:masterLanguage="EN" adtcore:masterSystem="A4H" adtcore:responsible="DEVELOPER" adtcore:version="new">
+<adtcore:packageRef adtcore:name="$TMP"/>
+<dtel:dataElement>
+<dtel:typeKind>domain</dtel:typeKind>
+<dtel:typeName>ZABAPGIT_UNIT_TEST</dtel:typeName>
+<dtel:dataType></dtel:dataType>
+<dtel:dataTypeLength>0</dtel:dataTypeLength>
+<dtel:dataTypeDecimals>0</dtel:dataTypeDecimals>
+<dtel:shortFieldLabel>Short</dtel:shortFieldLabel>
+<dtel:shortFieldLength>08</dtel:shortFieldLength>
+<dtel:shortFieldMaxLength>10</dtel:shortFieldMaxLength>
+<dtel:mediumFieldLabel>Medium</dtel:mediumFieldLabel>
+<dtel:mediumFieldLength>15</dtel:mediumFieldLength>
+<dtel:mediumFieldMaxLength>20</dtel:mediumFieldMaxLength>
+<dtel:longFieldLabel>Long</dtel:longFieldLabel>
+<dtel:longFieldLength>25</dtel:longFieldLength>
+<dtel:longFieldMaxLength>40</dtel:longFieldMaxLength>
+<dtel:headingFieldLabel>Heading</dtel:headingFieldLabel>
+<dtel:headingFieldLength>30</dtel:headingFieldLength>
+<dtel:headingFieldMaxLength>55</dtel:headingFieldMaxLength>
+<dtel:searchHelp>ZSAPCLI_SHLP</dtel:searchHelp>
+<dtel:searchHelpParameter>VALUE</dtel:searchHelpParameter>
+<dtel:setGetParameter>ZSAPCLI</dtel:setGetParameter>
+<dtel:defaultComponentName>DOMAIN_VALUE</dtel:defaultComponentName>
+<dtel:deactivateInputHistory>true</dtel:deactivateInputHistory>
+<dtel:changeDocument>true</dtel:changeDocument>
+<dtel:leftToRightDirection>true</dtel:leftToRightDirection>
+<dtel:deactivateBIDIFiltering>true</dtel:deactivateBIDIFiltering>
+</dtel:dataElement>
+</blue:wbobj>'''
+
+DATA_ELEMENT_ADT_ALREADY_EXISTS_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceAlreadyExists"/><message lang="EN">Resource Data Element {DATA_ELEMENT_NEW_NAME} does already exist.</message><localizedMessage lang="EN">Resource Data Element {DATA_ELEMENT_NEW_NAME} does already exist.</localizedMessage><properties/></exc:exception>'''
+
+DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?><blue:wbobj adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="A4H" adtcore:abapLanguageVersion="standard" adtcore:name="{DATA_ELEMENT_NEW_NAME}" adtcore:type="DTEL/DE" adtcore:changedAt="2026-11-03T08:44:17Z" adtcore:version="active" adtcore:createdAt="2026-11-03T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="testing" adtcore:language="EN" xmlns:blue="http://www.sap.com/wbobj/dictionary/dtel" xmlns:adtcore="http://www.sap.com/adt/core"><atom:link href="versions" rel="http://www.sap.com/adt/relations/versions" title="Historic versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/repository/informationsystem/abaplanguageversions?uri=%2Fsap%2Fbc%2Fadt%2Fddic%2Fdataelements%2F{DATA_ELEMENT_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/informationsystem/abaplanguageversions" type="application/vnd.sap.adt.nameditems.v1+xml" title="Allowed ABAP language versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/wb/object_type/dtelde/object_name/{DATA_ELEMENT_NEW_NAME}" rel="self" type="application/vnd.sap.sapgui" title="Representation in SAP Gui" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/docu/object_type/de/object_name/{DATA_ELEMENT_NEW_NAME.lower()}?masterLanguage=E&amp;mode=edit" rel="http://www.sap.com/adt/relations/documentation" type="application/vnd.sap.sapgui" title="Documentation" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/ddic/logs/db/ACTDTEL{DATA_ELEMENT_NEW_NAME}" rel="http://www.sap.com/adt/relations/ddic/activationlog" type="application/vnd.sap.adt.logs+xml" title="Activation Log" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="./{DATA_ELEMENT_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/source" type="text/html" title="Landing Page (HTML)" xmlns:atom="http://www.w3.org/2005/Atom"/><adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:description="DTEL"/><dtel:dataElement xmlns:dtel="http://www.sap.com/adt/dictionary/dataelements"><dtel:typeKind>predefinedAbapType</dtel:typeKind><dtel:typeName/><dtel:dataType>CHAR</dtel:dataType><dtel:dataTypeLength>000001</dtel:dataTypeLength><dtel:dataTypeDecimals>000000</dtel:dataTypeDecimals><dtel:shortFieldLabel>testing</dtel:shortFieldLabel><dtel:shortFieldLength>10</dtel:shortFieldLength><dtel:shortFieldMaxLength>10</dtel:shortFieldMaxLength><dtel:mediumFieldLabel>testing</dtel:mediumFieldLabel><dtel:mediumFieldLength>20</dtel:mediumFieldLength><dtel:mediumFieldMaxLength>20</dtel:mediumFieldMaxLength><dtel:longFieldLabel>testing</dtel:longFieldLabel><dtel:longFieldLength>40</dtel:longFieldLength><dtel:longFieldMaxLength>40</dtel:longFieldMaxLength><dtel:headingFieldLabel>testing</dtel:headingFieldLabel><dtel:headingFieldLength>55</dtel:headingFieldLength><dtel:headingFieldMaxLength>55</dtel:headingFieldMaxLength><dtel:searchHelp/><dtel:searchHelpParameter/><dtel:setGetParameter/><dtel:defaultComponentName/><dtel:deactivateInputHistory>false</dtel:deactivateInputHistory><dtel:changeDocument>false</dtel:changeDocument><dtel:leftToRightDirection>false</dtel:leftToRightDirection><dtel:deactivateBIDIFiltering>false</dtel:deactivateBIDIFiltering></dtel:dataElement></blue:wbobj>'''
+
+DATA_ELEMENT_ADT_GET_DOMAIN_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?><blue:wbobj adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="A4H" adtcore:abapLanguageVersion="standard" adtcore:name="{DATA_ELEMENT_NEW_NAME}" adtcore:type="DTEL/DE" adtcore:changedAt="2026-11-03T08:44:17Z" adtcore:version="active" adtcore:createdAt="2026-11-03T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="A &amp; B &lt;C&gt; 'D' &quot;E&quot;" adtcore:language="EN" xmlns:blue="http://www.sap.com/wbobj/dictionary/dtel" xmlns:adtcore="http://www.sap.com/adt/core"><atom:link href="versions" rel="http://www.sap.com/adt/relations/versions" title="Historic versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/repository/informationsystem/abaplanguageversions?uri=%2Fsap%2Fbc%2Fadt%2Fddic%2Fdataelements%2F{DATA_ELEMENT_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/informationsystem/abaplanguageversions" type="application/vnd.sap.adt.nameditems.v1+xml" title="Allowed ABAP language versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/wb/object_type/dtelde/object_name/{DATA_ELEMENT_NEW_NAME}" rel="self" type="application/vnd.sap.sapgui" title="Representation in SAP Gui" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/docu/object_type/de/object_name/{DATA_ELEMENT_NEW_NAME.lower()}?masterLanguage=E&amp;mode=edit" rel="http://www.sap.com/adt/relations/documentation" type="application/vnd.sap.sapgui" title="Documentation" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/ddic/logs/db/ACTDTEL{DATA_ELEMENT_NEW_NAME}" rel="http://www.sap.com/adt/relations/ddic/activationlog" type="application/vnd.sap.adt.logs+xml" title="Activation Log" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="./{DATA_ELEMENT_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/source" type="text/html" title="Landing Page (HTML)" xmlns:atom="http://www.w3.org/2005/Atom"/><adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:description="DTEL"/><dtel:dataElement xmlns:dtel="http://www.sap.com/adt/dictionary/dataelements"><dtel:typeKind>domain</dtel:typeKind><dtel:typeName>SPRAS</dtel:typeName><dtel:dataType>LANG</dtel:dataType><dtel:dataTypeLength>000001</dtel:dataTypeLength><dtel:dataTypeDecimals>000000</dtel:dataTypeDecimals><dtel:shortFieldLabel>Short</dtel:shortFieldLabel><dtel:shortFieldLength>08</dtel:shortFieldLength><dtel:shortFieldMaxLength>10</dtel:shortFieldMaxLength><dtel:mediumFieldLabel>Medium</dtel:mediumFieldLabel><dtel:mediumFieldLength>15</dtel:mediumFieldLength><dtel:mediumFieldMaxLength>20</dtel:mediumFieldMaxLength><dtel:longFieldLabel>Long</dtel:longFieldLabel><dtel:longFieldLength>25</dtel:longFieldLength><dtel:longFieldMaxLength>40</dtel:longFieldMaxLength><dtel:headingFieldLabel>Heading</dtel:headingFieldLabel><dtel:headingFieldLength>30</dtel:headingFieldLength><dtel:headingFieldMaxLength>55</dtel:headingFieldMaxLength><dtel:searchHelp>H_T002</dtel:searchHelp><dtel:searchHelpParameter>SPRAS</dtel:searchHelpParameter><dtel:setGetParameter>SPR</dtel:setGetParameter><dtel:defaultComponentName>DOMAIN_VALUE</dtel:defaultComponentName><dtel:deactivateInputHistory>true</dtel:deactivateInputHistory><dtel:changeDocument>true</dtel:changeDocument><dtel:leftToRightDirection>false</dtel:leftToRightDirection><dtel:deactivateBIDIFiltering>false</dtel:deactivateBIDIFiltering></dtel:dataElement></blue:wbobj>'''
+
+DATA_ELEMENT_ADT_GET_STRING_RESPONSE_XML = f'''<?xml version="1.0" encoding="utf-8"?><blue:wbobj adtcore:responsible="DEVELOPER" adtcore:masterLanguage="EN" adtcore:masterSystem="A4H" adtcore:abapLanguageVersion="standard" adtcore:name="{DATA_ELEMENT_NEW_NAME}" adtcore:type="DTEL/DE" adtcore:changedAt="2026-11-03T08:44:17Z" adtcore:version="active" adtcore:createdAt="2026-11-03T00:00:00Z" adtcore:changedBy="DEVELOPER" adtcore:createdBy="DEVELOPER" adtcore:description="String" adtcore:language="EN" xmlns:blue="http://www.sap.com/wbobj/dictionary/dtel" xmlns:adtcore="http://www.sap.com/adt/core"><atom:link href="versions" rel="http://www.sap.com/adt/relations/versions" title="Historic versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/repository/informationsystem/abaplanguageversions?uri=%2Fsap%2Fbc%2Fadt%2Fddic%2Fdataelements%2F{DATA_ELEMENT_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/informationsystem/abaplanguageversions" type="application/vnd.sap.adt.nameditems.v1+xml" title="Allowed ABAP language versions" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/wb/object_type/dtelde/object_name/{DATA_ELEMENT_NEW_NAME}" rel="self" type="application/vnd.sap.sapgui" title="Representation in SAP Gui" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/vit/docu/object_type/de/object_name/{DATA_ELEMENT_NEW_NAME.lower()}?masterLanguage=E&amp;mode=edit" rel="http://www.sap.com/adt/relations/documentation" type="application/vnd.sap.sapgui" title="Documentation" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="/sap/bc/adt/ddic/logs/db/ACTDTEL{DATA_ELEMENT_NEW_NAME}" rel="http://www.sap.com/adt/relations/ddic/activationlog" type="application/vnd.sap.adt.logs+xml" title="Activation Log" xmlns:atom="http://www.w3.org/2005/Atom"/><atom:link href="./{DATA_ELEMENT_NEW_NAME.lower()}" rel="http://www.sap.com/adt/relations/source" type="text/html" title="Landing Page (HTML)" xmlns:atom="http://www.w3.org/2005/Atom"/><adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24tmp" adtcore:type="DEVC/K" adtcore:name="$TMP" adtcore:description="DTEL"/><dtel:dataElement xmlns:dtel="http://www.sap.com/adt/dictionary/dataelements"><dtel:typeKind>predefinedAbapType</dtel:typeKind><dtel:typeName/><dtel:dataType>STRING</dtel:dataType><dtel:dataTypeLength>000000</dtel:dataTypeLength><dtel:dataTypeDecimals>000000</dtel:dataTypeDecimals><dtel:shortFieldLabel>String</dtel:shortFieldLabel><dtel:shortFieldLength>10</dtel:shortFieldLength><dtel:shortFieldMaxLength>10</dtel:shortFieldMaxLength><dtel:mediumFieldLabel>String</dtel:mediumFieldLabel><dtel:mediumFieldLength>20</dtel:mediumFieldLength><dtel:mediumFieldMaxLength>20</dtel:mediumFieldMaxLength><dtel:longFieldLabel>String</dtel:longFieldLabel><dtel:longFieldLength>40</dtel:longFieldLength><dtel:longFieldMaxLength>40</dtel:longFieldMaxLength><dtel:headingFieldLabel>String</dtel:headingFieldLabel><dtel:headingFieldLength>55</dtel:headingFieldLength><dtel:headingFieldMaxLength>55</dtel:headingFieldMaxLength><dtel:searchHelp/><dtel:searchHelpParameter/><dtel:setGetParameter/><dtel:defaultComponentName/><dtel:deactivateInputHistory>false</dtel:deactivateInputHistory><dtel:changeDocument>false</dtel:changeDocument><dtel:leftToRightDirection>true</dtel:leftToRightDirection><dtel:deactivateBIDIFiltering>true</dtel:deactivateBIDIFiltering></dtel:dataElement></blue:wbobj>'''

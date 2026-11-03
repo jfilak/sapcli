@@ -45,6 +45,12 @@ Fetches attributes of the given domain and stores them in a local file.
 sapcli checkout domain zhello_world_dom
 ```
 
+Fetches attributes of the given data element and stores them in a local file.
+
+```bash
+sapcli checkout dataelement zhello_world_dtel
+```
+
 Fetches source code and attributes of the given CDS data definition and stores
 them in local files.
 
@@ -74,7 +80,7 @@ sapcli checkout bdef zhello_world_bo
 ```
 
 Fetches source codes of classes, programs, interfaces, function groups,
-domains, structures, table types, CDS data definitions, CDS access controls, CDS metadata
+domains, data elements, structures, table types, CDS data definitions, CDS access controls, CDS metadata
 extensions, and CDS behavior definitions of the given package
 and stores them in corresponding files in a local file system directory.
 
@@ -240,3 +246,26 @@ such files as unsupported.
 
 Checkin renumbers fixed values the same way as abapGit does. Checkout does not
 write the field `DOMMASTER` because checkin does not need it.
+
+
+## Data elements
+
+Data elements are stored in the files _.dtel.xml_ with the section `DD04V`
+the same way as abapGit does.
+
+The command `sapcli checkin package` creates data elements right after domains
+because they are typed by domains and structures are typed by them, and
+activates them together with domains, structures, and table types before
+classes, interfaces, and programs.
+
+Supported are data elements typed by domains and by the DDIC built-in types,
+field labels and their lengths, search helps, SET/GET parameters, default
+component names, and the flags change document, input history, and
+bidirectional text. Data elements typed by references (`REF TO`) are not
+supported. Translations (`I18N_LANGS`, `DD04_TEXTS`) and documentation are not
+supported - checkin reports such files as unsupported.
+
+ADT does not provide the output length, so checkout computes the field
+`OUTPUTLEN` the same way as DDIC does for the DDIC built-in types supported in
+structures and for `UTCL`, `D16N`, and `D34N`. Checkout leaves it out for other
+types (e.g. `D16D` or `GGM1`). Checkin does not need it.

@@ -13,7 +13,7 @@ from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, 
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
     DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS, DD02V, DD03P, DD03P_TABLE, \
-    TABCLASS_STRUCTURE, DD02V_EXCLASS_TO_DDL, DDIC_DATATYPE_TO_DDL, DD01V, DD07V, DD07V_TAB
+    TABCLASS_STRUCTURE, DD02V_EXCLASS_TO_DDL, DDIC_DATATYPE_TO_DDL, DD01V, DD07V, DD07V_TAB, DD04V, REFKIND_DOMAIN
 from sap.platform.language import iso_code_to_sap_code
 
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
@@ -941,6 +941,130 @@ def domain(connection, args):
     checkout_domain(connection, args.name.upper())
 
 
+# DDIC output lengths of the DDIC built-in data types which do not depend on
+# the length - DDIC does not compute output lengths of strings
+DDIC_DATATYPE_FIXED_OUTPUT_LENGTH = {
+    'INT1': 3,
+    'INT2': 6,
+    'INT4': 11,
+    'INT8': 20,
+    'FLTP': 22,
+    'DATS': 10,
+    'TIMS': 8,
+    'LANG': 2,
+    'UTCL': 30,
+    'D16N': 24,
+    'D34N': 46,
+    'STRG': 0,
+    'RSTR': 0,
+    'SSTR': 0,
+}
+
+# DDIC built-in data types whose output length is the length
+DDIC_DATATYPE_OUTPUT_LENGTH_IS_LENGTH = ('CHAR', 'NUMC', 'CLNT', 'CUKY', 'UNIT', 'ACCP', 'LCHR', 'LRAW')
+
+# DDIC built-in data types of packed numbers
+DDIC_DATATYPE_PACKED = ('DEC', 'CURR', 'QUAN')
+
+
+def ddic_output_length(datatype, length, decimals):
+    """Returns the output length DDIC computes for the given built-in data type
+       or None if the computation is not known - ADT does not provide it.
+    """
+
+    if datatype in DDIC_DATATYPE_FIXED_OUTPUT_LENGTH:
+        return DDIC_DATATYPE_FIXED_OUTPUT_LENGTH[datatype]
+
+    length = int(length or '0')
+
+    if datatype in DDIC_DATATYPE_OUTPUT_LENGTH_IS_LENGTH:
+        return length
+
+    if datatype == 'RAW':
+        return length * 2
+
+    if datatype in DDIC_DATATYPE_PACKED:
+        decimals = int(decimals or '0')
+        # The integer part has at least one digit (0.25) and a thousands
+        # separator after every 3 digits. The fraction has a decimal point.
+        integer_digits = max(length - decimals, 1)
+        return integer_digits + (integer_digits - 1) // 3 + decimals + (1 if decimals else 0)
+
+    return None
+
+
+def build_data_element_abap_attributes(adt_dataelement):
+    """Returns populated ABAP structures with attributes"""
+
+    language = iso_code_to_sap_code(adt_dataelement.master_language)
+    definition = adt_dataelement.definition
+
+    if definition.typ not in ('domain', 'predefinedAbapType'):
+        raise sap.cli.core.SAPCliError(
+            f'Unsupported type of data element {adt_dataelement.name}: {definition.typ}')
+
+    # The values are set in the order of the members to keep the order
+    # of XML elements
+    dd04v = DD04V()
+    dd04v.ROLLNAME = adt_dataelement.name
+    dd04v.DDLANGUAGE = language
+
+    if definition.typ == 'domain':
+        dd04v.DOMNAME = definition.typ_name
+
+    dd04v.MEMORYID = definition.set_get_parameter or None
+    dd04v.LOGFLAG = _adt_flag_to_abap(definition.change_document)
+    dd04v.HEADLEN = _ddic_number(definition.label_heading_length, 2)
+    dd04v.SCRLEN1 = _ddic_number(definition.label_short_length, 2)
+    dd04v.SCRLEN2 = _ddic_number(definition.label_medium_length, 2)
+    dd04v.SCRLEN3 = _ddic_number(definition.label_long_length, 2)
+    dd04v.DDTEXT = adt_dataelement.description
+    dd04v.REPTEXT = definition.label_heading or None
+    dd04v.SCRTEXT_S = definition.label_short or None
+    dd04v.SCRTEXT_M = definition.label_medium or None
+    dd04v.SCRTEXT_L = definition.label_long or None
+    dd04v.DTELMASTER = language
+    dd04v.SHLPNAME = definition.search_help or None
+    dd04v.SHLPFIELD = definition.search_help_parameter or None
+    dd04v.DEFFDNAME = definition.default_component_name or None
+
+    # abapGit does not write the attributes inherited from domains
+    if definition.typ == 'domain':
+        dd04v.REFKIND = REFKIND_DOMAIN
+    else:
+        datatype = ADT_TO_DDIC_DATATYPE.get(definition.data_type, definition.data_type)
+        dd04v.DATATYPE = datatype
+        dd04v.LENG = _ddic_number(definition.data_type_length, 6)
+        dd04v.DECIMALS = _ddic_number(definition.data_type_decimals, 6)
+        output_length = ddic_output_length(datatype, definition.data_type_length, definition.data_type_decimals)
+        dd04v.OUTPUTLEN = _ddic_number(output_length, 6)
+
+    dd04v.LTRFLDDIS = _adt_flag_to_abap(definition.left_to_right_direction)
+    dd04v.BIDICTRLC = _adt_flag_to_abap(definition.deactivate_bidi_filtering)
+    dd04v.NOHISTORY = _adt_flag_to_abap(definition.deactivate_input_history)
+
+    return (dd04v,)
+
+
+def checkout_data_element(connection, name, destdir=None):
+    """Download data element attributes"""
+
+    sap.cli.core.printout(name)
+    adt_dataelement = sap.adt.DataElement(connection, name)
+    adt_dataelement.fetch()
+
+    dump_attributes_to_file(name, build_data_element_abap_attributes(adt_dataelement), '.dtel', 'LCL_OBJECT_DTEL',
+                            destdir=destdir)
+
+
+@CommandGroup.argument('name')
+@CommandGroup.command()
+def dataelement(connection, args):
+    """Download data element attributes command wrapper"""
+
+    checkout_data_element(connection, args.name.upper())
+
+
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
@@ -961,6 +1085,7 @@ def checkout_objects(connection, objects, destdir=None):
         sap.adt.BehaviorDefinition.OBJTYPE.code: checkout_behavior_definition,
         sap.adt.Structure.OBJTYPE.code: checkout_structure,
         sap.adt.Domain.OBJTYPE.code: checkout_domain,
+        sap.adt.DataElement.OBJTYPE.code: checkout_data_element,
     }
 
     if not os.path.isdir(destdir):

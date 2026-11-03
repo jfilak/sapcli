@@ -804,3 +804,66 @@ class DD01L_EXTRA(Structure):
     """abapGit's domain extra attributes"""
 
     ABAP_LANGUAGE_VERSION: str
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=invalid-name
+class DD04V(Structure):
+    """Data element header"""
+
+    ROLLNAME: str
+    DDLANGUAGE: str
+    DOMNAME: str
+    ROUTPUTLEN: str
+    MEMORYID: str
+    LOGFLAG: str
+    HEADLEN: str
+    SCRLEN1: str
+    SCRLEN2: str
+    SCRLEN3: str
+    DDTEXT: str
+    REPTEXT: str
+    SCRTEXT_S: str
+    SCRTEXT_M: str
+    SCRTEXT_L: str
+    ACTFLAG: str
+    APPLCLASS: str
+    AUTHCLASS: str
+    AS4USER: str
+    AS4DATE: str
+    AS4TIME: str
+    DTELMASTER: str
+    RESERVEDTE: str
+    DTELGLOBAL: str
+    SHLPNAME: str
+    SHLPFIELD: str
+    DEFFDNAME: str
+    DATATYPE: str
+    LENG: str
+    DECIMALS: str
+    OUTPUTLEN: str
+    LOWERCASE: str
+    SIGNFLAG: str
+    CONVEXIT: str
+    VALEXI: str
+    ENTITYTAB: str
+    REFKIND: str
+    REFTYPE: str
+    PROXYTYPE: str
+    LTRFLDDIS: str
+    BIDICTRLC: str
+    NOHISTORY: str
+    ABAP_LANGUAGE_VERSION: str
+
+
+# DD04V-REFKIND of data elements typed by domains
+REFKIND_DOMAIN = 'D'
+
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=invalid-name
+class DD04L_EXTRA(Structure):
+    """abapGit's data element extra attributes"""
+
+    ABAP_LANGUAGE_VERSION: str

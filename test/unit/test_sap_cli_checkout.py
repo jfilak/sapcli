@@ -26,6 +26,9 @@ from test.unit.fixtures_cli_checkout import FUNCTION_GROUP_XML, FUNCTION_INCLUDE
     DOMA_RAWSTRING_ABAPGIT_XML
 from test.unit.fixtures_adt_domain import DOMAIN_NEW_NAME, DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML, \
     DOMAIN_ADT_GET_ALL_FIELDS_RESPONSE_XML, DOMAIN_ADT_GET_RAWSTRING_RESPONSE_XML
+from test.unit.fixtures_adt_dataelement import DATA_ELEMENT_NEW_NAME, DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML, \
+    DATA_ELEMENT_ADT_GET_DOMAIN_RESPONSE_XML, DATA_ELEMENT_ADT_GET_STRING_RESPONSE_XML
+from test.unit.fixtures_cli_checkout import DTEL_ABAPGIT_XML, DTEL_DOMAIN_ABAPGIT_XML, DTEL_STRING_ABAPGIT_XML
 from test.unit.fixtures_sap_adt_behaviordefinition import BDEF_NAME, BDEF_ADT_GET_RESPONSE_XML
 from test.unit.fixtures_sap_adt_tabletype import TABLE_TYPE_NAME, TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML, \
     TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML, TABLE_TYPE_ADT_GET_SECONDARY_KEYS_RESPONSE_XML, \
@@ -957,6 +960,140 @@ class TestCheckoutDomain(ConsoleOutputTestCase, PatcherTestCase):
             sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
 
         fake_checkout.assert_called_once_with('connection', DOMAIN_NEW_NAME, 'src')
+
+
+class TestCheckoutDataElement(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        self.patch_console(self.console)
+
+    def checkout(self, adt_response_xml, destdir=None):
+        connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
+
+        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+            sap.cli.checkout.checkout_data_element(connection, DATA_ELEMENT_NEW_NAME, destdir=destdir)
+
+        self.assertEqual(len(connection.execs), 1)
+        self.assertEqual(connection.execs[0].adt_uri,
+                         f'/sap/bc/adt/ddic/dataelements/{DATA_ELEMENT_NEW_NAME.lower()}')
+
+        return fake_open
+
+    def assert_wrote_abapgit_file(self, fake_open, contents):
+        fake_open.assert_called_once_with(f'{DATA_ELEMENT_NEW_NAME.lower()}.dtel.xml', 'w', encoding='utf8')
+
+        written = ''.join(write_call.args[0] for write_call in fake_open().write.call_args_list)
+        self.maxDiff = None
+        self.assertEqual(written, contents)
+
+    def test_checkout_dtel_sample(self):
+        fake_open = self.checkout(DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML)
+
+        self.assert_wrote_abapgit_file(fake_open, DTEL_ABAPGIT_XML)
+        self.assertConsoleContents(self.console,
+                                   stdout=f'{DATA_ELEMENT_NEW_NAME}\n- {DATA_ELEMENT_NEW_NAME.lower()}.dtel.xml\n')
+
+    def test_checkout_dtel_domain(self):
+        fake_open = self.checkout(DATA_ELEMENT_ADT_GET_DOMAIN_RESPONSE_XML)
+
+        self.assert_wrote_abapgit_file(fake_open, DTEL_DOMAIN_ABAPGIT_XML)
+
+    def test_checkout_dtel_ddic_data_type(self):
+        fake_open = self.checkout(DATA_ELEMENT_ADT_GET_STRING_RESPONSE_XML)
+
+        self.assert_wrote_abapgit_file(fake_open, DTEL_STRING_ABAPGIT_XML)
+
+    def test_checkout_dtel_reference_not_supported(self):
+        adt_response_xml = DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML.replace(
+            '<dtel:typeKind>predefinedAbapType</dtel:typeKind>', '<dtel:typeKind>refToClifType</dtel:typeKind>')
+
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            self.checkout(adt_response_xml)
+
+        self.assertEqual(str(caught.exception),
+                         f'Unsupported type of data element {DATA_ELEMENT_NEW_NAME}: refToClifType')
+
+    def test_checkout_dtel_destdir(self):
+        fake_open = self.checkout(DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML, destdir='src')
+
+        fake_open.assert_called_once_with(os.path.join('src', f'{DATA_ELEMENT_NEW_NAME.lower()}.dtel.xml'), 'w',
+                                          encoding='utf8')
+
+    def test_checkout_dtel_command(self):
+        args = parse_args(['dataelement', DATA_ELEMENT_NEW_NAME.lower()])
+
+        with patch('sap.cli.checkout.checkout_data_element') as fake_checkout:
+            args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', DATA_ELEMENT_NEW_NAME)
+
+    def test_checkout_objects_dtel(self):
+        objects = [SimpleNamespace(typ='DTEL/DE', name=DATA_ELEMENT_NEW_NAME)]
+
+        with patch('sap.cli.checkout.checkout_data_element') as fake_checkout, \
+             patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', DATA_ELEMENT_NEW_NAME, 'src')
+
+
+class TestDDICOutputLength(unittest.TestCase):
+
+    def test_ddic_output_length_char(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('CHAR', '000001', '000000'), 1)
+
+    def test_ddic_output_length_numc(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('NUMC', '000010', '000000'), 10)
+
+    def test_ddic_output_length_raw(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('RAW', '000016', '000000'), 32)
+
+    def test_ddic_output_length_lraw(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('LRAW', '000300', '000000'), 300)
+
+    def test_ddic_output_length_dec_without_decimals(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('DEC', '000005', '000000'), 6)
+
+    def test_ddic_output_length_dec_with_decimals(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('DEC', '000015', '000002'), 20)
+
+    def test_ddic_output_length_dec_only_decimals(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('DEC', '000002', '000002'), 4)
+
+    def test_ddic_output_length_dec_single_digit(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('DEC', '000001', '000000'), 1)
+
+    def test_ddic_output_length_curr(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('CURR', '000013', '000002'), 17)
+
+    def test_ddic_output_length_quan(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('QUAN', '000013', '000003'), 17)
+
+    def test_ddic_output_length_int4(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('INT4', '000010', '000000'), 11)
+
+    def test_ddic_output_length_dats(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('DATS', '000008', '000000'), 10)
+
+    def test_ddic_output_length_string(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('STRG', '000000', '000000'), 0)
+
+    def test_ddic_output_length_sstring(self):
+        self.assertEqual(sap.cli.checkout.ddic_output_length('SSTR', '000020', '000000'), 0)
+
+    def test_ddic_output_length_unknown(self):
+        self.assertIsNone(sap.cli.checkout.ddic_output_length('D16D', '000010', '000002'))
 
 
 class TestDDLSSourceType(unittest.TestCase):
