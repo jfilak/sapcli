@@ -9,7 +9,6 @@ from sap.platform.abap import Structure, InternalTable, ItemizedTable
 class DEVC(Structure):
     """Class metadata"""
 
-    # pylint: disable=invalid-name
     CTEXT: str
     SRV_CHECK: str
 
@@ -25,31 +24,20 @@ SUBC_INCLUDE = 'I'
 class VSEOCLASS(Structure):
     """Class metadata"""
 
-    # pylint: disable=invalid-name
     CLSNAME: str
-    # pylint: disable=invalid-name
     VERSION: str
-    # pylint: disable=invalid-name
     LANGU: str
-    # pylint: disable=invalid-name
     DESCRIPT: str
-    # pylint: disable=invalid-name
     STATE: str
-    # pylint: disable=invalid-name
     CLSCCINCL: str
-    # pylint: disable=invalid-name
     FIXPT: str
-    # pylint: disable=invalid-name
     UNICODE: str
-    # pylint: disable=invalid-name
     WITH_UNIT_TESTS: str
     CATEGORY: str
     EXPOSURE: str
     CLSFINAL: str
     CLSABSTRCT: str
-    # pylint: disable=invalid-name
     DURATION_TYPE: str
-    # pylint: disable=invalid-name
     RISK_LEVEL: str
 
 
@@ -58,13 +46,9 @@ class VSEOCLASS(Structure):
 class SEOSUBCOTX(Structure):
     """Class sub-component description (e.g. method parameter or exception)"""
 
-    # pylint: disable=invalid-name
     CMPNAME: str
-    # pylint: disable=invalid-name
     SCONAME: str
-    # pylint: disable=invalid-name
     LANGU: str
-    # pylint: disable=invalid-name
     DESCRIPT: str
 
 
@@ -77,19 +61,12 @@ DESCRIPTIONS_SUB = InternalTable.define('DESCRIPTIONS_SUB', SEOSUBCOTX)  # type:
 class VSEOINTERF(Structure):
     """Interface metadata"""
 
-    # pylint: disable=invalid-name
     CLSNAME: str
-    # pylint: disable=invalid-name
     VERSION: str
-    # pylint: disable=invalid-name
     LANGU: str
-    # pylint: disable=invalid-name
     DESCRIPT: str
-    # pylint: disable=invalid-name
     EXPOSURE: str
-    # pylint: disable=invalid-name
     STATE: str
-    # pylint: disable=invalid-name
     UNICODE: str
 
 
@@ -99,13 +76,9 @@ class VSEOINTERF(Structure):
 class PROGDIR(Structure):
     """Program metadata"""
 
-    # pylint: disable=invalid-name
     NAME: str
-    # pylint: disable=invalid-name
     STATE: str  # A for active; S for saved
-    # pylint: disable=invalid-name
     VARCL: str  # X for Case-sensitive
-    # pylint: disable=invalid-name
     DBAPL: str  # Application database
     # Program type:
     # 1 Executable program
@@ -118,11 +91,8 @@ class PROGDIR(Structure):
     # T Type Pool
     # X Transformation (XSLT or ST Program)
     # Q Database Procedure Proxy
-    # pylint: disable=invalid-name
     SUBC: str
-    # pylint: disable=invalid-name
     FIXPT: str  # Fixed point arithmetic
-    # pylint: disable=invalid-name
     LDBNAME: str  # LDB name
     # ABAP Version:
     # 2 ABAP for key users
@@ -130,7 +100,6 @@ class PROGDIR(Structure):
     # 4 Standard ABAP with Restricted Object Use
     # X Standard ABAP (Unicode)
     # ' ' Obsolete ABAP (Not Unicode)
-    # pylint: disable=invalid-name
     UCCHECK: str
     RLOAD: str
     RSTAT: str
@@ -144,15 +113,10 @@ class PROGDIR(Structure):
 class TPOOL_LINE(Structure):
     """Program texts"""
 
-    # pylint: disable=invalid-name
     ID: str
-    # pylint: disable=invalid-name
     KEY: str
-    # pylint: disable=invalid-name
     ENTRY: str
-    # pylint: disable=invalid-name
     LENGTH: str
-    # pylint: disable=invalid-name
     SPLIT: str
 
 
