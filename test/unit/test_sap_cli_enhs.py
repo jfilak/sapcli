@@ -17,6 +17,7 @@ from infra import generate_parse_args
 
 from fixtures_sap_adt_enhancement_spot import (
     ENHANCEMENT_SPOT_NAME,
+    FIXTURE_ADT_ENHANCEMENT_SPOT,
     FIXTURE_ADT_ENHS_REPOSITORY_ROOT,
     FIXTURE_ADT_ENHS_REPOSITORY_BADI_DEFINITIONS,
     FIXTURE_ADT_ENHS_REPOSITORY_EHNO,
@@ -85,3 +86,35 @@ class TestEnhancementSpotListImplementations(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestEnhancementSpotListBadiDefinitions(unittest.TestCase):
+
+    def execute(self, connection, *args):
+        console = BufferConsole()
+        the_cmd = parse_args('list-badi-definitions', *args)
+        the_cmd.console_factory = lambda: console
+        the_cmd.execute(connection, the_cmd)
+
+        return console
+
+    def test_list_badi_definitions(self):
+        connection = Connection([repository_response(FIXTURE_ADT_ENHANCEMENT_SPOT)])
+
+        console = self.execute(connection, ENHANCEMENT_SPOT_NAME.lower())
+
+        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/enhancements/enhsxsb/ssample_enhs')
+        self.assertEqual(
+            console.capout,
+            'Name        | Interface      | Single Use | Fallback Class | Short Text      \n'
+            '-----------------------------------------------------------------------------\n'
+            'SAMPLE_ENHS | IF_SAMPLE_ENHS | false      | false          | BAdI for awesome\n')
+        self.assertEqual(console.caperr, '')
+
+    def test_list_badi_definitions_columns_noheadings(self):
+        connection = Connection([repository_response(FIXTURE_ADT_ENHANCEMENT_SPOT)])
+
+        console = self.execute(connection, ENHANCEMENT_SPOT_NAME, '--columns', 'interface.name,name', '--noheadings')
+
+        self.assertEqual(console.capout, 'SAMPLE_ENHS | IF_SAMPLE_ENHS\n')
+        self.assertEqual(console.caperr, '')
