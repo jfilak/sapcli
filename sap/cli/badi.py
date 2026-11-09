@@ -30,7 +30,7 @@ def mod_log():
 
 
 def _get_enhancement_implementation(connection, args):
-    enho = sap.adt.EnhancementImplementation(connection, args.enhancement_implementation)
+    enho = sap.adt.EnhancementImplementation(connection, args.enhancement_implementation.upper())
     enho.fetch()
     return enho
 
