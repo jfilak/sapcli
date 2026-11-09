@@ -19,6 +19,7 @@ from fixtures_adt import (
 from fixtures_adt_enhancement_implementation import (
     ADT_XML_ENHANCEMENT_IMPLEMENTATION_V4,
     SAPCLI_XML_ENHANCEMENT_IMPLEMENTATION_V4,
+    SAPCLI_XML_ENHANCEMENT_IMPLEMENTATION_CREATE,
 )
 
 
@@ -129,6 +130,27 @@ class TestEnhancementImplemenetation(unittest.TestCase):
 
         self.maxDiff = None
         self.assertEqual(put_request.body.decode('utf-8'), SAPCLI_XML_ENHANCEMENT_IMPLEMENTATION_V4)
+
+    def test_enhancement_implementation_create(self):
+        connection = Connection()
+
+        metadata = sap.adt.ADTCoreData(description='SAPCLI enhancement implementation', language='EN',
+                                       master_language='EN', responsible='DEVELOPER')
+        enh_impl = sap.adt.EnhancementImplementation(connection, 'SAPCLI_ENH_IMPL', package='$TMP',
+                                                     metadata=metadata)
+        enh_impl.set_enhancement_spot('SAPCLI_ENH_SPOT')
+        enh_impl.create(corrnr='420')
+
+        expected_request = Request(
+            adt_uri='/sap/bc/adt/enhancements/enhoxhb',
+            method='POST',
+            headers={'Content-Type': 'application/vnd.sap.adt.enh.enhoxhb.v4+xml; charset=utf-8'},
+            body=bytes(SAPCLI_XML_ENHANCEMENT_IMPLEMENTATION_CREATE, 'utf-8'),
+            params={'corrNr': '420'}
+        )
+
+        self.maxDiff = None
+        expected_request.assertEqual(connection.execs[0], self)
 
 
 class BadiImplementationContainer(unittest.TestCase):

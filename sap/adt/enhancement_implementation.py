@@ -160,3 +160,26 @@ class EnhancementImplementation(ADTObject):
         super().__init__(connection, name, metadata)
 
         self._metadata.package_reference.name = package
+
+    def set_enhancement_spot(self, enhancement_spot: str):
+        """Makes this object a new BAdI Enhancement Implementation
+           of the given Enhancement Spot without any BAdI Implementation.
+        """
+
+        spot_reference = ReferencedObject()
+        spot_reference.program_id = 'R3TR'
+        spot_reference.element_usage = 'EXTO'
+        spot_reference.object_reference = ADTCoreReferenceSimple()
+        spot_reference.object_reference.typ = 'ENHS/XS'
+        spot_reference.object_reference.name = enhancement_spot
+        spot_reference.main_object_reference = ADTCoreReferenceSimple()
+
+        self.common = ContentCommon()
+        self.common.tool_type = 'BADI_IMPL'
+        # pylint: disable=no-value-for-parameter
+        self.common.usages = ReferencedObjectContainer()
+        self.common.usages.append(spot_reference)
+
+        self.specific = ContentSpecific()
+        self.specific.badis = BadiTechnology()
+        self.specific.badis.implementations = BadiImplementationContainer()

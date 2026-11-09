@@ -55,3 +55,21 @@ SAPCLI_XML_ENHANCEMENT_IMPLEMENTATION_V4='''<?xml version="1.0" encoding="UTF-8"
 </enho:badiTechnology>
 </enho:contentSpecific>
 </enho:objectData>'''
+
+SAPCLI_XML_ENHANCEMENT_IMPLEMENTATION_CREATE = '''<?xml version="1.0" encoding="UTF-8"?>
+<enho:objectData xmlns:enho="http://www.sap.com/adt/enhancements/enho" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="ENHO/XHB" adtcore:description="SAPCLI enhancement implementation" adtcore:language="EN" adtcore:name="SAPCLI_ENH_IMPL" adtcore:masterLanguage="EN" adtcore:responsible="DEVELOPER">
+<adtcore:packageRef adtcore:name="$TMP"/>
+<enho:contentCommon enho:toolType="BADI_IMPL">
+<enho:usages>
+<enhcore:referencedObject xmlns:enhcore="http://www.sap.com/abapsource/enhancementscore" enhcore:program_id="R3TR" enhcore:element_usage="EXTO">
+<enhcore:objectReference adtcore:type="ENHS/XS" adtcore:name="SAPCLI_ENH_SPOT"/>
+<enhcore:mainObjectReference/>
+</enhcore:referencedObject>
+</enho:usages>
+</enho:contentCommon>
+<enho:contentSpecific>
+<enho:badiTechnology>
+<enho:badiImplementations/>
+</enho:badiTechnology>
+</enho:contentSpecific>
+</enho:objectData>'''
