@@ -57,6 +57,25 @@ class TestBadiEnhImplListHelp(unittest.TestCase):
             'badi_definition.name, customizing_lock, default, example, short_text')
 
 
+class TestBadiEnhImplRequired(ConsoleOutputTestCase):
+
+    def test_list_without_enhancement_implementation(self):
+        with patch('sys.stderr', new_callable=StringIO) as fake_stderr:
+            with self.assertRaises(SystemExit):
+                parse_args('list')
+
+        self.assertIn('the following arguments are required: -i/--enhancement_implementation',
+                      fake_stderr.getvalue())
+
+    def test_default_action_without_enhancement_implementation(self):
+        with patch('sys.stderr', new_callable=StringIO) as fake_stderr:
+            with self.assertRaises(SystemExit):
+                parse_args()
+
+        self.assertIn('the following arguments are required: -i/--enhancement_implementation',
+                      fake_stderr.getvalue())
+
+
 class TestBadiEnhImplList(ConsoleOutputTestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):

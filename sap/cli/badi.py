@@ -63,7 +63,8 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().install_parser(arg_parser)
 
         arg_parser.set_defaults(execute=_list)
-        arg_parser.add_argument('-i', '--enhancement_implementation', help='BAdI Enhancement Implementation Name')
+        arg_parser.add_argument('-i', '--enhancement_implementation', required=True,
+                                help='BAdI Enhancement Implementation Name')
 
 
 @CommandGroup.argument('--columns', type=str, default=None,
