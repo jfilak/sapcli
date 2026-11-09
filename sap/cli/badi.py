@@ -78,6 +78,57 @@ def list_badis(connection, args):
     return _list(connection, args)
 
 
+@CommandGroup.argument('-a', '--activate', action='store_true', default=False,
+                       help='Activate the enhancement implementation after the change')
+@CommandGroup.argument('--corrnr', nargs='?', default=None, help='transport number')
+@CommandGroup.argument('-c', '--implementing-class', required=True,
+                       help='Existing ABAP class implementing the interface of the BAdI definition')
+@CommandGroup.argument('-d', '--badi-definition', required=True,
+                       help='BAdI definition of the enhancement spot of the enhancement implementation;'
+                            ' use "enhs list-badi-definitions" to list them')
+@CommandGroup.argument('-b', '--badi', required=True, help='New BAdI implementation name')
+@CommandGroup.command('create')
+def create(connection, args):
+    """Create a new active BAdI implementation in the enhancement implementation
+    """
+
+    console = args.console_factory()
+
+    name = args.badi.upper()
+    badi_definition = args.badi_definition.upper()
+    enho_name = args.enhancement_implementation.upper()
+
+    enho = _get_enhancement_implementation(connection, args)
+    try:
+        enho.specific.badis.implementations[name]
+    except KeyError:
+        # The BAdI does not exist yet which is exactly what we need
+        pass
+    else:
+        raise sap.errors.SAPCliError(f'The BAdI {name} already exists in the enhancement implementation {enho_name}')
+
+    badi = enho.add_badi_implementation(name, badi_definition, args.implementing_class.upper())
+
+    enhs = sap.adt.EnhancementSpot(connection, badi.enhancement_spot.name)
+    enhs.fetch()
+    definitions = [definition.name for definition in enhs.specific.badis.definitions]
+    if badi_definition not in definitions:
+        raise sap.errors.SAPCliError(f'The BAdI Definition {badi_definition} not found in the enhancement spot'
+                                     f' {enhs.name}; available BAdI Definitions: {", ".join(definitions)}')
+
+    console.printout('Creating:')
+    console.printout(f'* {enho_name}/{name}')
+    with enho.open_editor(corrnr=args.corrnr) as editor:
+        editor.push()
+
+    if not args.activate:
+        return 0
+
+    activator = sap.cli.wb.ObjectActivationWorker()
+    sap.cli.object.activate_object_list(activator, ((enho_name, enho),), 1, console)
+    return 0
+
+
 @CommandGroup.argument('-a', '--activate', action='store_true', default=False, help='Activate after modification')
 @CommandGroup.argument('--corrnr', nargs='?', default=None, help='transport number')
 @CommandGroup.argument('-b', '--badi', required=True, help='BAdI implementation name')
