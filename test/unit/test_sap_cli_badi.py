@@ -26,6 +26,8 @@ from fixtures_adt_enhancement_implementation import (
     ADT_XML_ENHANCEMENT_IMPLEMENTATION_V4,
 )
 
+from fixtures_sap_adt_enhancement_spot import FIXTURE_ADT_ENHANCEMENT_SPOT
+
 from infra import generate_parse_args
 
 
@@ -42,6 +44,13 @@ BADI_LIST_TABLE = (
     '------------------------------------------------------------------------------------------------------------------\n'
     'SAPCLI_BADI_IMPL | true   | ZCL_SAPCLI_BADI_IMPL | SAPCLI_BADI_DEF |             | false   | false   | SAPCLI badi\n'
 )
+
+OK_ENHS_RESPONSE = Response(
+    status_code=200,
+    text=FIXTURE_ADT_ENHANCEMENT_SPOT.replace('SSAMPLE_ENHS', 'SAPCLI_ENH_SPOT'),
+    content_type='application/vnd.sap.adt.enh.enhs.v2+xml'
+)
+
 
 def get_argument_help(command_group, handler, argument):
     declaration = command_group.get_command_declaration(handler)
@@ -284,3 +293,108 @@ Activation has finished
 Warnings: 0
 Errors: 0
 ''')
+
+
+class TestBadiCreate(ConsoleOutputTestCase, PatcherTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        PatcherTestCase.__init__(self)
+
+    def tearDown(self):
+        try:
+            PatcherTestCase.unpatch_all(self)
+        finally:
+            super().tearDown()
+
+    def setUp(self):
+        super().setUp()
+        ConsoleOutputTestCase.setUp(self)
+
+        assert self.console is not None
+
+        self.patch_console(console=self.console)
+
+    def create(self, *args):
+        return parse_args('-i', 'sapcli_enh_impl', 'create', *args)
+
+    def test_create_without_class(self):
+        with patch('sys.stderr', new_callable=StringIO) as fake_stderr:
+            with self.assertRaises(SystemExit):
+                self.create('-b', 'SAPCLI_BADI_NEW', '-d', 'SAPCLI_BADI_DEF')
+
+        self.assertIn('the following arguments are required: -c/--implementing-class', fake_stderr.getvalue())
+
+    def test_create(self):
+        conn = Connection([OK_ENHO_RESPONSE, OK_ENHS_RESPONSE, LOCK_RESPONSE_OK, OK_ENHO_RESPONSE, EMPTY_RESPONSE_OK])
+
+        create_cmd = self.create('-b', 'sapcli_badi_new', '-d', 'sample_enhs', '-c', 'zcl_sapcli_badi_new',
+                                 '--corrnr', '420')
+        create_cmd.execute(conn, create_cmd)
+
+        self.assertEqual([(e.method, e.adt_uri) for e in conn.execs], [
+            ('GET', '/sap/bc/adt/enhancements/enhoxhb/sapcli_enh_impl'),
+            ('GET', '/sap/bc/adt/enhancements/enhsxsb/sapcli_enh_spot'),
+            ('POST', '/sap/bc/adt/enhancements/enhoxhb/sapcli_enh_impl'),
+            ('PUT', '/sap/bc/adt/enhancements/enhoxhb/sapcli_enh_impl'),
+            ('POST', '/sap/bc/adt/enhancements/enhoxhb/sapcli_enh_impl'),
+        ])
+
+        self.assertEqual(conn.execs[3].params['corrNr'], '420')
+        self.assertIn('''<enho:badiImplementation enho:name="SAPCLI_BADI_NEW" enho:active="true" enho:customizingLock="">
+<enho:enhancementSpot adtcore:uri="/sap/bc/adt/enhancements/enhsxsb/sapcli_enh_spot" adtcore:type="ENHS/XSB" adtcore:name="SAPCLI_ENH_SPOT"/>
+<enho:badiDefinition adtcore:uri="/sap/bc/adt/enhancements/enhsxsb/sapcli_enh_spot#type=enhs%2fxb;name=sample_enhs" adtcore:type="ENHS/XB" adtcore:name="SAMPLE_ENHS"/>
+<enho:implementingClass adtcore:uri="/sap/bc/adt/oo/classes/zcl_sapcli_badi_new" adtcore:type="CLAS/OC" adtcore:name="ZCL_SAPCLI_BADI_NEW"/>
+</enho:badiImplementation>''', conn.execs[3].body.decode('utf-8'))
+
+        self.assertConsoleContents(self.console, stdout='''Creating:
+* SAPCLI_ENH_IMPL/SAPCLI_BADI_NEW
+''')
+
+    def test_create_with_activation(self):
+        conn = Connection([
+            OK_ENHO_RESPONSE,   # GET the enhancement implementation
+            OK_ENHS_RESPONSE,   # GET the enhancement spot
+            LOCK_RESPONSE_OK,   # POST lock
+            OK_ENHO_RESPONSE,   # PUT updated
+            EMPTY_RESPONSE_OK,  # POST unlock
+            EMPTY_RESPONSE_OK,  # POST activate
+            OK_ENHO_RESPONSE,   # GET the object again
+        ])
+
+        create_cmd = self.create('-b', 'SAPCLI_BADI_NEW', '-d', 'SAMPLE_ENHS', '-c', 'ZCL_SAPCLI_BADI_NEW', '-a')
+        create_cmd.execute(conn, create_cmd)
+
+        self.assertConsoleContents(self.console, stdout='''Creating:
+* SAPCLI_ENH_IMPL/SAPCLI_BADI_NEW
+Activating:
+* SAPCLI_ENH_IMPL
+Activation has finished
+Warnings: 0
+Errors: 0
+''')
+
+    def test_create_existing_badi(self):
+        conn = Connection([OK_ENHO_RESPONSE])
+
+        create_cmd = self.create('-b', 'SAPCLI_BADI_IMPL', '-d', 'SAMPLE_ENHS', '-c', 'ZCL_SAPCLI_BADI_NEW')
+
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            create_cmd.execute(conn, create_cmd)
+
+        self.assertEqual(str(caught.exception),
+                         'The BAdI SAPCLI_BADI_IMPL already exists in the enhancement implementation SAPCLI_ENH_IMPL')
+        self.assertEqual(len(conn.execs), 1)
+
+    def test_create_unknown_badi_definition(self):
+        conn = Connection([OK_ENHO_RESPONSE, OK_ENHS_RESPONSE])
+
+        create_cmd = self.create('-b', 'SAPCLI_BADI_NEW', '-d', 'UNKNOWN_DEF', '-c', 'ZCL_SAPCLI_BADI_NEW')
+
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            create_cmd.execute(conn, create_cmd)
+
+        self.assertEqual(str(caught.exception),
+                         'The BAdI Definition UNKNOWN_DEF not found in the enhancement spot SAPCLI_ENH_SPOT;'
+                         ' available BAdI Definitions: SAMPLE_ENHS')
+        self.assertEqual(len(conn.execs), 2)
