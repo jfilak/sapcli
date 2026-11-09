@@ -34,4 +34,5 @@
 32. [messageclass](commands/messageclass.md) - Message Classes
 33. [ddlx](commands/metadata_extension.md) - CDS Metadata Extension
 34. [enhs](commands/enhs.md) - Enhancement Spots
-35. [abapgit](commands/abapgit.md) - abapGit repositories
+35. [enho](commands/enho.md) - BAdI Enhancement Implementations
+36. [abapgit](commands/abapgit.md) - abapGit repositories
