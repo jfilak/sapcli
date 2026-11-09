@@ -114,6 +114,14 @@ class TestBadiEnhImplList(ConsoleOutputTestCase, PatcherTestCase):
 
         self.assertConsoleContents(self.console, stdout=BADI_LIST_TABLE)
 
+    def test_list_lower_case_enhancement_implementation(self):
+        conn = Connection([OK_ENHO_RESPONSE])
+
+        list_cmd = self.list('sapcli_enh_impl')
+        list_cmd.execute(conn, list_cmd)
+
+        self.assertConsoleContents(self.console, stdout=BADI_LIST_TABLE)
+
     def test_default_action_all_badis(self):
         conn = Connection([OK_ENHO_RESPONSE])
 
