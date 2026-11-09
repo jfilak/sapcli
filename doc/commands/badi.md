@@ -9,7 +9,7 @@
 List BAdI implementations of a particular Enhancement Implementation
 
 ```bash
-sapcli badi [-i|--enhancement_implementation ENHO] [list [--noheadings] [--columns COLUMNS]]
+sapcli badi -i|--enhancement_implementation ENHO [list [--noheadings] [--columns COLUMNS]]
 ```
 
 * _--enhancement_implementation ENHO_ name of the ENHO object (Enhancement Implementation)
@@ -23,7 +23,7 @@ sapcli badi [-i|--enhancement_implementation ENHO] [list [--noheadings] [--colum
 Change the definition of ABAP DDIC transparent table.
 
 ```bash
-saplci badi [-i|--enhancement_implementation ENHO] set-active [-b|--badi NAME] [-a|--activate] [true|false]
+saplci badi -i|--enhancement_implementation ENHO set-active [-b|--badi NAME] [-a|--activate] [true|false]
 ```
 
 * _--enhancement_implementation_ ENHO name of the ENHO object (Enhancement Implementation)
