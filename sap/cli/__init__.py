@@ -63,6 +63,7 @@ class CommandsCache:
         import sap.cli.transaction
         import sap.cli.messageclass
         import sap.cli.enhs
+        import sap.cli.enho
 
         return [
             (adt_connection_from_args, sap.cli.program.CommandGroup()),
@@ -100,6 +101,7 @@ class CommandsCache:
             (adt_connection_from_args, sap.cli.transaction.CommandGroup()),
             (adt_connection_from_args, sap.cli.messageclass.CommandGroup()),
             (adt_connection_from_args, sap.cli.enhs.CommandGroup()),
+            (adt_connection_from_args, sap.cli.enho.CommandGroup()),
         ]
 
     @staticmethod
