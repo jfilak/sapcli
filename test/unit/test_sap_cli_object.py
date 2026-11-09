@@ -105,7 +105,8 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         act_whereused_cmd = self.commands.get_declaration(self.group.whereused_object)
 
         self.assertEqual(act_whereused_cmd, exp_whereused_cmd)
-        self.assertEqual(len(exp_whereused_cmd.arguments), 1)
+        # name, --line, --column
+        self.assertEqual(len(exp_whereused_cmd.arguments), 3)
 
     def test_define_edit(self):
         exp_edit_cmd = self.group.define_edit(self.commands)
