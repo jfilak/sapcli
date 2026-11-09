@@ -20,13 +20,14 @@ sapcli badi -i|--enhancement_implementation ENHO [list [--noheadings] [--columns
 
 ## set-active
 
-Change the definition of ABAP DDIC transparent table.
+Change the Active flag of a BAdI implementation in a particular Enhancement Implementation
 
 ```bash
-saplci badi -i|--enhancement_implementation ENHO set-active [-b|--badi NAME] [-a|--activate] [true|false]
+sapcli badi -i|--enhancement_implementation ENHO set-active -b|--badi NAME [--corrnr TRANSPORT] [-a|--activate] true|false
 ```
 
-* _--enhancement_implementation_ ENHO name of the ENHO object (Enhancement Implementation)
-* _--name BADI_ name of the BAdI implementation
+* _--enhancement_implementation ENHO_ name of the ENHO object (Enhancement Implementation)
+* _--badi NAME_ name of the BAdI implementation
+* _--corrnr TRANSPORT_ transport number
 * _--activate_ run activation of the enhancement implementation after the change
-* _[true|false]_ is the set value
+* _true|false_ is the set value
