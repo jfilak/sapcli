@@ -265,6 +265,10 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         whereused_cmd = commands.add_command(self.whereused_object, name='whereused')
         whereused_cmd.append_argument('name')
+        whereused_cmd.append_argument('--line', type=int, default=None,
+                                      help='Line number for position-based where-used (requires --column)')
+        whereused_cmd.append_argument('--column', type=int, default=None,
+                                      help='Column number for position-based where-used (requires --line)')
 
         return whereused_cmd
 
@@ -356,8 +360,17 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         console = args.console_factory()
 
+        if (args.line is None) != (args.column is None):
+            console.printerr('error: --line and --column must be provided together')
+            return
+
         obj = self.instance(connection, args.name, args)
-        result = sap.adt.whereused.where_used(connection, obj.full_adt_uri)
+
+        uri = obj.full_adt_uri
+        if args.line is not None:
+            uri = f'{uri}/source/main#start={args.line},{args.column}'
+
+        result = sap.adt.whereused.where_used(connection, uri)
 
         for ref_obj in result.referenced_objects:
             adt_obj = ref_obj.adt_object
