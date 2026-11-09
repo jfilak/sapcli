@@ -8,6 +8,7 @@ import unittest.mock as mock
 
 import sap.errors
 import sap.adt
+from sap.adt.marshalling import Marshal
 
 from mock import Connection, Response, Request
 
@@ -151,6 +152,45 @@ class TestEnhancementImplemenetation(unittest.TestCase):
 
         self.maxDiff = None
         expected_request.assertEqual(connection.execs[0], self)
+
+    def test_add_badi_implementation(self):
+        connection = Connection([RESPONSE_ENHANCEMENT_IMPLEMENTATION_OK])
+
+        enh_impl = sap.adt.EnhancementImplementation(connection, 'SAPCLI_ENH_IMPL')
+        enh_impl.fetch()
+
+        badi = enh_impl.add_badi_implementation('/SAPCLI/BADI_NEW', '/SAPCLI/BADI_DEF', '/SAPCLI/CL_BADI_NEW')
+
+        self.assertEqual(len(enh_impl.specific.badis.implementations), 2)
+        self.assertEqual(enh_impl.specific.badis.implementations['/SAPCLI/BADI_NEW'], badi)
+
+        xml = Marshal().serialize(enh_impl)
+        self.assertIn('''<enho:badiImplementation enho:name="/SAPCLI/BADI_NEW" enho:active="true" enho:customizingLock="">
+<enho:enhancementSpot adtcore:uri="/sap/bc/adt/enhancements/enhsxsb/sapcli_enh_spot" adtcore:type="ENHS/XSB" adtcore:name="SAPCLI_ENH_SPOT"/>
+<enho:badiDefinition adtcore:uri="/sap/bc/adt/enhancements/enhsxsb/sapcli_enh_spot#type=enhs%2fxb;name=%2Fsapcli%2Fbadi_def" adtcore:type="ENHS/XB" adtcore:name="/SAPCLI/BADI_DEF"/>
+<enho:implementingClass adtcore:uri="/sap/bc/adt/oo/classes/%2Fsapcli%2Fcl_badi_new" adtcore:type="CLAS/OC" adtcore:name="/SAPCLI/CL_BADI_NEW"/>
+</enho:badiImplementation>''', xml)
+
+    def test_add_badi_implementation_to_new(self):
+        enh_impl = sap.adt.EnhancementImplementation(Connection(), 'SAPCLI_ENH_IMPL')
+        enh_impl.set_enhancement_spot('SAPCLI_ENH_SPOT')
+
+        badi = enh_impl.add_badi_implementation('SAPCLI_BADI_NEW', 'SAPCLI_BADI_DEF', 'ZCL_SAPCLI_BADI_NEW')
+
+        self.assertEqual(badi.enhancement_spot.name, 'SAPCLI_ENH_SPOT')
+        self.assertEqual(badi.enhancement_spot.typ, 'ENHS/XSB')
+        self.assertEqual(badi.enhancement_spot.uri, '/sap/bc/adt/enhancements/enhsxsb/sapcli_enh_spot')
+        self.assertEqual(badi.badi_definition.uri,
+                         '/sap/bc/adt/enhancements/enhsxsb/sapcli_enh_spot#type=enhs%2fxb;name=sapcli_badi_def')
+
+    def test_add_badi_implementation_without_enhancement_spot(self):
+        enh_impl = sap.adt.EnhancementImplementation(Connection(), 'SAPCLI_ENH_IMPL')
+
+        with self.assertRaises(sap.errors.SAPCliError) as caught:
+            enh_impl.add_badi_implementation('SAPCLI_BADI_NEW', 'SAPCLI_BADI_DEF', 'ZCL_SAPCLI_BADI_NEW')
+
+        self.assertEqual(str(caught.exception),
+                         'The Enhancement Implementation SAPCLI_ENH_IMPL does not refer to any Enhancement Spot')
 
 
 class BadiImplementationContainer(unittest.TestCase):
