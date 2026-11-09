@@ -259,7 +259,8 @@ class TestCommandGroup(unittest.TestCase):
             act_ret = DummyCommandGroup().install_parser(parser)
 
         self.assertEqual(act_ret, fake_adder.return_value)
-        mock_command_args.add_parser.assert_called_once_with('dummy_corrnr', help='Dummy command help')
+        mock_command_args.add_parser.assert_called_once_with('dummy_corrnr', help='Dummy command help',
+                                                         description='Dummy command help')
 
 
 class TestPrintConsole(unittest.TestCase):
