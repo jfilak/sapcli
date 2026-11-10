@@ -73,7 +73,7 @@ class TestBadiEnhImplRequired(ConsoleOutputTestCase):
             with self.assertRaises(SystemExit):
                 parse_args('list')
 
-        self.assertIn('the following arguments are required: -i/--enhancement_implementation',
+        self.assertIn('the following arguments are required: -i/--enhancement-implementation',
                       fake_stderr.getvalue())
 
     def test_default_action_without_enhancement_implementation(self):
@@ -81,7 +81,7 @@ class TestBadiEnhImplRequired(ConsoleOutputTestCase):
             with self.assertRaises(SystemExit):
                 parse_args()
 
-        self.assertIn('the following arguments are required: -i/--enhancement_implementation',
+        self.assertIn('the following arguments are required: -i/--enhancement-implementation',
                       fake_stderr.getvalue())
 
 
@@ -127,6 +127,22 @@ class TestBadiEnhImplList(ConsoleOutputTestCase, PatcherTestCase):
         conn = Connection([OK_ENHO_RESPONSE])
 
         list_cmd = self.list('sapcli_enh_impl')
+        list_cmd.execute(conn, list_cmd)
+
+        self.assertConsoleContents(self.console, stdout=BADI_LIST_TABLE)
+
+    def test_list_long_option_with_dash(self):
+        conn = Connection([OK_ENHO_RESPONSE])
+
+        list_cmd = parse_args('--enhancement-implementation', 'SAPCLI_ENH_IMPL', 'list')
+        list_cmd.execute(conn, list_cmd)
+
+        self.assertConsoleContents(self.console, stdout=BADI_LIST_TABLE)
+
+    def test_list_long_option_with_underscore(self):
+        conn = Connection([OK_ENHO_RESPONSE])
+
+        list_cmd = parse_args('--enhancement_implementation', 'SAPCLI_ENH_IMPL', 'list')
         list_cmd.execute(conn, list_cmd)
 
         self.assertConsoleContents(self.console, stdout=BADI_LIST_TABLE)
