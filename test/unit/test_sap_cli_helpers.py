@@ -355,3 +355,11 @@ class TestAbapstampToIsodate(unittest.TestCase):
             sap.cli.helpers.abapstamp_to_isodate(incorrect_abapstamp)
 
         self.assertEqual(str(cm.exception), f'Not ABAP time stamp: {incorrect_abapstamp}')
+
+    def test_abapstamp_to_isodate_non_digits(self):
+        incorrect_abapstamp = '2022ABCD154500'
+
+        with self.assertRaises(sap.cli.helpers.SAPCliError) as cm:
+            sap.cli.helpers.abapstamp_to_isodate(incorrect_abapstamp)
+
+        self.assertEqual(str(cm.exception), f'Not ABAP time stamp: {incorrect_abapstamp}')
