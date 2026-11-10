@@ -63,7 +63,9 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().install_parser(arg_parser)
 
         arg_parser.set_defaults(execute=_list)
-        arg_parser.add_argument('-i', '--enhancement_implementation', required=True,
+        # --enhancement_implementation is the original spelling kept for backward compatibility
+        arg_parser.add_argument('-i', '--enhancement-implementation', '--enhancement_implementation',
+                                dest='enhancement_implementation', required=True,
                                 help='BAdI Enhancement Implementation Name')
 
 
