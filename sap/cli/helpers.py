@@ -243,7 +243,7 @@ def abapstamp_to_isodate(abapstamp: 'int') -> 'str':
 
     abapstamp_str = str(abapstamp)
 
-    if len(abapstamp_str) != 14:
+    if len(abapstamp_str) != 14 or not abapstamp_str.isdigit():
         raise SAPCliError(f'Not ABAP time stamp: {abapstamp}')
 
     year = abapstamp_str[0:4]
