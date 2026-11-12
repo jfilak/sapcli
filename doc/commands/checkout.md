@@ -106,6 +106,27 @@ sapcli checkout package '$hello_world' [directory] [--recursive] [--starting-fol
 
 * _--recursive_ forces sapcli to download also the sub-packages into sub-directories
 
+## Checkin of packages
+
+The command `sapcli checkin package` writes the local files to the system.
+Before it sends the first request, it reads and checks all package and object
+files and reports all files it cannot check in, e.g. files with unsupported
+contents or objects without source code files. In that case, it exits with an
+error and the system stays untouched.
+
+```
+./src/zzde_criterion.dtel.xml: Unsupported type of data element zzde_criterion: REFKIND=R
+./src/zztbac_test.tabl.xml: Unsupported contents of TABL zztbac_test: Got unexpected tag DD08V_TABLE
+Checkin failed: Cannot check in 2 files - nothing has been changed
+```
+
+Errors the system reports while writing the objects, e.g. a class existing
+in another package, stop the checkin immediately because the objects using
+the failed object would fail later anyway.
+
+Files of unsupported object types are not checked in and are reported as
+unused files at the end.
+
 ## Text elements
 
 Text symbols of classes and programs (`TEXT-001`) are stored as the entries

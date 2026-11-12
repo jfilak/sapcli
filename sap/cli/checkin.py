@@ -5,6 +5,7 @@ import re
 import glob
 import errno
 import typing
+from types import SimpleNamespace
 
 from sap import get_logger
 
@@ -296,12 +297,20 @@ def _get_config(starting_folder, console):
     return config
 
 
-def checkin_package(connection, repo_package, args):
-    """Checkin repository package"""
+def prepare_package(repo_package):
+    """Reads the file of the package without accessing the system"""
 
     devc = DEVC()
     with open(repo_package.path, encoding='utf-8') as devc_file:
         sap.platform.abap.from_xml(devc, devc_file.read())
+
+    return devc
+
+
+def checkin_package(connection, repo_package, args, prepared=None):
+    """Checkin repository package"""
+
+    devc = prepared or prepare_package(repo_package)
 
     sap.cli.core.printout(f'Creating Package: {repo_package.name} {devc.CTEXT}')
 
@@ -366,10 +375,8 @@ def _resolve_dependencies(objects):
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
 
 
-def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Interface"""
-
-    sap.cli.core.printout('Creating Interface:', repo_obj.name)
+def prepare_intf(repo_obj):
+    """Reads and checks the files of the interface without accessing the system"""
 
     if not repo_obj.files:
         raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for interface {repo_obj.name}')
@@ -390,8 +397,21 @@ def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
             [VSEOINTERF, sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
             abap_data_file.read())['VSEOINTERF']
 
+    with open(source_file, 'r', encoding='utf-8') as source:
+        source_code = source.read()
+
+    return SimpleNamespace(abap_data=abap_data, source_file=source_file, source_code=source_code)
+
+
+def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Interface"""
+
+    sap.cli.core.printout('Creating Interface:', repo_obj.name)
+
+    prepared = prepared or prepare_intf(repo_obj)
+
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=abap_data.DESCRIPT)
+                                   description=prepared.abap_data.DESCRIPT)
     interface = sap.adt.Interface(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
 
     try:
@@ -400,12 +420,11 @@ def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False):
         mod_log().info(err.message)
 
     sap.cli.core.printout('Writing Interface:', repo_obj.name)
-    with open(source_file, 'r', encoding='utf-8') as source:
-        _write_source_file(source.read(), interface, corrnr=corrnr,
-                           source_label=source_file,
-                           check_before_save=check_before_save)
+    _write_source_file(prepared.source_code, interface, corrnr=corrnr,
+                       source_label=prepared.source_file,
+                       check_before_save=check_before_save)
 
-    return ObjectCheckinResult([interface], [source_file])
+    return ObjectCheckinResult([interface], [prepared.source_file])
 
 
 def _text_symbols_from_tpool(tpool, object_name, known_ids=(), supported_ids=('I',)):
@@ -432,11 +451,12 @@ def _write_text_symbols(text_elements, text_symbols, corrnr):
         editor.write(sap.adt.textelements.serialize_symbols(text_symbols))
 
 
-def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Clas"""
-    # pylint: disable=too-many-locals
+# Class parts by the suffix of their source files
+CLASS_PARTS = ('clas', 'locals_def', 'locals_imp', 'testclasses')
 
-    sap.cli.core.printout('Creating Class:', repo_obj.name)
+
+def prepare_clas(repo_obj):
+    """Reads and checks the files of the class without accessing the system"""
 
     if not repo_obj.files:
         raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for class {repo_obj.name}')
@@ -449,11 +469,34 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
              sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
             abap_data_file.read())
 
-    abap_data = results['VSEOCLASS']
     text_symbols = _text_symbols_from_tpool(results.get('TPOOL', []), repo_obj.name)
 
+    parts = []
+    for source_file in repo_obj.files:
+        if not source_file.endswith('.abap'):
+            raise sap.adt.errors.ExceptionCheckinFailure(f'No .abap suffix of source file for class {repo_obj.name}:'
+                                                         f' {source_file}')
+
+        sub_obj_id = source_file.split('.')[-2]
+        if sub_obj_id not in CLASS_PARTS:
+            sap.cli.core.printerr(f'Unknown class part {source_file}')
+            continue
+
+        with open(source_file, 'r', encoding='utf-8') as source:
+            parts.append((sub_obj_id, source_file, source.read()))
+
+    return SimpleNamespace(abap_data=results['VSEOCLASS'], text_symbols=text_symbols, parts=parts)
+
+
+def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Clas"""
+
+    sap.cli.core.printout('Creating Class:', repo_obj.name)
+
+    prepared = prepared or prepare_clas(repo_obj)
+
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=abap_data.DESCRIPT)
+                                   description=prepared.abap_data.DESCRIPT)
     clas = sap.adt.Class(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
 
     try:
@@ -473,51 +516,37 @@ def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False):
         clas = sap.adt.Class(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
         clas.create(corrnr)
 
+    class_parts = {
+        'clas': clas,
+        'locals_def': clas.definitions,
+        'locals_imp': clas.implementations,
+        'testclasses': clas.test_classes,
+    }
+
     used_files = []
 
-    for source_file in repo_obj.files:
-        if not source_file.endswith('.abap'):
-            raise sap.adt.errors.ExceptionCheckinFailure(f'No .abap suffix of source file for class {repo_obj.name}:'
-                                                         f' {source_file}')
-
-        class_parts = {
-            'clas': clas,
-            'locals_def': clas.definitions,
-            'locals_imp': clas.implementations,
-            'testclasses': clas.test_classes,
-        }
-
-        sub_obj_id = source_file.split('.')[-2]
-        sub_obj = class_parts.get(sub_obj_id, None)
-        if sub_obj is None:
-            sap.cli.core.printerr(f'Unknown class part {source_file}')
-            continue
-
+    for sub_obj_id, source_file, source_code in prepared.parts:
         sap.cli.core.printout('Writing Clas:', repo_obj.name, sub_obj_id)
 
-        with open(source_file, 'r', encoding='utf-8') as source:
-            _write_source_file(source.read(), sub_obj, corrnr=corrnr,
-                               source_label=source_file,
-                               check_before_save=check_before_save)
+        _write_source_file(source_code, class_parts[sub_obj_id], corrnr=corrnr,
+                           source_label=source_file,
+                           check_before_save=check_before_save)
 
         used_files.append(source_file)
 
     abap_objects = [clas]
 
-    if text_symbols:
+    if prepared.text_symbols:
         sap.cli.core.printout('Writing Clas:', repo_obj.name, 'text elements')
         text_elements = sap.adt.textelements.ClassTextElements(connection, repo_obj.name.upper())
-        _write_text_symbols(text_elements, text_symbols, corrnr)
+        _write_text_symbols(text_elements, prepared.text_symbols, corrnr)
         abap_objects.append(text_elements)
 
     return ObjectCheckinResult(abap_objects, used_files)
 
 
-def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Program"""
-    # pylint: disable=too-many-locals
-
-    sap.cli.core.printout('Creating Program:', repo_obj.name)
+def prepare_prog(repo_obj):
+    """Reads and checks the files of the program without accessing the system"""
 
     if not repo_obj.files:
         raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for program {repo_obj.name}')
@@ -538,22 +567,41 @@ def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
     # TODO: how to handle CUA?
     tpool = results['TPOOL']
 
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
-    if progdir.SUBC == SUBC_EXECUTABLE_PROGRAM:
-        program = sap.adt.Program(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
-    elif progdir.SUBC == SUBC_INCLUDE:
-        sap.cli.core.printout('Creating Include:', repo_obj.name)
-        program = sap.adt.Include(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
-    else:
+    if progdir.SUBC not in (SUBC_EXECUTABLE_PROGRAM, SUBC_INCLUDE):
         raise sap.adt.errors.ExceptionCheckinFailure(f'Unknown program type {progdir.SUBC}')
 
+    description = None
     for text in tpool:
         if text.ID == 'R':
-            program.description = text.ENTRY
+            description = text.ENTRY
 
     # ADT does not allow editing text elements of includes
     supported_ids = ('I',) if progdir.SUBC == SUBC_EXECUTABLE_PROGRAM else ()
     text_symbols = _text_symbols_from_tpool(tpool, repo_obj.name, known_ids=('R',), supported_ids=supported_ids)
+
+    with open(source_file, 'r', encoding='utf-8') as source:
+        source_code = source.read()
+
+    return SimpleNamespace(progdir=progdir, description=description, text_symbols=text_symbols,
+                           source_file=source_file, source_code=source_code)
+
+
+def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Program"""
+
+    sap.cli.core.printout('Creating Program:', repo_obj.name)
+
+    prepared = prepared or prepare_prog(repo_obj)
+
+    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
+    if prepared.progdir.SUBC == SUBC_EXECUTABLE_PROGRAM:
+        program = sap.adt.Program(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
+    else:
+        sap.cli.core.printout('Creating Include:', repo_obj.name)
+        program = sap.adt.Include(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
+
+    if prepared.description is not None:
+        program.description = prepared.description
 
     try:
         program.create(corrnr)
@@ -564,21 +612,20 @@ def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False):
         mod_log().info(err.message)
 
     sap.cli.core.printout('Writing Program:', repo_obj.name)
-    with open(source_file, 'r', encoding='utf-8') as source:
-        _write_source_file(source.read(), program, corrnr=corrnr,
-                           source_label=source_file,
-                           check_before_save=check_before_save)
+    _write_source_file(prepared.source_code, program, corrnr=corrnr,
+                       source_label=prepared.source_file,
+                       check_before_save=check_before_save)
 
     abap_objects = [program]
 
-    if text_symbols:
+    if prepared.text_symbols:
         sap.cli.core.printout('Writing Program:', repo_obj.name, 'text elements')
         text_elements = sap.adt.textelements.ProgramTextElements(connection, repo_obj.name.upper())
-        _write_text_symbols(text_elements, text_symbols, corrnr)
+        _write_text_symbols(text_elements, prepared.text_symbols, corrnr)
         # ADT does not activate inactive text elements together with the program
         abap_objects.append(text_elements)
 
-    return ObjectCheckinResult(abap_objects, [source_file])
+    return ObjectCheckinResult(abap_objects, [prepared.source_file])
 
 
 def _check_fugr_source_files(repo_obj, functions, includes):
@@ -632,19 +679,6 @@ def _write_source_file(source_code, adt_object, corrnr=None, source_label=None,
         raise
 
 
-def _write_adt_object_source_file(path_prefix, adt_object, corrnr=None,
-                                  check_before_save=False):
-    """Write source file for ADT object"""
-
-    adt_object_file_path = path_prefix + f'.{adt_object.name.lower()}' + '.abap'
-    with open(adt_object_file_path, 'r', encoding='utf-8') as source:
-        _write_source_file(source.read(), adt_object, corrnr,
-                           source_label=adt_object_file_path,
-                           check_before_save=check_before_save)
-
-    return adt_object_file_path
-
-
 def _format_function(source_code):
     """Format parameters of function
 
@@ -695,22 +729,6 @@ def _format_function(source_code):
     return '\n'.join(source_lines)
 
 
-def _write_function_source_code(path_prefix, adt_object, corrnr=None,
-                                check_before_save=False):
-    """Write source code for function. If function is in ababGit format, change it to ADT format"""
-
-    source_file_path = path_prefix + f'.{adt_object.name.lower()}' + '.abap'
-    with open(source_file_path, 'r', encoding='utf-8') as source:
-        source_code = source.read()
-
-    source_code = _format_function(source_code)
-    _write_source_file(source_code, adt_object, corrnr,
-                       source_label=source_file_path,
-                       check_before_save=check_before_save)
-
-    return source_file_path
-
-
 def create_function_module(connection, func, function_group, metadata, corrnr):
     """Create Function Module"""
 
@@ -732,11 +750,21 @@ def create_function_module(connection, func, function_group, metadata, corrnr):
     return function_module
 
 
-# pylint: disable=too-many-locals
-def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Function Group"""
+def _read_fugr_source_file(repo_obj, name):
+    """Returns the path and the contents of the source file of the function
+       group include or function module of the given name
+    """
 
-    sap.cli.core.printout('Creating Function Group:', repo_obj.name)
+    source_file = repo_obj.path[:-4] + f'.{name.lower()}' + '.abap'
+    with open(source_file, 'r', encoding='utf-8') as source:
+        return (source_file, source.read())
+
+
+def prepare_fugr(repo_obj):
+    """Reads and checks the files of the function group without accessing
+       the system
+    """
+
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         results = sap.platform.abap.abapgit.from_xml([AREAT, INCLUDES, FUNCTIONS], abap_data_file.read())
 
@@ -745,10 +773,29 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
 
     _check_fugr_source_files(repo_obj, functions, includes)
 
+    include_sources = [(include,) + _read_fugr_source_file(repo_obj, include) for include in includes]
+
+    function_sources = []
+    for func in functions:
+        source_file, source_code = _read_fugr_source_file(repo_obj, func.FUNCNAME)
+        # If the function is in abapGit format, change it to ADT format
+        function_sources.append((func, source_file, _format_function(source_code)))
+
+    return SimpleNamespace(description=results['AREAT'], includes=include_sources, functions=function_sources)
+
+
+# pylint: disable=too-many-locals
+def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Function Group"""
+
+    sap.cli.core.printout('Creating Function Group:', repo_obj.name)
+
+    prepared = prepared or prepare_fugr(repo_obj)
+
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
     function_group = sap.adt.FunctionGroup(connection, repo_obj.name.upper(), package=repo_obj.package.name,
                                            metadata=metadata)
-    function_group.description = results['AREAT']
+    function_group.description = prepared.description
 
     try:
         function_group.create(corrnr)
@@ -758,7 +805,7 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
     abap_objs_inactive = [function_group]
     used_files = []
 
-    for include in includes:
+    for include, source_file, source_code in prepared.includes:
         include_obj = sap.adt.FunctionInclude(connection, include, function_group.name, metadata=metadata)
         abap_objs_inactive.append(include_obj)
 
@@ -772,16 +819,18 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False):
             mod_log().info(err.message)
 
         sap.cli.core.printout('Writing Function Group Include:', include_obj.name)
-        used_files.append(_write_adt_object_source_file(repo_obj.path[:-4], include_obj, corrnr=corrnr,
-                                                        check_before_save=check_before_save))
+        _write_source_file(source_code, include_obj, corrnr, source_label=source_file,
+                           check_before_save=check_before_save)
+        used_files.append(source_file)
 
-    for func in functions:
+    for func, source_file, source_code in prepared.functions:
         function_module = create_function_module(connection, func, function_group, metadata, corrnr)
         abap_objs_inactive.append(function_module)
 
         sap.cli.core.printout('Writing Function Module:', function_module.name)
-        used_files.append(_write_function_source_code(repo_obj.path[:-4], function_module, corrnr=corrnr,
-                                                      check_before_save=check_before_save))
+        _write_source_file(source_code, function_module, corrnr, source_label=source_file,
+                           check_before_save=check_before_save)
+        used_files.append(source_file)
 
     return ObjectCheckinResult(abap_objs_inactive, used_files)
 
@@ -798,10 +847,8 @@ def _dd40v_code_to_adt(mapping, dd40v, field, object_name):
 
 
 # pylint: disable=unused-argument
-def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Table Type"""
-
-    sap.cli.core.printout('Creating Table Type:', repo_obj.name)
+def prepare_ttyp(repo_obj):
+    """Reads and checks the file of the table type without accessing the system"""
 
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         # DD40L_EXTRA is parsed only to accept files of newer abapGit versions
@@ -816,13 +863,24 @@ def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False):
         raise sap.adt.errors.ExceptionCheckinFailure(f'Unsupported row type of table type {repo_obj.name}:'
                                                      ' only dictionary and predefined types are supported')
 
-    access_type = _dd40v_code_to_adt(DD40V_ACCESSMODE_TO_ADT, dd40v, 'ACCESSMODE', repo_obj.name)
-    key_definition = _dd40v_code_to_adt(DD40V_KEYDEF_TO_ADT, dd40v, 'KEYDEF', repo_obj.name)
-    key_kind = _dd40v_code_to_adt(DD40V_KEYKIND_TO_ADT, dd40v, 'KEYKIND', repo_obj.name)
-    key_components = [line.KEYFIELD for line in results.get('DD42V', []) if not line.SECKEYNAME]
-
     if results.get('DD43V'):
         sap.cli.core.printerr(f'Skipping unsupported secondary keys of {repo_obj.name}')
+
+    return SimpleNamespace(
+        dd40v=dd40v,
+        access_type=_dd40v_code_to_adt(DD40V_ACCESSMODE_TO_ADT, dd40v, 'ACCESSMODE', repo_obj.name),
+        key_definition=_dd40v_code_to_adt(DD40V_KEYDEF_TO_ADT, dd40v, 'KEYDEF', repo_obj.name),
+        key_kind=_dd40v_code_to_adt(DD40V_KEYKIND_TO_ADT, dd40v, 'KEYKIND', repo_obj.name),
+        key_components=[line.KEYFIELD for line in results.get('DD42V', []) if not line.SECKEYNAME])
+
+
+def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Table Type"""
+
+    sap.cli.core.printout('Creating Table Type:', repo_obj.name)
+
+    prepared = prepared or prepare_ttyp(repo_obj)
+    dd40v = prepared.dd40v
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=dd40v.DDTEXT)
@@ -842,8 +900,8 @@ def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False):
     else:
         tabletype.set_predefined_row_type(dd40v.DATATYPE, dd40v.LENG or '0', dd40v.DECIMALS or '0')
 
-    tabletype.access_type = access_type
-    tabletype.set_primary_key(key_definition, key_kind, key_components)
+    tabletype.access_type = prepared.access_type
+    tabletype.set_primary_key(prepared.key_definition, prepared.key_kind, prepared.key_components)
 
     sap.cli.core.printout('Writing Table Type:', repo_obj.name)
     with tabletype.open_editor(corrnr=corrnr) as editor:
@@ -852,15 +910,10 @@ def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([tabletype], [])
 
 
-# pylint: disable=too-many-arguments
-def _checkin_cds_source(connection, repo_obj, abap_type, get_description, adt_type, source_suffix, label, corrnr,
-                        check_before_save):
-    """Creates the CDS source object described by the abapGit XML file of the
-       given type and writes its source code. Returns the ADT object and the
-       path of the source code file.
+def _prepare_cds_source(repo_obj, abap_type, get_description, source_suffix, label):
+    """Reads and checks the abapGit XML file of the given type and the source
+       code file of the CDS source object without accessing the system
     """
-
-    sap.cli.core.printout(f'Creating {label}:', repo_obj.name)
 
     source_file = repo_obj.path[:-4] + source_suffix
     if source_file not in repo_obj.files:
@@ -869,8 +922,20 @@ def _checkin_cds_source(connection, repo_obj, abap_type, get_description, adt_ty
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         abap_data = sap.platform.abap.abapgit.from_xml([abap_type], abap_data_file.read())[abap_type.__name__]
 
+    with open(source_file, 'r', encoding='utf-8') as source:
+        source_code = source.read()
+
+    return SimpleNamespace(description=get_description(abap_data), source_file=source_file, source_code=source_code)
+
+
+# pylint: disable=too-many-arguments
+def _checkin_cds_source(connection, repo_obj, prepared, adt_type, label, corrnr, check_before_save):
+    """Creates the CDS source object and writes its source code. Returns
+       the ADT object and the path of the source code file.
+    """
+
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=get_description(abap_data))
+                                   description=prepared.description)
     adt_object = adt_type(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
 
     try:
@@ -879,20 +944,26 @@ def _checkin_cds_source(connection, repo_obj, abap_type, get_description, adt_ty
         mod_log().info(err.message)
 
     sap.cli.core.printout(f'Writing {label}:', repo_obj.name)
-    with open(source_file, 'r', encoding='utf-8') as source:
-        _write_source_file(source.read(), adt_object, corrnr=corrnr,
-                           source_label=source_file,
-                           check_before_save=check_before_save)
+    _write_source_file(prepared.source_code, adt_object, corrnr=corrnr,
+                       source_label=prepared.source_file,
+                       check_before_save=check_before_save)
 
-    return (adt_object, source_file)
+    return (adt_object, prepared.source_file)
 
 
-def checkin_ddls(connection, repo_obj, corrnr=None, check_before_save=False):
+def prepare_ddls(repo_obj):
+    """Reads and checks the files of the data definition"""
+
+    return _prepare_cds_source(repo_obj, DDLS, lambda ddls: ddls.DDTEXT, '.asddls', 'Data Definition')
+
+
+def checkin_ddls(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
     """Checkin ADT Data Definition"""
 
-    ddl, source_file = _checkin_cds_source(connection, repo_obj, DDLS, lambda ddls: ddls.DDTEXT,
-                                           sap.adt.DataDefinition, '.asddls', 'Data Definition', corrnr,
-                                           check_before_save)
+    sap.cli.core.printout('Creating Data Definition:', repo_obj.name)
+
+    ddl, source_file = _checkin_cds_source(connection, repo_obj, prepared or prepare_ddls(repo_obj),
+                                           sap.adt.DataDefinition, 'Data Definition', corrnr, check_before_save)
 
     used_files = [source_file]
 
@@ -905,33 +976,57 @@ def checkin_ddls(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([ddl], used_files)
 
 
-def checkin_dcls(connection, repo_obj, corrnr=None, check_before_save=False):
+def prepare_dcls(repo_obj):
+    """Reads and checks the files of the access control"""
+
+    return _prepare_cds_source(repo_obj, DCLS, lambda dcls: dcls.DDTEXT, '.asdcls', 'Access Control')
+
+
+def checkin_dcls(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
     """Checkin ADT Access Control"""
 
-    dcl, source_file = _checkin_cds_source(connection, repo_obj, DCLS, lambda dcls: dcls.DDTEXT,
-                                           sap.adt.AccessControl, '.asdcls', 'Access Control', corrnr,
-                                           check_before_save)
+    sap.cli.core.printout('Creating Access Control:', repo_obj.name)
+
+    dcl, source_file = _checkin_cds_source(connection, repo_obj, prepared or prepare_dcls(repo_obj),
+                                           sap.adt.AccessControl, 'Access Control', corrnr, check_before_save)
 
     return ObjectCheckinResult([dcl], [source_file])
 
 
-def checkin_ddlx(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Metadata Extension"""
+def prepare_ddlx(repo_obj):
+    """Reads and checks the files of the metadata extension"""
 
     # Old abapGit versions stored the source code in the XML file but abapGit
     # has been writing it to the file .asddlxs for years
-    ddlx, source_file = _checkin_cds_source(connection, repo_obj, DDLX, lambda ddlx: ddlx.METADATA.DESCRIPTION,
-                                            sap.adt.MetadataExtension, '.asddlxs', 'Metadata Extension', corrnr,
+    return _prepare_cds_source(repo_obj, DDLX, lambda ddlx: ddlx.METADATA.DESCRIPTION, '.asddlxs',
+                               'Metadata Extension')
+
+
+def checkin_ddlx(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Metadata Extension"""
+
+    sap.cli.core.printout('Creating Metadata Extension:', repo_obj.name)
+
+    ddlx, source_file = _checkin_cds_source(connection, repo_obj, prepared or prepare_ddlx(repo_obj),
+                                            sap.adt.MetadataExtension, 'Metadata Extension', corrnr,
                                             check_before_save)
 
     return ObjectCheckinResult([ddlx], [source_file])
 
 
-def checkin_bdef(connection, repo_obj, corrnr=None, check_before_save=False):
+def prepare_bdef(repo_obj):
+    """Reads and checks the files of the behavior definition"""
+
+    return _prepare_cds_source(repo_obj, BDEF, lambda bdef: bdef.DESCRIPTION, '.asbdef', 'Behavior Definition')
+
+
+def checkin_bdef(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
     """Checkin ADT Behavior Definition"""
 
-    bdef, source_file = _checkin_cds_source(connection, repo_obj, BDEF, lambda bdef: bdef.DESCRIPTION,
-                                            sap.adt.BehaviorDefinition, '.asbdef', 'Behavior Definition', corrnr,
+    sap.cli.core.printout('Creating Behavior Definition:', repo_obj.name)
+
+    bdef, source_file = _checkin_cds_source(connection, repo_obj, prepared or prepare_bdef(repo_obj),
+                                            sap.adt.BehaviorDefinition, 'Behavior Definition', corrnr,
                                             check_before_save)
 
     return ObjectCheckinResult([bdef], [source_file])
@@ -1138,33 +1233,10 @@ def _write_table_settings(connection, name, dd09l, corrnr):
         editor.push()
 
 
-def _checkin_table(connection, repo_obj, dd02v, dd09l, fields, corrnr, check_before_save):
-    """Checkin ADT Table"""
-
-    source_code = build_table_source(dd02v, fields, repo_obj.name)
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=dd02v.DDTEXT)
-    table = sap.adt.Table(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
-
-    try:
-        table.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
-
-    sap.cli.core.printout('Writing Table:', repo_obj.name)
-    _write_source_file(source_code, table, corrnr=corrnr, source_label=repo_obj.path,
-                       check_before_save=check_before_save)
-
-    sap.cli.core.printout('Writing Technical Settings:', repo_obj.name)
-    _write_table_settings(connection, repo_obj.name.upper(), dd09l or DD09L(), corrnr)
-
-    # Activation of the table activates its technical settings too
-    return ObjectCheckinResult([table], [])
-
-
-def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Structure or Table"""
+def prepare_tabl(repo_obj):
+    """Reads and checks the file of the structure or table and generates its
+       source code without accessing the system
+    """
 
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         try:
@@ -1178,35 +1250,49 @@ def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False):
                 f'Unsupported contents of TABL {repo_obj.name}: {ex}') from ex
 
     dd02v = results['DD02V']
+    fields = results.get('DD03P_TABLE', [])
+
     if dd02v.TABCLASS == TABCLASS_TRANSPARENT:
-        sap.cli.core.printout('Creating Table:', repo_obj.name)
-        return _checkin_table(connection, repo_obj, dd02v, results.get('DD09L'), results.get('DD03P_TABLE', []),
-                              corrnr, check_before_save)
+        return SimpleNamespace(dd02v=dd02v, dd09l=results.get('DD09L') or DD09L(),
+                               source_code=build_table_source(dd02v, fields, repo_obj.name))
 
     if dd02v.TABCLASS != TABCLASS_STRUCTURE:
         raise sap.adt.errors.ExceptionCheckinFailure(
             f'Unsupported table category "{dd02v.TABCLASS}" of {repo_obj.name}:'
             ' only structures and transparent tables are supported')
 
-    sap.cli.core.printout('Creating Structure:', repo_obj.name)
+    return SimpleNamespace(dd02v=dd02v, dd09l=None, source_code=build_structure_source(dd02v, fields, repo_obj.name))
 
-    source_code = build_structure_source(dd02v, results.get('DD03P_TABLE', []), repo_obj.name)
+
+def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Structure or Table"""
+
+    prepared = prepared or prepare_tabl(repo_obj)
+    is_table = prepared.dd02v.TABCLASS == TABCLASS_TRANSPARENT
+    label = 'Table' if is_table else 'Structure'
+
+    sap.cli.core.printout(f'Creating {label}:', repo_obj.name)
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=dd02v.DDTEXT)
-    structure = sap.adt.Structure(connection, repo_obj.name.upper(), package=repo_obj.package.name,
-                                  metadata=metadata)
+                                   description=prepared.dd02v.DDTEXT)
+    adt_type = sap.adt.Table if is_table else sap.adt.Structure
+    adt_object = adt_type(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
 
     try:
-        structure.create(corrnr)
+        adt_object.create(corrnr)
     except sap.adt.errors.ExceptionResourceAlreadyExists as err:
         mod_log().info(err.message)
 
-    sap.cli.core.printout('Writing Structure:', repo_obj.name)
-    _write_source_file(source_code, structure, corrnr=corrnr, source_label=repo_obj.path,
+    sap.cli.core.printout(f'Writing {label}:', repo_obj.name)
+    _write_source_file(prepared.source_code, adt_object, corrnr=corrnr, source_label=repo_obj.path,
                        check_before_save=check_before_save)
 
-    return ObjectCheckinResult([structure], [])
+    if is_table:
+        sap.cli.core.printout('Writing Technical Settings:', repo_obj.name)
+        _write_table_settings(connection, repo_obj.name.upper(), prepared.dd09l, corrnr)
+
+    # Activation of the table activates its technical settings too
+    return ObjectCheckinResult([adt_object], [])
 
 
 def _abap_flag_to_adt(flag):
@@ -1215,11 +1301,8 @@ def _abap_flag_to_adt(flag):
     return 'true' if flag else 'false'
 
 
-# pylint: disable=unused-argument
-def checkin_doma(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Domain"""
-
-    sap.cli.core.printout('Creating Domain:', repo_obj.name)
+def prepare_doma(repo_obj):
+    """Reads and checks the file of the domain without accessing the system"""
 
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         try:
@@ -1233,7 +1316,17 @@ def checkin_doma(connection, repo_obj, corrnr=None, check_before_save=False):
             raise sap.adt.errors.ExceptionCheckinFailure(
                 f'Unsupported contents of domain {repo_obj.name}: {ex}') from ex
 
-    dd01v = results['DD01V']
+    return SimpleNamespace(dd01v=results['DD01V'], dd07v=results.get('DD07V_TAB', []))
+
+
+# pylint: disable=unused-argument,too-many-locals
+def checkin_doma(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Domain"""
+
+    sap.cli.core.printout('Creating Domain:', repo_obj.name)
+
+    prepared = prepared or prepare_doma(repo_obj)
+    dd01v = prepared.dd01v
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=dd01v.DDTEXT)
@@ -1267,7 +1360,7 @@ def checkin_doma(connection, repo_obj, corrnr=None, check_before_save=False):
 
     # abapGit renumbers the fixed values the same way
     value_information.fix_values = sap.adt.domain.DomainFixValues()
-    for position, dd07v in enumerate(results.get('DD07V_TAB', []), start=1):
+    for position, dd07v in enumerate(prepared.dd07v, start=1):
         fix_value = sap.adt.domain.DomainFixValue()
         fix_value.position = f'{position:04d}'
         fix_value.low = dd07v.DOMVALUE_L or ''
@@ -1282,11 +1375,10 @@ def checkin_doma(connection, repo_obj, corrnr=None, check_before_save=False):
     return ObjectCheckinResult([domain], [])
 
 
-# pylint: disable=unused-argument
-def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False):
-    """Checkin ADT Data Element"""
-
-    sap.cli.core.printout('Creating Data Element:', repo_obj.name)
+def prepare_dtel(repo_obj):
+    """Reads and checks the file of the data element without accessing
+       the system
+    """
 
     with open(repo_obj.path, encoding='utf-8') as abap_data_file:
         try:
@@ -1304,6 +1396,17 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False):
     if dd04v.REFKIND not in (None, REFKIND_DOMAIN):
         raise sap.adt.errors.ExceptionCheckinFailure(
             f'Unsupported type of data element {repo_obj.name}: REFKIND={dd04v.REFKIND}')
+
+    return SimpleNamespace(dd04v=dd04v)
+
+
+# pylint: disable=unused-argument
+def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
+    """Checkin ADT Data Element"""
+
+    sap.cli.core.printout('Creating Data Element:', repo_obj.name)
+
+    dd04v = (prepared or prepare_dtel(repo_obj)).dd04v
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
                                    description=dd04v.DDTEXT)
@@ -1375,7 +1478,52 @@ OBJECT_CHECKIN_HANDLERS = {
 }
 
 
-def _checkin_dependency_group(connection, repo, group, console, corrnr, check_before_save=False):
+# Functions reading and checking the files of objects without accessing
+# the system
+OBJECT_CHECKIN_PREPARERS = {
+    'intf': prepare_intf,
+    'clas': prepare_clas,
+    'prog': prepare_prog,
+    'fugr': prepare_fugr,
+    'ttyp': prepare_ttyp,
+    'ddls': prepare_ddls,
+    'dcls': prepare_dcls,
+    'ddlx': prepare_ddlx,
+    'bdef': prepare_bdef,
+    'tabl': prepare_tabl,
+    'doma': prepare_doma,
+    'dtel': prepare_dtel,
+}
+
+
+def _prepare_repository(repo, console):
+    """Reads and checks the files of all packages and objects before
+       accessing the system to avoid long running checkins failing at the end
+       because of a file which could not be checked in. Reports all problems
+       and returns the prepared data by file paths.
+    """
+
+    prepared = {}
+    problems = 0
+
+    preparations = [(package.path, prepare_package, package) for package in repo.packages]
+    preparations += [(obj.path, OBJECT_CHECKIN_PREPARERS[obj.code], obj) for obj in repo.objects]
+
+    for path, prepare, repo_item in preparations:
+        try:
+            prepared[path] = prepare(repo_item)
+        # InputError (e.g. invalid XML) is not derived from SAPCliError
+        except sap.errors.FatalError as ex:
+            console.printerr(f'{path}: {ex}')
+            problems += 1
+
+    if problems:
+        raise sap.errors.SAPCliError(f'Cannot check in {problems} files - nothing has been changed')
+
+    return prepared
+
+
+def _checkin_dependency_group(connection, repo, group, console, corrnr, check_before_save=False, prepared=None):
     inactive_objects = sap.adt.objects.ADTObjectReferences()
 
     for repo_obj in group:
@@ -1385,17 +1533,15 @@ def _checkin_dependency_group(connection, repo, group, console, corrnr, check_be
             console.printerr(f'Object not supported: {repo_obj.path}')
             continue
 
-        try:
-            result = obj_handler(connection, repo_obj, corrnr,
-                                 check_before_save=check_before_save)
-            for abap_obj in result.abap_objects:
-                inactive_objects.add_object(abap_obj)
+        # A failure stops the checkin because the objects using the object
+        # would fail later anyway
+        result = obj_handler(connection, repo_obj, corrnr, check_before_save=check_before_save,
+                             prepared=(prepared or {}).get(repo_obj.path))
+        for abap_obj in result.abap_objects:
+            inactive_objects.add_object(abap_obj)
 
-            for used_file in result.used_files:
-                repo.mark_file_used(used_file)
-
-        except sap.adt.errors.ExceptionCheckinFailure:
-            console.printout(f'Object handled without activation: {repo_obj.path}')
+        for used_file in result.used_files:
+            repo.mark_file_used(used_file)
 
     return inactive_objects
 
@@ -1417,6 +1563,7 @@ def _activate(connection, inactive_objects, console):
 @CommandGroup.argument('corrnr', type=str, nargs='?', default=None)
 @CommandGroup.argument('name', help='Root ABAP package name')
 @CommandGroup.command('package')
+# pylint: disable=too-many-locals
 def do_checkin_directory(connection, args):
     """Synchronize directory structure with ABAP package structure"""
 
@@ -1439,9 +1586,12 @@ def do_checkin_directory(connection, args):
     try:
         _load_objects(repo)
 
+        console.printout('Checking files ...')
+        prepared = _prepare_repository(repo, console)
+
         console.printout('Creating packages ...')
         for package in repo.packages:
-            checkin_package(connection, package, args)
+            checkin_package(connection, package, args, prepared=prepared.get(package.path))
 
         groups = _resolve_dependencies(repo.objects)
 
@@ -1449,7 +1599,7 @@ def do_checkin_directory(connection, args):
             console.printout('Creating objects ...')
             inactive_objects = _checkin_dependency_group(
                 connection, repo, activation_group, console, args.corrnr,
-                check_before_save=check_before_save,
+                check_before_save=check_before_save, prepared=prepared,
             )
 
             if inactive_objects.references:

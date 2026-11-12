@@ -5,7 +5,7 @@ import unittest
 import fnmatch
 import errno
 from types import SimpleNamespace
-from unittest.mock import mock_open, patch, Mock, MagicMock, call
+from unittest.mock import mock_open, patch, Mock, MagicMock, PropertyMock, call, ANY
 
 import sap.adt.checks
 import sap.cli.checkin
@@ -311,16 +311,30 @@ class TestCheckinGroup(ConsoleOutputTestCase):
         self.assertConsoleContents(self.console, stderr='Object not supported: ./bogus.txt\n')
         self.repo.mark_file_used.assert_not_called()
 
-    def test_checkin_group_none_resp(self):
+    def test_checkin_group_failure_stops_checkin(self):
         with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
             fake_handler.get = Mock()
             fake_handler.get.return_value.side_effect = ExceptionCheckinFailure('Checkin of adt object failed')
 
-            inactive = sap.cli.checkin._checkin_dependency_group(None, self.repo, self.mock_object_group, self.console, None)
+            with self.assertRaises(ExceptionCheckinFailure) as caught:
+                sap.cli.checkin._checkin_dependency_group(None, self.repo, self.mock_object_group, self.console, None)
 
-        self.assertConsoleContents(self.console, stdout='Object handled without activation: ./bogus.txt\n')
-        self.assertEqual(inactive.references, [])
+        self.assertEqual(str(caught.exception), 'Checkin of adt object failed')
+        self.assertEmptyConsole(self.console)
         self.repo.mark_file_used.assert_not_called()
+
+    def test_checkin_group_passes_prepared_data(self):
+        handler = Mock(return_value=sap.cli.checkin.ObjectCheckinResult([], []))
+
+        with patch('sap.cli.checkin.OBJECT_CHECKIN_HANDLERS') as fake_handler:
+            fake_handler.get = Mock(return_value=handler)
+
+            sap.cli.checkin._checkin_dependency_group('connection', self.repo, self.mock_object_group, self.console,
+                                                      '420', check_before_save=True,
+                                                      prepared={'./bogus.txt': 'prepared bogus'})
+
+        handler.assert_called_once_with('connection', self.mock_object, '420', check_before_save=True,
+                                        prepared='prepared bogus')
 
     def test_checkin_group_simple(self):
         adt_object = Mock()
@@ -334,6 +348,57 @@ class TestCheckinGroup(ConsoleOutputTestCase):
 
         self.assertEqual(len(inactive.references), 1)
         self.repo.mark_file_used.assert_called_once_with('./src/used.abap')
+
+
+class TestPrepareRepository(ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
+        self.intf = sap.cli.checkin.RepoObject('intf', 'zif_good', './src/zif_good.intf.xml', self.package, [])
+        self.clas = sap.cli.checkin.RepoObject('clas', 'zcl_bad', './src/zcl_bad.clas.xml', self.package, [])
+        self.tabl = sap.cli.checkin.RepoObject('tabl', 'zbad', './src/zbad.tabl.xml', self.package, [])
+        self.repo = Mock(packages=[self.package], objects=[self.intf, self.clas, self.tabl])
+
+    def test_prepare_repository(self):
+        preparers = {
+            'intf': Mock(return_value='prepared intf'),
+            'clas': Mock(return_value='prepared clas'),
+            'tabl': Mock(return_value='prepared tabl'),
+        }
+
+        with patch('sap.cli.checkin.prepare_package', return_value='prepared package') as fake_prepare_package, \
+             patch.dict('sap.cli.checkin.OBJECT_CHECKIN_PREPARERS', preparers):
+            prepared = sap.cli.checkin._prepare_repository(self.repo, self.console)
+
+        fake_prepare_package.assert_called_once_with(self.package)
+        preparers['intf'].assert_called_once_with(self.intf)
+        self.assertEqual(prepared, {
+            './src/package.devc.xml': 'prepared package',
+            './src/zif_good.intf.xml': 'prepared intf',
+            './src/zcl_bad.clas.xml': 'prepared clas',
+            './src/zbad.tabl.xml': 'prepared tabl',
+        })
+        self.assertEmptyConsole(self.console)
+
+    def test_prepare_repository_reports_all_problems(self):
+        preparers = {
+            'intf': Mock(return_value='prepared intf'),
+            'clas': Mock(side_effect=ExceptionCheckinFailure('No source file for class zcl_bad')),
+            'tabl': Mock(side_effect=sap.errors.InputError('Invalid XML for DD02V: syntax error')),
+        }
+
+        with patch('sap.cli.checkin.prepare_package', side_effect=SAPCliError('DEVC does not have the member FOO')), \
+             patch.dict('sap.cli.checkin.OBJECT_CHECKIN_PREPARERS', preparers), \
+             self.assertRaises(SAPCliError) as caught:
+            sap.cli.checkin._prepare_repository(self.repo, self.console)
+
+        self.assertEqual(str(caught.exception), 'Cannot check in 3 files - nothing has been changed')
+        self.assertConsoleContents(self.console, stderr='''./src/package.devc.xml: DEVC does not have the member FOO
+./src/zcl_bad.clas.xml: No source file for class zcl_bad
+./src/zbad.tabl.xml: Invalid XML for DD02V: syntax error
+''')
 
 
 class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
@@ -383,9 +448,10 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
 
         get_logger().debug('Test files: %s', ','.join(self.files))
 
+    @patch('sap.cli.checkin._prepare_repository', return_value={})
     @patch('sap.cli.checkin._get_config')
     @patch('sap.cli.checkin.checkin_package')
-    def test_do_checkin_sanity(self, fake_checkin, fake_config):
+    def test_do_checkin_sanity(self, fake_checkin, fake_config, _):
         fake_config.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
             FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
         )
@@ -489,9 +555,10 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
                           './src/run_report.prog.abap',
                           './src/zsearch_help.shlp.xml'])
 
+    @patch('sap.cli.checkin._prepare_repository', return_value={})
     @patch('sap.cli.checkin._get_config')
     @patch('sap.cli.checkin.checkin_package')
-    def test_do_checkin_reports_unused_files(self, fake_checkin, fake_config):
+    def test_do_checkin_reports_unused_files(self, fake_checkin, fake_config, _):
         fake_config.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
             FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
         )
@@ -515,7 +582,8 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertConsoleContents(self.console,
-                                   stdout='''Creating packages ...
+                                   stdout='''Checking files ...
+Creating packages ...
 Creating objects ...
 Creating objects ...
 Activating objects ...
@@ -573,11 +641,57 @@ Activating objects ...
     def test_do_checkin_with_activate(self, fake_activate):
         inactive_objects = Mock(references=[Mock()])
         self._do_checkin(fake_activate=fake_activate, inactive_objects=inactive_objects)
-        self.assertConsoleContents(self.console, stdout='''Creating packages ...
+        self.assertConsoleContents(self.console, stdout='''Checking files ...
+Creating packages ...
 Creating objects ...
 Activating objects ...
 ''')
         fake_activate.assert_called_once_with(None, inactive_objects, self.console)
+
+    @patch('sap.cli.checkin.checkin_package')
+    @patch('sap.cli.checkin._prepare_repository')
+    @patch('sap.cli.checkin._get_config')
+    @patch('sap.cli.checkin._load_objects')
+    def test_do_checkin_preparation_fails(self, _, fake_config, fake_prepare_repository, fake_checkin_package):
+        fake_prepare_repository.side_effect = SAPCliError('Cannot check in 1 files - nothing has been changed')
+        fake_config.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
+            FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
+        )
+
+        args = parse_args('package', '$foo')
+        exit_code = args.execute(None, args)
+
+        self.assertEqual(exit_code, 1)
+        fake_checkin_package.assert_not_called()
+        self.assertConsoleContents(self.console, stdout='Checking files ...\n',
+                                   stderr='Checkin failed: Cannot check in 1 files - nothing has been changed\n')
+
+    @patch('sap.cli.checkin._checkin_dependency_group')
+    @patch('sap.cli.checkin._resolve_dependencies')
+    @patch('sap.cli.checkin.checkin_package')
+    @patch('sap.cli.checkin._prepare_repository')
+    @patch('sap.cli.checkin._get_config')
+    @patch('sap.cli.checkin._load_objects')
+    def test_do_checkin_uses_prepared_data(self, _, fake_config, fake_prepare_repository, fake_checkin_package,
+                                           fake_resolve_dependencies, fake_checkin_dependency_group):
+        package = sap.cli.checkin.RepoPackage('$FOO', './package.devc.xml', '.', None)
+        group = [Mock()]
+        prepared = {'./package.devc.xml': 'prepared package'}
+        fake_prepare_repository.return_value = prepared
+        fake_resolve_dependencies.return_value = [group]
+        fake_checkin_dependency_group.return_value = Mock(references=[])
+        fake_config.return_value = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(
+            FOLDER_LOGIC=sap.platform.abap.abapgit.FOLDER_LOGIC_PREFIX
+        )
+
+        args = parse_args('package', '$foo')
+        with patch('sap.cli.checkin.Repository.packages', new_callable=PropertyMock, return_value=[package]):
+            exit_code = args.execute('connection', args)
+
+        self.assertEqual(exit_code, 0)
+        fake_checkin_package.assert_called_once_with('connection', package, args, prepared='prepared package')
+        fake_checkin_dependency_group.assert_called_once_with('connection', ANY, group, self.console, None,
+                                                              check_before_save=False, prepared=prepared)
 
     def _resolved_check_before_save(self, *cli_args, env_value=None):
         """Run do_checkin_directory with the given CLI args and return
@@ -586,7 +700,7 @@ Activating objects ...
 
         captured = {}
 
-        def fake_group(connection, repo, group, console, corrnr, check_before_save=False):
+        def fake_group(connection, repo, group, console, corrnr, check_before_save=False, prepared=None):
             captured['value'] = check_before_save
             return Mock(references=[])
 
@@ -1012,7 +1126,8 @@ Writing Clas: {self.clas_object.name} text elements
         with self.assertRaises(ExceptionCheckinFailure) as cm:
             sap.cli.checkin.checkin_clas(self.connection, self.clas_object)
 
-        self.clas.create.assert_called_once_with(None)
+        # the files are checked before creating the class
+        self.clas.create.assert_not_called()
         self.assertEqual(str(cm.exception),
                          f'No .abap suffix of source file for class {self.clas_object.name}: foo.wrong.prefix')
 
@@ -1073,6 +1188,15 @@ class TestCheckInInterface(ConsoleOutputTestCase, PatcherTestCase):
         self.package = sap.cli.checkin.RepoPackage('test_package', '/src/package.devc.xml', '/src', None)
         self.interface_object = sap.cli.checkin.RepoObject('', 'test_interface', '/src/test_interface', self.package,
                                                            ['foo.intf.abap'])
+
+    def test_checkin_intf_prepared(self):
+        prepared = sap.cli.checkin.prepare_intf(self.interface_object)
+        self.fake_open.reset_mock()
+
+        sap.cli.checkin.checkin_intf(self.connection, self.interface_object, prepared=prepared)
+
+        self.fake_open.assert_not_called()
+        self.interface_editor.write.assert_called_once_with('test_intf_body')
 
     def test_checkin_intf_no_file(self):
         interface_object = sap.cli.checkin.RepoObject('', 'test_intf', '/src/boo', Mock(), [])
@@ -1234,8 +1358,8 @@ class TestCheckInProgram(ConsoleOutputTestCase, PatcherTestCase):
             sap.cli.checkin.checkin_prog(self.connection, self.prog_object)
 
         self.assertEqual(str(cm.exception), 'Unknown program type X')
-        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user.upper())
+        # the files are checked before creating the program
+        self.fake_core_data.assert_not_called()
         self.fake_program.assert_not_called()
         self.fake_include.assert_not_called()
 
@@ -1350,7 +1474,7 @@ Writing Program: {self.prog_object.name}
         self.program_editor.write.assert_called_once_with('test_prog_body')
 
     def test_checkin_prog_creation_error(self):
-        self.fake_open.side_effect = [StringIOFile(PROG_XML)]
+        self.fake_open.side_effect = [StringIOFile(PROG_XML), StringIOFile('test_prog_body')]
         self.program.create.side_effect = ExceptionResourceCreationFailure('Failed to create program')
 
         with self.assertRaises(ExceptionResourceCreationFailure) as cm:
@@ -1453,6 +1577,9 @@ class TestCheckInFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
         self.fake_function_include.assert_not_called()
 
     def test_checkin_fugr_create_error(self):
+        # the source files are read before creating the function group
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile(FUNCTION_MODULE_CODE_ADT)]
         self.function_group.create.side_effect = SAPCliError('Failed to create function group')
 
         with self.assertRaises(SAPCliError) as cm:
@@ -1463,6 +1590,9 @@ class TestCheckInFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
         self.function_include.create.assert_not_called()
 
     def test_checkin_fugr_include_create_error(self):
+        # the source files are read before creating the function group
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile(FUNCTION_MODULE_CODE_ADT)]
         self.function_include.create.side_effect = ExceptionResourceCreationFailure('Failed to create function include')
 
         with self.assertRaises(SAPCliError) as cm:
@@ -1472,7 +1602,8 @@ class TestCheckInFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
         self.function_module.create.assert_not_called()
 
     def test_checkin_fugr_module_create_error(self):
-        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body')]
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile(FUNCTION_MODULE_CODE_ADT)]
         self.function_module.create.side_effect = SAPCliError('Failed to create function module')
 
         with self.assertRaises(SAPCliError) as cm:
