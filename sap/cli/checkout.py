@@ -10,7 +10,6 @@ import sap.cli.core
 
 from sap.platform.abap.ddic import (
     DEVC,
-    DDLS,
     DCLS,
     DDLX,
     DDLX_METADATA,
@@ -108,61 +107,12 @@ def tabletype(connection, args):
     _checkout_object(connection, sap.adt.TableType.OBJTYPE.code, args.name)
 
 
-# ADT does not provide the source type codes, so they are derived from the
-# definition statement - the first matching pattern wins
-DDLS_SOURCE_TYPE_PATTERNS = (
-    ('P', re.compile(r'\bas\s+projection\s+on\b', re.IGNORECASE)),
-    ('W', re.compile(r'\bdefine\s+(root\s+)?view\s+entity\b', re.IGNORECASE)),
-    ('V', re.compile(r'\bdefine\s+(root\s+)?view\b', re.IGNORECASE)),
-    ('F', re.compile(r'\bdefine\s+table\s+function\b', re.IGNORECASE)),
-    ('A', re.compile(r'\bdefine\s+(root\s+)?abstract\s+entity\b', re.IGNORECASE)),
-)
-
-
-def ddls_source_type(source):
-    """Returns the abapGit source type of the given data definition source code
-       or None if the source type is not known.
-    """
-
-    return next((source_type for source_type, pattern in DDLS_SOURCE_TYPE_PATTERNS if pattern.search(source)), None)
-
-
-def build_data_definition_abap_attributes(adt_ddl, source):
-    """Returns populated ABAP structure with attributes"""
-
-    return DDLS(DDLNAME=adt_ddl.name,
-                DDLANGUAGE=iso_code_to_sap_code(adt_ddl.master_language),
-                DDTEXT=adt_ddl.description,
-                SOURCE_TYPE=ddls_source_type(source))
-
-
-def checkout_data_definition(connection, name, destdir=None):
-    """Download data definition source code and attributes"""
-
-    sap.cli.core.printout(name)
-    adt_ddl = sap.adt.DataDefinition(connection, name)
-    adt_ddl.fetch()
-
-    source = adt_ddl.text
-    # abapGit makes sure the source code ends with a new line
-    if not source.endswith('\n'):
-        source += '\n'
-
-    write_source(source, name, '.ddls', destdir=destdir, fileext='asddls')
-
-    ddls = build_data_definition_abap_attributes(adt_ddl, source)
-    if ddls.SOURCE_TYPE is None:
-        sap.cli.core.printerr(f'Unknown source type of data definition {name}')
-
-    dump_attributes_to_file(name, (ddls,), '.ddls', 'LCL_OBJECT_DDLS', destdir=destdir)
-
-
 @CommandGroup.argument('name')
 @CommandGroup.command('ddl')
 def datadefinition(connection, args):
     """Download data definition source code and attributes command wrapper"""
 
-    checkout_data_definition(connection, args.name.upper())
+    _checkout_object(connection, sap.adt.DataDefinition.OBJTYPE.code, args.name)
 
 
 def build_access_control_abap_attributes(adt_dcl):
@@ -821,7 +771,6 @@ def checkout_objects(connection, objects, destdir=None):
     # raising an SAPCliError because the command handler prints out
     # human friendly text.
     checkouters = {
-        sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
         sap.adt.AccessControl.OBJTYPE.code: checkout_access_control,
         sap.adt.MetadataExtension.OBJTYPE.code: checkout_metadata_extension,
         sap.adt.BehaviorDefinition.OBJTYPE.code: checkout_behavior_definition,
