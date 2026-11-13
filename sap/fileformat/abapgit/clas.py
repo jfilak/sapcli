@@ -69,7 +69,7 @@ class ClassHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('CLAS/OC',)
 
-    def checkout(self, connection, name, destdir):
+    def checkout(self, connection, adt_type, name, destdir):
         sap.cli.core.printout(name)
         clas = sap.adt.Class(connection, name)
         clas.fetch()

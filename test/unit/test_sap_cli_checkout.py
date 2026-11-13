@@ -76,7 +76,8 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['class', 'ZCL_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE', None), call(conn, 'ZCL_UPPERCASE', None)])
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'CLAS/OC', 'ZCL_LOWERCASE', None),
+                                                call(conn, 'CLAS/OC', 'ZCL_UPPERCASE', None)])
 
     @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout')
     def test_checkout_uppercase_name_intf(self, fake_intf):
@@ -88,7 +89,8 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['interface', 'ZIF_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE', None), call(conn, 'ZIF_UPPERCASE', None)])
+        self.assertEqual(fake_intf.mock_calls, [call(conn, 'INTF/OI', 'ZIF_LOWERCASE', None),
+                                                call(conn, 'INTF/OI', 'ZIF_UPPERCASE', None)])
 
     @patch('sap.cli.checkout.checkout_program')
     def test_checkout_uppercase_name_prog(self, fake_prog):
@@ -287,10 +289,10 @@ class TestCheckoutPackage(unittest.TestCase):
         exp_destdir = os.path.abspath(os.path.join(package_name, 'src'))
         exp_sub_destdir = os.path.abspath(os.path.join(package_name, 'src', sub_package_name.lower()))
         fake_prog.assert_called_once_with(conn, 'Z_HELLO_WORLD', exp_destdir)
-        fake_intf.assert_called_once_with(conn, 'ZIF_HELLO_WORLD', exp_destdir)
+        fake_intf.assert_called_once_with(conn, 'INTF/OI', 'ZIF_HELLO_WORLD', exp_destdir)
         fake_fugr.assert_called_once_with(conn, 'ZFUGR_HELLO', exp_destdir)
-        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_HELLO_WORLD', exp_destdir),
-                                                call(conn, 'ZCL_TESTS', exp_sub_destdir)])
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'CLAS/OC', 'ZCL_HELLO_WORLD', exp_destdir),
+                                                call(conn, 'CLAS/OC', 'ZCL_TESTS', exp_sub_destdir)])
 
         self.assertEqual(fake_print.mock_calls, [call('Unsupported object: 7777/3 Magic Unicorn', file=sys.stderr)])
 

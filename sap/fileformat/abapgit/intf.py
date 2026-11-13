@@ -44,7 +44,7 @@ class InterfaceHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('INTF/OI',)
 
-    def checkout(self, connection, name, destdir):
+    def checkout(self, connection, adt_type, name, destdir):
         sap.cli.core.printout(name)
         intf = sap.adt.Interface(connection, name)
         intf.fetch()

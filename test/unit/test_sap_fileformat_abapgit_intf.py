@@ -87,7 +87,7 @@ class TestInterfaceHandlerCheckout(InterfaceHandlerTestCase):
         self.connection = Connection()
 
     def test_checkout(self):
-        self.handler.checkout(self.connection, 'ZIF_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'INTF/OI', 'ZIF_HELLO_WORLD', None)
 
         self.fake_interface.assert_called_once_with(self.connection, 'ZIF_HELLO_WORLD')
         self.intf.fetch.assert_called_once_with()
@@ -117,7 +117,7 @@ class TestInterfaceHandlerCheckout(InterfaceHandlerTestCase):
 ''')
 
     def test_checkout_to_directory(self):
-        self.handler.checkout(self.connection, 'ZIF_HELLO_WORLD', '/repo/src')
+        self.handler.checkout(self.connection, 'INTF/OI', 'ZIF_HELLO_WORLD', '/repo/src')
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/repo/src/zif_hello_world.intf.abap', 'w', encoding='utf8'),

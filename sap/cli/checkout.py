@@ -42,12 +42,18 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('checkout')
 
 
+def _checkout_object(connection, adt_type, name):
+    """Checks out the object to the current directory"""
+
+    OBJECT_HANDLERS.for_adt_type(adt_type).checkout(connection, adt_type, name.upper(), None)
+
+
 @CommandGroup.argument('name')
 @CommandGroup.command('class')
 def abapclass(connection, args):
     """Download all class sources command wrapper"""
 
-    OBJECT_HANDLERS.for_adt_type(sap.adt.Class.OBJTYPE.code).checkout(connection, args.name.upper(), None)
+    _checkout_object(connection, sap.adt.Class.OBJTYPE.code, args.name)
 
 
 def download_abapgit_source(object_name, source_object, typsfx, translate_fn, destdir=None):
@@ -108,7 +114,7 @@ def program(connection, args):
 def interface(connection, args):
     """Download interface sources command wrapper"""
 
-    OBJECT_HANDLERS.for_adt_type(sap.adt.Interface.OBJTYPE.code).checkout(connection, args.name.upper(), None)
+    _checkout_object(connection, sap.adt.Interface.OBJTYPE.code, args.name)
 
 
 def build_function_module_abap_attributes(func_module):
@@ -1075,7 +1081,7 @@ def checkout_objects(connection, objects, destdir=None):
     for obj in objects:
         handler = OBJECT_HANDLERS.for_adt_type(obj.typ)
         if handler is not None:
-            handler.checkout(connection, obj.name, destdir)
+            handler.checkout(connection, obj.typ, obj.name, destdir)
             continue
 
         try:
