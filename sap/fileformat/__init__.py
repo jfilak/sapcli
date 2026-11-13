@@ -89,8 +89,10 @@ class ObjectHandler(abc.ABC):
             raise TypeError(f'{type(self).__name__} does not define {name}')
 
     @abc.abstractmethod
-    def checkout(self, connection, name, destdir):
-        """Reads the object from the system and writes its files"""
+    def checkout(self, connection, adt_type, name, destdir):
+        """Reads the object of the ADT object type (one of ADT_TYPES) from
+           the system and writes its files.
+        """
 
     @abc.abstractmethod
     def prepare(self, repo_obj):

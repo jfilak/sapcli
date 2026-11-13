@@ -23,7 +23,7 @@ class CompleteHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('CLAS/OC',)
 
-    def checkout(self, connection, name, destdir):
+    def checkout(self, connection, adt_type, name, destdir):
         return 'checkout'
 
     def prepare(self, repo_obj):
@@ -124,7 +124,7 @@ class TestObjectHandler(unittest.TestCase):
     def test_attributes_not_defined_at_all(self):
         class Handler(ObjectHandler):
 
-            def checkout(self, connection, name, destdir):
+            def checkout(self, connection, adt_type, name, destdir):
                 pass
 
             def prepare(self, repo_obj):

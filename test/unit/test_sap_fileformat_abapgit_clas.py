@@ -78,7 +78,7 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
         self.connection = Connection()
 
     def test_checkout(self):
-        self.handler.checkout(self.connection, 'ZCL_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None)
 
         self.fake_class.assert_called_once_with(self.connection, 'ZCL_HELLO_WORLD')
         self.clas.fetch.assert_called_once_with()
@@ -120,7 +120,7 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
 ''')
 
     def test_checkout_to_directory(self):
-        self.handler.checkout(self.connection, 'ZCL_HELLO_WORLD', '/repo/src')
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', '/repo/src')
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/repo/src/zcl_hello_world.clas.abap', 'w', encoding='utf8'),
@@ -135,7 +135,7 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
         self.clas.modeled = True
         self.clas.fix_point_arithmetic = False
 
-        self.handler.checkout(self.connection, 'ZCL_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None)
 
         vseoclass = self.added[0]
         self.assertEqual(vseoclass.VERSION, '0')
@@ -145,7 +145,7 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
     def test_checkout_with_text_symbols(self):
         self.fake_texts.return_value.text = '@MaxLength:20\n001=Hello, world!\n\n@MaxLength:10\n002=a=b'
 
-        self.handler.checkout(self.connection, 'ZCL_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None)
 
         self.fake_texts.assert_called_once_with(self.connection, 'ZCL_HELLO_WORLD')
 
@@ -161,7 +161,7 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
         type(self.fake_texts.return_value).text = PropertyMock(
             side_effect=sap.adt.errors.ExceptionResourceNotFound('Cannot access text elements'))
 
-        self.handler.checkout(self.connection, 'ZCL_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None)
 
         self.assertEqual(len(self.added), 1)
         self.assertEqual(self.console.caperr, 'Download of text elements failed: Cannot access text elements\n')
