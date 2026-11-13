@@ -10,9 +10,6 @@ import sap.cli.core
 
 from sap.platform.abap.ddic import (
     DEVC,
-    BDEF,
-    BDEF_LINK,
-    BDEF_LINKS,
     DD02V,
     DD03P,
     DD03P_TABLE,
@@ -36,7 +33,7 @@ import sap.fileformat.abapgit
 from sap.fileformat import HandlerRegistry
 from sap.fileformat.abapgit.fugr import SourceCodeFormat, checkout_function_group
 from sap.fileformat.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number
-from sap.fileformat.abapgit.files import dump_attributes_to_file, write_source
+from sap.fileformat.abapgit.files import dump_attributes_to_file
 
 # Handlers of the object types already migrated to sap.fileformat
 OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
@@ -128,54 +125,12 @@ def metadataextension(connection, args):
     _checkout_object(connection, sap.adt.MetadataExtension.OBJTYPE.code, args.name)
 
 
-# ABAP language versions of source code based objects
-ADT_TO_ABAP_LANGU_VERSION = {
-    'standard': 'X',
-    'keyUser': '2',
-    'cloudDevelopment': '5',
-}
-
-
-def build_behavior_definition_abap_attributes(adt_bdef):
-    """Returns populated ABAP structure with attributes"""
-
-    links = BDEF_LINKS([BDEF_LINK(HREF=link.href, REL=link.rel, TYPE=link.typ, TITLE=link.title)
-                        for link in adt_bdef.links])
-
-    return BDEF(NAME=adt_bdef.name,
-                TYPE=adt_bdef.objtype.code,
-                DESCRIPTION=adt_bdef.description,
-                DESCRIPTION_TEXT_LIMIT=adt_bdef.description_text_limit,
-                LANGUAGE=adt_bdef.language,
-                LINKS=links or None,
-                MASTER_LANGUAGE=adt_bdef.master_language,
-                ABAP_LANGU_VERSION=ADT_TO_ABAP_LANGU_VERSION.get(adt_bdef.abap_language_version),
-                SOURCE_URI=adt_bdef.source_uri,
-                # The type of the workbench object source code which ADT does not provide
-                SOURCE_TYPE='ABAP_SOURCE',
-                SOURCE_FIXED_POINT_ARITHMETIC=adt_bdef.fix_point_arithmetic,
-                SOURCE_UNICODE_CHECKS_ACTIVE=adt_bdef.active_unicode_check)
-
-
-def checkout_behavior_definition(connection, name, destdir=None):
-    """Download behavior definition source code and attributes"""
-
-    sap.cli.core.printout(name)
-    adt_bdef = sap.adt.BehaviorDefinition(connection, name)
-    adt_bdef.fetch()
-
-    write_source(adt_bdef.text, name, '.bdef', destdir=destdir, fileext='asbdef')
-
-    bdef = build_behavior_definition_abap_attributes(adt_bdef)
-    dump_attributes_to_file(name, (bdef,), '.bdef', 'LCL_OBJECT_BDEF', destdir=destdir)
-
-
 @CommandGroup.argument('name')
 @CommandGroup.command('bdef')
 def behaviordefinition(connection, args):
     """Download behavior definition source code and attributes command wrapper"""
 
-    checkout_behavior_definition(connection, args.name.upper())
+    _checkout_object(connection, sap.adt.BehaviorDefinition.OBJTYPE.code, args.name)
 
 
 DDL_TO_DD02V_EXCLASS = {ddl: code for code, ddl in DD02V_EXCLASS_TO_DDL.items()}
@@ -726,7 +681,6 @@ def checkout_objects(connection, objects, destdir=None):
     # raising an SAPCliError because the command handler prints out
     # human friendly text.
     checkouters = {
-        sap.adt.BehaviorDefinition.OBJTYPE.code: checkout_behavior_definition,
         sap.adt.Structure.OBJTYPE.code: checkout_structure,
         sap.adt.Domain.OBJTYPE.code: checkout_domain,
         sap.adt.DataElement.OBJTYPE.code: checkout_data_element,
