@@ -10,13 +10,6 @@ import sap.cli.core
 
 from sap.platform.abap.ddic import (
     DEVC,
-    DD40V,
-    DD42V,
-    DD42V_TABLE,
-    DD40V_ACCESSMODE_TO_ADT,
-    DD40V_KEYDEF_TO_ADT,
-    DD40V_KEYKIND_TO_ADT,
-    DDIC_DATATYPE_TO_ADT,
     DDLS,
     DCLS,
     DDLX,
@@ -46,6 +39,7 @@ from sap.platform.abap.abapgit import DOT_ABAP_GIT
 import sap.fileformat.abapgit
 from sap.fileformat import HandlerRegistry
 from sap.fileformat.abapgit.fugr import SourceCodeFormat, checkout_function_group
+from sap.fileformat.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number
 from sap.fileformat.abapgit.files import dump_attributes_to_file, write_source
 
 # Handlers of the object types already migrated to sap.fileformat
@@ -106,85 +100,12 @@ def function_group(connection, args):
     return 0
 
 
-ADT_TO_DD40V_ACCESSMODE = {adt: code for code, adt in DD40V_ACCESSMODE_TO_ADT.items()}
-ADT_TO_DD40V_KEYDEF = {adt: code for code, adt in DD40V_KEYDEF_TO_ADT.items()}
-ADT_TO_DD40V_KEYKIND = {adt: code for code, adt in DD40V_KEYKIND_TO_ADT.items()}
-ADT_TO_DDIC_DATATYPE = {adt: ddic for ddic, adt in DDIC_DATATYPE_TO_ADT.items()}
-
-
-def _ddic_number(value, width):
-    """Returns the number formatted as DDIC does or None for 0 because abapGit
-       does not write initial values.
-    """
-
-    number = int(value or '0')
-    return f'{number:0{width}d}' if number else None
-
-
-def build_table_type_abap_attributes(adt_tabletype):
-    """Returns populated ABAP structures with attributes"""
-
-    row_type = adt_tabletype.row_type
-    if row_type.type_kind not in ('dictionaryType', 'predefinedAbapType'):
-        raise sap.cli.core.SAPCliError(f'unsupported row type kind {row_type.type_kind}')
-
-    data_type = row_type.built_in_type.data_type
-    data_type = ADT_TO_DDIC_DATATYPE.get(data_type, data_type)
-
-    components = [component.name for component in adt_tabletype.primary_key.components]
-
-    dd40v = DD40V()
-    dd40v.TYPENAME = adt_tabletype.name
-    dd40v.DDLANGUAGE = iso_code_to_sap_code(adt_tabletype.master_language)
-
-    if row_type.type_kind == 'dictionaryType':
-        dd40v.ROWTYPE = row_type.type_name
-        dd40v.ROWKIND = {'STRU': 'S', 'TTYP': 'L'}.get(data_type, 'E')
-
-    dd40v.DATATYPE = data_type
-    dd40v.LENG = _ddic_number(row_type.built_in_type.length, 6)
-    dd40v.DECIMALS = _ddic_number(row_type.built_in_type.decimals, 6)
-    dd40v.ACCESSMODE = ADT_TO_DD40V_ACCESSMODE[adt_tabletype.access_type]
-    dd40v.KEYDEF = ADT_TO_DD40V_KEYDEF[adt_tabletype.primary_key.definition]
-    dd40v.KEYKIND = ADT_TO_DD40V_KEYKIND[adt_tabletype.primary_key.kind]
-    dd40v.KEYFDCOUNT = _ddic_number(len(components), 4)
-    dd40v.DDTEXT = adt_tabletype.description
-
-    if not components:
-        return (dd40v,)
-
-    # ADT does not provide ROWTYPEPOS - the position of the component in the row type
-    dd42v = DD42V_TABLE()
-    for position, component in enumerate(components, start=1):
-        dd42v.append(DD42V(TYPENAME=adt_tabletype.name, KEYFDPOS=f'{position:04d}', KEYFIELD=component))
-
-    return (dd40v, dd42v)
-
-
-def checkout_table_type(connection, name, destdir=None):
-    """Download table type attributes"""
-
-    sap.cli.core.printout(name)
-    adt_tabletype = sap.adt.TableType(connection, name)
-    adt_tabletype.fetch()
-
-    try:
-        abap_attributes = build_table_type_abap_attributes(adt_tabletype)
-    except sap.cli.core.SAPCliError as ex:
-        raise sap.cli.core.SAPCliError(f'Checkout of table type {name} failed: {ex}')
-
-    if adt_tabletype.secondary_keys.keys:
-        sap.cli.core.printerr(f'Skipping unsupported secondary keys of {name}')
-
-    dump_attributes_to_file(name, abap_attributes, '.ttyp', 'LCL_OBJECT_TTYP', destdir=destdir)
-
-
 @CommandGroup.argument('name')
 @CommandGroup.command()
 def tabletype(connection, args):
     """Download table type attributes command wrapper"""
 
-    checkout_table_type(connection, args.name.upper())
+    _checkout_object(connection, sap.adt.TableType.OBJTYPE.code, args.name)
 
 
 # ADT does not provide the source type codes, so they are derived from the
@@ -502,11 +423,11 @@ class StructureSourceParser:
         if datatype in DDIC_DATATYPE_INTERNAL_TYPE:
             inttype, intlen = DDIC_DATATYPE_INTERNAL_TYPE[datatype]
             field.INTTYPE = inttype
-            field.INTLEN = _ddic_number(intlen(int(length)), 6)
+            field.INTLEN = ddic_number(intlen(int(length)), 6)
 
         field.DATATYPE = datatype
-        field.LENG = _ddic_number(length, 6)
-        field.DECIMALS = _ddic_number(decimals, 6)
+        field.LENG = ddic_number(length, 6)
+        field.DECIMALS = ddic_number(decimals, 6)
         field.MASK = f'  {datatype}'
 
     def _field(self):
@@ -657,7 +578,7 @@ def build_table_abap_attributes(adt_table, source, settings):
     dd09l.TABKAT = settings.size_category
     dd09l.TABART = settings.data_class
     dd09l.PUFFERUNG = settings.buffering.type or None
-    dd09l.SCHFELDANZ = _ddic_number(settings.buffering.area_key_fields, 3)
+    dd09l.SCHFELDANZ = ddic_number(settings.buffering.area_key_fields, 3)
     dd09l.PROTOKOLL = _adt_flag_to_abap(settings.logging_enabled)
     dd09l.BUFALLOW = settings.buffering.allowed or None
     # abapGit does not write the column store because it is the default value
@@ -725,16 +646,16 @@ def build_domain_abap_attributes(adt_domain):
     dd01v.DOMNAME = adt_domain.name
     dd01v.DDLANGUAGE = language
     dd01v.DATATYPE = ADT_TO_DDIC_DATATYPE.get(type_information.datatype, type_information.datatype)
-    dd01v.LENG = _ddic_number(type_information.length, 6)
-    dd01v.OUTPUTLEN = _ddic_number(output_information.length, 6)
-    dd01v.DECIMALS = _ddic_number(type_information.decimals, 6)
+    dd01v.LENG = ddic_number(type_information.length, 6)
+    dd01v.OUTPUTLEN = ddic_number(output_information.length, 6)
+    dd01v.DECIMALS = ddic_number(type_information.decimals, 6)
     dd01v.LOWERCASE = _adt_flag_to_abap(output_information.lowercase)
     dd01v.SIGNFLAG = _adt_flag_to_abap(output_information.sign_exists)
     dd01v.VALEXI = 'X' if value_information.fix_values else None
     dd01v.ENTITYTAB = value_information.value_table_ref.name or None
     dd01v.CONVEXIT = output_information.conversion_exit or None
     dd01v.DDTEXT = adt_domain.description
-    dd01v.OUTPUTSTYLE = _ddic_number(output_information.style, 2)
+    dd01v.OUTPUTSTYLE = ddic_number(output_information.style, 2)
     dd01v.AMPMFORMAT = _adt_flag_to_abap(output_information.ampm_format)
 
     if not value_information.fix_values:
@@ -840,10 +761,10 @@ def build_data_element_abap_attributes(adt_dataelement):
 
     dd04v.MEMORYID = definition.set_get_parameter or None
     dd04v.LOGFLAG = _adt_flag_to_abap(definition.change_document)
-    dd04v.HEADLEN = _ddic_number(definition.label_heading_length, 2)
-    dd04v.SCRLEN1 = _ddic_number(definition.label_short_length, 2)
-    dd04v.SCRLEN2 = _ddic_number(definition.label_medium_length, 2)
-    dd04v.SCRLEN3 = _ddic_number(definition.label_long_length, 2)
+    dd04v.HEADLEN = ddic_number(definition.label_heading_length, 2)
+    dd04v.SCRLEN1 = ddic_number(definition.label_short_length, 2)
+    dd04v.SCRLEN2 = ddic_number(definition.label_medium_length, 2)
+    dd04v.SCRLEN3 = ddic_number(definition.label_long_length, 2)
     dd04v.DDTEXT = adt_dataelement.description
     dd04v.REPTEXT = definition.label_heading or None
     dd04v.SCRTEXT_S = definition.label_short or None
@@ -860,10 +781,10 @@ def build_data_element_abap_attributes(adt_dataelement):
     else:
         datatype = ADT_TO_DDIC_DATATYPE.get(definition.data_type, definition.data_type)
         dd04v.DATATYPE = datatype
-        dd04v.LENG = _ddic_number(definition.data_type_length, 6)
-        dd04v.DECIMALS = _ddic_number(definition.data_type_decimals, 6)
+        dd04v.LENG = ddic_number(definition.data_type_length, 6)
+        dd04v.DECIMALS = ddic_number(definition.data_type_decimals, 6)
         output_length = ddic_output_length(datatype, definition.data_type_length, definition.data_type_decimals)
-        dd04v.OUTPUTLEN = _ddic_number(output_length, 6)
+        dd04v.OUTPUTLEN = ddic_number(output_length, 6)
 
     dd04v.LTRFLDDIS = _adt_flag_to_abap(definition.left_to_right_direction)
     dd04v.BIDICTRLC = _adt_flag_to_abap(definition.deactivate_bidi_filtering)
@@ -900,7 +821,6 @@ def checkout_objects(connection, objects, destdir=None):
     # raising an SAPCliError because the command handler prints out
     # human friendly text.
     checkouters = {
-        sap.adt.TableType.OBJTYPE.code: checkout_table_type,
         sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
         sap.adt.AccessControl.OBJTYPE.code: checkout_access_control,
         sap.adt.MetadataExtension.OBJTYPE.code: checkout_metadata_extension,
