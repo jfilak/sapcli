@@ -92,7 +92,7 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(fake_intf.mock_calls, [call(conn, 'INTF/OI', 'ZIF_LOWERCASE', None),
                                                 call(conn, 'INTF/OI', 'ZIF_UPPERCASE', None)])
 
-    @patch('sap.cli.checkout.checkout_program')
+    @patch('sap.fileformat.abapgit.prog.ProgramHandler.checkout')
     def test_checkout_uppercase_name_prog(self, fake_prog):
         conn = Connection()
 
@@ -102,143 +102,7 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['program', 'ZUPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE'), call(conn, 'ZUPPERCASE')])
-
-    @patch('sap.fileformat.abapgit.files.XMLWriter')
-    @patch('sap.adt.Program')
-    def test_checkout_program(self, fake_program, fake_writer):
-        fake_inst = Mock()
-        fake_inst.name = 'Z_HELLO_WORLD'
-        fake_inst.description = 'Cowabunga'
-        fake_inst.text = 'REPORT z_hello_world'
-        fake_inst.active = 'active'
-        fake_inst.application_database = 'S'
-        fake_inst.program_type = '1'
-        fake_inst.fix_point_arithmetic = True
-        fake_inst.logical_database = Mock()
-        fake_inst.logical_database.reference = Mock()
-        fake_inst.logical_database.reference.name = 'D$S'
-
-        fake_inst.fetch = Mock()
-
-        fake_program.return_value = fake_inst
-
-        added = list()
-        def collect_abap(abap):
-            added.append(abap)
-
-        fake_inst = Mock()
-        fake_inst.add = Mock()
-        fake_inst.add.side_effect = collect_abap
-        fake_inst.close = Mock()
-
-        fake_writer.return_value = fake_inst
-
-        conn = Connection()
-        args = parse_args(['program', 'Z_HELLO_WORLD'])
-        with patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
-            args.execute(conn, args)
-
-        assert_wrote_file(self, fake_open, 'z_hello_world.prog.abap', 'REPORT z_hello_world')
-
-        fake_program.assert_called_once_with(conn, 'Z_HELLO_WORLD')
-        fake_program.return_value.fetch.assert_called_once_with()
-
-        args, kwargs = fake_writer.call_args
-        ag_serializer = args[0]
-        self.assertEqual(ag_serializer, 'LCL_OBJECT_PROG')
-
-        progdir = added[0]
-        tpool = added[1]
-
-        self.assertEqual(progdir.NAME, 'Z_HELLO_WORLD')
-        self.assertEqual(progdir.STATE, 'A')
-        self.assertEqual(progdir.VARCL, 'X')
-        self.assertEqual(progdir.DBAPL, 'S')
-        self.assertEqual(progdir.SUBC, '1')
-        self.assertEqual(progdir.FIXPT, 'X')
-        self.assertEqual(progdir.LDBNAME, 'D$S')
-        self.assertEqual(progdir.UCCHECK, 'X')
-
-        self.assertEqual(len(tpool), 1)
-        item = tpool[0]
-        self.assertEqual(item.ID, 'R')
-        self.assertEqual(item.ENTRY, 'Cowabunga')
-        self.assertEqual(item.LENGTH, len('Cowabunga'))
-
-
-    @patch('sap.fileformat.abapgit.files.XMLWriter')
-    @patch('sap.adt.textelements.ProgramTextElements')
-    @patch('sap.adt.Program')
-    def test_checkout_program_with_text_symbols(self, fake_program, fake_texts, fake_writer):
-        fake_inst = Mock()
-        fake_inst.name = 'Z_HELLO_WORLD'
-        fake_inst.description = 'Cowabunga'
-        fake_inst.text = 'REPORT z_hello_world'
-        fake_inst.active = 'active'
-        fake_inst.program_type = '1'
-        fake_program.return_value = fake_inst
-
-        fake_texts.return_value.text = '@MaxLength:20\n001=Hello, world!'
-
-        added = list()
-        fake_writer.return_value.add.side_effect = added.append
-
-        conn = Connection()
-        args = parse_args(['program', 'Z_HELLO_WORLD'])
-        with patch('sap.fileformat.abapgit.files.open', mock_open()):
-            args.execute(conn, args)
-
-        fake_texts.assert_called_once_with(conn, 'Z_HELLO_WORLD')
-
-        tpool = added[1]
-        self.assertEqual(len(tpool), 2)
-        self.assertEqual((tpool[0].ID, tpool[0].KEY, tpool[0].ENTRY, tpool[0].LENGTH), ('I', '001', 'Hello, world!', 20))
-        self.assertEqual((tpool[1].ID, tpool[1].KEY, tpool[1].ENTRY, tpool[1].LENGTH), ('R', None, 'Cowabunga', 9))
-
-
-class TestCheckoutProgram(unittest.TestCase):
-
-    def test_build_program_attributes(self):
-        fake_conn = Mock()
-        prog = sap.adt.Program(fake_conn, 'ZHELLO_WORLD')
-        prog.description = 'Say hello!'
-        prog.active = 'inactive'
-        prog.fix_point_arithmetic = False
-        prog.logical_database.reference.name = 'HANA'
-        prog.program_type = 'executableProgram'
-
-        progdir, tpool = sap.cli.checkout.build_program_abap_attributes(prog)
-
-
-        self.assertEqual(progdir.NAME, 'ZHELLO_WORLD')
-        self.assertEqual(progdir.STATE, 'S')
-        self.assertEqual(progdir.DBAPL, 'S')
-        self.assertEqual(progdir.VARCL, 'X')
-        self.assertEqual(progdir.SUBC, '1')
-        self.assertEqual(progdir.LDBNAME, 'HANA')
-        self.assertEqual(progdir.UCCHECK, 'X')
-
-        self.assertEqual(['APPL', 'DBNA', 'RLOAD', 'RSTAT'], sorted([attr for attr, value in progdir.__dict__.items() if not attr.startswith('_') and value is None]))
-
-        self.assertEqual(len(tpool), 1)
-        descr = tpool[0]
-        self.assertEqual(descr.ID, 'R')
-        self.assertEqual(descr.ENTRY, 'Say hello!')
-        self.assertEqual(descr.LENGTH, len('Say hello!'))
-
-    def test_build_program_attributes_with_text_symbols(self):
-        prog = sap.adt.Program(Mock(), 'ZHELLO_WORLD')
-        prog.description = 'Say hello!'
-
-        _, tpool = sap.cli.checkout.build_program_abap_attributes(
-            prog, text_symbols=[TextSymbol('001', 'Hello, world!', 20), TextSymbol('002', 'a=b', 10)])
-
-        self.assertEqual(len(tpool), 3)
-        self.assertEqual((tpool[0].ID, tpool[0].KEY, tpool[0].ENTRY, tpool[0].LENGTH), ('I', '001', 'Hello, world!', 20))
-        self.assertEqual((tpool[1].ID, tpool[1].KEY, tpool[1].ENTRY, tpool[1].LENGTH), ('I', '002', 'a=b', 10))
-        self.assertEqual((tpool[2].ID, tpool[2].KEY, tpool[2].ENTRY, tpool[2].LENGTH), ('R', None, 'Say hello!', 10))
-
+        self.assertEqual(fake_prog.mock_calls, [call(conn, 'PROG/P', 'ZLOWERCASE', None), call(conn, 'PROG/P', 'ZUPPERCASE', None)])
 
 class TestCheckoutPackage(unittest.TestCase):
 
@@ -247,7 +111,7 @@ class TestCheckoutPackage(unittest.TestCase):
     @patch('sap.cli.checkout.checkout_function_group')
     @patch('sap.fileformat.abapgit.clas.ClassHandler.checkout')
     @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout')
-    @patch('sap.cli.checkout.checkout_program')
+    @patch('sap.fileformat.abapgit.prog.ProgramHandler.checkout')
     @patch('sap.adt.package.walk')
     def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_fugr, fake_dump, fake_fetch):
         conn = Connection([])
@@ -288,7 +152,7 @@ class TestCheckoutPackage(unittest.TestCase):
 
         exp_destdir = os.path.abspath(os.path.join(package_name, 'src'))
         exp_sub_destdir = os.path.abspath(os.path.join(package_name, 'src', sub_package_name.lower()))
-        fake_prog.assert_called_once_with(conn, 'Z_HELLO_WORLD', exp_destdir)
+        fake_prog.assert_called_once_with(conn, 'PROG/P', 'Z_HELLO_WORLD', exp_destdir)
         fake_intf.assert_called_once_with(conn, 'INTF/OI', 'ZIF_HELLO_WORLD', exp_destdir)
         fake_fugr.assert_called_once_with(conn, 'ZFUGR_HELLO', exp_destdir)
         self.assertEqual(fake_clas.mock_calls, [call(conn, 'CLAS/OC', 'ZCL_HELLO_WORLD', exp_destdir),

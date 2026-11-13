@@ -13,12 +13,7 @@ import sap.errors
 import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
-    PROGDIR,
-    CUA,
-    TPOOL,
     DEVC,
-    SUBC_EXECUTABLE_PROGRAM,
-    SUBC_INCLUDE,
     AREAT,
     INCLUDES,
     FUNCTIONS,
@@ -60,7 +55,6 @@ from sap.config import config_get
 import sap.fileformat.adt
 import sap.fileformat.abapgit
 from sap.fileformat import HandlerRegistry, CheckinContext, ObjectCheckinResult
-from sap.fileformat.abapgit.textpool import text_symbols_from_tpool, write_text_symbols
 
 # Handlers of the object types already migrated to sap.fileformat
 OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
@@ -374,89 +368,6 @@ def _resolve_dependencies(objects):
             others.append(obj)
 
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
-
-
-def prepare_prog(repo_obj):
-    """Reads and checks the files of the program without accessing the system"""
-
-    if not repo_obj.files:
-        raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for program {repo_obj.name}')
-
-    if len(repo_obj.files) > 1:
-        raise sap.adt.errors.ExceptionCheckinFailure(f'Too many source files for program {repo_obj.name}:'
-                                                     f' %s' % (','.join(repo_obj.files)))
-
-    source_file = repo_obj.files[0]
-
-    if not source_file.endswith('.abap'):
-        raise sap.adt.errors.ExceptionCheckinFailure(f'No .abap suffix of source file for program {repo_obj.name}')
-
-    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        results = sap.platform.abap.abapgit.from_xml([PROGDIR, sap.platform.abap.abapgit.OptionalBody(CUA), TPOOL], abap_data_file.read())
-
-    progdir = results['PROGDIR']
-    # TODO: how to handle CUA?
-    tpool = results['TPOOL']
-
-    if progdir.SUBC not in (SUBC_EXECUTABLE_PROGRAM, SUBC_INCLUDE):
-        raise sap.adt.errors.ExceptionCheckinFailure(f'Unknown program type {progdir.SUBC}')
-
-    description = None
-    for text in tpool:
-        if text.ID == 'R':
-            description = text.ENTRY
-
-    # ADT does not allow editing text elements of includes
-    supported_ids = ('I',) if progdir.SUBC == SUBC_EXECUTABLE_PROGRAM else ()
-    text_symbols = text_symbols_from_tpool(tpool, repo_obj.name, known_ids=('R',), supported_ids=supported_ids)
-
-    with open(source_file, 'r', encoding='utf-8') as source:
-        source_code = source.read()
-
-    return SimpleNamespace(progdir=progdir, description=description, text_symbols=text_symbols,
-                           source_file=source_file, source_code=source_code)
-
-
-def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Program"""
-
-    sap.cli.core.printout('Creating Program:', repo_obj.name)
-
-    prepared = prepared or prepare_prog(repo_obj)
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
-    if prepared.progdir.SUBC == SUBC_EXECUTABLE_PROGRAM:
-        program = sap.adt.Program(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
-    else:
-        sap.cli.core.printout('Creating Include:', repo_obj.name)
-        program = sap.adt.Include(connection, repo_obj.name, package=repo_obj.package.name, metadata=metadata)
-
-    if prepared.description is not None:
-        program.description = prepared.description
-
-    try:
-        program.create(corrnr)
-    except sap.adt.errors.ExceptionResourceCreationFailure as err:
-        if not str(err).endswith(f'A program or include already exists with the name {repo_obj.name.upper()}'):
-            raise
-
-        mod_log().info(err.message)
-
-    sap.cli.core.printout('Writing Program:', repo_obj.name)
-    sap.fileformat.adt.write_source(prepared.source_code, program, corrnr=corrnr,
-                                    source_label=prepared.source_file,
-                                    check_before_save=check_before_save)
-
-    abap_objects = [program]
-
-    if prepared.text_symbols:
-        sap.cli.core.printout('Writing Program:', repo_obj.name, 'text elements')
-        text_elements = sap.adt.textelements.ProgramTextElements(connection, repo_obj.name.upper())
-        write_text_symbols(text_elements, prepared.text_symbols, corrnr)
-        # ADT does not activate inactive text elements together with the program
-        abap_objects.append(text_elements)
-
-    return ObjectCheckinResult(abap_objects, [prepared.source_file])
 
 
 def _check_fugr_source_files(repo_obj, functions, includes):
@@ -1259,7 +1170,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 
 OBJECT_CHECKIN_HANDLERS = {
-    'prog': checkin_prog,
     'fugr': checkin_fugr,
     'ttyp': checkin_ttyp,
     'ddls': checkin_ddls,
@@ -1275,7 +1185,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # Functions reading and checking the files of objects without accessing
 # the system
 OBJECT_CHECKIN_PREPARERS = {
-    'prog': prepare_prog,
     'fugr': prepare_fugr,
     'ttyp': prepare_ttyp,
     'ddls': prepare_ddls,
