@@ -2,10 +2,12 @@
 
 from sap.fileformat.abapgit.clas import ClassHandler
 from sap.fileformat.abapgit.intf import InterfaceHandler
+from sap.fileformat.abapgit.prog import ProgramHandler
 
 # The single place where object handlers of the abapGit serialization
 # are installed.
 HANDLERS = (
     ClassHandler(),
     InterfaceHandler(),
+    ProgramHandler(),
 )

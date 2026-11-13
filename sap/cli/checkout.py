@@ -22,7 +22,6 @@ from sap.platform.abap.abapgit import DOT_ABAP_GIT, AbapToAbapGitTranslator
 import sap.fileformat.abapgit
 from sap.fileformat import HandlerRegistry
 from sap.fileformat.abapgit.files import dump_attributes_to_file, write_source, download_abap_source
-from sap.fileformat.abapgit.textpool import download_text_symbols, build_text_pool
 
 # Handlers of the object types already migrated to sap.fileformat
 OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
@@ -67,46 +66,12 @@ def download_abapgit_source(object_name, source_object, typsfx, translate_fn, de
         write_source(source_code, object_name, typsfx, destdir)
 
 
-def build_program_abap_attributes(adt_program, text_symbols=()):
-    """Returns populated ABAP structure with attributes"""
-
-    progdir = PROGDIR()
-    progdir.NAME = adt_program.name
-    progdir.STATE = 'A' if adt_program.active == 'active' else 'S'
-    progdir.FIXPT = 'X' if adt_program.fix_point_arithmetic else ' '
-    progdir.DBAPL = adt_program.application_database
-    progdir.VARCL = 'X' if adt_program.case_sensitive else ' '
-    progdir.SUBC = adt_program.program_type
-    progdir.LDBNAME = adt_program.logical_database.reference.name
-    progdir.UCCHECK = 'X'
-
-    # text symbols (I) precede the title (R) to keep the entries ordered by ID
-    tpool = build_text_pool(text_symbols)
-    tpool.append(ID='R', ENTRY=adt_program.description, LENGTH=len(adt_program.description))
-
-    return (progdir, tpool)
-
-
-def checkout_program(connection, name, destdir=None):
-    """Download program sources"""
-
-    sap.cli.core.printout(name)
-    adt_program = sap.adt.Program(connection, name)
-    adt_program.fetch()
-
-    download_abap_source(name, adt_program, '.prog', destdir=destdir)
-
-    text_symbols = download_text_symbols(sap.adt.textelements.ProgramTextElements(connection, name))
-    progdir, tpool = build_program_abap_attributes(adt_program, text_symbols=text_symbols)
-    dump_attributes_to_file(name, (progdir, tpool), '.prog', 'LCL_OBJECT_PROG', destdir=destdir)
-
-
 @CommandGroup.argument('name')
 @CommandGroup.command()
 def program(connection, args):
     """Download program sources command wrapper"""
 
-    checkout_program(connection, args.name.upper())
+    _checkout_object(connection, sap.adt.Program.OBJTYPE.code, args.name)
 
 
 @CommandGroup.argument('name')
@@ -1062,7 +1027,6 @@ def checkout_objects(connection, objects, destdir=None):
     # raising an SAPCliError because the command handler prints out
     # human friendly text.
     checkouters = {
-        sap.adt.Program.OBJTYPE.code: checkout_program,
         sap.adt.FunctionGroup.OBJTYPE.code: checkout_function_group,
         sap.adt.TableType.OBJTYPE.code: checkout_table_type,
         sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
