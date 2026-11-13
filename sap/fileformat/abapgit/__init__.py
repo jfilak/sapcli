@@ -1,6 +1,7 @@
 """abapGit file format"""
 
 from sap.fileformat.abapgit.clas import ClassHandler
+from sap.fileformat.abapgit.ttyp import TableTypeHandler
 from sap.fileformat.abapgit.fugr import FunctionGroupHandler
 from sap.fileformat.abapgit.intf import InterfaceHandler
 from sap.fileformat.abapgit.prog import ProgramHandler
@@ -12,4 +13,5 @@ HANDLERS = (
     InterfaceHandler(),
     ProgramHandler(),
     FunctionGroupHandler(),
+    TableTypeHandler(),
 )

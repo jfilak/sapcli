@@ -14,13 +14,6 @@ import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
     DEVC,
-    DD40V,
-    DD42V_TABLE,
-    DD43V_TABLE,
-    DD40L_EXTRA,
-    DD40V_ACCESSMODE_TO_ADT,
-    DD40V_KEYDEF_TO_ADT,
-    DD40V_KEYKIND_TO_ADT,
     DDLS,
     DCLS,
     DDLX,
@@ -365,81 +358,6 @@ def _resolve_dependencies(objects):
             others.append(obj)
 
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
-
-
-def _dd40v_code_to_adt(mapping, dd40v, field, object_name):
-    """Returns ADT value of the given DD40V field"""
-
-    code = getattr(dd40v, field)
-    try:
-        return mapping[code]
-    except KeyError as ex:
-        raise sap.adt.errors.ExceptionCheckinFailure(
-            f'Unsupported {field} "{code}" of table type {object_name}') from ex
-
-
-# pylint: disable=unused-argument
-def prepare_ttyp(repo_obj):
-    """Reads and checks the file of the table type without accessing the system"""
-
-    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        # DD40L_EXTRA is parsed only to accept files of newer abapGit versions
-        results = sap.platform.abap.abapgit.from_xml(
-            [DD40V, sap.platform.abap.abapgit.OptionalBody(DD42V_TABLE),
-             sap.platform.abap.abapgit.OptionalBody(DD43V_TABLE),
-             sap.platform.abap.abapgit.OptionalBody(DD40L_EXTRA)],
-            abap_data_file.read())
-
-    dd40v = results['DD40V']
-    if dd40v.ROWKIND not in (None, 'S', 'E', 'L') or dd40v.REFTYPE or dd40v.TTYPKIND:
-        raise sap.adt.errors.ExceptionCheckinFailure(f'Unsupported row type of table type {repo_obj.name}:'
-                                                     ' only dictionary and predefined types are supported')
-
-    if results.get('DD43V'):
-        sap.cli.core.printerr(f'Skipping unsupported secondary keys of {repo_obj.name}')
-
-    return SimpleNamespace(
-        dd40v=dd40v,
-        access_type=_dd40v_code_to_adt(DD40V_ACCESSMODE_TO_ADT, dd40v, 'ACCESSMODE', repo_obj.name),
-        key_definition=_dd40v_code_to_adt(DD40V_KEYDEF_TO_ADT, dd40v, 'KEYDEF', repo_obj.name),
-        key_kind=_dd40v_code_to_adt(DD40V_KEYKIND_TO_ADT, dd40v, 'KEYKIND', repo_obj.name),
-        key_components=[line.KEYFIELD for line in results.get('DD42V', []) if not line.SECKEYNAME])
-
-
-def checkin_ttyp(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Table Type"""
-
-    sap.cli.core.printout('Creating Table Type:', repo_obj.name)
-
-    prepared = prepared or prepare_ttyp(repo_obj)
-    dd40v = prepared.dd40v
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=dd40v.DDTEXT)
-    tabletype = sap.adt.TableType(connection, repo_obj.name.upper(), package=repo_obj.package.name,
-                                  metadata=metadata)
-
-    try:
-        tabletype.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
-
-    # ADT fills in the definition defaults on creation
-    tabletype.fetch()
-
-    if dd40v.ROWKIND:
-        tabletype.set_dictionary_row_type(dd40v.ROWTYPE)
-    else:
-        tabletype.set_predefined_row_type(dd40v.DATATYPE, dd40v.LENG or '0', dd40v.DECIMALS or '0')
-
-    tabletype.access_type = prepared.access_type
-    tabletype.set_primary_key(prepared.key_definition, prepared.key_kind, prepared.key_components)
-
-    sap.cli.core.printout('Writing Table Type:', repo_obj.name)
-    with tabletype.open_editor(corrnr=corrnr) as editor:
-        editor.push()
-
-    return ObjectCheckinResult([tabletype], [])
 
 
 def _prepare_cds_source(repo_obj, abap_type, get_description, source_suffix, label):
@@ -995,7 +913,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 
 OBJECT_CHECKIN_HANDLERS = {
-    'ttyp': checkin_ttyp,
     'ddls': checkin_ddls,
     'dcls': checkin_dcls,
     'ddlx': checkin_ddlx,
@@ -1009,7 +926,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # Functions reading and checking the files of objects without accessing
 # the system
 OBJECT_CHECKIN_PREPARERS = {
-    'ttyp': prepare_ttyp,
     'ddls': prepare_ddls,
     'dcls': prepare_dcls,
     'ddlx': prepare_ddlx,
