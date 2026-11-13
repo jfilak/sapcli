@@ -11,15 +11,8 @@ import sap.adt.objects
 import sap.adt.errors
 import sap.cli.wb
 from sap.config import config_get
-import sap.fileformat.abapgit
-from sap.fileformat import HandlerRegistry, CheckinContext
-from sap.fileformat.abapgit.layout import AbapGitLayout
-
-# Handlers of object files in the priority order
-OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
-
-# Directory structure of the repository
-REPOSITORY_LAYOUT = AbapGitLayout()
+from sap.fileformat import CheckinContext
+from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT
 
 # The activation group and the position in the group by file types.
 # The objects of a group are written in the order of their positions and

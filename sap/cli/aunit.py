@@ -30,6 +30,7 @@ from sap.adt.acoverage_statements import (
 )
 from sap.adt.errors import InvalidURIError
 from sap.errors import SAPCliError
+from sap.cli.localrepo import load_local_objects, locate_source
 
 
 def mod_log():
@@ -382,13 +383,30 @@ def print_aunit_junit4(run_results, args, console):
     return critical
 
 
-def find_testclass(package, program, testclass, file_required=False):
-    """Find the relative path of the test-class file"""
+def _walk_for_testclass(program):
+    """Returns the path of the test-class file found anywhere below
+       the current directory or None.
+    """
 
     name = f'{program.lower()}.clas.testclasses.abap'
     for root, _, files in os.walk('.'):
         if name in files:
             return os.path.join(root, name)[2:]
+
+    return None
+
+
+def find_testclass(package, program, testclass, file_required=False, local_objects=None):
+    """Find the relative path of the test-class file"""
+
+    if local_objects is None:
+        filename = _walk_for_testclass(program)
+    else:
+        located = locate_source(local_objects, 'CLAS/OC', program, 'includes/testclasses', 1)
+        filename = located[0] if located is not None else None
+
+    if filename is not None:
+        return filename
 
     if file_required:
         return None
@@ -420,7 +438,7 @@ def print_sonar_alert(alert, console):
 
 
 # pylint: disable=too-many-branches
-def print_aunit_sonar(run_results, args, console):
+def print_aunit_sonar(run_results, args, console, local_objects=None):
     """Print results to console in the form of Sonar Generic Execution"""
 
     # We must print alerts to STDERR because STDOUT is supposed
@@ -445,12 +463,14 @@ def print_aunit_sonar(run_results, args, console):
 
         for test_class in program.test_classes:
             for requested_name in args.name:
-                filename = find_testclass(requested_name, program.name, test_class.name, file_required=True)
+                filename = find_testclass(requested_name, program.name, test_class.name, file_required=True,
+                                          local_objects=local_objects)
                 if filename is not None:
                     break
             else:
                 package = args.name[0] if len(args.name) == 1 else 'UNKNOWN_PACKAGE'
-                filename = find_testclass(package, program.name, test_class.name, file_required=False)
+                filename = find_testclass(package, program.name, test_class.name, file_required=False,
+                                          local_objects=local_objects)
 
             console.printout(f'  <file path={quoteattr(filename)}>')
 
@@ -527,8 +547,10 @@ def _format_line_ranges(lines):
     return ', '.join(parts)
 
 
-def print_missed_statements(statement_responses, console):
-    """Print statements with executed=0, grouped by object and part."""
+def print_missed_statements(statement_responses, console, local_objects=None):
+    """Print statements with executed=0, grouped by local file or, if
+       the statement is not found in local files, by object and part.
+    """
 
     console.printout('Missed statements:')
     groups = {}
@@ -539,11 +561,16 @@ def print_missed_statements(statement_responses, console):
                     position = statement.get_position()
                 except InvalidURIError:
                     continue
-                lines = list(range(position.start_line, position.end_line + 1))
-                groups.setdefault((position.object_name, position.object_part), []).extend(lines)
+                for line in range(position.start_line, position.end_line + 1):
+                    located = locate_source(local_objects, position.adt_type, position.object_name,
+                                            position.object_part, line)
+                    if located is None:
+                        located = (f'{position.object_name} ({position.object_part})', line)
 
-    for (object_name, object_part), lines in groups.items():
-        console.printout(f'{object_name} ({object_part})')
+                    groups.setdefault(located[0], []).append(located[1])
+
+    for label, lines in groups.items():
+        console.printout(label)
         console.printout(f'- {_format_line_ranges(lines)}')
 
 
@@ -600,7 +627,23 @@ def _print_source_file_jacoco(file_name, lines_data, console, indent, indent_lev
     console.printout(f'{file_level_indent}</sourcefile>')
 
 
-def _print_class_jacoco(node, method_lines_mapping, console, indent, indent_level):
+def jacoco_source_file(name, local_objects):
+    """Returns the path of the local source code file of the class or
+       program or the name if there is no such file.
+    """
+
+    located = locate_source(local_objects, 'CLAS/OC', name, 'source/main', 1)
+    if located is None:
+        located = locate_source(local_objects, 'PROG/P', name, 'source/main', 1)
+
+    if located is None:
+        return name
+
+    return located[0]
+
+
+# pylint: disable=too-many-arguments,too-many-positional-arguments
+def _print_class_jacoco(node, method_lines_mapping, console, indent, indent_level, local_objects=None):
     class_level_indent = indent * indent_level
     method_level_indent = indent * (indent_level + 1)
 
@@ -609,13 +652,15 @@ def _print_class_jacoco(node, method_lines_mapping, console, indent, indent_leve
             node = node.nodes[0]
         else:
             class_name = node.name[:30].rstrip('=')
-            console.printout(f'{class_level_indent}<class name="{class_name}" sourcefilename="{class_name}">')
+            source_file = jacoco_source_file(class_name, local_objects)
+            console.printout(f'{class_level_indent}<class name="{class_name}" sourcefilename="{source_file}">')
             _print_counters_jacoco(node, console, indent, indent_level + 1)
             console.printout(f'{class_level_indent}</class>')
             return
 
     lines_data = []
-    console.printout(f'{class_level_indent}<class name="{node.name}" sourcefilename="{node.name}">')
+    source_file = jacoco_source_file(node.name, local_objects)
+    console.printout(f'{class_level_indent}<class name="{node.name}" sourcefilename="{source_file}">')
     for method in node.nodes:
         line, _ = sap.adt.uri.parse_object_implementation_start_uri(method.uri)
         console.printout(f'{method_level_indent}<method name="{method.name}" desc="" line="{line}">')
@@ -626,21 +671,21 @@ def _print_class_jacoco(node, method_lines_mapping, console, indent, indent_leve
 
     _print_counters_jacoco(node, console, indent, indent_level + 1)
     console.printout(f'{class_level_indent}</class>')
-    _print_source_file_jacoco(node.name, lines_data, console, indent, indent_level)
+    _print_source_file_jacoco(source_file, lines_data, console, indent, indent_level)
 
 
-def _print_package_jacoco(node, method_lines_mapping, console, indent, indent_level):
+def _print_package_jacoco(node, method_lines_mapping, console, indent, indent_level, local_objects=None):
     for package in node.nodes:
         console.printout(f'{indent}<package name="{package.name}">')
         for class_node in package.nodes:
-            _print_class_jacoco(class_node, method_lines_mapping, console, indent, indent_level + 1)
+            _print_class_jacoco(class_node, method_lines_mapping, console, indent, indent_level + 1, local_objects)
         _print_counters_jacoco(package, console, indent, indent_level + 1)
         console.printout(f'{indent}</package>')
 
     _print_counters_jacoco(node, console, indent, indent_level)
 
 
-def print_acoverage_jacoco(root_node, statement_responses, args, console):
+def print_acoverage_jacoco(root_node, statement_responses, args, console, local_objects=None):
     """Print results of ACoverage to console in the form of JaCoCo"""
 
     method_lines_mapping = get_method_lines_mapping(statement_responses)
@@ -652,7 +697,7 @@ def print_acoverage_jacoco(root_node, statement_responses, args, console):
 
     report_name = "|".join(args.name)
     console.printout(f'<report name={quoteattr(report_name)}>')
-    _print_package_jacoco(root_node, method_lines_mapping, console, INDENT, 1)
+    _print_package_jacoco(root_node, method_lines_mapping, console, INDENT, 1, local_objects)
     console.printout('</report>')
 
 
@@ -739,7 +784,7 @@ def print_aunit_output(args, aunit_response, aunit_parsed_response):
         result = print_aunit_junit4(run_results, args, console)
 
     elif args.output == 'sonar':
-        result = print_aunit_sonar(run_results, args, console)
+        result = print_aunit_sonar(run_results, args, console, local_objects=load_local_objects())
     else:
         raise SAPCliError(f'Unsupported output type: {args.output}')
 
@@ -768,10 +813,10 @@ def print_acoverage_output(args, acoverage_response, root_node, statement_respon
     elif args.coverage_output == 'human':
         print_acoverage_human(root_node, console, skip_covered=args.skip_covered)
     elif args.coverage_output == 'jacoco':
-        print_acoverage_jacoco(root_node, statement_responses, args, console)
+        print_acoverage_jacoco(root_node, statement_responses, args, console, local_objects=load_local_objects())
 
     if args.coverage_output == 'human' and args.report_missed_lines:
-        print_missed_statements(statement_responses, console)
+        print_missed_statements(statement_responses, console, local_objects=load_local_objects())
 
     if coverage_file is not None:
         coverage_file.close()

@@ -5,16 +5,8 @@ import sys
 import sap.adt
 import sap.adt.textelements
 import sap.cli.core
-import sap.fileformat.abapgit
-from sap.fileformat import HandlerRegistry
-from sap.fileformat.abapgit.layout import AbapGitLayout
+from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT
 from sap.fileformat.abapgit.fugr import SourceCodeFormat, checkout_function_group
-
-# Handlers of object files in the priority order
-OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
-
-# Directory structure of the repository
-REPOSITORY_LAYOUT = AbapGitLayout()
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
