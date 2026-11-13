@@ -14,3 +14,17 @@ def ddic_number(value, width):
 
     number = int(value or '0')
     return f'{number:0{width}d}' if number else None
+
+
+def adt_flag_to_abap(value):
+    """Returns ABAP flag of the given ADT boolean value or None for false
+       because abapGit does not write initial values.
+    """
+
+    return 'X' if value == 'true' else None
+
+
+def abap_flag_to_adt(flag):
+    """Returns ADT boolean value of the given ABAP flag"""
+
+    return 'true' if flag else 'false'

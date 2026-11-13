@@ -1,6 +1,7 @@
 """abapGit file format"""
 
 from sap.fileformat.abapgit.clas import ClassHandler
+from sap.fileformat.abapgit.doma import DomainHandler
 from sap.fileformat.abapgit.bdef import BehaviorDefinitionHandler
 from sap.fileformat.abapgit.ddlx import MetadataExtensionHandler
 from sap.fileformat.abapgit.dcls import AccessControlHandler
@@ -22,4 +23,5 @@ HANDLERS = (
     AccessControlHandler(),
     MetadataExtensionHandler(),
     BehaviorDefinitionHandler(),
+    DomainHandler(),
 )

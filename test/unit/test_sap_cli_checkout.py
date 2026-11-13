@@ -16,16 +16,14 @@ import sap.platform.abap.abapgit
 import sap.adt
 
 from mock import Connection, Response, patch, PatcherTestCase, ConsoleOutputTestCase, StringIOFile
-from test.unit.fixtures_cli_checkout import DOMA_ABAPGIT_XML, DOMA_ALL_FIELDS_ABAPGIT_XML, \
-    DOMA_RAWSTRING_ABAPGIT_XML, DTEL_ABAPGIT_XML, DTEL_DOMAIN_ABAPGIT_XML, DTEL_STRING_ABAPGIT_XML, \
+from test.unit.fixtures_cli_checkout import DTEL_ABAPGIT_XML, DTEL_DOMAIN_ABAPGIT_XML, DTEL_STRING_ABAPGIT_XML, \
     TABL_SOURCE_CODE, TABL_ABAPGIT_XML, TABL_ALL_FEATURES_SOURCE_CODE, TABL_ALL_FEATURES_ABAPGIT_XML, TABL_NAME, \
     DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_ABAPGIT_XML, DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_ABAPGIT_XML, \
     DBTAB_NAME, DBTAB_FULL_SETTINGS_RESPONSE_XML, TABL_ADT_GET_RESPONSE_XML, DBTAB_ADT_GET_RESPONSE_XML
 from test.unit.fixtures_sap_fileformat_abapgit_ddls import DDLS_NAME
 from test.unit.fixtures_sap_fileformat_abapgit_dcls import DCLS_NAME
 from test.unit.fixtures_sap_fileformat_abapgit_ddlx import DDLX_NAME
-from test.unit.fixtures_adt_domain import DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML, \
-    DOMAIN_ADT_GET_ALL_FIELDS_RESPONSE_XML, DOMAIN_ADT_GET_RAWSTRING_RESPONSE_XML, DOMAIN_NEW_NAME
+from test.unit.fixtures_adt_domain import DOMAIN_NEW_NAME
 from test.unit.fixtures_adt_dataelement import DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML, \
     DATA_ELEMENT_ADT_GET_DOMAIN_RESPONSE_XML, DATA_ELEMENT_ADT_GET_STRING_RESPONSE_XML, DATA_ELEMENT_NEW_NAME
 from test.unit.fixtures_adt_table import TABLE_SETTINGS_ADT_GET_RESPONSE_XML
@@ -228,6 +226,25 @@ class TestCheckoutBehaviorDefinitionCommand(unittest.TestCase):
             sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
 
         fake_checkout.assert_called_once_with('connection', 'BDEF/BDO', BDEF_NAME, 'src')
+
+
+class TestCheckoutDomainCommand(unittest.TestCase):
+
+    @patch('sap.fileformat.abapgit.doma.DomainHandler.checkout')
+    def test_command(self, fake_checkout):
+        args = parse_args(['domain', DOMAIN_NEW_NAME.lower()])
+        args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', 'DOMA/DD', DOMAIN_NEW_NAME, None)
+
+    @patch('sap.fileformat.abapgit.doma.DomainHandler.checkout')
+    def test_checkout_objects(self, fake_checkout):
+        objects = [SimpleNamespace(typ='DOMA/DD', name=DOMAIN_NEW_NAME)]
+
+        with patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', 'DOMA/DD', DOMAIN_NEW_NAME, 'src')
 
 
 class TestCheckoutPackage(unittest.TestCase):
@@ -442,80 +459,6 @@ class TestDOT_ABAP_GIT(unittest.TestCase):
  </asx:values>
 </asx:abap>
 ''')
-
-
-class TestCheckoutDomain(ConsoleOutputTestCase, PatcherTestCase):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        PatcherTestCase.__init__(self)
-
-    def tearDown(self):
-        try:
-            PatcherTestCase.unpatch_all(self)
-        finally:
-            super().tearDown()
-
-    def setUp(self):
-        super().setUp()
-        self.patch_console(self.console)
-
-    def checkout(self, adt_response_xml, destdir=None):
-        connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
-
-        with patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
-            sap.cli.checkout.checkout_domain(connection, DOMAIN_NEW_NAME, destdir=destdir)
-
-        self.assertEqual(len(connection.execs), 1)
-        self.assertEqual(connection.execs[0].adt_uri, f'/sap/bc/adt/ddic/domains/{DOMAIN_NEW_NAME.lower()}')
-
-        return fake_open
-
-    def assert_wrote_abapgit_file(self, fake_open, file_name, contents):
-        fake_open.assert_called_once_with(file_name, 'w', encoding='utf8')
-
-        written = ''.join(write_call.args[0] for write_call in fake_open().write.call_args_list)
-        self.maxDiff = None
-        self.assertEqual(written, contents)
-
-    def test_checkout_doma_sample(self):
-        fake_open = self.checkout(DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML)
-
-        self.assert_wrote_abapgit_file(fake_open, f'{DOMAIN_NEW_NAME.lower()}.doma.xml', DOMA_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'{DOMAIN_NEW_NAME}\n- {DOMAIN_NEW_NAME.lower()}.doma.xml\n')
-
-    def test_checkout_doma_all_fields(self):
-        fake_open = self.checkout(DOMAIN_ADT_GET_ALL_FIELDS_RESPONSE_XML)
-
-        self.assert_wrote_abapgit_file(fake_open, f'{DOMAIN_NEW_NAME.lower()}.doma.xml', DOMA_ALL_FIELDS_ABAPGIT_XML)
-
-    def test_checkout_doma_ddic_data_type(self):
-        fake_open = self.checkout(DOMAIN_ADT_GET_RAWSTRING_RESPONSE_XML)
-
-        self.assert_wrote_abapgit_file(fake_open, f'{DOMAIN_NEW_NAME.lower()}.doma.xml', DOMA_RAWSTRING_ABAPGIT_XML)
-
-    def test_checkout_doma_destdir(self):
-        fake_open = self.checkout(DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML, destdir='src')
-
-        fake_open.assert_called_once_with(os.path.join('src', f'{DOMAIN_NEW_NAME.lower()}.doma.xml'), 'w',
-                                          encoding='utf8')
-
-    def test_checkout_doma_command(self):
-        args = parse_args(['domain', DOMAIN_NEW_NAME.lower()])
-
-        with patch('sap.cli.checkout.checkout_domain') as fake_checkout:
-            args.execute('connection', args)
-
-        fake_checkout.assert_called_once_with('connection', DOMAIN_NEW_NAME)
-
-    def test_checkout_objects_doma(self):
-        objects = [SimpleNamespace(typ='DOMA/DD', name=DOMAIN_NEW_NAME)]
-
-        with patch('sap.cli.checkout.checkout_domain') as fake_checkout, \
-             patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
-
-        fake_checkout.assert_called_once_with('connection', DOMAIN_NEW_NAME, 'src')
 
 
 class TestCheckoutDataElement(ConsoleOutputTestCase, PatcherTestCase):

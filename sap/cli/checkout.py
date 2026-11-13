@@ -16,9 +16,6 @@ from sap.platform.abap.ddic import (
     TABCLASS_STRUCTURE,
     DD02V_EXCLASS_TO_DDL,
     DDIC_DATATYPE_TO_DDL,
-    DD01V,
-    DD07V,
-    DD07V_TAB,
     DD04V,
     REFKIND_DOMAIN,
     TABCLASS_TRANSPARENT,
@@ -32,7 +29,7 @@ from sap.platform.abap.abapgit import DOT_ABAP_GIT
 import sap.fileformat.abapgit
 from sap.fileformat import HandlerRegistry
 from sap.fileformat.abapgit.fugr import SourceCodeFormat, checkout_function_group
-from sap.fileformat.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number
+from sap.fileformat.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number, adt_flag_to_abap
 from sap.fileformat.abapgit.files import dump_attributes_to_file
 
 # Handlers of the object types already migrated to sap.fileformat
@@ -439,7 +436,7 @@ def build_table_abap_attributes(adt_table, source, settings):
     dd09l.TABART = settings.data_class
     dd09l.PUFFERUNG = settings.buffering.type or None
     dd09l.SCHFELDANZ = ddic_number(settings.buffering.area_key_fields, 3)
-    dd09l.PROTOKOLL = _adt_flag_to_abap(settings.logging_enabled)
+    dd09l.PROTOKOLL = adt_flag_to_abap(settings.logging_enabled)
     dd09l.BUFALLOW = settings.buffering.allowed or None
     # abapGit does not write the column store because it is the default value
     dd09l.ROWORCOLST = settings.storage_type if settings.storage_type not in ('', 'C') else None
@@ -484,68 +481,12 @@ def structure(connection, args):
     checkout_structure(connection, args.name.upper())
 
 
-def _adt_flag_to_abap(value):
-    """Returns ABAP flag of the given ADT boolean value or None for false
-       because abapGit does not write initial values.
-    """
-
-    return 'X' if value == 'true' else None
-
-
-def build_domain_abap_attributes(adt_domain):
-    """Returns populated ABAP structures with attributes"""
-
-    language = iso_code_to_sap_code(adt_domain.master_language)
-    type_information = adt_domain.content.type_information
-    output_information = adt_domain.content.output_information
-    value_information = adt_domain.content.value_information
-
-    # The values are set in the order of the members to keep the order
-    # of XML elements
-    dd01v = DD01V()
-    dd01v.DOMNAME = adt_domain.name
-    dd01v.DDLANGUAGE = language
-    dd01v.DATATYPE = ADT_TO_DDIC_DATATYPE.get(type_information.datatype, type_information.datatype)
-    dd01v.LENG = ddic_number(type_information.length, 6)
-    dd01v.OUTPUTLEN = ddic_number(output_information.length, 6)
-    dd01v.DECIMALS = ddic_number(type_information.decimals, 6)
-    dd01v.LOWERCASE = _adt_flag_to_abap(output_information.lowercase)
-    dd01v.SIGNFLAG = _adt_flag_to_abap(output_information.sign_exists)
-    dd01v.VALEXI = 'X' if value_information.fix_values else None
-    dd01v.ENTITYTAB = value_information.value_table_ref.name or None
-    dd01v.CONVEXIT = output_information.conversion_exit or None
-    dd01v.DDTEXT = adt_domain.description
-    dd01v.OUTPUTSTYLE = ddic_number(output_information.style, 2)
-    dd01v.AMPMFORMAT = _adt_flag_to_abap(output_information.ampm_format)
-
-    if not value_information.fix_values:
-        return (dd01v,)
-
-    dd07v = DD07V_TAB()
-    for fix_value in value_information.fix_values:
-        dd07v.append(DD07V(VALPOS=fix_value.position, DDLANGUAGE=language, DOMVALUE_L=fix_value.low or None,
-                           DOMVALUE_H=fix_value.high or None, DDTEXT=fix_value.text or None))
-
-    return (dd01v, dd07v)
-
-
-def checkout_domain(connection, name, destdir=None):
-    """Download domain attributes"""
-
-    sap.cli.core.printout(name)
-    adt_domain = sap.adt.Domain(connection, name)
-    adt_domain.fetch()
-
-    dump_attributes_to_file(name, build_domain_abap_attributes(adt_domain), '.doma', 'LCL_OBJECT_DOMA',
-                            destdir=destdir)
-
-
 @CommandGroup.argument('name')
 @CommandGroup.command()
 def domain(connection, args):
     """Download domain attributes command wrapper"""
 
-    checkout_domain(connection, args.name.upper())
+    _checkout_object(connection, sap.adt.Domain.OBJTYPE.code, args.name)
 
 
 # DDIC output lengths of the DDIC built-in data types which do not depend on
@@ -620,7 +561,7 @@ def build_data_element_abap_attributes(adt_dataelement):
         dd04v.DOMNAME = definition.typ_name
 
     dd04v.MEMORYID = definition.set_get_parameter or None
-    dd04v.LOGFLAG = _adt_flag_to_abap(definition.change_document)
+    dd04v.LOGFLAG = adt_flag_to_abap(definition.change_document)
     dd04v.HEADLEN = ddic_number(definition.label_heading_length, 2)
     dd04v.SCRLEN1 = ddic_number(definition.label_short_length, 2)
     dd04v.SCRLEN2 = ddic_number(definition.label_medium_length, 2)
@@ -646,9 +587,9 @@ def build_data_element_abap_attributes(adt_dataelement):
         output_length = ddic_output_length(datatype, definition.data_type_length, definition.data_type_decimals)
         dd04v.OUTPUTLEN = ddic_number(output_length, 6)
 
-    dd04v.LTRFLDDIS = _adt_flag_to_abap(definition.left_to_right_direction)
-    dd04v.BIDICTRLC = _adt_flag_to_abap(definition.deactivate_bidi_filtering)
-    dd04v.NOHISTORY = _adt_flag_to_abap(definition.deactivate_input_history)
+    dd04v.LTRFLDDIS = adt_flag_to_abap(definition.left_to_right_direction)
+    dd04v.BIDICTRLC = adt_flag_to_abap(definition.deactivate_bidi_filtering)
+    dd04v.NOHISTORY = adt_flag_to_abap(definition.deactivate_input_history)
 
     return (dd04v,)
 
@@ -682,7 +623,6 @@ def checkout_objects(connection, objects, destdir=None):
     # human friendly text.
     checkouters = {
         sap.adt.Structure.OBJTYPE.code: checkout_structure,
-        sap.adt.Domain.OBJTYPE.code: checkout_domain,
         sap.adt.DataElement.OBJTYPE.code: checkout_data_element,
         sap.adt.Table.OBJTYPE.code: checkout_table,
     }

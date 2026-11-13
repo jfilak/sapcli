@@ -16,9 +16,6 @@ from sap.platform.abap.ddic import (
     DEVC,
     DD02V,
     DD03P_TABLE,
-    DD01V,
-    DD07V_TAB,
-    DD01L_EXTRA,
     DD04V,
     DD04L_EXTRA,
     REFKIND_DOMAIN,
@@ -40,6 +37,7 @@ import sap.cli.wb
 from sap.config import config_get
 import sap.fileformat.adt
 import sap.fileformat.abapgit
+from sap.fileformat.abapgit.ddic import abap_flag_to_adt
 from sap.fileformat import HandlerRegistry, CheckinContext, ObjectCheckinResult
 
 # Handlers of the object types already migrated to sap.fileformat
@@ -541,7 +539,7 @@ def _write_table_settings(connection, name, dd09l, corrnr):
     settings.buffering.allowed = dd09l.BUFALLOW or 'N'
     settings.buffering.type = dd09l.PUFFERUNG or ''
     settings.buffering.area_key_fields = str(int(dd09l.SCHFELDANZ or '0'))
-    settings.logging_enabled = _abap_flag_to_adt(dd09l.PROTOKOLL)
+    settings.logging_enabled = abap_flag_to_adt(dd09l.PROTOKOLL)
 
     # abapGit does not write the default values which depend on the release
     if dd09l.ROWORCOLST:
@@ -619,86 +617,6 @@ def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False, pre
     return ObjectCheckinResult([adt_object], [])
 
 
-def _abap_flag_to_adt(flag):
-    """Returns ADT boolean value of the given ABAP flag"""
-
-    return 'true' if flag else 'false'
-
-
-def prepare_doma(repo_obj):
-    """Reads and checks the file of the domain without accessing the system"""
-
-    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        try:
-            # DD01L_EXTRA is parsed only to accept files of newer abapGit versions
-            results = sap.platform.abap.abapgit.from_xml(
-                [DD01V, sap.platform.abap.abapgit.OptionalBody(DD07V_TAB),
-                 sap.platform.abap.abapgit.OptionalBody(DD01L_EXTRA)],
-                abap_data_file.read())
-        except sap.errors.SAPCliError as ex:
-            # e.g. translations or long texts which are not supported yet
-            raise sap.adt.errors.ExceptionCheckinFailure(
-                f'Unsupported contents of domain {repo_obj.name}: {ex}') from ex
-
-    return SimpleNamespace(dd01v=results['DD01V'], dd07v=results.get('DD07V_TAB', []))
-
-
-# pylint: disable=unused-argument,too-many-locals
-def checkin_doma(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Domain"""
-
-    sap.cli.core.printout('Creating Domain:', repo_obj.name)
-
-    prepared = prepared or prepare_doma(repo_obj)
-    dd01v = prepared.dd01v
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=dd01v.DDTEXT)
-    domain = sap.adt.Domain(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
-
-    try:
-        domain.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
-
-    # ADT accepts the content only in modifications of existing domains
-    domain.fetch()
-    domain.description = dd01v.DDTEXT
-
-    type_information = domain.content.type_information
-    type_information.datatype = dd01v.DATATYPE
-    type_information.length = dd01v.LENG or '0'
-    type_information.decimals = dd01v.DECIMALS or '0'
-
-    output_information = domain.content.output_information
-    output_information.length = dd01v.OUTPUTLEN or '0'
-    output_information.style = dd01v.OUTPUTSTYLE or '00'
-    output_information.conversion_exit = dd01v.CONVEXIT or ''
-    output_information.sign_exists = _abap_flag_to_adt(dd01v.SIGNFLAG)
-    output_information.lowercase = _abap_flag_to_adt(dd01v.LOWERCASE)
-    output_information.ampm_format = _abap_flag_to_adt(dd01v.AMPMFORMAT)
-
-    value_information = domain.content.value_information
-    value_information.value_table_ref = sap.adt.domain.DomainValueTableRef()
-    value_information.value_table_ref.name = dd01v.ENTITYTAB
-
-    # abapGit renumbers the fixed values the same way
-    value_information.fix_values = sap.adt.domain.DomainFixValues()
-    for position, dd07v in enumerate(prepared.dd07v, start=1):
-        fix_value = sap.adt.domain.DomainFixValue()
-        fix_value.position = f'{position:04d}'
-        fix_value.low = dd07v.DOMVALUE_L or ''
-        fix_value.high = dd07v.DOMVALUE_H or ''
-        fix_value.text = dd07v.DDTEXT or ''
-        value_information.fix_values.append(fix_value)
-
-    sap.cli.core.printout('Writing Domain:', repo_obj.name)
-    with domain.open_editor(corrnr=corrnr) as editor:
-        editor.push()
-
-    return ObjectCheckinResult([domain], [])
-
-
 def prepare_dtel(repo_obj):
     """Reads and checks the file of the data element without accessing
        the system
@@ -774,10 +692,10 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
     definition.search_help_parameter = dd04v.SHLPFIELD or ''
     definition.set_get_parameter = dd04v.MEMORYID or ''
     definition.default_component_name = dd04v.DEFFDNAME or ''
-    definition.deactivate_input_history = _abap_flag_to_adt(dd04v.NOHISTORY)
-    definition.change_document = _abap_flag_to_adt(dd04v.LOGFLAG)
-    definition.left_to_right_direction = _abap_flag_to_adt(dd04v.LTRFLDDIS)
-    definition.deactivate_bidi_filtering = _abap_flag_to_adt(dd04v.BIDICTRLC)
+    definition.deactivate_input_history = abap_flag_to_adt(dd04v.NOHISTORY)
+    definition.change_document = abap_flag_to_adt(dd04v.LOGFLAG)
+    definition.left_to_right_direction = abap_flag_to_adt(dd04v.LTRFLDDIS)
+    definition.deactivate_bidi_filtering = abap_flag_to_adt(dd04v.BIDICTRLC)
 
     sap.cli.core.printout('Writing Data Element:', repo_obj.name)
     with dataelement.open_editor(corrnr=corrnr) as editor:
@@ -788,7 +706,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 OBJECT_CHECKIN_HANDLERS = {
     'tabl': checkin_tabl,
-    'doma': checkin_doma,
     'dtel': checkin_dtel,
 }
 
@@ -797,7 +714,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # the system
 OBJECT_CHECKIN_PREPARERS = {
     'tabl': prepare_tabl,
-    'doma': prepare_doma,
     'dtel': prepare_dtel,
 }
 
@@ -847,8 +763,8 @@ def _checkin_dependency_group(connection, repo, group, console, corrnr, check_be
         # would fail later anyway
         handler = OBJECT_HANDLERS.for_metadata_file(repo_obj.code, 'xml')
         if handler is not None:
-            context = CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save)
-            result = handler.checkin(context, repo_obj, prepared_obj)
+            result = handler.checkin(CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save),
+                                     repo_obj, prepared_obj)
         else:
             obj_handler = OBJECT_CHECKIN_HANDLERS.get(repo_obj.code)
 

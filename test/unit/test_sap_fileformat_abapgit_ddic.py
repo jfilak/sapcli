@@ -32,5 +32,23 @@ class TestDdicNumber(unittest.TestCase):
         self.assertIsNone(ddic.ddic_number(None, 6))
 
 
+class TestFlags(unittest.TestCase):
+
+    def test_adt_true_to_abap(self):
+        self.assertEqual(ddic.adt_flag_to_abap('true'), 'X')
+
+    def test_adt_false_to_abap(self):
+        self.assertIsNone(ddic.adt_flag_to_abap('false'))
+
+    def test_adt_missing_to_abap(self):
+        self.assertIsNone(ddic.adt_flag_to_abap(None))
+
+    def test_abap_set_to_adt(self):
+        self.assertEqual(ddic.abap_flag_to_adt('X'), 'true')
+
+    def test_abap_not_set_to_adt(self):
+        self.assertEqual(ddic.abap_flag_to_adt(None), 'false')
+
+
 if __name__ == '__main__':
     unittest.main()
