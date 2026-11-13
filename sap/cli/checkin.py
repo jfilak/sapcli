@@ -14,7 +14,6 @@ import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
     DEVC,
-    BDEF,
     DD02V,
     DD03P_TABLE,
     DD01V,
@@ -41,7 +40,6 @@ import sap.cli.wb
 from sap.config import config_get
 import sap.fileformat.adt
 import sap.fileformat.abapgit
-from sap.fileformat.abapgit.cds import prepare_cds_source, checkin_cds_source
 from sap.fileformat import HandlerRegistry, CheckinContext, ObjectCheckinResult
 
 # Handlers of the object types already migrated to sap.fileformat
@@ -356,22 +354,6 @@ def _resolve_dependencies(objects):
             others.append(obj)
 
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
-
-
-def prepare_bdef(repo_obj):
-    """Reads and checks the files of the behavior definition"""
-
-    return prepare_cds_source(repo_obj, BDEF, lambda bdef: bdef.DESCRIPTION, '.asbdef', 'Behavior Definition')
-
-
-def checkin_bdef(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Behavior Definition"""
-
-    bdef, source_file = checkin_cds_source(
-        CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save), repo_obj,
-        prepared or prepare_bdef(repo_obj), sap.adt.BehaviorDefinition, 'Behavior Definition')
-
-    return ObjectCheckinResult([bdef], [source_file])
 
 
 # .INCLUDE or .INCLU-<SUFFIX> but not .INCLU--AP of append structures
@@ -805,7 +787,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 
 OBJECT_CHECKIN_HANDLERS = {
-    'bdef': checkin_bdef,
     'tabl': checkin_tabl,
     'doma': checkin_doma,
     'dtel': checkin_dtel,
@@ -815,7 +796,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # Functions reading and checking the files of objects without accessing
 # the system
 OBJECT_CHECKIN_PREPARERS = {
-    'bdef': prepare_bdef,
     'tabl': prepare_tabl,
     'doma': prepare_doma,
     'dtel': prepare_dtel,
