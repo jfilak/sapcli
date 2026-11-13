@@ -13,11 +13,9 @@ import sap.errors
 import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
-    DESCRIPTIONS_SUB,
     PROGDIR,
     CUA,
     TPOOL,
-    VSEOINTERF,
     DEVC,
     SUBC_EXECUTABLE_PROGRAM,
     SUBC_INCLUDE,
@@ -376,58 +374,6 @@ def _resolve_dependencies(objects):
             others.append(obj)
 
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
-
-
-def prepare_intf(repo_obj):
-    """Reads and checks the files of the interface without accessing the system"""
-
-    if not repo_obj.files:
-        raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for interface {repo_obj.name}')
-
-    if len(repo_obj.files) > 1:
-        raise sap.adt.errors.ExceptionCheckinFailure(f'Too many source files for interface {repo_obj.name}: %s'
-                                                     % (','.join(repo_obj.files)))
-
-    source_file = repo_obj.files[0]
-
-    if not source_file.endswith('.abap'):
-        raise sap.adt.errors.ExceptionCheckinFailure(f'No .abap suffix of source file for interface {repo_obj.name}')
-
-    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        # DESCRIPTIONS_SUB is parsed only to detect abapGit XML format changes
-        # - ADT generates the sub-component descriptions from source code
-        abap_data = sap.platform.abap.abapgit.from_xml(
-            [VSEOINTERF, sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
-            abap_data_file.read())['VSEOINTERF']
-
-    with open(source_file, 'r', encoding='utf-8') as source:
-        source_code = source.read()
-
-    return SimpleNamespace(abap_data=abap_data, source_file=source_file, source_code=source_code)
-
-
-def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Interface"""
-
-    sap.cli.core.printout('Creating Interface:', repo_obj.name)
-
-    prepared = prepared or prepare_intf(repo_obj)
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=prepared.abap_data.DESCRIPT)
-    interface = sap.adt.Interface(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
-
-    try:
-        interface.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
-
-    sap.cli.core.printout('Writing Interface:', repo_obj.name)
-    sap.fileformat.adt.write_source(prepared.source_code, interface, corrnr=corrnr,
-                                    source_label=prepared.source_file,
-                                    check_before_save=check_before_save)
-
-    return ObjectCheckinResult([interface], [prepared.source_file])
 
 
 def prepare_prog(repo_obj):
@@ -1313,7 +1259,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 
 OBJECT_CHECKIN_HANDLERS = {
-    'intf': checkin_intf,
     'prog': checkin_prog,
     'fugr': checkin_fugr,
     'ttyp': checkin_ttyp,
@@ -1330,7 +1275,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # Functions reading and checking the files of objects without accessing
 # the system
 OBJECT_CHECKIN_PREPARERS = {
-    'intf': prepare_intf,
     'prog': prepare_prog,
     'fugr': prepare_fugr,
     'ttyp': prepare_ttyp,

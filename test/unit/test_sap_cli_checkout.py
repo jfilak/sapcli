@@ -78,7 +78,7 @@ class TestCheckout(unittest.TestCase):
 
         self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE', None), call(conn, 'ZCL_UPPERCASE', None)])
 
-    @patch('sap.cli.checkout.checkout_interface')
+    @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout')
     def test_checkout_uppercase_name_intf(self, fake_intf):
         conn = Connection()
 
@@ -88,7 +88,7 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['interface', 'ZIF_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE'), call(conn, 'ZIF_UPPERCASE')])
+        self.assertEqual(fake_intf.mock_calls, [call(conn, 'ZIF_LOWERCASE', None), call(conn, 'ZIF_UPPERCASE', None)])
 
     @patch('sap.cli.checkout.checkout_program')
     def test_checkout_uppercase_name_prog(self, fake_prog):
@@ -101,45 +101,6 @@ class TestCheckout(unittest.TestCase):
         args.execute(conn, args)
 
         self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE'), call(conn, 'ZUPPERCASE')])
-
-    @patch('sap.fileformat.abapgit.files.XMLWriter')
-    @patch('sap.adt.Interface.fetch')
-    @patch('sap.adt.Interface.text', new_callable=PropertyMock)
-    def test_checkout_interface(self, fake_text, fake_fetch, fake_writer):
-        fake_writer.return_value = fake_writer
-        fake_writer.add = Mock()
-
-        fake_conn = Connection()
-
-        fake_inst = sap.adt.Interface(fake_conn, 'ZIF_HELLO_WORLD')
-        fake_inst.description = 'This is an interface'
-        fake_inst.master_language = 'EN'
-        fake_inst.active = 'active'
-        fake_inst.modeled = 'false'
-
-        fake_text.return_value = 'interface zif_hello_world'
-
-        args = parse_args(['interface', 'ZIF_HELLO_WORLD'])
-        with patch('sap.adt.Interface') as fake_intf, \
-             patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
-            fake_intf.return_value = fake_inst
-            args.execute(fake_conn, args)
-
-        assert_wrote_file(self, fake_open, 'zif_hello_world.intf.abap', 'interface zif_hello_world')
-
-        args, kwargs = fake_writer.call_args
-        ag_serializer = args[0]
-        self.assertEqual(ag_serializer, 'LCL_OBJECT_INTF')
-
-        args, kwargs = fake_writer.add.call_args
-        vseointerf = args[0]
-        self.assertEqual(vseointerf.CLSNAME, 'ZIF_HELLO_WORLD')
-        self.assertEqual(vseointerf.VERSION, '1')
-        self.assertEqual(vseointerf.LANGU, 'E')
-        self.assertEqual(vseointerf.DESCRIPT, 'This is an interface')
-        self.assertEqual(vseointerf.EXPOSURE, '2')
-        self.assertEqual(vseointerf.STATE, '1')
-        self.assertEqual(vseointerf.UNICODE, 'X')
 
     @patch('sap.fileformat.abapgit.files.XMLWriter')
     @patch('sap.adt.Program')
@@ -234,29 +195,6 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual((tpool[1].ID, tpool[1].KEY, tpool[1].ENTRY, tpool[1].LENGTH), ('R', None, 'Cowabunga', 9))
 
 
-class TestCheckoutInterface(unittest.TestCase):
-
-    def test_build_interface_attributes(self):
-        fake_conn = Mock()
-        intf = sap.adt.Interface(fake_conn, 'ZIF_HELLO_WORLD')
-
-        fake_inst = sap.adt.Interface(fake_conn, 'ZIF_HELLO_WORLD')
-        fake_inst.description = 'This is an interface'
-        fake_inst.master_language = 'EN'
-        fake_inst.active = 'inactive'
-        fake_inst.modeled = 'true'
-
-        vseointerf = sap.cli.checkout.build_interface_abap_attributes(fake_inst)
-
-        self.assertEqual(vseointerf.CLSNAME, 'ZIF_HELLO_WORLD')
-        self.assertEqual(vseointerf.DESCRIPT, 'This is an interface')
-        self.assertEqual(vseointerf.LANGU, 'E')
-        self.assertEqual(vseointerf.EXPOSURE, '2')
-        self.assertEqual(vseointerf.VERSION, '0')
-        self.assertEqual(vseointerf.STATE, '0')
-        self.assertEqual(vseointerf.UNICODE, 'X')
-
-
 class TestCheckoutProgram(unittest.TestCase):
 
     def test_build_program_attributes(self):
@@ -306,7 +244,7 @@ class TestCheckoutPackage(unittest.TestCase):
     @patch('sap.cli.checkout.dump_attributes_to_file')
     @patch('sap.cli.checkout.checkout_function_group')
     @patch('sap.fileformat.abapgit.clas.ClassHandler.checkout')
-    @patch('sap.cli.checkout.checkout_interface')
+    @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout')
     @patch('sap.cli.checkout.checkout_program')
     @patch('sap.adt.package.walk')
     def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_fugr, fake_dump, fake_fetch):

@@ -90,5 +90,28 @@ class TestDumpAttributesToFile(FilesTestCase):
         self.assertConsoleContents(self.console, stdout='- zcl_foo.clas.xml\n')
 
 
+class TestFindObjectFile(unittest.TestCase):
+
+    def setUp(self):
+        self.repo_obj = Mock()
+        self.repo_obj.name = 'zcl_foo'
+        self.repo_obj.files = ['./src/zcl_foo.clas.xml', './src/zcl_foo.clas.abap', './src/zcl_foo.clas.testclasses.abap']
+
+    def test_found(self):
+        self.assertEqual(files.find_object_file(self.repo_obj, '.clas.abap'), './src/zcl_foo.clas.abap')
+
+    def test_found_longer_name(self):
+        self.assertEqual(files.find_object_file(self.repo_obj, '.clas.testclasses.abap'),
+                         './src/zcl_foo.clas.testclasses.abap')
+
+    def test_not_found(self):
+        self.assertIsNone(files.find_object_file(self.repo_obj, '.clas.locals_imp.abap'))
+
+    def test_name_must_match(self):
+        self.repo_obj.files = ['./src/zcl_foo_bar.clas.abap']
+
+        self.assertIsNone(files.find_object_file(self.repo_obj, '.clas.abap'))
+
+
 if __name__ == '__main__':
     unittest.main()
