@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+import unittest
+
+import sap.fileformat.abapgit
+from sap.fileformat import HandlerRegistry, ObjectHandler
+
+
+class TestHandlers(unittest.TestCase):
+
+    def test_file_types(self):
+        file_types = sorted(handler.FILE_TYPE for handler in sap.fileformat.abapgit.HANDLERS)
+
+        self.assertEqual(file_types, ['bdef', 'clas', 'dcls', 'ddls', 'ddlx', 'doma', 'dtel', 'fugr', 'intf', 'prog',
+                                      'tabl', 'ttyp'])
+
+    def test_all_are_abapgit_xml_handlers(self):
+        self.assertEqual({handler.METADATA_EXT for handler in sap.fileformat.abapgit.HANDLERS}, {'xml'})
+        self.assertTrue(all(isinstance(handler, ObjectHandler) for handler in sap.fileformat.abapgit.HANDLERS))
+
+    def test_registry_can_be_built(self):
+        registry = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
+
+        self.assertEqual(registry.for_metadata_file('clas', 'xml').ADT_TYPES, ('CLAS/OC',))
+        self.assertIs(registry.for_adt_type('TABL/DS'), registry.for_adt_type('TABL/DT'))
+
+
+if __name__ == '__main__':
+    unittest.main()
