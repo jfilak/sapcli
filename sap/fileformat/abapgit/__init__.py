@@ -1,6 +1,7 @@
 """abapGit file format"""
 
 from sap.fileformat.abapgit.clas import ClassHandler
+from sap.fileformat.abapgit.tabl import TableHandler
 from sap.fileformat.abapgit.dtel import DataElementHandler
 from sap.fileformat.abapgit.doma import DomainHandler
 from sap.fileformat.abapgit.bdef import BehaviorDefinitionHandler
@@ -26,4 +27,5 @@ HANDLERS = (
     BehaviorDefinitionHandler(),
     DomainHandler(),
     DataElementHandler(),
+    TableHandler(),
 )
