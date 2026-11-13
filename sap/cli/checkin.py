@@ -13,7 +13,6 @@ import sap.errors
 import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
-    VSEOCLASS,
     DESCRIPTIONS_SUB,
     PROGDIR,
     CUA,
@@ -60,6 +59,13 @@ import sap.adt.textelements
 import sap.adt.wb
 import sap.cli.wb
 from sap.config import config_get
+import sap.fileformat.adt
+import sap.fileformat.abapgit
+from sap.fileformat import HandlerRegistry, CheckinContext, ObjectCheckinResult
+from sap.fileformat.abapgit.textpool import text_symbols_from_tpool, write_text_symbols
+
+# Handlers of the object types already migrated to sap.fileformat
+OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
 
 
 def mod_log():
@@ -92,13 +98,6 @@ class RepoObject(typing.NamedTuple):
     path: str
     package: RepoPackage
     files: list
-
-
-class ObjectCheckinResult(typing.NamedTuple):
-    """Result of a single ADT object checkin handler"""
-
-    abap_objects: list
-    used_files: list
 
 
 # pylint: disable=too-many-instance-attributes
@@ -240,6 +239,10 @@ class Repository:
         return pkg
 
 
+def _is_supported(obj_type):
+    return OBJECT_HANDLERS.for_metadata_file(obj_type, 'xml') is not None or obj_type in OBJECT_CHECKIN_HANDLERS
+
+
 def _load_objects(repo):
     # packages
     # ddic
@@ -266,7 +269,7 @@ def _load_objects(repo):
                 continue
 
             obj_type, suffix = obj_name_parts[-2:]
-            if suffix != 'xml' or obj_type not in OBJECT_CHECKIN_HANDLERS:
+            if suffix != 'xml' or not _is_supported(obj_type):
                 continue
 
             repo.add_object(obj_file_name, package)
@@ -420,129 +423,11 @@ def checkin_intf(connection, repo_obj, corrnr=None, check_before_save=False, pre
         mod_log().info(err.message)
 
     sap.cli.core.printout('Writing Interface:', repo_obj.name)
-    _write_source_file(prepared.source_code, interface, corrnr=corrnr,
-                       source_label=prepared.source_file,
-                       check_before_save=check_before_save)
+    sap.fileformat.adt.write_source(prepared.source_code, interface, corrnr=corrnr,
+                                    source_label=prepared.source_file,
+                                    check_before_save=check_before_save)
 
     return ObjectCheckinResult([interface], [prepared.source_file])
-
-
-def _text_symbols_from_tpool(tpool, object_name, known_ids=(), supported_ids=('I',)):
-    """Returns text symbols (TPOOL entries with ID I) and reports the other
-       entries not handled by the caller (known_ids) as skipped.
-    """
-
-    text_symbols = []
-
-    for text in tpool:
-        if text.ID in supported_ids:
-            text_symbols.append(sap.adt.textelements.TextSymbol(text.KEY, text.ENTRY, int(text.LENGTH)))
-        elif text.ID not in known_ids:
-            entry = f'{text.ID} {text.KEY}' if text.KEY else text.ID
-            sap.cli.core.printerr(f'Skipping unsupported text pool entry {entry} of {object_name}')
-
-    return text_symbols
-
-
-def _write_text_symbols(text_elements, text_symbols, corrnr):
-    """Replaces text symbols of the given text elements"""
-
-    with text_elements.open_editor(corrnr=corrnr) as editor:
-        editor.write(sap.adt.textelements.serialize_symbols(text_symbols))
-
-
-# Class parts by the suffix of their source files
-CLASS_PARTS = ('clas', 'locals_def', 'locals_imp', 'testclasses')
-
-
-def prepare_clas(repo_obj):
-    """Reads and checks the files of the class without accessing the system"""
-
-    if not repo_obj.files:
-        raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for class {repo_obj.name}')
-
-    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        # DESCRIPTIONS_SUB is parsed only to detect abapGit XML format changes
-        # - ADT generates the sub-component descriptions from source code
-        results = sap.platform.abap.abapgit.from_xml(
-            [VSEOCLASS, sap.platform.abap.abapgit.OptionalBody(TPOOL),
-             sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
-            abap_data_file.read())
-
-    text_symbols = _text_symbols_from_tpool(results.get('TPOOL', []), repo_obj.name)
-
-    parts = []
-    for source_file in repo_obj.files:
-        if not source_file.endswith('.abap'):
-            raise sap.adt.errors.ExceptionCheckinFailure(f'No .abap suffix of source file for class {repo_obj.name}:'
-                                                         f' {source_file}')
-
-        sub_obj_id = source_file.split('.')[-2]
-        if sub_obj_id not in CLASS_PARTS:
-            sap.cli.core.printerr(f'Unknown class part {source_file}')
-            continue
-
-        with open(source_file, 'r', encoding='utf-8') as source:
-            parts.append((sub_obj_id, source_file, source.read()))
-
-    return SimpleNamespace(abap_data=results['VSEOCLASS'], text_symbols=text_symbols, parts=parts)
-
-
-def checkin_clas(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Clas"""
-
-    sap.cli.core.printout('Creating Class:', repo_obj.name)
-
-    prepared = prepared or prepare_clas(repo_obj)
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=prepared.abap_data.DESCRIPT)
-    clas = sap.adt.Class(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
-
-    try:
-        clas.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as exc:
-        mod_log().info('Class already exists. Recreating.')
-        clas.fetch()
-
-        # pylint: disable=no-member
-        if clas.reference.name != repo_obj.package.name:
-            raise sap.adt.errors.ExceptionCheckinFailure(f'Cannot checkin class {repo_obj.name} into package'
-                                                         f' {repo_obj.package.name}. It already exists in package'
-                                                         f' {clas.reference.name}.') from exc
-
-        clas.delete(corrnr)
-        # Recreate class object to avoid stale data, which causes create to fail
-        clas = sap.adt.Class(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
-        clas.create(corrnr)
-
-    class_parts = {
-        'clas': clas,
-        'locals_def': clas.definitions,
-        'locals_imp': clas.implementations,
-        'testclasses': clas.test_classes,
-    }
-
-    used_files = []
-
-    for sub_obj_id, source_file, source_code in prepared.parts:
-        sap.cli.core.printout('Writing Clas:', repo_obj.name, sub_obj_id)
-
-        _write_source_file(source_code, class_parts[sub_obj_id], corrnr=corrnr,
-                           source_label=source_file,
-                           check_before_save=check_before_save)
-
-        used_files.append(source_file)
-
-    abap_objects = [clas]
-
-    if prepared.text_symbols:
-        sap.cli.core.printout('Writing Clas:', repo_obj.name, 'text elements')
-        text_elements = sap.adt.textelements.ClassTextElements(connection, repo_obj.name.upper())
-        _write_text_symbols(text_elements, prepared.text_symbols, corrnr)
-        abap_objects.append(text_elements)
-
-    return ObjectCheckinResult(abap_objects, used_files)
 
 
 def prepare_prog(repo_obj):
@@ -577,7 +462,7 @@ def prepare_prog(repo_obj):
 
     # ADT does not allow editing text elements of includes
     supported_ids = ('I',) if progdir.SUBC == SUBC_EXECUTABLE_PROGRAM else ()
-    text_symbols = _text_symbols_from_tpool(tpool, repo_obj.name, known_ids=('R',), supported_ids=supported_ids)
+    text_symbols = text_symbols_from_tpool(tpool, repo_obj.name, known_ids=('R',), supported_ids=supported_ids)
 
     with open(source_file, 'r', encoding='utf-8') as source:
         source_code = source.read()
@@ -612,16 +497,16 @@ def checkin_prog(connection, repo_obj, corrnr=None, check_before_save=False, pre
         mod_log().info(err.message)
 
     sap.cli.core.printout('Writing Program:', repo_obj.name)
-    _write_source_file(prepared.source_code, program, corrnr=corrnr,
-                       source_label=prepared.source_file,
-                       check_before_save=check_before_save)
+    sap.fileformat.adt.write_source(prepared.source_code, program, corrnr=corrnr,
+                                    source_label=prepared.source_file,
+                                    check_before_save=check_before_save)
 
     abap_objects = [program]
 
     if prepared.text_symbols:
         sap.cli.core.printout('Writing Program:', repo_obj.name, 'text elements')
         text_elements = sap.adt.textelements.ProgramTextElements(connection, repo_obj.name.upper())
-        _write_text_symbols(text_elements, prepared.text_symbols, corrnr)
+        write_text_symbols(text_elements, prepared.text_symbols, corrnr)
         # ADT does not activate inactive text elements together with the program
         abap_objects.append(text_elements)
 
@@ -642,41 +527,6 @@ def _check_fugr_source_files(repo_obj, functions, includes):
         include_file_path = repo_obj.path[:-4] + f'.{include_name}' + '.abap'
         if include_file_path not in repo_obj.files:
             raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for include {include_name}')
-
-
-def _write_source_file(source_code, adt_object, corrnr=None, source_label=None,
-                       check_before_save=False):
-    """Write ``source_code`` to ``adt_object``.
-
-    When ``check_before_save`` is ``True`` (because the user passed
-    ``--check`` or set ``SAPCLI_CHECK_BEFORE_SAVE=true``), abapCheckRun
-    runs first and a findings exception is raised if it reports errors.
-
-    Independently of the flag, if the PUT to ``source/main`` raises
-    :exc:`sap.adt.errors.ExceptionResourceSaveFailure`, abapCheckRun is
-    run once on the source we tried to write so the user gets a
-    readable diagnostic instead of the cryptic save error. If the
-    check has nothing to say, the original failure carries the real
-    reason (lock, missing inactive version, ...) and is re-raised.
-    """
-
-    if check_before_save:
-        result = sap.adt.checks.run_object_check(adt_object, source_code)
-        if result.has_errors:
-            raise sap.adt.checks.ObjectCheckFindings(
-                adt_object, result, source_label=source_label
-            )
-
-    try:
-        with adt_object.open_editor(corrnr=corrnr) as editor:
-            editor.write(source_code)
-    except sap.adt.errors.ExceptionResourceSaveFailure as save_exc:
-        result = sap.adt.checks.run_object_check(adt_object, source_code)
-        if result.has_errors:
-            raise sap.adt.checks.ObjectCheckFindings(
-                adt_object, result, source_label=source_label
-            ) from save_exc
-        raise
 
 
 def _format_function(source_code):
@@ -819,8 +669,8 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False, pre
             mod_log().info(err.message)
 
         sap.cli.core.printout('Writing Function Group Include:', include_obj.name)
-        _write_source_file(source_code, include_obj, corrnr, source_label=source_file,
-                           check_before_save=check_before_save)
+        sap.fileformat.adt.write_source(source_code, include_obj, corrnr, source_label=source_file,
+                                        check_before_save=check_before_save)
         used_files.append(source_file)
 
     for func, source_file, source_code in prepared.functions:
@@ -828,8 +678,8 @@ def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False, pre
         abap_objs_inactive.append(function_module)
 
         sap.cli.core.printout('Writing Function Module:', function_module.name)
-        _write_source_file(source_code, function_module, corrnr, source_label=source_file,
-                           check_before_save=check_before_save)
+        sap.fileformat.adt.write_source(source_code, function_module, corrnr, source_label=source_file,
+                                        check_before_save=check_before_save)
         used_files.append(source_file)
 
     return ObjectCheckinResult(abap_objs_inactive, used_files)
@@ -944,9 +794,9 @@ def _checkin_cds_source(connection, repo_obj, prepared, adt_type, label, corrnr,
         mod_log().info(err.message)
 
     sap.cli.core.printout(f'Writing {label}:', repo_obj.name)
-    _write_source_file(prepared.source_code, adt_object, corrnr=corrnr,
-                       source_label=prepared.source_file,
-                       check_before_save=check_before_save)
+    sap.fileformat.adt.write_source(prepared.source_code, adt_object, corrnr=corrnr,
+                                    source_label=prepared.source_file,
+                                    check_before_save=check_before_save)
 
     return (adt_object, prepared.source_file)
 
@@ -1284,8 +1134,8 @@ def checkin_tabl(connection, repo_obj, corrnr=None, check_before_save=False, pre
         mod_log().info(err.message)
 
     sap.cli.core.printout(f'Writing {label}:', repo_obj.name)
-    _write_source_file(prepared.source_code, adt_object, corrnr=corrnr, source_label=repo_obj.path,
-                       check_before_save=check_before_save)
+    sap.fileformat.adt.write_source(prepared.source_code, adt_object, corrnr=corrnr, source_label=repo_obj.path,
+                                    check_before_save=check_before_save)
 
     if is_table:
         sap.cli.core.printout('Writing Technical Settings:', repo_obj.name)
@@ -1464,7 +1314,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 OBJECT_CHECKIN_HANDLERS = {
     'intf': checkin_intf,
-    'clas': checkin_clas,
     'prog': checkin_prog,
     'fugr': checkin_fugr,
     'ttyp': checkin_ttyp,
@@ -1482,7 +1331,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # the system
 OBJECT_CHECKIN_PREPARERS = {
     'intf': prepare_intf,
-    'clas': prepare_clas,
     'prog': prepare_prog,
     'fugr': prepare_fugr,
     'ttyp': prepare_ttyp,
@@ -1496,6 +1344,14 @@ OBJECT_CHECKIN_PREPARERS = {
 }
 
 
+def _get_preparer(obj_type):
+    handler = OBJECT_HANDLERS.for_metadata_file(obj_type, 'xml')
+    if handler is not None:
+        return handler.prepare
+
+    return OBJECT_CHECKIN_PREPARERS[obj_type]
+
+
 def _prepare_repository(repo, console):
     """Reads and checks the files of all packages and objects before
        accessing the system to avoid long running checkins failing at the end
@@ -1507,7 +1363,7 @@ def _prepare_repository(repo, console):
     problems = 0
 
     preparations = [(package.path, prepare_package, package) for package in repo.packages]
-    preparations += [(obj.path, OBJECT_CHECKIN_PREPARERS[obj.code], obj) for obj in repo.objects]
+    preparations += [(obj.path, _get_preparer(obj.code), obj) for obj in repo.objects]
 
     for path, prepare, repo_item in preparations:
         try:
@@ -1527,16 +1383,24 @@ def _checkin_dependency_group(connection, repo, group, console, corrnr, check_be
     inactive_objects = sap.adt.objects.ADTObjectReferences()
 
     for repo_obj in group:
-        obj_handler = OBJECT_CHECKIN_HANDLERS.get(repo_obj.code)
-
-        if obj_handler is None:
-            console.printerr(f'Object not supported: {repo_obj.path}')
-            continue
+        prepared_obj = (prepared or {}).get(repo_obj.path)
 
         # A failure stops the checkin because the objects using the object
         # would fail later anyway
-        result = obj_handler(connection, repo_obj, corrnr, check_before_save=check_before_save,
-                             prepared=(prepared or {}).get(repo_obj.path))
+        handler = OBJECT_HANDLERS.for_metadata_file(repo_obj.code, 'xml')
+        if handler is not None:
+            context = CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save)
+            result = handler.checkin(context, repo_obj, prepared_obj)
+        else:
+            obj_handler = OBJECT_CHECKIN_HANDLERS.get(repo_obj.code)
+
+            if obj_handler is None:
+                console.printerr(f'Object not supported: {repo_obj.path}')
+                continue
+
+            result = obj_handler(connection, repo_obj, corrnr, check_before_save=check_before_save,
+                                 prepared=prepared_obj)
+
         for abap_obj in result.abap_objects:
             inactive_objects.add_object(abap_obj)
 

@@ -9,7 +9,7 @@ import sap.adt
 import sap.adt.textelements
 import sap.cli.core
 
-from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
+from sap.platform.abap.ddic import PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
     DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS, DD02V, DD03P, DD03P_TABLE, \
@@ -17,7 +17,15 @@ from sap.platform.abap.ddic import VSEOCLASS, PROGDIR, TPOOL, VSEOINTERF, DEVC, 
     TABCLASS_TRANSPARENT, DD02V_MAINFLAG_TO_DDL, DD09L
 from sap.platform.language import iso_code_to_sap_code
 
-from sap.platform.abap.abapgit import DOT_ABAP_GIT, XMLWriter, AbapToAbapGitTranslator
+from sap.platform.abap.abapgit import DOT_ABAP_GIT, AbapToAbapGitTranslator
+
+import sap.fileformat.abapgit
+from sap.fileformat import HandlerRegistry
+from sap.fileformat.abapgit.files import dump_attributes_to_file, write_source, download_abap_source
+from sap.fileformat.abapgit.textpool import download_text_symbols, build_text_pool
+
+# Handlers of the object types already migrated to sap.fileformat
+OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
 
 
 class SourceCodeFormat(enum.Enum):
@@ -34,38 +42,12 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('checkout')
 
 
-def build_filename(object_name, typsfx, fileext, destdir=None):
-    """Creates file name"""
+@CommandGroup.argument('name')
+@CommandGroup.command('class')
+def abapclass(connection, args):
+    """Download all class sources command wrapper"""
 
-    filename = f'{object_name}{typsfx}.{fileext}'.lower()
-
-    if destdir is not None:
-        filename = os.path.join(destdir, filename)
-
-    return filename
-
-
-def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer, destdir=None):
-    """Writes ABAP attributes to a file"""
-
-    filename = build_filename(object_name, typsfx, 'xml', destdir=destdir)
-    sap.cli.core.printout(f'- {os.path.basename(filename)}')
-    with open(filename, 'w', encoding='utf8') as dest:
-        writer = XMLWriter(ag_serializer, dest)
-
-        for attributes in abap_attributes:
-            writer.add(attributes)
-
-        writer.close()
-
-
-def write_source(source, object_name, typsfx, destdir=None, fileext='abap'):
-    """Write source code to file"""
-
-    filename = build_filename(object_name, typsfx, fileext, destdir=destdir)
-    sap.cli.core.printout(f'- {os.path.basename(filename)}')
-    with open(filename, 'w', encoding='utf8') as dest:
-        dest.write(source)
+    OBJECT_HANDLERS.for_adt_type(sap.adt.Class.OBJTYPE.code).checkout(connection, args.name.upper(), None)
 
 
 def download_abapgit_source(object_name, source_object, typsfx, translate_fn, destdir=None):
@@ -77,86 +59,6 @@ def download_abapgit_source(object_name, source_object, typsfx, translate_fn, de
         sap.cli.core.printerr(f'Download of AbapGit source code failed: {err}')
     else:
         write_source(source_code, object_name, typsfx, destdir)
-
-
-def download_abap_source(object_name, source_object, typsfx, destdir=None):
-    """Reads the text and saves it in the corresponding file"""
-
-    try:
-        text = source_object.text
-    except sap.adt.errors.ADTError as err:
-        sap.cli.core.printerr(f'Download of ABAP source code failed: {err}')
-    else:
-        write_source(text, object_name, typsfx, destdir)
-
-
-def download_text_symbols(text_elements):
-    """Returns text symbols of the given text elements"""
-
-    try:
-        return sap.adt.textelements.parse_symbols(text_elements.text)
-    except sap.adt.errors.ADTError as err:
-        sap.cli.core.printerr(f'Download of text elements failed: {err}')
-        return []
-
-
-def build_text_pool(text_symbols):
-    """Returns TPOOL populated with the given text symbols"""
-
-    tpool = TPOOL()
-    for symbol in text_symbols:
-        tpool.append(ID='I', KEY=symbol.id, ENTRY=symbol.text, LENGTH=symbol.max_length)
-
-    return tpool
-
-
-def build_class_abap_attributes(clas):
-    """Returns populated ABAP structure with attributes"""
-
-    vseoclass = VSEOCLASS()
-    vseoclass.CLSNAME = clas.name
-    vseoclass.VERSION = '1' if clas.active == 'active' else '0'
-    vseoclass.LANGU = iso_code_to_sap_code(clas.master_language)
-    vseoclass.DESCRIPT = clas.description
-    vseoclass.STATE = '0' if clas.modeled else '1'
-    # TODO: real value!
-    vseoclass.CLSCCINCL = 'X'
-    vseoclass.FIXPT = 'X' if clas.fix_point_arithmetic else ' '
-    # TODO: class:abapClass/abapSource:syntaxConfiguration/abapSource:language/abapSource:version
-    #   X = Standard ABAP (Unicode), 2 3 4 -> ABAP PaaS?
-    vseoclass.UNICODE = 'X'
-
-    return vseoclass
-
-
-def checkout_class(connection, name, destdir=None):
-    """Download entire class"""
-
-    sap.cli.core.printout(name)
-    clas = sap.adt.Class(connection, name)
-    clas.fetch()
-
-    download_abap_source(name, clas, '.clas', destdir=destdir)
-    download_abap_source(name, clas.definitions, '.clas.locals_def', destdir=destdir)
-    download_abap_source(name, clas.implementations, '.clas.locals_imp', destdir=destdir)
-    download_abap_source(name, clas.test_classes, '.clas.testclasses', destdir=destdir)
-
-    vseoclass = build_class_abap_attributes(clas)
-    abap_attributes = (vseoclass,)
-
-    text_symbols = download_text_symbols(sap.adt.textelements.ClassTextElements(connection, name))
-    if text_symbols:
-        abap_attributes += (build_text_pool(text_symbols),)
-
-    dump_attributes_to_file(name, abap_attributes, '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
-
-
-@CommandGroup.argument('name')
-@CommandGroup.command('class')
-def abapclass(connection, args):
-    """Download all class sources command wrapper"""
-
-    checkout_class(connection, args.name.upper())
 
 
 def build_program_abap_attributes(adt_program, text_symbols=()):
@@ -1184,7 +1086,6 @@ def checkout_objects(connection, objects, destdir=None):
     # human friendly text.
     checkouters = {
         sap.adt.Program.OBJTYPE.code: checkout_program,
-        sap.adt.Class.OBJTYPE.code: checkout_class,
         sap.adt.Interface.OBJTYPE.code: checkout_interface,
         sap.adt.FunctionGroup.OBJTYPE.code: checkout_function_group,
         sap.adt.TableType.OBJTYPE.code: checkout_table_type,
@@ -1202,6 +1103,11 @@ def checkout_objects(connection, objects, destdir=None):
         os.makedirs(destdir)
 
     for obj in objects:
+        handler = OBJECT_HANDLERS.for_adt_type(obj.typ)
+        if handler is not None:
+            handler.checkout(connection, obj.name, destdir)
+            continue
+
         try:
             checkouters[obj.typ](connection, obj.name, destdir)
         except KeyError:
