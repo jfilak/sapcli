@@ -41,6 +41,48 @@ class TestParseStatementUri(unittest.TestCase):
         self.assertEqual(result.end_line, 343)
         self.assertEqual(result.end_column, 12)
 
+    def test_adt_type_class(self):
+        result = parse_statement_uri('/sap/bc/adt/oo/classes/zcx_foo/includes/testclasses#start=1,1;end=1,2')
+        self.assertEqual(result.adt_type, 'CLAS/OC')
+
+    def test_adt_type_interface(self):
+        result = parse_statement_uri('/sap/bc/adt/oo/interfaces/zif_foo/source/main#start=1,1;end=1,2')
+        self.assertEqual(result.adt_type, 'INTF/OI')
+        self.assertEqual(result.object_name, 'zif_foo')
+
+    def test_adt_type_program(self):
+        result = parse_statement_uri('/sap/bc/adt/programs/programs/zfoo/source/main#start=1,1;end=1,2')
+        self.assertEqual(result.adt_type, 'PROG/P')
+        self.assertEqual(result.object_name, 'zfoo')
+
+    def test_adt_type_include(self):
+        result = parse_statement_uri('/sap/bc/adt/programs/includes/zfoo_top/source/main#start=1,1;end=1,2')
+        self.assertEqual(result.adt_type, 'PROG/I')
+
+    def test_adt_type_function_module(self):
+        result = parse_statement_uri(
+            '/sap/bc/adt/functions/groups/zfugr/fmodules/z_function/source/main#start=1,1;end=1,2')
+        self.assertEqual(result.adt_type, 'FUGR/FF')
+        self.assertEqual(result.object_name, 'z_function')
+
+    def test_adt_type_function_group_include(self):
+        result = parse_statement_uri(
+            '/sap/bc/adt/functions/groups/zfugr/includes/lzfugrtop/source/main#start=1,1;end=1,2')
+        self.assertEqual(result.adt_type, 'FUGR/I')
+        self.assertEqual(result.object_name, 'lzfugrtop')
+
+    def test_adt_type_unknown(self):
+        result = parse_statement_uri('/sap/bc/adt/ddic/ddl/sources/zcds/source/main#start=1,1;end=1,2')
+        self.assertIsNone(result.adt_type)
+
+    def test_adt_type_not_an_adt_uri(self):
+        result = parse_statement_uri('oo/classes/zcx_foo/source/main#start=1,1;end=1,2')
+        self.assertEqual(result.adt_type, 'CLAS/OC')
+
+    def test_adt_type_short_path(self):
+        result = parse_statement_uri('/sap/bc/adt/oo/classes#start=1,1;end=1,2')
+        self.assertIsNone(result.adt_type)
+
     def test_missing_fragment_raises(self):
         with self.assertRaises(InvalidURIError):
             parse_statement_uri('/sap/bc/adt/oo/classes/foo/source/main')
