@@ -50,3 +50,16 @@ def download_abap_source(object_name, source_object, typsfx, destdir=None):
         sap.cli.core.printerr(f'Download of ABAP source code failed: {err}')
     else:
         write_source(text, object_name, typsfx, destdir)
+
+
+def find_object_file(repo_obj, file_name_end):
+    """Returns the path of the file <name><file_name_end> of the repository
+       object or None.
+    """
+
+    file_name = repo_obj.name + file_name_end
+    for file_path in repo_obj.files:
+        if os.path.basename(file_path) == file_name:
+            return file_path
+
+    return None

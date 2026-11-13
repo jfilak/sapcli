@@ -20,8 +20,8 @@ from mock import PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 FIXTURE_TEXT_SYMBOLS = '@MaxLength:20\r\n001=Hello, world!\r\n@MaxLength:10\r\n002=a=b\r\n'
 
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
-from fixtures_cli_checkin import PACKAGE_DEVC_XML, PACKAGE_DEVC_LANGUAGE_XML, PACKAGE_DEVC_UNKNOWN_XML, INTF_XML, \
-    INTF_WITH_DESCRIPTIONS_SUB_XML, PROG_XML, PROG_WITH_CUA_XML, INCLUDE_XML, INVALID_TYPE_XML, \
+from fixtures_cli_checkin import PACKAGE_DEVC_XML, PACKAGE_DEVC_LANGUAGE_XML, PACKAGE_DEVC_UNKNOWN_XML, \
+    PROG_XML, PROG_WITH_CUA_XML, INCLUDE_XML, INVALID_TYPE_XML, \
     PROG_WITH_TEXTS_XML, INCLUDE_WITH_TEXTS_XML, \
     FUNCTION_GROUP_XML, FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, \
     FUNCTION_MODULE_CODE_NO_PARAMS_ADT, FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, \
@@ -976,126 +976,6 @@ class TestCheckInPackage(ConsoleOutputTestCase, PatcherTestCase):
         package.set_app_component.assert_called_once_with('APP')
         package.set_transport_layer.assert_called_once_with('TRANS')
         package.create.assert_called_once_with('corrnr')
-
-
-class TestCheckInInterface(ConsoleOutputTestCase, PatcherTestCase):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        PatcherTestCase.__init__(self)
-
-    def tearDown(self):
-        try:
-            PatcherTestCase.unpatch_all(self)
-        finally:
-            super().tearDown()
-
-    def setUp(self):
-        super().setUp()
-        self.patch_console(self.console)
-
-        self.fake_open = self.patch('sap.cli.checkin.open')
-        self.fake_open.side_effect = [StringIOFile(INTF_XML), StringIOFile('test_intf_body')]
-        self.fake_core_data = self.patch('sap.adt.ADTCoreData')
-        self.fake_interface = self.patch('sap.adt.Interface')
-
-        self.metadata = Mock()
-        self.fake_core_data.return_value = self.metadata
-
-        self.interface_editor = MagicMock()
-        self.interface_editor.__enter__.return_value = self.interface_editor
-
-        self.interface = MagicMock()
-        self.interface.open_editor.return_value = self.interface_editor
-        self.fake_interface.return_value = self.interface
-
-        self.connection = Mock()
-        self.connection.user = 'test_user'
-        self.package = sap.cli.checkin.RepoPackage('test_package', '/src/package.devc.xml', '/src', None)
-        self.interface_object = sap.cli.checkin.RepoObject('', 'test_interface', '/src/test_interface', self.package,
-                                                           ['foo.intf.abap'])
-
-    def test_checkin_intf_prepared(self):
-        prepared = sap.cli.checkin.prepare_intf(self.interface_object)
-        self.fake_open.reset_mock()
-
-        sap.cli.checkin.checkin_intf(self.connection, self.interface_object, prepared=prepared)
-
-        self.fake_open.assert_not_called()
-        self.interface_editor.write.assert_called_once_with('test_intf_body')
-
-    def test_checkin_intf_no_file(self):
-        interface_object = sap.cli.checkin.RepoObject('', 'test_intf', '/src/boo', Mock(), [])
-
-        with self.assertRaises(ExceptionCheckinFailure) as cm:
-            sap.cli.checkin.checkin_intf(self.connection, interface_object)
-
-        self.assertEqual(str(cm.exception), f'No source file for interface {interface_object.name}')
-        self.assertConsoleContents(self.console, stdout=f'Creating Interface: {interface_object.name}\n')
-
-    def test_checkin_intf_too_many_files(self):
-        self.interface_object.files.append('too-many.intf.abap')
-
-        with self.assertRaises(ExceptionCheckinFailure) as cm:
-            sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
-
-        self.assertEqual(str(cm.exception), f'Too many source files for interface {self.interface_object.name}: '
-                                            f'foo.intf.abap,too-many.intf.abap')
-
-    def test_checkin_intf_wrong_suffix(self):
-        interface_object = sap.cli.checkin.RepoObject('', 'test_intf', '/src/boo', Mock(), ['random.file'])
-
-        with self.assertRaises(ExceptionCheckinFailure) as cm:
-            sap.cli.checkin.checkin_intf(self.connection, interface_object)
-
-        self.assertEqual(str(cm.exception), f'No .abap suffix of source file for interface {interface_object.name}')
-
-    def test_checkin_intf(self):
-        result = sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
-
-        self.assertEqual(result.abap_objects, [self.interface])
-        self.assertEqual(result.used_files, ['foo.intf.abap'])
-        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user.upper(), description='Test intf descr')
-        self.fake_interface.assert_called_once_with(self.connection, self.interface_object.name.upper(),
-                                                    package=self.package.name, metadata=self.metadata)
-        self.interface.create.assert_called_once_with(None)
-        self.interface.open_editor.assert_called_once_with(corrnr=None)
-        self.interface_editor.write.assert_called_once_with('test_intf_body')
-        self.assertConsoleContents(self.console, stdout=f'Creating Interface: {self.interface_object.name}\n'
-                                                        f'Writing Interface: {self.interface_object.name}\n')
-
-    def test_checkin_intf_with_descriptions_sub(self):
-        self.fake_open.side_effect = [StringIOFile(INTF_WITH_DESCRIPTIONS_SUB_XML), StringIOFile('test_intf_body')]
-
-        result = sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
-
-        self.assertEqual(result.abap_objects, [self.interface])
-        self.assertEqual(result.used_files, ['foo.intf.abap'])
-        self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
-                                                    responsible=self.connection.user.upper(), description='Test intf descr')
-        self.fake_interface.assert_called_once_with(self.connection, self.interface_object.name.upper(),
-                                                    package=self.package.name, metadata=self.metadata)
-        self.interface.create.assert_called_once_with(None)
-        self.interface.open_editor.assert_called_once_with(corrnr=None)
-        self.interface_editor.write.assert_called_once_with('test_intf_body')
-        self.assertConsoleContents(self.console, stdout=f'Creating Interface: {self.interface_object.name}\n'
-                                                        f'Writing Interface: {self.interface_object.name}\n')
-
-    def test_checkin_intf_with_corrnr(self):
-        sap.cli.checkin.checkin_intf(self.connection, self.interface_object, 'corrnr')
-
-        self.interface.create.assert_called_once_with('corrnr')
-        self.interface.open_editor.assert_called_once_with(corrnr='corrnr')
-
-    @patch('sap.cli.checkin.mod_log')
-    def test_checkin_intf_already_exists(self, fake_mod_log):
-        self.interface.create.side_effect = ExceptionResourceAlreadyExists('Interface already exists.')
-
-        sap.cli.checkin.checkin_intf(self.connection, self.interface_object)
-        self.interface.create.assert_called_once_with(None)
-        fake_mod_log.return_value.info.assert_called_once_with('Interface already exists.')
-        self.interface.open_editor.assert_called_once_with(corrnr=None)
 
 
 class TestCheckInProgram(ConsoleOutputTestCase, PatcherTestCase):

@@ -1,6 +1,5 @@
 """Classes in the abapGit serialization"""
 
-import os
 from types import SimpleNamespace
 
 from sap import get_logger
@@ -12,7 +11,7 @@ import sap.cli.core
 import sap.fileformat.adt
 import sap.platform.abap.abapgit
 from sap.fileformat import ObjectHandler, ObjectCheckinResult
-from sap.fileformat.abapgit.files import download_abap_source, dump_attributes_to_file
+from sap.fileformat.abapgit.files import download_abap_source, dump_attributes_to_file, find_object_file
 from sap.fileformat.abapgit.textpool import (
     build_text_pool,
     download_text_symbols,
@@ -175,9 +174,8 @@ class ClassHandler(ObjectHandler):
         if file_name_end is None:
             return None
 
-        file_name = repo_obj.name + file_name_end
-        for file_path in repo_obj.files:
-            if os.path.basename(file_path) == file_name:
-                return (file_path, line)
+        file_path = find_object_file(repo_obj, file_name_end)
+        if file_path is None:
+            return None
 
-        return None
+        return (file_path, line)

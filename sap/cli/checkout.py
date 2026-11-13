@@ -9,7 +9,7 @@ import sap.adt
 import sap.adt.textelements
 import sap.cli.core
 
-from sap.platform.abap.ddic import PROGDIR, TPOOL, VSEOINTERF, DEVC, AREAT, INCLUDES, FUNCTIONS, \
+from sap.platform.abap.ddic import PROGDIR, TPOOL, DEVC, AREAT, INCLUDES, FUNCTIONS, \
     FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
     TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
     DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS, DD02V, DD03P, DD03P_TABLE, \
@@ -103,41 +103,12 @@ def program(connection, args):
     checkout_program(connection, args.name.upper())
 
 
-def build_interface_abap_attributes(adt_intf):
-    """Returns populated ABAP structure with attributes"""
-
-    vseointerf = VSEOINTERF(CLSNAME=adt_intf.name, DESCRIPT=adt_intf.description)
-    vseointerf.VERSION = '1' if adt_intf.active == 'active' else '0'
-    vseointerf.LANGU = iso_code_to_sap_code(adt_intf.master_language)
-    vseointerf.STATE = '0' if adt_intf.modeled else '1'
-    # TODO: do we really need this information?
-    vseointerf.EXPOSURE = '2'
-    # TODO: adt_intfs:abapClass/abapSource:syntaxConfiguration/abapSource:language/abapSource:version
-    #   X = Standard ABAP (Unicode), 2 3 4 -> ABAP PaaS?
-    vseointerf.UNICODE = 'X'
-
-    return vseointerf
-
-
-def checkout_interface(connection, name, destdir=None):
-    """Download interface sources"""
-
-    sap.cli.core.printout(name)
-    intf = sap.adt.Interface(connection, name)
-    intf.fetch()
-
-    download_abap_source(name, intf, '.intf', destdir=destdir)
-
-    vseointerf = build_interface_abap_attributes(intf)
-    dump_attributes_to_file(name, (vseointerf,), '.prog', 'LCL_OBJECT_INTF', destdir=destdir)
-
-
 @CommandGroup.argument('name')
 @CommandGroup.command()
 def interface(connection, args):
     """Download interface sources command wrapper"""
 
-    checkout_interface(connection, args.name.upper())
+    OBJECT_HANDLERS.for_adt_type(sap.adt.Interface.OBJTYPE.code).checkout(connection, args.name.upper(), None)
 
 
 def build_function_module_abap_attributes(func_module):
@@ -1086,7 +1057,6 @@ def checkout_objects(connection, objects, destdir=None):
     # human friendly text.
     checkouters = {
         sap.adt.Program.OBJTYPE.code: checkout_program,
-        sap.adt.Interface.OBJTYPE.code: checkout_interface,
         sap.adt.FunctionGroup.OBJTYPE.code: checkout_function_group,
         sap.adt.TableType.OBJTYPE.code: checkout_table_type,
         sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
