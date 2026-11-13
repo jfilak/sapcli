@@ -302,7 +302,7 @@ class TestCheckoutTableCommand(unittest.TestCase):
 class TestCheckoutPackage(unittest.TestCase):
 
     @patch('sap.adt.Package.fetch')
-    @patch('sap.cli.checkout.dump_attributes_to_file')
+    @patch('sap.fileformat.abapgit.layout.dump_attributes_to_file')
     @patch('sap.fileformat.abapgit.fugr.FunctionGroupHandler.checkout')
     @patch('sap.fileformat.abapgit.clas.ClassHandler.checkout')
     @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout')
@@ -333,7 +333,7 @@ class TestCheckoutPackage(unittest.TestCase):
             return package
 
         args = parse_args(['package', package_name, '--recursive'])
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
              patch('sap.cli.checkout.print') as fake_print, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs, \
@@ -368,7 +368,7 @@ class TestCheckoutPackage(unittest.TestCase):
                                                      destdir=exp_sub_destdir)
                                                 ])
 
-    @patch('sap.cli.checkout.checkout_package')
+    @patch('sap.fileformat.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
     def test_checkout_package_non_recursive(self, fake_walk, fake_checkout, fake_package):
@@ -381,7 +381,7 @@ class TestCheckoutPackage(unittest.TestCase):
         package_name = '$ROOT'
         starting_folder = 'src'
         args = parse_args(['package', package_name])
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = True
@@ -391,7 +391,7 @@ class TestCheckoutPackage(unittest.TestCase):
         exp_destdir = os.path.abspath(os.path.join(package_name, starting_folder))
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_destdir)
 
-    @patch('sap.cli.checkout.checkout_package')
+    @patch('sap.fileformat.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
     def test_checkout_package_starting_folder(self, fake_walk, fake_checkout, fake_package):
@@ -403,7 +403,7 @@ class TestCheckoutPackage(unittest.TestCase):
         package_name = '$VICTORY'
         starting_folder = os.path.join('backend', 'abap', 'src')
         args = parse_args(['package', package_name, '--starting-folder', starting_folder])
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = True
@@ -417,7 +417,7 @@ class TestCheckoutPackage(unittest.TestCase):
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
 
     @patch('sap.platform.abap.to_xml')
-    @patch('sap.cli.checkout.checkout_package')
+    @patch('sap.fileformat.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
     def test_checkout_package_create_repo(self, fake_walk, fake_checkout, fake_package, fake_to_xml):
@@ -427,7 +427,7 @@ class TestCheckoutPackage(unittest.TestCase):
         package_name = '$VICTORY'
         starting_folder = os.path.join('backend', 'abap', 'src')
         args = parse_args(['package', package_name, '--starting-folder', starting_folder])
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = False
@@ -447,7 +447,7 @@ class TestCheckoutPackage(unittest.TestCase):
         self.assertEqual([ignore for ignore in dot_abap.IGNORE], ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
         self.assertEqual(kwargs['top_element'], 'DATA')
 
-    @patch('sap.cli.checkout.checkout_package')
+    @patch('sap.fileformat.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
     def test_checkout_package_custom_repo_dir(self, fake_walk, fake_checkout, fake_package):
@@ -460,7 +460,7 @@ class TestCheckoutPackage(unittest.TestCase):
         starting_folder = os.path.join('backend', 'abap', 'src')
         repo_dir_name = 'valhalla'
         args = parse_args(['package', package_name, repo_dir_name, '--starting-folder', starting_folder])
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open, \
+        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = True
@@ -472,6 +472,17 @@ class TestCheckoutPackage(unittest.TestCase):
 
         exp_sourcedir = os.path.join(exp_repodir, starting_folder)
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
+
+    @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout', side_effect=KeyError('description'))
+    def test_checkout_objects_handler_key_error(self, fake_checkout):
+        objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
+
+        with patch('os.path.isdir', return_value=True), \
+             patch('sap.cli.checkout.print') as fake_print, \
+             self.assertRaises(KeyError):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_print.assert_not_called()
 
     def test_checkout_objects_makedirs(self):
         conn = Connection([])
@@ -489,7 +500,7 @@ class TestCheckoutPackage(unittest.TestCase):
 class TestDOT_ABAP_GIT(unittest.TestCase):
 
     def test_for_empty_repo(self):
-        dot_abap = sap.cli.checkout.DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='foo')
+        dot_abap = sap.platform.abap.abapgit.DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='foo')
         dest = StringIO()
         sap.platform.abap.to_xml(dot_abap, dest=dest)
         self.maxDiff = None

@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 """ADT Object export"""
 import os
 import sys
@@ -6,18 +5,16 @@ import sys
 import sap.adt
 import sap.adt.textelements
 import sap.cli.core
-
-from sap.platform.abap.ddic import DEVC
-
-from sap.platform.abap.abapgit import DOT_ABAP_GIT
-
 import sap.fileformat.abapgit
 from sap.fileformat import HandlerRegistry
+from sap.fileformat.abapgit.layout import AbapGitLayout
 from sap.fileformat.abapgit.fugr import SourceCodeFormat, checkout_function_group
-from sap.fileformat.abapgit.files import dump_attributes_to_file
 
-# Handlers of the object types already migrated to sap.fileformat
+# Handlers of object files in the priority order
 OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
+
+# Directory structure of the repository
+REPOSITORY_LAYOUT = AbapGitLayout()
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -149,26 +146,18 @@ def dataelement(connection, args):
 def checkout_objects(connection, objects, destdir=None):
     """Checkout all objects from the give list"""
 
-    # This could be a global variable but it breaks mock patching in tests
-    #
-    # The checkout function shall return None and errors should be reported by
-    # raising an SAPCliError because the command handler prints out
-    # human friendly text.
-    checkouters = {}
-
     if not os.path.isdir(destdir):
         os.makedirs(destdir)
 
     for obj in objects:
         handler = OBJECT_HANDLERS.for_adt_type(obj.typ)
-        if handler is not None:
-            handler.checkout(connection, obj.typ, obj.name, destdir)
+        if handler is None:
+            print(f'Unsupported object: {obj.typ} {obj.name}', file=sys.stderr)
             continue
 
-        try:
-            checkouters[obj.typ](connection, obj.name, destdir)
-        except KeyError:
-            print(f'Unsupported object: {obj.typ} {obj.name}', file=sys.stderr)
+        # Errors are reported by raising an SAPCliError because the command
+        # line entry point prints out human friendly text.
+        handler.checkout(connection, obj.typ, obj.name, destdir)
 
 
 def make_repo_dir_for_package(args):
@@ -183,29 +172,9 @@ def make_repo_dir_for_package(args):
     if not os.path.isdir(repo_dir):
         os.makedirs(repo_dir)
 
-    dot_abapgit = DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='/' + args.starting_folder + '/')
-
-    repo_file = os.path.join(repo_dir, '.abapgit.xml')
-    with open(repo_file, 'w', encoding='utf8') as dest:
-        sap.platform.abap.to_xml(dot_abapgit, dest=dest, top_element='DATA')
+    REPOSITORY_LAYOUT.init_repository(repo_dir, args.starting_folder)
 
     return repo_dir
-
-
-def build_package_abap_attributes(adt_package):
-    """Returns populated ABAP structure with attributes"""
-
-    return DEVC(CTEXT=adt_package.description)
-
-
-def checkout_package(connection, name, destdir=None):
-    """Creates ABAP Package files"""
-
-    adt_package = sap.adt.Package(connection, name)
-    adt_package.fetch()
-
-    devc = build_package_abap_attributes(adt_package)
-    dump_attributes_to_file('package', (devc,), '.devc', 'LCL_OBJECT_DEVC', destdir=destdir)
 
 
 # @CommandGroup.argument('--folder-logic', choices=['full', 'prefix'], default='prefix')
@@ -238,7 +207,7 @@ def package(connection, args):
             package_name = package_name_hier[-1]
 
         checkout_objects(connection, objects, destdir=destdir)
-        checkout_package(connection, package_name.upper(), destdir=destdir)
+        REPOSITORY_LAYOUT.checkout_package(connection, package_name.upper(), destdir)
 
         if not args.recursive:
             break
