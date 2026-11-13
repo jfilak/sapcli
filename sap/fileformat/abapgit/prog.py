@@ -11,7 +11,7 @@ import sap.cli.core
 import sap.fileformat.adt
 import sap.platform.abap.abapgit
 from sap.fileformat import ObjectHandler, ObjectCheckinResult
-from sap.fileformat.abapgit.files import download_abap_source, dump_attributes_to_file, find_object_file
+from sap.fileformat.abapgit.files import download_abap_source, dump_attributes_to_file, locate_main_source
 from sap.fileformat.abapgit.textpool import (
     build_text_pool,
     download_text_symbols,
@@ -145,11 +145,4 @@ class ProgramHandler(ObjectHandler):
         return ObjectCheckinResult(abap_objects, [prepared.source_file])
 
     def locate(self, repo_obj, part, line):
-        if part != 'source/main':
-            return None
-
-        file_path = find_object_file(repo_obj, '.prog.abap')
-        if file_path is None:
-            return None
-
-        return (file_path, line)
+        return locate_main_source(repo_obj, part, line, '.prog.abap')

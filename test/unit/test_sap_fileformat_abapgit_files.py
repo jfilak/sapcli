@@ -113,5 +113,25 @@ class TestFindObjectFile(unittest.TestCase):
         self.assertIsNone(files.find_object_file(self.repo_obj, '.clas.abap'))
 
 
+class TestLocateMainSource(unittest.TestCase):
+
+    def setUp(self):
+        self.repo_obj = Mock()
+        self.repo_obj.name = 'zif_foo'
+        self.repo_obj.files = ['./src/zif_foo.intf.xml', './src/zif_foo.intf.abap']
+
+    def test_main(self):
+        self.assertEqual(files.locate_main_source(self.repo_obj, 'source/main', 12, '.intf.abap'),
+                         ('./src/zif_foo.intf.abap', 12))
+
+    def test_other_part(self):
+        self.assertIsNone(files.locate_main_source(self.repo_obj, 'includes/testclasses', 12, '.intf.abap'))
+
+    def test_no_file(self):
+        self.repo_obj.files = ['./src/zif_foo.intf.xml']
+
+        self.assertIsNone(files.locate_main_source(self.repo_obj, 'source/main', 12, '.intf.abap'))
+
+
 if __name__ == '__main__':
     unittest.main()

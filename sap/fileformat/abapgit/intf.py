@@ -10,7 +10,7 @@ import sap.cli.core
 import sap.fileformat.adt
 import sap.platform.abap.abapgit
 from sap.fileformat import ObjectHandler, ObjectCheckinResult
-from sap.fileformat.abapgit.files import download_abap_source, dump_attributes_to_file, find_object_file
+from sap.fileformat.abapgit.files import download_abap_source, dump_attributes_to_file, locate_main_source
 from sap.platform.abap.ddic import VSEOINTERF, DESCRIPTIONS_SUB
 from sap.platform.language import iso_code_to_sap_code
 
@@ -100,11 +100,4 @@ class InterfaceHandler(ObjectHandler):
         return ObjectCheckinResult([interface], [prepared.source_file])
 
     def locate(self, repo_obj, part, line):
-        if part != 'source/main':
-            return None
-
-        file_path = find_object_file(repo_obj, '.intf.abap')
-        if file_path is None:
-            return None
-
-        return (file_path, line)
+        return locate_main_source(repo_obj, part, line, '.intf.abap')
