@@ -63,3 +63,19 @@ def find_object_file(repo_obj, file_name_end):
             return file_path
 
     return None
+
+
+def locate_main_source(repo_obj, part, line, file_name_end):
+    """Returns (file_path, line) of the line of the ADT source part of
+       the repository object which has only the main source code stored in
+       the file <name><file_name_end> or None.
+    """
+
+    if part != 'source/main':
+        return None
+
+    file_path = find_object_file(repo_obj, file_name_end)
+    if file_path is None:
+        return None
+
+    return (file_path, line)
