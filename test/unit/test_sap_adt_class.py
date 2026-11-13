@@ -54,6 +54,15 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/implementations', str(clas.implementations))
         self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/testclasses', str(clas.test_classes))
 
+    def test_adt_class_include_objtype_code(self):
+        conn = Connection()
+
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+
+        self.assertEqual('CLAS/OC', clas.definitions.objtype.code)
+        self.assertEqual('CLAS/OC', clas.implementations.objtype.code)
+        self.assertEqual('CLAS/OC', clas.test_classes.objtype.code)
+
     def test_adt_class_write(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 

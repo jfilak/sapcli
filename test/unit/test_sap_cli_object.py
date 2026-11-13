@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch, MagicMock, Mock, call, mock_open, PropertyMock
 from types import SimpleNamespace
 
+import sap.adt
 import sap.adt.checks
 import sap.cli.object
 import sap.errors
@@ -915,6 +916,27 @@ class TestCommandGroupObjectMaster(unittest.TestCase):
         fake_metadata.assert_called_once_with(connection, args)
         self.group.instace_mock.assert_called_once_with(connection, 'myname', args, metadata='mock')
         self.group.new_object_mock.create.assert_called_once_with(corrnr=None)
+
+
+class TestPrintoutAdtObject(unittest.TestCase):
+
+    def test_printout_object_with_objtype_code(self):
+        obj = SimpleNamespace(objtype=SimpleNamespace(code='CLAS/OC'), name='ZCL_FOO')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            sap.cli.object.printout_adt_object(fake_console, '  ', obj)
+
+        self.assertEqual(fake_console.capout, '  CLAS/OC ZCL_FOO\n')
+
+    def test_printout_class_include(self):
+        connection = MagicMock()
+        clas = sap.adt.Class(connection, 'CL_FTBHDG_HREL')
+        include = sap.adt.Class.Include.test_classes(clas)
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            sap.cli.object.printout_adt_object(fake_console, '  ', include)
+
+        self.assertEqual(fake_console.capout, '  CLAS/OC CL_FTBHDG_HREL\n')
 
 
 class TestEditTextInEditor(unittest.TestCase):
