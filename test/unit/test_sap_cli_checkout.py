@@ -16,21 +16,19 @@ import sap.platform.abap.abapgit
 import sap.adt
 
 from mock import Connection, Response, patch, PatcherTestCase, ConsoleOutputTestCase, StringIOFile
-from test.unit.fixtures_cli_checkout import DDLS_NAME, DDLS_ADT_GET_RESPONSE_XML, DDLS_SOURCE_CODE, \
-    DDLS_ABAPGIT_XML, DDLS_NO_SOURCE_TYPE_ABAPGIT_XML, DCLS_NAME, DCLS_ADT_GET_RESPONSE_XML, DCLS_SOURCE_CODE, \
-    DCLS_ABAPGIT_XML, DDLX_NAME, DDLX_ADT_GET_RESPONSE_XML, DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML, BDEF_ABAPGIT_XML, \
-    BDEF_SOURCE_CODE, TABL_NAME, TABL_ADT_GET_RESPONSE_XML, TABL_SOURCE_CODE, TABL_ABAPGIT_XML, \
-    TABL_ALL_FEATURES_SOURCE_CODE, TABL_ALL_FEATURES_ABAPGIT_XML, DOMA_ABAPGIT_XML, DOMA_ALL_FIELDS_ABAPGIT_XML, \
-    DOMA_RAWSTRING_ABAPGIT_XML
-from test.unit.fixtures_adt_domain import DOMAIN_NEW_NAME, DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML, \
-    DOMAIN_ADT_GET_ALL_FIELDS_RESPONSE_XML, DOMAIN_ADT_GET_RAWSTRING_RESPONSE_XML
-from test.unit.fixtures_adt_dataelement import DATA_ELEMENT_NEW_NAME, DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML, \
-    DATA_ELEMENT_ADT_GET_DOMAIN_RESPONSE_XML, DATA_ELEMENT_ADT_GET_STRING_RESPONSE_XML
-from test.unit.fixtures_cli_checkout import DTEL_ABAPGIT_XML, DTEL_DOMAIN_ABAPGIT_XML, DTEL_STRING_ABAPGIT_XML
-from test.unit.fixtures_cli_checkout import DBTAB_NAME, DBTAB_ADT_GET_RESPONSE_XML, DBTAB_GENERIC_SOURCE_CODE, \
-    DBTAB_GENERIC_ABAPGIT_XML, DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_SETTINGS_RESPONSE_XML, DBTAB_FULL_ABAPGIT_XML
+from test.unit.fixtures_cli_checkout import DDLS_NAME, DOMA_ABAPGIT_XML, DOMA_ALL_FIELDS_ABAPGIT_XML, \
+    DOMA_RAWSTRING_ABAPGIT_XML, DTEL_ABAPGIT_XML, DTEL_DOMAIN_ABAPGIT_XML, DTEL_STRING_ABAPGIT_XML, \
+    DCLS_SOURCE_CODE, DCLS_ABAPGIT_XML, DCLS_NAME, DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML, DDLX_NAME, BDEF_SOURCE_CODE, \
+    BDEF_ABAPGIT_XML, BDEF_NAME, TABL_SOURCE_CODE, TABL_ABAPGIT_XML, TABL_ALL_FEATURES_SOURCE_CODE, \
+    TABL_ALL_FEATURES_ABAPGIT_XML, TABL_NAME, DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_ABAPGIT_XML, \
+    DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_ABAPGIT_XML, DBTAB_NAME, DBTAB_FULL_SETTINGS_RESPONSE_XML, \
+    DCLS_ADT_GET_RESPONSE_XML, DDLX_ADT_GET_RESPONSE_XML, TABL_ADT_GET_RESPONSE_XML, DBTAB_ADT_GET_RESPONSE_XML
+from test.unit.fixtures_adt_domain import DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML, \
+    DOMAIN_ADT_GET_ALL_FIELDS_RESPONSE_XML, DOMAIN_ADT_GET_RAWSTRING_RESPONSE_XML, DOMAIN_NEW_NAME
+from test.unit.fixtures_adt_dataelement import DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML, \
+    DATA_ELEMENT_ADT_GET_DOMAIN_RESPONSE_XML, DATA_ELEMENT_ADT_GET_STRING_RESPONSE_XML, DATA_ELEMENT_NEW_NAME
 from test.unit.fixtures_adt_table import TABLE_SETTINGS_ADT_GET_RESPONSE_XML
-from test.unit.fixtures_sap_adt_behaviordefinition import BDEF_NAME, BDEF_ADT_GET_RESPONSE_XML
+from test.unit.fixtures_sap_adt_behaviordefinition import BDEF_ADT_GET_RESPONSE_XML
 from test.unit.fixtures_sap_adt_tabletype import TABLE_TYPE_NAME
 
 
@@ -153,6 +151,25 @@ class TestCheckoutTableTypeCommand(unittest.TestCase):
             sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
 
         fake_checkout.assert_called_once_with('connection', 'TTYP/DA', TABLE_TYPE_NAME, 'src')
+
+
+class TestCheckoutDataDefinitionCommand(unittest.TestCase):
+
+    @patch('sap.fileformat.abapgit.ddls.DataDefinitionHandler.checkout')
+    def test_command(self, fake_checkout):
+        args = parse_args(['ddl', DDLS_NAME.lower()])
+        args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', 'DDLS/DF', DDLS_NAME, None)
+
+    @patch('sap.fileformat.abapgit.ddls.DataDefinitionHandler.checkout')
+    def test_checkout_objects(self, fake_checkout):
+        objects = [SimpleNamespace(typ='DDLS/DF', name=DDLS_NAME)]
+
+        with patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', 'DDLS/DF', DDLS_NAME, 'src')
 
 
 class TestCheckoutPackage(unittest.TestCase):
@@ -575,177 +592,6 @@ class TestDDICOutputLength(unittest.TestCase):
 
     def test_ddic_output_length_unknown(self):
         self.assertIsNone(sap.cli.checkout.ddic_output_length('D16D', '000010', '000002'))
-
-
-class TestDDLSSourceType(unittest.TestCase):
-
-    def test_ddls_source_type_view(self):
-        source_type = sap.cli.checkout.ddls_source_type('''@AbapCatalog.sqlViewName: 'ZSAPCLI_CDS_V'
-@EndUserText.label: 'Test CDS view'
-define view ZSAPCLI_CDS
-  as select from tadir
-{
-  pgmid
-}
-''')
-
-        self.assertEqual(source_type, 'V')
-
-    def test_ddls_source_type_view_entity(self):
-        source_type = sap.cli.checkout.ddls_source_type(DDLS_SOURCE_CODE)
-
-        self.assertEqual(source_type, 'W')
-
-    def test_ddls_source_type_root_view_entity(self):
-        source_type = sap.cli.checkout.ddls_source_type('''define root view entity ZSAPCLI_CDS as select from tadir
- {
-  key pgmid
-}
-''')
-
-        self.assertEqual(source_type, 'W')
-
-    def test_ddls_source_type_view_entity_upper_case(self):
-        source_type = sap.cli.checkout.ddls_source_type('''DEFINE VIEW ENTITY ZSAPCLI_CDS
-  AS SELECT FROM tadir
-{
-  pgmid
-}
-''')
-
-        self.assertEqual(source_type, 'W')
-
-    def test_ddls_source_type_projection_view(self):
-        source_type = sap.cli.checkout.ddls_source_type('''define root view entity ZSAPCLI_C_CDS
-  provider contract transactional_query
-  as projection on ZSAPCLI_CDS
-{
-  key pgmid
-}
-''')
-
-        self.assertEqual(source_type, 'P')
-
-    def test_ddls_source_type_table_function(self):
-        source_type = sap.cli.checkout.ddls_source_type('''define table function ZSAPCLI_CDS
-returns {
-  client : abap.clnt;
-  pgmid  : pgmid;
-}
-implemented by method zcl_sapcli_cds=>get_data;
-''')
-
-        self.assertEqual(source_type, 'F')
-
-    def test_ddls_source_type_abstract_entity(self):
-        source_type = sap.cli.checkout.ddls_source_type('''define abstract entity ZSAPCLI_CDS
-{
-  num : abap.int4;
-}
-''')
-
-        self.assertEqual(source_type, 'A')
-
-    def test_ddls_source_type_unknown(self):
-        source_type = sap.cli.checkout.ddls_source_type('''define custom entity ZSAPCLI_CDS
-{
-  key num : abap.int4;
-}
-''')
-
-        self.assertIsNone(source_type)
-
-
-class TestCheckoutDataDefinition(ConsoleOutputTestCase, PatcherTestCase):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        PatcherTestCase.__init__(self)
-
-    def tearDown(self):
-        try:
-            PatcherTestCase.unpatch_all(self)
-        finally:
-            super().tearDown()
-
-    def setUp(self):
-        super().setUp()
-        self.patch_console(self.console)
-
-    def checkout(self, source_code, destdir=None):
-        connection = Connection([Response(text=DDLS_ADT_GET_RESPONSE_XML, status_code=200, headers={}),
-                                 Response(text=source_code, status_code=200,
-                                          headers={'Content-Type': 'text/plain; charset=utf-8'})])
-        written = {}
-
-        def open_file(path, mode, encoding):
-            self.assertEqual(mode, 'w')
-            self.assertEqual(encoding, 'utf8')
-
-            written[path] = StringIOFile('')
-            return written[path]
-
-        with patch('sap.fileformat.abapgit.files.open', side_effect=open_file):
-            sap.cli.checkout.checkout_data_definition(connection, DDLS_NAME, destdir=destdir)
-
-        self.assertEqual(connection.mock_methods(), [
-            ('GET', f'/sap/bc/adt/ddic/ddl/sources/{DDLS_NAME.lower()}'),
-            ('GET', f'/sap/bc/adt/ddic/ddl/sources/{DDLS_NAME.lower()}/source/main'),
-        ])
-
-        return written
-
-    def test_checkout_ddls(self):
-        written = self.checkout(DDLS_SOURCE_CODE)
-
-        self.assertEqual(list(written), [f'{DDLS_NAME.lower()}.ddls.asddls', f'{DDLS_NAME.lower()}.ddls.xml'])
-        self.assertEqual(written[f'{DDLS_NAME.lower()}.ddls.asddls'].getvalue(), DDLS_SOURCE_CODE)
-        self.maxDiff = None
-        self.assertEqual(written[f'{DDLS_NAME.lower()}.ddls.xml'].getvalue(), DDLS_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'''{DDLS_NAME}
-- {DDLS_NAME.lower()}.ddls.asddls
-- {DDLS_NAME.lower()}.ddls.xml
-''')
-
-    def test_checkout_ddls_adds_trailing_new_line(self):
-        written = self.checkout(DDLS_SOURCE_CODE[:-1])
-
-        self.assertEqual(written[f'{DDLS_NAME.lower()}.ddls.asddls'].getvalue(), DDLS_SOURCE_CODE)
-
-    def test_checkout_ddls_destdir(self):
-        written = self.checkout(DDLS_SOURCE_CODE, destdir='src')
-
-        self.assertEqual(list(written), [os.path.join('src', f'{DDLS_NAME.lower()}.ddls.asddls'),
-                                         os.path.join('src', f'{DDLS_NAME.lower()}.ddls.xml')])
-
-    def test_checkout_ddls_unknown_source_type(self):
-        written = self.checkout('''define custom entity ZSAPCLI_CDS
-{
-  key num : abap.int4;
-}
-''')
-
-        self.maxDiff = None
-        self.assertEqual(written[f'{DDLS_NAME.lower()}.ddls.xml'].getvalue(), DDLS_NO_SOURCE_TYPE_ABAPGIT_XML)
-        self.assertEqual(self.console.caperr, f'Unknown source type of data definition {DDLS_NAME}\n')
-
-    def test_checkout_ddls_command(self):
-        args = parse_args(['ddl', DDLS_NAME.lower()])
-
-        with patch('sap.cli.checkout.checkout_data_definition') as fake_checkout:
-            args.execute('connection', args)
-
-        fake_checkout.assert_called_once_with('connection', DDLS_NAME)
-
-    def test_checkout_objects_ddls(self):
-        objects = [SimpleNamespace(typ='DDLS/DF', name=DDLS_NAME)]
-
-        with patch('sap.cli.checkout.checkout_data_definition') as fake_checkout, \
-             patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
-
-        fake_checkout.assert_called_once_with('connection', DDLS_NAME, 'src')
-
 
 
 class TestCheckoutAccessControl(ConsoleOutputTestCase, PatcherTestCase):

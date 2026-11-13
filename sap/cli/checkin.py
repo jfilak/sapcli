@@ -14,7 +14,6 @@ import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
     DEVC,
-    DDLS,
     DCLS,
     DDLX,
     BDEF,
@@ -44,6 +43,7 @@ import sap.cli.wb
 from sap.config import config_get
 import sap.fileformat.adt
 import sap.fileformat.abapgit
+from sap.fileformat.abapgit.cds import prepare_cds_source, checkin_cds_source
 from sap.fileformat import HandlerRegistry, CheckinContext, ObjectCheckinResult
 
 # Handlers of the object types already migrated to sap.fileformat
@@ -360,85 +360,18 @@ def _resolve_dependencies(objects):
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
 
 
-def _prepare_cds_source(repo_obj, abap_type, get_description, source_suffix, label):
-    """Reads and checks the abapGit XML file of the given type and the source
-       code file of the CDS source object without accessing the system
-    """
-
-    source_file = repo_obj.path[:-4] + source_suffix
-    if source_file not in repo_obj.files:
-        raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for {label.lower()} {repo_obj.name}')
-
-    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        abap_data = sap.platform.abap.abapgit.from_xml([abap_type], abap_data_file.read())[abap_type.__name__]
-
-    with open(source_file, 'r', encoding='utf-8') as source:
-        source_code = source.read()
-
-    return SimpleNamespace(description=get_description(abap_data), source_file=source_file, source_code=source_code)
-
-
-# pylint: disable=too-many-arguments
-def _checkin_cds_source(connection, repo_obj, prepared, adt_type, label, corrnr, check_before_save):
-    """Creates the CDS source object and writes its source code. Returns
-       the ADT object and the path of the source code file.
-    """
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper(),
-                                   description=prepared.description)
-    adt_object = adt_type(connection, repo_obj.name.upper(), package=repo_obj.package.name, metadata=metadata)
-
-    try:
-        adt_object.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
-
-    sap.cli.core.printout(f'Writing {label}:', repo_obj.name)
-    sap.fileformat.adt.write_source(prepared.source_code, adt_object, corrnr=corrnr,
-                                    source_label=prepared.source_file,
-                                    check_before_save=check_before_save)
-
-    return (adt_object, prepared.source_file)
-
-
-def prepare_ddls(repo_obj):
-    """Reads and checks the files of the data definition"""
-
-    return _prepare_cds_source(repo_obj, DDLS, lambda ddls: ddls.DDTEXT, '.asddls', 'Data Definition')
-
-
-def checkin_ddls(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Data Definition"""
-
-    sap.cli.core.printout('Creating Data Definition:', repo_obj.name)
-
-    ddl, source_file = _checkin_cds_source(connection, repo_obj, prepared or prepare_ddls(repo_obj),
-                                           sap.adt.DataDefinition, 'Data Definition', corrnr, check_before_save)
-
-    used_files = [source_file]
-
-    # The base info lists the objects the data definition uses and ADT
-    # computes it from the source code
-    baseinfo_file = repo_obj.path[:-4] + '.baseinfo'
-    if baseinfo_file in repo_obj.files:
-        used_files.append(baseinfo_file)
-
-    return ObjectCheckinResult([ddl], used_files)
-
-
 def prepare_dcls(repo_obj):
     """Reads and checks the files of the access control"""
 
-    return _prepare_cds_source(repo_obj, DCLS, lambda dcls: dcls.DDTEXT, '.asdcls', 'Access Control')
+    return prepare_cds_source(repo_obj, DCLS, lambda dcls: dcls.DDTEXT, '.asdcls', 'Access Control')
 
 
 def checkin_dcls(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
     """Checkin ADT Access Control"""
 
-    sap.cli.core.printout('Creating Access Control:', repo_obj.name)
-
-    dcl, source_file = _checkin_cds_source(connection, repo_obj, prepared or prepare_dcls(repo_obj),
-                                           sap.adt.AccessControl, 'Access Control', corrnr, check_before_save)
+    dcl, source_file = checkin_cds_source(
+        CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save), repo_obj,
+        prepared or prepare_dcls(repo_obj), sap.adt.AccessControl, 'Access Control')
 
     return ObjectCheckinResult([dcl], [source_file])
 
@@ -448,18 +381,16 @@ def prepare_ddlx(repo_obj):
 
     # Old abapGit versions stored the source code in the XML file but abapGit
     # has been writing it to the file .asddlxs for years
-    return _prepare_cds_source(repo_obj, DDLX, lambda ddlx: ddlx.METADATA.DESCRIPTION, '.asddlxs',
-                               'Metadata Extension')
+    return prepare_cds_source(repo_obj, DDLX, lambda ddlx: ddlx.METADATA.DESCRIPTION, '.asddlxs',
+                              'Metadata Extension')
 
 
 def checkin_ddlx(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
     """Checkin ADT Metadata Extension"""
 
-    sap.cli.core.printout('Creating Metadata Extension:', repo_obj.name)
-
-    ddlx, source_file = _checkin_cds_source(connection, repo_obj, prepared or prepare_ddlx(repo_obj),
-                                            sap.adt.MetadataExtension, 'Metadata Extension', corrnr,
-                                            check_before_save)
+    ddlx, source_file = checkin_cds_source(
+        CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save), repo_obj,
+        prepared or prepare_ddlx(repo_obj), sap.adt.MetadataExtension, 'Metadata Extension')
 
     return ObjectCheckinResult([ddlx], [source_file])
 
@@ -467,17 +398,15 @@ def checkin_ddlx(connection, repo_obj, corrnr=None, check_before_save=False, pre
 def prepare_bdef(repo_obj):
     """Reads and checks the files of the behavior definition"""
 
-    return _prepare_cds_source(repo_obj, BDEF, lambda bdef: bdef.DESCRIPTION, '.asbdef', 'Behavior Definition')
+    return prepare_cds_source(repo_obj, BDEF, lambda bdef: bdef.DESCRIPTION, '.asbdef', 'Behavior Definition')
 
 
 def checkin_bdef(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
     """Checkin ADT Behavior Definition"""
 
-    sap.cli.core.printout('Creating Behavior Definition:', repo_obj.name)
-
-    bdef, source_file = _checkin_cds_source(connection, repo_obj, prepared or prepare_bdef(repo_obj),
-                                            sap.adt.BehaviorDefinition, 'Behavior Definition', corrnr,
-                                            check_before_save)
+    bdef, source_file = checkin_cds_source(
+        CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save), repo_obj,
+        prepared or prepare_bdef(repo_obj), sap.adt.BehaviorDefinition, 'Behavior Definition')
 
     return ObjectCheckinResult([bdef], [source_file])
 
@@ -913,7 +842,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 
 OBJECT_CHECKIN_HANDLERS = {
-    'ddls': checkin_ddls,
     'dcls': checkin_dcls,
     'ddlx': checkin_ddlx,
     'bdef': checkin_bdef,
@@ -926,7 +854,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # Functions reading and checking the files of objects without accessing
 # the system
 OBJECT_CHECKIN_PREPARERS = {
-    'ddls': prepare_ddls,
     'dcls': prepare_dcls,
     'ddlx': prepare_ddlx,
     'bdef': prepare_bdef,
