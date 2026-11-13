@@ -1293,6 +1293,12 @@ class ClassIncludeMetadata(NamedTuple):
     include_type: str
     source_uri: str
 
+    @property
+    def code(self):
+        """Mimic ADTObjectType's code - the parent object's type code"""
+
+        return self.adt_type
+
     def get_uri_for_type(self, mimetype):
         """Mimic ADTObjectType's implementation"""
 
