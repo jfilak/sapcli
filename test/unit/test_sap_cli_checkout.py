@@ -66,7 +66,7 @@ class TestCheckoutCommandGroup(unittest.TestCase):
 
 class TestCheckout(unittest.TestCase):
 
-    @patch('sap.cli.checkout.checkout_class')
+    @patch('sap.fileformat.abapgit.clas.ClassHandler.checkout')
     def test_checkout_uppercase_name_clas(self, fake_clas):
         conn = Connection()
 
@@ -76,7 +76,7 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['class', 'ZCL_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE'), call(conn, 'ZCL_UPPERCASE')])
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'ZCL_LOWERCASE', None), call(conn, 'ZCL_UPPERCASE', None)])
 
     @patch('sap.cli.checkout.checkout_interface')
     def test_checkout_uppercase_name_intf(self, fake_intf):
@@ -102,120 +102,7 @@ class TestCheckout(unittest.TestCase):
 
         self.assertEqual(fake_prog.mock_calls, [call(conn, 'ZLOWERCASE'), call(conn, 'ZUPPERCASE')])
 
-    @patch('sap.cli.checkout.XMLWriter')
-    @patch('sap.adt.Class')
-    def test_checkout_class(self, fake_clas, fake_writer):
-        fake_inst = Mock()
-        fake_inst.name = 'ZCL_HELLO_WORLD'
-        fake_inst.description = 'Cowabunga'
-        fake_inst.master_language = 'EN'
-        fake_inst.active = 'active'
-        fake_inst.modeled = False
-        fake_inst.fix_point_arithmetic = True
-        fake_inst.text = 'class zcl_hello_world'
-
-        fake_inst.definitions = Mock()
-        fake_inst.definitions.text = '* definitions'
-
-        fake_inst.implementations = Mock()
-        fake_inst.implementations.text = '* implementations'
-
-        fake_inst.test_classes = Mock()
-        fake_inst.test_classes.text = '* tests'
-
-        fake_clas.return_value = fake_inst
-
-        fake_inst = Mock()
-        fake_inst.add = Mock()
-        fake_inst.close = Mock()
-        fake_writer.return_value = fake_inst
-
-        args = parse_args(['class', 'ZCL_HELLO_WORLD'])
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
-            args.execute(Connection(), args)
-
-        assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.abap', 'class zcl_hello_world', fileno=1)
-        assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_def.abap', '* definitions', fileno=2)
-        assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.locals_imp.abap', '* implementations', fileno=3)
-        context_calls = assert_wrote_file(self, fake_open, 'zcl_hello_world.clas.testclasses.abap', '* tests', fileno=4)
-        self.assertEqual(fake_open.mock_calls[context_calls * 4], call('zcl_hello_world.clas.xml', 'w', encoding='utf8'))
-
-        args, kwargs = fake_writer.call_args
-        ag_serializer = args[0]
-        self.assertEqual(ag_serializer, 'LCL_OBJECT_CLAS')
-
-        args, kwargs = fake_writer.return_value.add.call_args
-        vseoclass = args[0]
-        self.assertEqual(vseoclass.CLSNAME, 'ZCL_HELLO_WORLD')
-        self.assertEqual(vseoclass.VERSION, '1')
-        self.assertEqual(vseoclass.LANGU, 'E')
-        self.assertEqual(vseoclass.DESCRIPT, 'Cowabunga')
-        self.assertEqual(vseoclass.STATE, '1')
-        self.assertEqual(vseoclass.CLSCCINCL, 'X')
-        self.assertEqual(vseoclass.FIXPT, 'X')
-        self.assertEqual(vseoclass.UNICODE, 'X')
-
-    @patch('sap.cli.checkout.XMLWriter')
-    @patch('sap.adt.textelements.ClassTextElements')
-    @patch('sap.adt.Class')
-    def test_checkout_class_with_text_symbols(self, fake_clas, fake_texts, fake_writer):
-        fake_inst = Mock()
-        fake_inst.name = 'ZCL_HELLO_WORLD'
-        fake_inst.description = 'Cowabunga'
-        fake_inst.master_language = 'EN'
-        fake_inst.active = 'active'
-        fake_inst.modeled = False
-        fake_inst.fix_point_arithmetic = True
-        fake_inst.text = 'class zcl_hello_world'
-        fake_inst.definitions.text = '* definitions'
-        fake_inst.implementations.text = '* implementations'
-        fake_inst.test_classes.text = '* tests'
-        fake_clas.return_value = fake_inst
-
-        fake_texts.return_value.text = '@MaxLength:20\n001=Hello, world!\n\n@MaxLength:10\n002=a=b'
-
-        added = list()
-        fake_writer.return_value.add.side_effect = added.append
-
-        conn = Connection()
-        args = parse_args(['class', 'ZCL_HELLO_WORLD'])
-        with patch('sap.cli.checkout.open', mock_open()):
-            args.execute(conn, args)
-
-        fake_texts.assert_called_once_with(conn, 'ZCL_HELLO_WORLD')
-
-        self.assertEqual(len(added), 2)
-        self.assertEqual(added[0].CLSNAME, 'ZCL_HELLO_WORLD')
-
-        tpool = added[1]
-        self.assertEqual(len(tpool), 2)
-        self.assertEqual((tpool[0].ID, tpool[0].KEY, tpool[0].ENTRY, tpool[0].LENGTH), ('I', '001', 'Hello, world!', 20))
-        self.assertEqual((tpool[1].ID, tpool[1].KEY, tpool[1].ENTRY, tpool[1].LENGTH), ('I', '002', 'a=b', 10))
-
-    @patch('sap.cli.checkout.XMLWriter')
-    @patch('sap.adt.textelements.ClassTextElements')
-    @patch('sap.adt.Class')
-    def test_checkout_class_text_symbols_error(self, fake_clas, fake_texts, fake_writer):
-        fake_inst = Mock()
-        fake_inst.name = 'ZCL_HELLO_WORLD'
-        fake_inst.master_language = 'EN'
-        fake_clas.return_value = fake_inst
-
-        type(fake_texts.return_value).text = PropertyMock(
-            side_effect=sap.adt.errors.ExceptionResourceNotFound('Cannot access text elements'))
-
-        added = list()
-        fake_writer.return_value.add.side_effect = added.append
-
-        args = parse_args(['class', 'ZCL_HELLO_WORLD'])
-        with patch('sap.cli.checkout.open', mock_open()), \
-             patch('sap.cli.core.printerr') as fake_printerr:
-            args.execute(Connection(), args)
-
-        fake_printerr.assert_called_once_with('Download of text elements failed: Cannot access text elements')
-        self.assertEqual(len(added), 1)
-
-    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.fileformat.abapgit.files.XMLWriter')
     @patch('sap.adt.Interface.fetch')
     @patch('sap.adt.Interface.text', new_callable=PropertyMock)
     def test_checkout_interface(self, fake_text, fake_fetch, fake_writer):
@@ -234,7 +121,7 @@ class TestCheckout(unittest.TestCase):
 
         args = parse_args(['interface', 'ZIF_HELLO_WORLD'])
         with patch('sap.adt.Interface') as fake_intf, \
-             patch('sap.cli.checkout.open', mock_open()) as fake_open:
+             patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
             fake_intf.return_value = fake_inst
             args.execute(fake_conn, args)
 
@@ -254,7 +141,7 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(vseointerf.STATE, '1')
         self.assertEqual(vseointerf.UNICODE, 'X')
 
-    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.fileformat.abapgit.files.XMLWriter')
     @patch('sap.adt.Program')
     def test_checkout_program(self, fake_program, fake_writer):
         fake_inst = Mock()
@@ -286,7 +173,7 @@ class TestCheckout(unittest.TestCase):
 
         conn = Connection()
         args = parse_args(['program', 'Z_HELLO_WORLD'])
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+        with patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
             args.execute(conn, args)
 
         assert_wrote_file(self, fake_open, 'z_hello_world.prog.abap', 'REPORT z_hello_world')
@@ -317,7 +204,7 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(item.LENGTH, len('Cowabunga'))
 
 
-    @patch('sap.cli.checkout.XMLWriter')
+    @patch('sap.fileformat.abapgit.files.XMLWriter')
     @patch('sap.adt.textelements.ProgramTextElements')
     @patch('sap.adt.Program')
     def test_checkout_program_with_text_symbols(self, fake_program, fake_texts, fake_writer):
@@ -336,7 +223,7 @@ class TestCheckout(unittest.TestCase):
 
         conn = Connection()
         args = parse_args(['program', 'Z_HELLO_WORLD'])
-        with patch('sap.cli.checkout.open', mock_open()):
+        with patch('sap.fileformat.abapgit.files.open', mock_open()):
             args.execute(conn, args)
 
         fake_texts.assert_called_once_with(conn, 'Z_HELLO_WORLD')
@@ -345,30 +232,6 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(len(tpool), 2)
         self.assertEqual((tpool[0].ID, tpool[0].KEY, tpool[0].ENTRY, tpool[0].LENGTH), ('I', '001', 'Hello, world!', 20))
         self.assertEqual((tpool[1].ID, tpool[1].KEY, tpool[1].ENTRY, tpool[1].LENGTH), ('R', None, 'Cowabunga', 9))
-
-
-class TestCheckoutClass(unittest.TestCase):
-
-    @patch('sap.adt.Class')
-    def test_build_class_attributes(self, fake_class):
-        fake_inst = Mock()
-        fake_inst.name = 'ZCL_HELLO_WORLD'
-        fake_inst.description = 'Cowabunga'
-        fake_inst.master_language = 'EN'
-        fake_inst.active = 'inactive'
-        fake_inst.modeled = True
-        fake_inst.fix_point_arithmetic = False
-
-        vseoclass = sap.cli.checkout.build_class_abap_attributes(fake_inst)
-
-        self.assertEqual(vseoclass.CLSNAME, 'ZCL_HELLO_WORLD')
-        self.assertEqual(vseoclass.VERSION, '0')
-        self.assertEqual(vseoclass.LANGU, 'E')
-        self.assertEqual(vseoclass.DESCRIPT, 'Cowabunga')
-        self.assertEqual(vseoclass.STATE, '0')
-        self.assertEqual(vseoclass.CLSCCINCL, 'X')
-        self.assertEqual(vseoclass.FIXPT, ' ')
-        self.assertEqual(vseoclass.UNICODE, 'X')
 
 
 class TestCheckoutInterface(unittest.TestCase):
@@ -442,7 +305,7 @@ class TestCheckoutPackage(unittest.TestCase):
     @patch('sap.adt.Package.fetch')
     @patch('sap.cli.checkout.dump_attributes_to_file')
     @patch('sap.cli.checkout.checkout_function_group')
-    @patch('sap.cli.checkout.checkout_class')
+    @patch('sap.fileformat.abapgit.clas.ClassHandler.checkout')
     @patch('sap.cli.checkout.checkout_interface')
     @patch('sap.cli.checkout.checkout_program')
     @patch('sap.adt.package.walk')
@@ -724,7 +587,7 @@ class TestCheckoutFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
         fake_funcgrp_class = self.patch('sap.adt.FunctionGroup')
         fake_funcgrp_class.return_value = self.fake_funcgrp
 
-    @patch('sap.cli.checkout.open')
+    @patch('sap.fileformat.abapgit.files.open')
     def test_checkout_function_group(self, fake_open):
         self.set_up_fixture_objects()
         fake_write = self.MockOpenWrite()
@@ -742,7 +605,7 @@ class TestCheckoutFunctionGroup(ConsoleOutputTestCase, PatcherTestCase):
             [call(self.fake_funcgrp.name, fn_include, f'.fugr.{fn_include.name}', destdir=None) for fn_include in self.includes]
         )
 
-    @patch('sap.cli.checkout.open')
+    @patch('sap.fileformat.abapgit.files.open')
     def test_checkout_function_group_abap(self, fake_open):
         self.set_up_fixture_objects()
         fake_write = self.MockOpenWrite()
@@ -819,7 +682,7 @@ class TestCheckoutTableType(ConsoleOutputTestCase, PatcherTestCase):
     def checkout(self, adt_response_xml, destdir=None):
         connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
 
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+        with patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
             sap.cli.checkout.checkout_table_type(connection, TABLE_TYPE_NAME, destdir=destdir)
 
         self.assertEqual(len(connection.execs), 1)
@@ -910,7 +773,7 @@ class TestCheckoutDomain(ConsoleOutputTestCase, PatcherTestCase):
     def checkout(self, adt_response_xml, destdir=None):
         connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
 
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+        with patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
             sap.cli.checkout.checkout_domain(connection, DOMAIN_NEW_NAME, destdir=destdir)
 
         self.assertEqual(len(connection.execs), 1)
@@ -984,7 +847,7 @@ class TestCheckoutDataElement(ConsoleOutputTestCase, PatcherTestCase):
     def checkout(self, adt_response_xml, destdir=None):
         connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
 
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+        with patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
             sap.cli.checkout.checkout_data_element(connection, DATA_ELEMENT_NEW_NAME, destdir=destdir)
 
         self.assertEqual(len(connection.execs), 1)
@@ -1207,7 +1070,7 @@ class TestCheckoutDataDefinition(ConsoleOutputTestCase, PatcherTestCase):
             written[path] = StringIOFile('')
             return written[path]
 
-        with patch('sap.cli.checkout.open', side_effect=open_file):
+        with patch('sap.fileformat.abapgit.files.open', side_effect=open_file):
             sap.cli.checkout.checkout_data_definition(connection, DDLS_NAME, destdir=destdir)
 
         self.assertEqual(connection.mock_methods(), [
@@ -1299,7 +1162,7 @@ class TestCheckoutAccessControl(ConsoleOutputTestCase, PatcherTestCase):
             written[path] = StringIOFile('')
             return written[path]
 
-        with patch('sap.cli.checkout.open', side_effect=open_file):
+        with patch('sap.fileformat.abapgit.files.open', side_effect=open_file):
             sap.cli.checkout.checkout_access_control(connection, DCLS_NAME, destdir=destdir)
 
         self.assertEqual(connection.mock_methods(), [
@@ -1376,7 +1239,7 @@ class TestCheckoutMetadataExtension(ConsoleOutputTestCase, PatcherTestCase):
             written[path] = StringIOFile('')
             return written[path]
 
-        with patch('sap.cli.checkout.open', side_effect=open_file):
+        with patch('sap.fileformat.abapgit.files.open', side_effect=open_file):
             sap.cli.checkout.checkout_metadata_extension(connection, DDLX_NAME, destdir=destdir)
 
         self.assertEqual(connection.mock_methods(), [
@@ -1453,7 +1316,7 @@ class TestCheckoutBehaviorDefinition(ConsoleOutputTestCase, PatcherTestCase):
             written[path] = StringIOFile('')
             return written[path]
 
-        with patch('sap.cli.checkout.open', side_effect=open_file):
+        with patch('sap.fileformat.abapgit.files.open', side_effect=open_file):
             sap.cli.checkout.checkout_behavior_definition(connection, BDEF_NAME, destdir=destdir)
 
         self.assertEqual(connection.mock_methods(), [
@@ -1542,7 +1405,7 @@ class TestCheckoutStructure(ConsoleOutputTestCase, PatcherTestCase):
                                  Response(text=source_code, status_code=200,
                                           headers={'Content-Type': 'text/plain; charset=utf-8'})])
 
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+        with patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
             sap.cli.checkout.checkout_structure(connection, TABL_NAME, destdir=destdir)
 
         self.assertEqual(connection.mock_methods(), [
@@ -1683,7 +1546,7 @@ class TestCheckoutTable(ConsoleOutputTestCase, PatcherTestCase):
                                           headers={'Content-Type': 'text/plain; charset=utf-8'}),
                                  Response(text=settings_xml, status_code=200, headers={})])
 
-        with patch('sap.cli.checkout.open', mock_open()) as fake_open:
+        with patch('sap.fileformat.abapgit.files.open', mock_open()) as fake_open:
             sap.cli.checkout.checkout_table(connection, DBTAB_NAME, destdir=destdir)
 
         self.assertEqual(connection.mock_methods(), [
