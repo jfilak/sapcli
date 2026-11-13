@@ -133,7 +133,7 @@ class TestLoadSettings(LayoutTestCase):
         fake_open.assert_called_once_with('.abapgit.xml', 'r', encoding='utf-8')
         self.assertEqual(settings.STARTING_FOLDER, '/src/')
         self.assertEqual(settings.FOLDER_LOGIC, FOLDER_LOGIC_PREFIX)
-        self.assertConsoleContents(self.console, stdout='Using starting-folder from .abapgit.xml: /src/\n')
+        self.assertConsoleContents(self.console, stderr='Using starting-folder from .abapgit.xml: /src/\n')
 
     def test_file_with_the_same_starting_folder(self):
         self.patch('sap.fileformat.abapgit.layout.open', new=mock_open(read_data=ABAP_GIT_DEFAULT_XML))

@@ -9,6 +9,7 @@ from unittest.mock import patch, call, Mock, mock_open
 
 import sap.adt.cts
 import sap.cli.aunit
+import sap.cli.localrepo
 from fixtures_adt_aunit import (
     AUNIT_NO_TEST_RESULTS_XML,
     AUNIT_RESULTS_XML,
@@ -1370,6 +1371,122 @@ class TestPrintACoverageHumanSkipCovered(unittest.TestCase):
 
         self.assertEqual(output.capout,
 '''EMPTY : 0.00% : 0.00% : 0.00%
+''')
+
+
+class LocalRepositoryTestCase(unittest.TestCase):
+    """Local repository with the class FOO and the program ZREPORT"""
+
+    def setUp(self):
+        super().setUp()
+
+        from sap.fileformat import RepoObject, RepoPackage, Repository
+
+        clas_handler = sap.cli.localrepo.OBJECT_HANDLERS.for_adt_type('CLAS/OC')
+        prog_handler = sap.cli.localrepo.OBJECT_HANDLERS.for_adt_type('PROG/P')
+
+        package = RepoPackage('./src/', './src/package.devc.xml', None)
+        self.clas = RepoObject('clas', 'foo', './src/foo.clas.xml',
+                               ['./src/foo.clas.abap', './src/foo.clas.testclasses.abap'], package, clas_handler)
+        self.prog = RepoObject('prog', 'zreport', './src/zreport.prog.xml', ['./src/zreport.prog.abap'], package,
+                               prog_handler)
+        self.repo = Repository([package], [self.clas, self.prog], [], None)
+        self.local_objects = {('CLAS/OC', 'FOO'): self.clas, ('PROG/P', 'ZREPORT'): self.prog}
+
+
+class TestFindTestClass(LocalRepositoryTestCase):
+
+    @patch('os.walk')
+    def test_local_object(self, fake_walk):
+        filename = sap.cli.aunit.find_testclass('$PKG', 'FOO', 'LTCL_FOO', file_required=True,
+                                                local_objects=self.local_objects)
+
+        self.assertEqual(filename, 'src/foo.clas.testclasses.abap')
+        fake_walk.assert_not_called()
+
+    @patch('os.walk')
+    def test_local_object_not_found_required(self, fake_walk):
+        filename = sap.cli.aunit.find_testclass('$PKG', 'BAR', 'LTCL_BAR', file_required=True,
+                                                local_objects=self.local_objects)
+
+        self.assertIsNone(filename)
+        fake_walk.assert_not_called()
+
+    @patch('os.walk')
+    def test_local_object_not_found(self, fake_walk):
+        filename = sap.cli.aunit.find_testclass('$PKG', 'BAR', 'LTCL_BAR', local_objects=self.local_objects)
+
+        self.assertEqual(filename, '$PKG/BAR=>LTCL_BAR')
+        fake_walk.assert_not_called()
+
+    @patch('os.walk')
+    def test_no_repository_walks_directories(self, fake_walk):
+        fake_walk.return_value = [('./anywhere', None, ['foo.clas.testclasses.abap'])]
+
+        filename = sap.cli.aunit.find_testclass('$PKG', 'FOO', 'LTCL_FOO', file_required=True)
+
+        self.assertEqual(filename, 'anywhere/foo.clas.testclasses.abap')
+
+
+class TestLocalFilesInOutputs(LocalRepositoryTestCase):
+
+    def test_missed_statements(self):
+        from sap.adt.acoverage_statements import parse_statements_response
+
+        parsed = parse_statements_response(ACOVERAGE_STATEMENTS_RESULTS_XML.encode('utf-8'))
+        output = BufferConsole()
+
+        sap.cli.aunit.print_missed_statements(parsed.statement_responses, output, local_objects=self.local_objects)
+
+        self.assertEqual(output.capout,
+'''Missed statements:
+src/foo.clas.abap
+- 224-225
+''')
+
+    def test_missed_statements_object_not_in_repository(self):
+        from sap.adt.acoverage_statements import parse_statements_response
+
+        parsed = parse_statements_response(ACOVERAGE_STATEMENTS_RESULTS_XML.encode('utf-8'))
+        output = BufferConsole()
+
+        sap.cli.aunit.print_missed_statements(parsed.statement_responses, output,
+                                              local_objects={('PROG/P', 'ZREPORT'): self.prog})
+
+        self.assertEqual(output.capout,
+'''Missed statements:
+foo (source/main)
+- 224-225
+''')
+
+    def test_jacoco_source_file(self):
+        self.assertEqual(sap.cli.aunit.jacoco_source_file('FOO', self.local_objects), 'src/foo.clas.abap')
+
+    def test_jacoco_source_file_program(self):
+        self.assertEqual(sap.cli.aunit.jacoco_source_file('ZREPORT', self.local_objects), 'src/zreport.prog.abap')
+
+    def test_jacoco_source_file_not_in_repository(self):
+        self.assertEqual(sap.cli.aunit.jacoco_source_file('BAR', self.local_objects), 'BAR')
+
+    def test_jacoco_source_file_no_repository(self):
+        self.assertEqual(sap.cli.aunit.jacoco_source_file('FOO', None), 'FOO')
+
+    def test_sonar(self):
+        results = sap.adt.aunit.parse_aunit_response(AUNIT_RESULTS_NO_TEST_METHODS_XML).run_results
+        clas = self.clas._replace(name='zcl_theking_manual_hardcore',
+                                  files=['./src/zcl_theking_manual_hardcore.clas.testclasses.abap'])
+        output = BufferConsole()
+
+        sap.cli.aunit.print_aunit_sonar(results, SimpleNamespace(name=['foo']), output,
+                                        local_objects={('CLAS/OC', 'ZCL_THEKING_MANUAL_HARDCORE'): clas})
+
+        self.assertEqual(
+            output.capout,
+            '''<?xml version="1.0" encoding="UTF-8" ?>
+<testExecutions version="1">
+  <file path="src/zcl_theking_manual_hardcore.clas.testclasses.abap">
+  </file>
+</testExecutions>
 ''')
 
 

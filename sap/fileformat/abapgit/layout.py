@@ -50,7 +50,8 @@ def load_settings(starting_folder):
         return DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER=starting_folder)
 
     if settings.STARTING_FOLDER != starting_folder:
-        sap.cli.core.printout(f'Using starting-folder from {SETTINGS_FILE_NAME}: {settings.STARTING_FOLDER}')
+        # stdout belongs to the results of commands (e.g. XML reports)
+        sap.cli.core.printerr(f'Using starting-folder from {SETTINGS_FILE_NAME}: {settings.STARTING_FOLDER}')
 
     return settings
 
