@@ -25,14 +25,13 @@ from fixtures_cli_checkin import PACKAGE_DEVC_UNKNOWN_XML, PACKAGE_DEVC_LANGUAGE
     DTEL_XML, DTEL_DOMAIN_XML, DBTAB_XML, DBTAB_ADT_NEW_OBJECT_REQUEST_XML, DBTAB_SOURCE_CODE, \
     DBTAB_SETTINGS_REQUEST_XML, DBTAB_NAME, DBTAB_FULL_XML, DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_SETTINGS_REQUEST_XML, \
     DBTAB_GENERIC_XML, DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_SETTINGS_REQUEST_XML, DBTAB_FOREIGN_KEYS_XML, \
-    DBTAB_KEY_INCLUDE_XML, DCLS_ADT_NEW_OBJECT_REQUEST_XML, DCLS_NAME, DCLS_SOURCE_CODE, \
-    DDLX_ADT_NEW_OBJECT_REQUEST_XML, DDLX_SOURCE_CODE, DDLX_NAME, BDEF_ADT_NEW_OBJECT_REQUEST_XML, BDEF_SOURCE_CODE, \
-    BDEF_NAME, TABL_ADT_NEW_OBJECT_REQUEST_XML, TABL_XML, TABL_SOURCE_CODE, TABL_NAME, TABL_ALL_FEATURES_XML, \
-    TABL_ALL_FEATURES_SOURCE_CODE, TABL_NO_EXCLASS_XML, TABL_NO_EXCLASS_SOURCE_CODE, TABL_DELIMITED_GROUP_XML, \
-    TABL_DELIMITED_GROUP_SOURCE_CODE, TABL_POOL_XML, TABL_UNKNOWN_EXCLASS_XML, TABL_REFERENCE_XML, \
-    TABL_UNKNOWN_DATATYPE_XML, TABL_APPEND_XML, TABL_UNKNOWN_REFERENCE_XML, TABL_FOREIGN_KEYS_XML, \
-    DOMA_ALL_FIELDS_XML, DOMA_TRANSLATIONS_XML, DTEL_TRANSLATIONS_XML, DTEL_REFERENCE_XML, DCLS_XML, \
-    DCLS_ABAP_LANGUAGE_VERSION_XML, DCLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DDLX_XML, DDLX_ABAP_LANGUAGE_VERSION_XML, \
+    DBTAB_KEY_INCLUDE_XML, DDLX_ADT_NEW_OBJECT_REQUEST_XML, DDLX_SOURCE_CODE, DDLX_NAME, \
+    BDEF_ADT_NEW_OBJECT_REQUEST_XML, BDEF_SOURCE_CODE, BDEF_NAME, TABL_ADT_NEW_OBJECT_REQUEST_XML, TABL_XML, \
+    TABL_SOURCE_CODE, TABL_NAME, TABL_ALL_FEATURES_XML, TABL_ALL_FEATURES_SOURCE_CODE, TABL_NO_EXCLASS_XML, \
+    TABL_NO_EXCLASS_SOURCE_CODE, TABL_DELIMITED_GROUP_XML, TABL_DELIMITED_GROUP_SOURCE_CODE, TABL_POOL_XML, \
+    TABL_UNKNOWN_EXCLASS_XML, TABL_REFERENCE_XML, TABL_UNKNOWN_DATATYPE_XML, TABL_APPEND_XML, \
+    TABL_UNKNOWN_REFERENCE_XML, TABL_FOREIGN_KEYS_XML, DOMA_ALL_FIELDS_XML, DOMA_TRANSLATIONS_XML, \
+    DTEL_TRANSLATIONS_XML, DTEL_REFERENCE_XML, DDLX_XML, DDLX_ABAP_LANGUAGE_VERSION_XML, \
     DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, BDEF_XML, BDEF_ADT_ALREADY_EXISTS_RESPONSE_XML, \
     TABL_ADT_ALREADY_EXISTS_RESPONSE_XML
 from fixtures_adt_domain import DOMAIN_ADT_NEW_OBJECT_REQUEST_XML, DOMAIN_ADT_DEFINE_SAMPLE_REQUEST_XML, \
@@ -1321,125 +1320,6 @@ Writing Technical Settings: {DBTAB_NAME.lower()}
         message = self.checkin_failure(DBTAB_KEY_INCLUDE_XML)
 
         self.assertEqual(message, f'Unsupported key include ZZS_CRITERIA of table {DBTAB_NAME.lower()}')
-
-
-@patch('sap.adt.objects.ADTObject.unlock')
-@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestCheckInAccessControl(ConsoleOutputTestCase, PatcherTestCase):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        PatcherTestCase.__init__(self)
-
-    def tearDown(self):
-        try:
-            PatcherTestCase.unpatch_all(self)
-        finally:
-            super().tearDown()
-
-    def setUp(self):
-        super().setUp()
-        self.patch_console(self.console)
-
-        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
-        self.source_file = f'./src/{DCLS_NAME.lower()}.dcls.asdcls'
-        self.repo_obj = sap.cli.checkin.RepoObject('dcls', DCLS_NAME.lower(),
-                                                   f'./src/{DCLS_NAME.lower()}.dcls.xml', self.package,
-                                                   [self.source_file])
-
-        self.fake_open = self.patch('sap.fileformat.abapgit.cds.open')
-        self.fake_open.side_effect = [StringIOFile(DCLS_XML), StringIOFile(DCLS_SOURCE_CODE)]
-
-    def responses_ok(self):
-        return [
-            Response(text='', status_code=200, headers={}),
-            Response(text='', status_code=200, headers={}),
-        ]
-
-    def assert_requests(self, connection, create_params=None, write_params=None):
-        self.assertEqual(len(connection.execs), 2)
-
-        self.assertEqual(connection.execs[0].method, 'POST')
-        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/acm/dcl/sources')
-        self.assertEqual(connection.execs[0].params, create_params)
-        self.maxDiff = None
-        self.assertEqual(connection.execs[0].body.decode('utf-8'), DCLS_ADT_NEW_OBJECT_REQUEST_XML)
-
-        self.assertEqual(connection.execs[1].method, 'PUT')
-        self.assertEqual(connection.execs[1].adt_uri, f'/sap/bc/adt/acm/dcl/sources/{DCLS_NAME.lower()}/source/main')
-        self.assertEqual(connection.execs[1].headers, {'Content-Type': 'text/plain; charset=utf-8'})
-        self.assertEqual(connection.execs[1].params, write_params or {'lockHandle': 'lock_handle'})
-        self.assertEqual(connection.execs[1].body.decode('utf-8'), DCLS_SOURCE_CODE[:-1])
-
-    def test_checkin_dcls(self, fake_lock, fake_unlock):
-        connection = Connection(self.responses_ok(), user='DEVELOPER')
-
-        result = sap.cli.checkin.checkin_dcls(connection, self.repo_obj)
-
-        self.assert_requests(connection)
-        fake_lock.assert_called_once()
-        fake_unlock.assert_called_once()
-
-        self.assertEqual(self.fake_open.call_args_list, [call(self.repo_obj.path, encoding='utf-8'),
-                                                         call(self.source_file, 'r', encoding='utf-8')])
-
-        self.assertEqual(len(result.abap_objects), 1)
-        self.assertEqual(result.abap_objects[0].name, DCLS_NAME)
-        self.assertEqual(result.used_files, [self.source_file])
-
-        self.assertConsoleContents(self.console, stdout=f'''Creating Access Control: {DCLS_NAME.lower()}
-Writing Access Control: {DCLS_NAME.lower()}
-''')
-
-    def test_checkin_dcls_abap_language_version(self, fake_lock, fake_unlock):
-        self.fake_open.side_effect = [StringIOFile(DCLS_ABAP_LANGUAGE_VERSION_XML), StringIOFile(DCLS_SOURCE_CODE)]
-        connection = Connection(self.responses_ok(), user='DEVELOPER')
-
-        sap.cli.checkin.checkin_dcls(connection, self.repo_obj)
-
-        self.assert_requests(connection)
-
-    def test_checkin_dcls_with_corrnr(self, fake_lock, fake_unlock):
-        connection = Connection(self.responses_ok(), user='DEVELOPER')
-
-        sap.cli.checkin.checkin_dcls(connection, self.repo_obj, corrnr='420')
-
-        self.assert_requests(connection, create_params={'corrNr': '420'},
-                             write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
-
-    def test_checkin_dcls_already_exists(self, fake_lock, fake_unlock):
-        responses = self.responses_ok()
-        responses[0] = Response(text=DCLS_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
-                                headers={'content-type': 'application/xml'})
-        connection = Connection(responses, user='DEVELOPER')
-
-        sap.cli.checkin.checkin_dcls(connection, self.repo_obj)
-
-        self.assert_requests(connection)
-
-    def test_checkin_dcls_no_source_file(self, fake_lock, fake_unlock):
-        repo_obj = self.repo_obj._replace(files=[])
-        connection = Connection([], user='DEVELOPER')
-
-        with self.assertRaises(ExceptionCheckinFailure) as caught:
-            sap.cli.checkin.checkin_dcls(connection, repo_obj)
-
-        self.assertEqual(str(caught.exception), f'No source file for access control {DCLS_NAME.lower()}')
-        self.assertEqual(connection.execs, [])
-        self.fake_open.assert_not_called()
-
-    def test_checkin_dcls_check_before_save(self, fake_lock, fake_unlock):
-        connection = Connection(self.responses_ok(), user='DEVELOPER')
-
-        with patch('sap.fileformat.adt.write_source') as fake_write:
-            result = sap.cli.checkin.checkin_dcls(connection, self.repo_obj, check_before_save=True)
-
-        fake_write.assert_called_once_with(DCLS_SOURCE_CODE, result.abap_objects[0], corrnr=None,
-                                           source_label=self.source_file, check_before_save=True)
-
-    def test_checkin_dcls_handler(self, fake_lock, fake_unlock):
-        self.assertEqual(sap.cli.checkin.OBJECT_CHECKIN_HANDLERS['dcls'], sap.cli.checkin.checkin_dcls)
-
 
 
 @patch('sap.adt.objects.ADTObject.unlock')

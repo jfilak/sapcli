@@ -18,11 +18,12 @@ import sap.adt
 from mock import Connection, Response, patch, PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 from test.unit.fixtures_cli_checkout import DDLS_NAME, DOMA_ABAPGIT_XML, DOMA_ALL_FIELDS_ABAPGIT_XML, \
     DOMA_RAWSTRING_ABAPGIT_XML, DTEL_ABAPGIT_XML, DTEL_DOMAIN_ABAPGIT_XML, DTEL_STRING_ABAPGIT_XML, \
-    DCLS_SOURCE_CODE, DCLS_ABAPGIT_XML, DCLS_NAME, DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML, DDLX_NAME, BDEF_SOURCE_CODE, \
-    BDEF_ABAPGIT_XML, BDEF_NAME, TABL_SOURCE_CODE, TABL_ABAPGIT_XML, TABL_ALL_FEATURES_SOURCE_CODE, \
-    TABL_ALL_FEATURES_ABAPGIT_XML, TABL_NAME, DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_ABAPGIT_XML, \
-    DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_ABAPGIT_XML, DBTAB_NAME, DBTAB_FULL_SETTINGS_RESPONSE_XML, \
-    DCLS_ADT_GET_RESPONSE_XML, DDLX_ADT_GET_RESPONSE_XML, TABL_ADT_GET_RESPONSE_XML, DBTAB_ADT_GET_RESPONSE_XML
+    DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML, DDLX_NAME, BDEF_SOURCE_CODE, BDEF_ABAPGIT_XML, BDEF_NAME, TABL_SOURCE_CODE, \
+    TABL_ABAPGIT_XML, TABL_ALL_FEATURES_SOURCE_CODE, TABL_ALL_FEATURES_ABAPGIT_XML, TABL_NAME, \
+    DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_ABAPGIT_XML, DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_ABAPGIT_XML, \
+    DBTAB_NAME, DBTAB_FULL_SETTINGS_RESPONSE_XML, DDLX_ADT_GET_RESPONSE_XML, TABL_ADT_GET_RESPONSE_XML, \
+    DBTAB_ADT_GET_RESPONSE_XML
+from test.unit.fixtures_sap_fileformat_abapgit_dcls import DCLS_NAME
 from test.unit.fixtures_adt_domain import DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML, \
     DOMAIN_ADT_GET_ALL_FIELDS_RESPONSE_XML, DOMAIN_ADT_GET_RAWSTRING_RESPONSE_XML, DOMAIN_NEW_NAME
 from test.unit.fixtures_adt_dataelement import DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML, \
@@ -170,6 +171,25 @@ class TestCheckoutDataDefinitionCommand(unittest.TestCase):
             sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
 
         fake_checkout.assert_called_once_with('connection', 'DDLS/DF', DDLS_NAME, 'src')
+
+
+class TestCheckoutAccessControlCommand(unittest.TestCase):
+
+    @patch('sap.fileformat.abapgit.dcls.AccessControlHandler.checkout')
+    def test_command(self, fake_checkout):
+        args = parse_args(['dcl', DCLS_NAME.lower()])
+        args.execute('connection', args)
+
+        fake_checkout.assert_called_once_with('connection', 'DCLS/DL', DCLS_NAME, None)
+
+    @patch('sap.fileformat.abapgit.dcls.AccessControlHandler.checkout')
+    def test_checkout_objects(self, fake_checkout):
+        objects = [SimpleNamespace(typ='DCLS/DL', name=DCLS_NAME)]
+
+        with patch('os.path.isdir', return_value=True):
+            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+
+        fake_checkout.assert_called_once_with('connection', 'DCLS/DL', DCLS_NAME, 'src')
 
 
 class TestCheckoutPackage(unittest.TestCase):
@@ -592,83 +612,6 @@ class TestDDICOutputLength(unittest.TestCase):
 
     def test_ddic_output_length_unknown(self):
         self.assertIsNone(sap.cli.checkout.ddic_output_length('D16D', '000010', '000002'))
-
-
-class TestCheckoutAccessControl(ConsoleOutputTestCase, PatcherTestCase):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        PatcherTestCase.__init__(self)
-
-    def tearDown(self):
-        try:
-            PatcherTestCase.unpatch_all(self)
-        finally:
-            super().tearDown()
-
-    def setUp(self):
-        super().setUp()
-        self.patch_console(self.console)
-
-    def checkout(self, destdir=None):
-        connection = Connection([Response(text=DCLS_ADT_GET_RESPONSE_XML, status_code=200, headers={}),
-                                 Response(text=DCLS_SOURCE_CODE, status_code=200,
-                                          headers={'Content-Type': 'text/plain; charset=utf-8'})])
-        written = {}
-
-        def open_file(path, mode, encoding):
-            self.assertEqual(mode, 'w')
-            self.assertEqual(encoding, 'utf8')
-
-            written[path] = StringIOFile('')
-            return written[path]
-
-        with patch('sap.fileformat.abapgit.files.open', side_effect=open_file):
-            sap.cli.checkout.checkout_access_control(connection, DCLS_NAME, destdir=destdir)
-
-        self.assertEqual(connection.mock_methods(), [
-            ('GET', f'/sap/bc/adt/acm/dcl/sources/{DCLS_NAME.lower()}'),
-            ('GET', f'/sap/bc/adt/acm/dcl/sources/{DCLS_NAME.lower()}/source/main'),
-        ])
-
-        return written
-
-    def test_checkout_dcls(self):
-        written = self.checkout()
-
-        self.assertEqual(list(written), [f'{DCLS_NAME.lower()}.dcls.asdcls', f'{DCLS_NAME.lower()}.dcls.xml'])
-        # abapGit writes the source code of access controls as it is
-        self.assertEqual(written[f'{DCLS_NAME.lower()}.dcls.asdcls'].getvalue(), DCLS_SOURCE_CODE)
-        self.maxDiff = None
-        self.assertEqual(written[f'{DCLS_NAME.lower()}.dcls.xml'].getvalue(), DCLS_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'''{DCLS_NAME}
-- {DCLS_NAME.lower()}.dcls.asdcls
-- {DCLS_NAME.lower()}.dcls.xml
-''')
-
-    def test_checkout_dcls_destdir(self):
-        written = self.checkout(destdir='src')
-
-        self.assertEqual(list(written), [os.path.join('src', f'{DCLS_NAME.lower()}.dcls.asdcls'),
-                                         os.path.join('src', f'{DCLS_NAME.lower()}.dcls.xml')])
-
-    def test_checkout_dcls_command(self):
-        args = parse_args(['dcl', DCLS_NAME.lower()])
-
-        with patch('sap.cli.checkout.checkout_access_control') as fake_checkout:
-            args.execute('connection', args)
-
-        fake_checkout.assert_called_once_with('connection', DCLS_NAME)
-
-    def test_checkout_objects_dcls(self):
-        objects = [SimpleNamespace(typ='DCLS/DL', name=DCLS_NAME)]
-
-        with patch('sap.cli.checkout.checkout_access_control') as fake_checkout, \
-             patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
-
-        fake_checkout.assert_called_once_with('connection', DCLS_NAME, 'src')
-
 
 
 class TestCheckoutMetadataExtension(ConsoleOutputTestCase, PatcherTestCase):
