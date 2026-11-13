@@ -14,9 +14,6 @@ import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
     DEVC,
-    AREAT,
-    INCLUDES,
-    FUNCTIONS,
     DD40V,
     DD42V_TABLE,
     DD43V_TABLE,
@@ -368,178 +365,6 @@ def _resolve_dependencies(objects):
             others.append(obj)
 
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
-
-
-def _check_fugr_source_files(repo_obj, functions, includes):
-    """Check that all functions and includes have source files"""
-
-    for func in functions:
-        function_name = func.FUNCNAME.lower()
-        function_file_path = repo_obj.path[:-4] + f'.{function_name}' + '.abap'
-        if function_file_path not in repo_obj.files:
-            raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for function {function_name}')
-
-    for include in includes:
-        include_name = include.lower()
-        include_file_path = repo_obj.path[:-4] + f'.{include_name}' + '.abap'
-        if include_file_path not in repo_obj.files:
-            raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for include {include_name}')
-
-
-def _format_function(source_code):
-    """Format parameters of function
-
-    Original source code:
-    ```
-        FUNCTION ztest_function.
-        *"----------------------------------------------------------------------
-        *"*"Local Interface:
-        *"  IMPORTING
-        *"     VALUE(IV_PARAM1) TYPE  STRING
-        *"  EXPORTING
-        *"     VALUE(EV_PARAM2) TYPE  STRING
-        *"----------------------------------------------------------------------
-        ...
-        ENDFUNCTION.
-    ```
-    Formatted source code:
-    ```
-        FUNCTION ztest_function
-        IMPORTING
-        VALUE(IV_PARAM1) TYPE STRING
-        EXPORTING
-        VALUE(EV_PARAM2) TYPE STRING
-        .
-        ...
-        ENDFUNCTION.
-    ```
-    """
-
-    source_lines = source_code.split('\n')
-    start_block, end_block = sap.adt.function.FunctionModule.get_parameters_block(source_lines)
-    if end_block == 0:
-        # Source code is in ADT format
-        return '\n'.join(source_lines)
-
-    source_lines[0] = source_lines[0].replace('.', '')  # Remove dot at the end of first line
-    parameters = sap.adt.function.FunctionModule.parse_function_parameters(source_lines[start_block:end_block])
-    adt_parameters_block = []
-    for param_type, params in parameters.items():
-        if not params:
-            continue
-
-        adt_parameters_block.append(f'{param_type}')
-        adt_parameters_block += params
-
-    adt_parameters_block.append('.')  # Add dot at the end of the parameters block
-    source_lines[start_block:end_block + 1] = adt_parameters_block
-    return '\n'.join(source_lines)
-
-
-def create_function_module(connection, func, function_group, metadata, corrnr):
-    """Create Function Module"""
-
-    function_module = sap.adt.FunctionModule(connection, func.FUNCNAME, function_group.name, metadata=metadata)
-    function_module.description = func.SHORT_TEXT
-
-    sap.cli.core.printout('Creating Function Module:', function_module.name)
-    try:
-        function_module.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
-
-    if func.REMOTE_CALL == 'R':
-        function_module.processing_type = 'rfc'
-        lock_handle = function_module.lock()
-        with function_module.open_editor(lock_handle, corrnr) as fn_editor:
-            fn_editor.push()
-
-    return function_module
-
-
-def _read_fugr_source_file(repo_obj, name):
-    """Returns the path and the contents of the source file of the function
-       group include or function module of the given name
-    """
-
-    source_file = repo_obj.path[:-4] + f'.{name.lower()}' + '.abap'
-    with open(source_file, 'r', encoding='utf-8') as source:
-        return (source_file, source.read())
-
-
-def prepare_fugr(repo_obj):
-    """Reads and checks the files of the function group without accessing
-       the system
-    """
-
-    with open(repo_obj.path, encoding='utf-8') as abap_data_file:
-        results = sap.platform.abap.abapgit.from_xml([AREAT, INCLUDES, FUNCTIONS], abap_data_file.read())
-
-    includes = results['INCLUDES']
-    functions = results['FUNCTIONS']
-
-    _check_fugr_source_files(repo_obj, functions, includes)
-
-    include_sources = [(include,) + _read_fugr_source_file(repo_obj, include) for include in includes]
-
-    function_sources = []
-    for func in functions:
-        source_file, source_code = _read_fugr_source_file(repo_obj, func.FUNCNAME)
-        # If the function is in abapGit format, change it to ADT format
-        function_sources.append((func, source_file, _format_function(source_code)))
-
-    return SimpleNamespace(description=results['AREAT'], includes=include_sources, functions=function_sources)
-
-
-# pylint: disable=too-many-locals
-def checkin_fugr(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Function Group"""
-
-    sap.cli.core.printout('Creating Function Group:', repo_obj.name)
-
-    prepared = prepared or prepare_fugr(repo_obj)
-
-    metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=connection.user.upper())
-    function_group = sap.adt.FunctionGroup(connection, repo_obj.name.upper(), package=repo_obj.package.name,
-                                           metadata=metadata)
-    function_group.description = prepared.description
-
-    try:
-        function_group.create(corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
-
-    abap_objs_inactive = [function_group]
-    used_files = []
-
-    for include, source_file, source_code in prepared.includes:
-        include_obj = sap.adt.FunctionInclude(connection, include, function_group.name, metadata=metadata)
-        abap_objs_inactive.append(include_obj)
-
-        sap.cli.core.printout('Creating Function Group Include:', include_obj.name)
-        try:
-            include_obj.create(corrnr)
-        except sap.adt.errors.ExceptionResourceCreationFailure as err:
-            if not str(err).endswith('already exists'):
-                raise
-
-            mod_log().info(err.message)
-
-        sap.cli.core.printout('Writing Function Group Include:', include_obj.name)
-        sap.fileformat.adt.write_source(source_code, include_obj, corrnr, source_label=source_file,
-                                        check_before_save=check_before_save)
-        used_files.append(source_file)
-
-    for func, source_file, source_code in prepared.functions:
-        function_module = create_function_module(connection, func, function_group, metadata, corrnr)
-        abap_objs_inactive.append(function_module)
-
-        sap.cli.core.printout('Writing Function Module:', function_module.name)
-        sap.fileformat.adt.write_source(source_code, function_module, corrnr, source_label=source_file,
-                                        check_before_save=check_before_save)
-        used_files.append(source_file)
-
-    return ObjectCheckinResult(abap_objs_inactive, used_files)
 
 
 def _dd40v_code_to_adt(mapping, dd40v, field, object_name):
@@ -1170,7 +995,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 
 OBJECT_CHECKIN_HANDLERS = {
-    'fugr': checkin_fugr,
     'ttyp': checkin_ttyp,
     'ddls': checkin_ddls,
     'dcls': checkin_dcls,
@@ -1185,7 +1009,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # Functions reading and checking the files of objects without accessing
 # the system
 OBJECT_CHECKIN_PREPARERS = {
-    'fugr': prepare_fugr,
     'ttyp': prepare_ttyp,
     'ddls': prepare_ddls,
     'dcls': prepare_dcls,

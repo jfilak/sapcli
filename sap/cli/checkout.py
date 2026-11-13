@@ -1,6 +1,5 @@
 # pylint: disable=too-many-lines
 """ADT Object export"""
-import enum
 import os
 import re
 import sys
@@ -9,29 +8,48 @@ import sap.adt
 import sap.adt.textelements
 import sap.cli.core
 
-from sap.platform.abap.ddic import PROGDIR, TPOOL, DEVC, AREAT, INCLUDES, FUNCTIONS, \
-    FUNCTION_LINE, IMPORT_TYPE, CHANGING_TYPE, EXPORT_TYPE, TABLE_TYPE, EXCEPTION_TYPE, DOCUMENTATION_TYPE, RSFDO, \
-    TPOOL_LINE, DD40V, DD42V, DD42V_TABLE, DD40V_ACCESSMODE_TO_ADT, DD40V_KEYDEF_TO_ADT, DD40V_KEYKIND_TO_ADT, \
-    DDIC_DATATYPE_TO_ADT, DDLS, DCLS, DDLX, DDLX_METADATA, BDEF, BDEF_LINK, BDEF_LINKS, DD02V, DD03P, DD03P_TABLE, \
-    TABCLASS_STRUCTURE, DD02V_EXCLASS_TO_DDL, DDIC_DATATYPE_TO_DDL, DD01V, DD07V, DD07V_TAB, DD04V, REFKIND_DOMAIN, \
-    TABCLASS_TRANSPARENT, DD02V_MAINFLAG_TO_DDL, DD09L
+from sap.platform.abap.ddic import (
+    DEVC,
+    DD40V,
+    DD42V,
+    DD42V_TABLE,
+    DD40V_ACCESSMODE_TO_ADT,
+    DD40V_KEYDEF_TO_ADT,
+    DD40V_KEYKIND_TO_ADT,
+    DDIC_DATATYPE_TO_ADT,
+    DDLS,
+    DCLS,
+    DDLX,
+    DDLX_METADATA,
+    BDEF,
+    BDEF_LINK,
+    BDEF_LINKS,
+    DD02V,
+    DD03P,
+    DD03P_TABLE,
+    TABCLASS_STRUCTURE,
+    DD02V_EXCLASS_TO_DDL,
+    DDIC_DATATYPE_TO_DDL,
+    DD01V,
+    DD07V,
+    DD07V_TAB,
+    DD04V,
+    REFKIND_DOMAIN,
+    TABCLASS_TRANSPARENT,
+    DD02V_MAINFLAG_TO_DDL,
+    DD09L,
+)
 from sap.platform.language import iso_code_to_sap_code
 
-from sap.platform.abap.abapgit import DOT_ABAP_GIT, AbapToAbapGitTranslator
+from sap.platform.abap.abapgit import DOT_ABAP_GIT
 
 import sap.fileformat.abapgit
 from sap.fileformat import HandlerRegistry
-from sap.fileformat.abapgit.files import dump_attributes_to_file, write_source, download_abap_source
+from sap.fileformat.abapgit.fugr import SourceCodeFormat, checkout_function_group
+from sap.fileformat.abapgit.files import dump_attributes_to_file, write_source
 
 # Handlers of the object types already migrated to sap.fileformat
 OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
-
-
-class SourceCodeFormat(enum.Enum):
-    """Source code format of ADT objects"""
-
-    ABAP = 'ABAP'
-    ABAPGIT = 'ABAPGIT'
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -55,17 +73,6 @@ def abapclass(connection, args):
     _checkout_object(connection, sap.adt.Class.OBJTYPE.code, args.name)
 
 
-def download_abapgit_source(object_name, source_object, typsfx, translate_fn, destdir=None):
-    """Saves the source code of object in AbapGit format"""
-
-    try:
-        source_code = translate_fn(source_object)
-    except sap.adt.errors.ADTError as err:
-        sap.cli.core.printerr(f'Download of AbapGit source code failed: {err}')
-    else:
-        write_source(source_code, object_name, typsfx, destdir)
-
-
 @CommandGroup.argument('name')
 @CommandGroup.command()
 def program(connection, args):
@@ -80,140 +87,6 @@ def interface(connection, args):
     """Download interface sources command wrapper"""
 
     _checkout_object(connection, sap.adt.Interface.OBJTYPE.code, args.name)
-
-
-def build_function_module_abap_attributes(func_module):
-    """Returns populated FUNCTION_LINE ABAP structure with attributes"""
-
-    func_line = FUNCTION_LINE()
-    func_line.FUNCNAME = func_module.name
-    func_line.REMOTE_CALL = 'R' if func_module.processing_type == 'rfc' else None
-    func_line.SHORT_TEXT = func_module.description
-
-    func_local_interface = func_module.get_local_interface()
-    interface_helper = {
-        'IMPORTING': (IMPORT_TYPE, 'IMPORT'),
-        'CHANGING': (CHANGING_TYPE, 'CHANGING'),
-        'EXPORTING': (EXPORT_TYPE, 'EXPORT'),
-        'TABLES': (TABLE_TYPE, 'TABLES'),
-        'EXCEPTIONS': (EXCEPTION_TYPE, 'EXCEPTION')
-    }
-
-    for param_type, params in func_local_interface.items():
-        ddic_type, func_line_attr = interface_helper[param_type]
-        ddic_type = ddic_type()
-        for param in params:
-            ddic_type.append(param)
-
-        setattr(func_line, func_line_attr, ddic_type if ddic_type else None)
-
-    documentation = DOCUMENTATION_TYPE()
-    for param_type in func_module.DOCUMENTATION_ORDER:
-        for param in func_local_interface[param_type]:
-            if param_type == 'EXCEPTIONS':
-                documentation.append(RSFDO(PARAMETER=param.EXCEPTION, KIND='X'))
-            else:
-                documentation.append(RSFDO(PARAMETER=param.PARAMETER, KIND='P'))
-
-    func_line.DOCUMENTATION = documentation
-    return func_line
-
-
-def build_function_group_abap_attributes(adt_funcgrp, function_modules, funcgrp_includes):
-    """Returns populated ABAP structure with attributes"""
-
-    areat = AREAT(adt_funcgrp.description)
-    includes = INCLUDES()
-    for include in funcgrp_includes:
-        includes.append(f'<SOBJ_NAME>{include.name}</SOBJ_NAME>')
-
-    functions = FUNCTIONS()
-    for func_module in function_modules:
-        functions.append(build_function_module_abap_attributes(func_module))
-
-    return areat, includes, functions
-
-
-def build_user_fn_include_abap_attributes(include, funcgrp):
-    """Returns populated PROGDIR ABAP structure with attributes for user-defined function include"""
-
-    progdir = PROGDIR()
-    progdir.NAME = include.name
-    progdir.SUBC = 'I'
-    progdir.APPL = 'S'
-    progdir.RLOAD = 'E' if include.description else None
-    progdir.UCCHECK = 'X' if funcgrp.active_unicode_check else None
-
-    tpool = TPOOL()
-    if include.description:
-        tpool_line = TPOOL_LINE()
-        tpool_line.ID = 'R'
-        tpool_line.ENTRY = include.description
-        tpool_line.LENGTH = len(include.description)
-        tpool.append(tpool_line)
-
-    return progdir, tpool
-
-
-def build_system_fn_include_abap_attributes(include, funcgrp):
-    """Returns populated PROGDIR ABAP structure with attributes for system function include"""
-
-    progdir, _ = build_user_fn_include_abap_attributes(include, funcgrp)
-    progdir.DBAPL = 'S'
-    progdir.DBNA = 'D$'
-    progdir.FIXPT = 'X' if funcgrp.fix_point_arithmetic else None
-    progdir.LDBNAME = 'D$S'
-
-    return (progdir,)
-
-
-def checkout_function_include(include_name, funcgrp, destdir=None):
-    """Checkout Function Group Include"""
-
-    include = sap.adt.FunctionInclude(funcgrp.connection, include_name, funcgrp.name)
-    if include_name.endswith('TOP'):
-        include_attrs = build_system_fn_include_abap_attributes(include, funcgrp)
-    else:
-        include_attrs = build_user_fn_include_abap_attributes(include, funcgrp)
-
-    dump_attributes_to_file(funcgrp.name, include_attrs, f'.fugr.{include.name}', '', destdir=destdir)
-
-    return include
-
-
-def checkout_function_group(connection, name, destdir=None, source_format=SourceCodeFormat.ABAPGIT):
-    """Download function group sources"""
-
-    sap.cli.core.printout(name)
-    funcgrp = sap.adt.FunctionGroup(connection, name)
-    function_modules = []
-    includes = []
-
-    walk_step = funcgrp.walk()[0]  # Function group always has only a single step
-    objects = walk_step[2]
-    for obj in objects:
-        if obj.name.endswith('UXX'):
-            sap.cli.core.printout(f'Skipping system generated "UXX" function group include: {obj.name}.')
-            continue
-
-        if obj.typ == sap.adt.FunctionModule.OBJTYPE.code:
-            adt_obj = sap.adt.FunctionModule(funcgrp.connection, obj.name, funcgrp.name)
-            function_modules.append(adt_obj)
-            if source_format == SourceCodeFormat.ABAPGIT:
-                download_abapgit_source(funcgrp.name, adt_obj, f'.fugr.{adt_obj.name}',
-                                        AbapToAbapGitTranslator.translate_function_module, destdir=destdir)
-            else:
-                download_abap_source(funcgrp.name, adt_obj, f'.fugr.{adt_obj.name}', destdir=destdir)
-
-        elif obj.typ in (sap.adt.FunctionInclude.OBJTYPE.code, 'FUGR/PX'):
-            adt_obj = checkout_function_include(obj.name, funcgrp, destdir=destdir)
-            includes.append(adt_obj)
-            download_abap_source(funcgrp.name, adt_obj, f'.fugr.{adt_obj.name}', destdir=destdir)
-        else:
-            raise sap.cli.core.SAPCliError(f'Unsupported function group object: {obj.typ} {obj.name}')
-
-    funcgrp_attrs = build_function_group_abap_attributes(funcgrp, function_modules, includes)
-    dump_attributes_to_file(funcgrp.name, funcgrp_attrs, '.fugr', 'LCL_OBJECT_FUGR', destdir=destdir)
 
 
 @CommandGroup.argument('-f', '--format', type=str,
@@ -1027,7 +900,6 @@ def checkout_objects(connection, objects, destdir=None):
     # raising an SAPCliError because the command handler prints out
     # human friendly text.
     checkouters = {
-        sap.adt.FunctionGroup.OBJTYPE.code: checkout_function_group,
         sap.adt.TableType.OBJTYPE.code: checkout_table_type,
         sap.adt.DataDefinition.OBJTYPE.code: checkout_data_definition,
         sap.adt.AccessControl.OBJTYPE.code: checkout_access_control,
