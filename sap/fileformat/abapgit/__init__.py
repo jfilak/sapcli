@@ -1,6 +1,7 @@
 """abapGit file format"""
 
 from sap.fileformat.abapgit.clas import ClassHandler
+from sap.fileformat.abapgit.ddlx import MetadataExtensionHandler
 from sap.fileformat.abapgit.dcls import AccessControlHandler
 from sap.fileformat.abapgit.ddls import DataDefinitionHandler
 from sap.fileformat.abapgit.ttyp import TableTypeHandler
@@ -18,4 +19,5 @@ HANDLERS = (
     TableTypeHandler(),
     DataDefinitionHandler(),
     AccessControlHandler(),
+    MetadataExtensionHandler(),
 )

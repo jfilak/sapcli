@@ -10,8 +10,6 @@ import sap.cli.core
 
 from sap.platform.abap.ddic import (
     DEVC,
-    DDLX,
-    DDLX_METADATA,
     BDEF,
     BDEF_LINK,
     BDEF_LINKS,
@@ -122,33 +120,12 @@ def accesscontrol(connection, args):
     _checkout_object(connection, sap.adt.AccessControl.OBJTYPE.code, args.name)
 
 
-def build_metadata_extension_abap_attributes(adt_ddlx):
-    """Returns populated ABAP structure with attributes"""
-
-    return DDLX(METADATA=DDLX_METADATA(NAME=adt_ddlx.name,
-                                       DESCRIPTION=adt_ddlx.description,
-                                       MASTER_LANGUAGE=adt_ddlx.master_language))
-
-
-def checkout_metadata_extension(connection, name, destdir=None):
-    """Download metadata extension source code and attributes"""
-
-    sap.cli.core.printout(name)
-    adt_ddlx = sap.adt.MetadataExtension(connection, name)
-    adt_ddlx.fetch()
-
-    write_source(adt_ddlx.text, name, '.ddlx', destdir=destdir, fileext='asddlxs')
-
-    ddlx = build_metadata_extension_abap_attributes(adt_ddlx)
-    dump_attributes_to_file(name, (ddlx,), '.ddlx', 'LCL_OBJECT_DDLX', destdir=destdir)
-
-
 @CommandGroup.argument('name')
 @CommandGroup.command('ddlx')
 def metadataextension(connection, args):
     """Download metadata extension source code and attributes command wrapper"""
 
-    checkout_metadata_extension(connection, args.name.upper())
+    _checkout_object(connection, sap.adt.MetadataExtension.OBJTYPE.code, args.name)
 
 
 # ABAP language versions of source code based objects
@@ -749,7 +726,6 @@ def checkout_objects(connection, objects, destdir=None):
     # raising an SAPCliError because the command handler prints out
     # human friendly text.
     checkouters = {
-        sap.adt.MetadataExtension.OBJTYPE.code: checkout_metadata_extension,
         sap.adt.BehaviorDefinition.OBJTYPE.code: checkout_behavior_definition,
         sap.adt.Structure.OBJTYPE.code: checkout_structure,
         sap.adt.Domain.OBJTYPE.code: checkout_domain,
