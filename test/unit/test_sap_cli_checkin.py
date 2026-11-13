@@ -21,23 +21,19 @@ FIXTURE_TEXT_SYMBOLS = '@MaxLength:20\r\n001=Hello, world!\r\n@MaxLength:10\r\n0
 
 from mock import Connection, Response
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
-from fixtures_cli_checkin import PACKAGE_DEVC_UNKNOWN_XML, PACKAGE_DEVC_LANGUAGE_XML, PACKAGE_DEVC_XML, DOMA_XML, \
-    DTEL_XML, DTEL_DOMAIN_XML, DBTAB_XML, DBTAB_ADT_NEW_OBJECT_REQUEST_XML, DBTAB_SOURCE_CODE, \
-    DBTAB_SETTINGS_REQUEST_XML, DBTAB_NAME, DBTAB_FULL_XML, DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_SETTINGS_REQUEST_XML, \
-    DBTAB_GENERIC_XML, DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_SETTINGS_REQUEST_XML, DBTAB_FOREIGN_KEYS_XML, \
-    DBTAB_KEY_INCLUDE_XML, TABL_ADT_NEW_OBJECT_REQUEST_XML, TABL_XML, TABL_SOURCE_CODE, TABL_NAME, \
-    TABL_ALL_FEATURES_XML, TABL_ALL_FEATURES_SOURCE_CODE, TABL_NO_EXCLASS_XML, TABL_NO_EXCLASS_SOURCE_CODE, \
-    TABL_DELIMITED_GROUP_XML, TABL_DELIMITED_GROUP_SOURCE_CODE, TABL_POOL_XML, TABL_UNKNOWN_EXCLASS_XML, \
-    TABL_REFERENCE_XML, TABL_UNKNOWN_DATATYPE_XML, TABL_APPEND_XML, TABL_UNKNOWN_REFERENCE_XML, \
-    TABL_FOREIGN_KEYS_XML, DOMA_ALL_FIELDS_XML, DOMA_TRANSLATIONS_XML, DTEL_TRANSLATIONS_XML, DTEL_REFERENCE_XML, \
-    TABL_ADT_ALREADY_EXISTS_RESPONSE_XML
-from fixtures_adt_domain import DOMAIN_ADT_NEW_OBJECT_REQUEST_XML, DOMAIN_ADT_DEFINE_SAMPLE_REQUEST_XML, \
-    DOMAIN_NEW_NAME, DOMAIN_ADT_DEFINE_ALL_FIELDS_REQUEST_XML, DOMAIN_ADT_ALREADY_EXISTS_RESPONSE_XML, \
-    DOMAIN_ADT_GET_NEW_RESPONSE_XML
-from fixtures_adt_table import TABLE_SETTINGS_ADT_GET_RESPONSE_XML
+from fixtures_cli_checkin import PACKAGE_DEVC_UNKNOWN_XML, PACKAGE_DEVC_LANGUAGE_XML, PACKAGE_DEVC_XML, DTEL_XML, \
+    DTEL_DOMAIN_XML, DBTAB_XML, DBTAB_ADT_NEW_OBJECT_REQUEST_XML, DBTAB_SOURCE_CODE, DBTAB_SETTINGS_REQUEST_XML, \
+    DBTAB_NAME, DBTAB_FULL_XML, DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_SETTINGS_REQUEST_XML, DBTAB_GENERIC_XML, \
+    DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_SETTINGS_REQUEST_XML, DBTAB_FOREIGN_KEYS_XML, DBTAB_KEY_INCLUDE_XML, \
+    TABL_ADT_NEW_OBJECT_REQUEST_XML, TABL_XML, TABL_SOURCE_CODE, TABL_NAME, TABL_ALL_FEATURES_XML, \
+    TABL_ALL_FEATURES_SOURCE_CODE, TABL_NO_EXCLASS_XML, TABL_NO_EXCLASS_SOURCE_CODE, TABL_DELIMITED_GROUP_XML, \
+    TABL_DELIMITED_GROUP_SOURCE_CODE, TABL_POOL_XML, TABL_UNKNOWN_EXCLASS_XML, TABL_REFERENCE_XML, \
+    TABL_UNKNOWN_DATATYPE_XML, TABL_APPEND_XML, TABL_UNKNOWN_REFERENCE_XML, TABL_FOREIGN_KEYS_XML, \
+    DTEL_TRANSLATIONS_XML, DTEL_REFERENCE_XML, TABL_ADT_ALREADY_EXISTS_RESPONSE_XML
 from fixtures_adt_dataelement import DATA_ELEMENT_ADT_NEW_OBJECT_REQUEST_XML, \
     DATA_ELEMENT_ADT_DEFINE_SAMPLE_REQUEST_XML, DATA_ELEMENT_NEW_NAME, DATA_ELEMENT_ADT_DEFINE_DOMAIN_REQUEST_XML, \
     DATA_ELEMENT_ADT_ALREADY_EXISTS_RESPONSE_XML, DATA_ELEMENT_ADT_GET_NEW_RESPONSE_XML
+from fixtures_adt_table import TABLE_SETTINGS_ADT_GET_RESPONSE_XML
 from infra import generate_parse_args
 from sap.fileformat import HandlerRegistry, CheckinContext
 
@@ -964,110 +960,6 @@ class TestCheckInPackage(ConsoleOutputTestCase, PatcherTestCase):
         package.set_app_component.assert_called_once_with('APP')
         package.set_transport_layer.assert_called_once_with('TRANS')
         package.create.assert_called_once_with('corrnr')
-
-
-DOMA_MIME = 'application/vnd.sap.adt.domains.v2+xml; charset=utf-8'
-
-
-@patch('sap.adt.objects.ADTObject.unlock')
-@patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestCheckInDomain(ConsoleOutputTestCase, PatcherTestCase):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        PatcherTestCase.__init__(self)
-
-    def tearDown(self):
-        try:
-            PatcherTestCase.unpatch_all(self)
-        finally:
-            super().tearDown()
-
-    def setUp(self):
-        super().setUp()
-        self.patch_console(self.console)
-
-        self.package = sap.cli.checkin.RepoPackage('$TMP', './src/package.devc.xml', './src', None)
-        self.repo_obj = sap.cli.checkin.RepoObject('doma', DOMAIN_NEW_NAME.lower(),
-                                                   f'./src/{DOMAIN_NEW_NAME.lower()}.doma.xml', self.package, [])
-
-    def checkin(self, abapgit_xml, responses):
-        connection = Connection(responses, user='DEVELOPER')
-
-        with patch('sap.cli.checkin.open', mock_open(read_data=abapgit_xml)) as fake_open:
-            result = sap.cli.checkin.checkin_doma(connection, self.repo_obj)
-
-        fake_open.assert_called_once_with(self.repo_obj.path, encoding='utf-8')
-
-        return (connection, result)
-
-    def responses_ok(self):
-        return [
-            Response(text='', status_code=201, headers={}),
-            Response(text=DOMAIN_ADT_GET_NEW_RESPONSE_XML, status_code=200, headers={}),
-            Response(text='', status_code=200, headers={}),
-        ]
-
-    def assert_requests(self, connection, define_request_xml):
-        self.assertEqual(len(connection.execs), 3)
-
-        self.assertEqual(connection.execs[0].method, 'POST')
-        self.assertEqual(connection.execs[0].adt_uri, '/sap/bc/adt/ddic/domains')
-        self.assertEqual(connection.execs[0].body.decode('utf-8'), DOMAIN_ADT_NEW_OBJECT_REQUEST_XML)
-
-        self.assertEqual(connection.execs[1].method, 'GET')
-        self.assertEqual(connection.execs[1].adt_uri, f'/sap/bc/adt/ddic/domains/{DOMAIN_NEW_NAME.lower()}')
-
-        self.assertEqual(connection.execs[2].method, 'PUT')
-        self.assertEqual(connection.execs[2].adt_uri, f'/sap/bc/adt/ddic/domains/{DOMAIN_NEW_NAME.lower()}')
-        self.assertEqual(connection.execs[2].headers, {'Content-Type': DOMA_MIME})
-        self.assertEqual(connection.execs[2].params, {'lockHandle': 'lock_handle'})
-        self.maxDiff = None
-        self.assertEqual(connection.execs[2].body.decode('utf-8'), define_request_xml)
-
-    def test_checkin_doma_sample(self, fake_lock, fake_unlock):
-        connection, result = self.checkin(DOMA_XML, self.responses_ok())
-
-        self.assert_requests(connection, DOMAIN_ADT_DEFINE_SAMPLE_REQUEST_XML)
-        fake_lock.assert_called_once()
-        fake_unlock.assert_called_once()
-
-        self.assertEqual(len(result.abap_objects), 1)
-        self.assertEqual(result.abap_objects[0].name, DOMAIN_NEW_NAME)
-        self.assertEqual(result.used_files, [])
-
-        self.assertConsoleContents(self.console, stdout=f'''Creating Domain: {DOMAIN_NEW_NAME.lower()}
-Writing Domain: {DOMAIN_NEW_NAME.lower()}
-''')
-
-    def test_checkin_doma_all_fields(self, fake_lock, fake_unlock):
-        abapgit_xml = DOMA_ALL_FIELDS_XML.replace('<DDTEXT>All fields</DDTEXT>', '<DDTEXT>Testing</DDTEXT>')
-        define_request_xml = DOMAIN_ADT_DEFINE_ALL_FIELDS_REQUEST_XML.replace('adtcore:description="All fields"',
-                                                                            'adtcore:description="Testing"')
-
-        connection, _ = self.checkin(abapgit_xml, self.responses_ok())
-
-        self.assert_requests(connection, define_request_xml)
-
-    def test_checkin_doma_already_exists(self, fake_lock, fake_unlock):
-        responses = self.responses_ok()
-        responses[0] = Response(text=DOMAIN_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
-                                headers={'content-type': 'application/xml'})
-        responses[1] = Response(text=DOMAIN_ADT_GET_NEW_RESPONSE_XML.replace('adtcore:description="Testing"',
-                                                                            'adtcore:description="Old"'),
-                                status_code=200, headers={})
-
-        connection, _ = self.checkin(DOMA_XML, responses)
-
-        self.assert_requests(connection, DOMAIN_ADT_DEFINE_SAMPLE_REQUEST_XML)
-
-    def test_checkin_doma_translations_not_supported(self, fake_lock, fake_unlock):
-        with self.assertRaises(ExceptionCheckinFailure) as caught:
-            self.checkin(DOMA_TRANSLATIONS_XML, [])
-
-        self.assertEqual(str(caught.exception),
-                         f'Unsupported contents of domain {DOMAIN_NEW_NAME.lower()}: Got unexpected tag I18N_LANGS')
-        fake_lock.assert_not_called()
 
 
 DTEL_MIME = 'application/vnd.sap.adt.dataelements.v2+xml; charset=utf-8'
