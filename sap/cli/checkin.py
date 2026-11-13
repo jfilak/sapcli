@@ -14,7 +14,6 @@ import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
     DEVC,
-    DDLX,
     BDEF,
     DD02V,
     DD03P_TABLE,
@@ -357,25 +356,6 @@ def _resolve_dependencies(objects):
             others.append(obj)
 
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
-
-
-def prepare_ddlx(repo_obj):
-    """Reads and checks the files of the metadata extension"""
-
-    # Old abapGit versions stored the source code in the XML file but abapGit
-    # has been writing it to the file .asddlxs for years
-    return prepare_cds_source(repo_obj, DDLX, lambda ddlx: ddlx.METADATA.DESCRIPTION, '.asddlxs',
-                              'Metadata Extension')
-
-
-def checkin_ddlx(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Metadata Extension"""
-
-    ddlx, source_file = checkin_cds_source(
-        CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save), repo_obj,
-        prepared or prepare_ddlx(repo_obj), sap.adt.MetadataExtension, 'Metadata Extension')
-
-    return ObjectCheckinResult([ddlx], [source_file])
 
 
 def prepare_bdef(repo_obj):
@@ -825,7 +805,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 
 OBJECT_CHECKIN_HANDLERS = {
-    'ddlx': checkin_ddlx,
     'bdef': checkin_bdef,
     'tabl': checkin_tabl,
     'doma': checkin_doma,
@@ -836,7 +815,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # Functions reading and checking the files of objects without accessing
 # the system
 OBJECT_CHECKIN_PREPARERS = {
-    'ddlx': prepare_ddlx,
     'bdef': prepare_bdef,
     'tabl': prepare_tabl,
     'doma': prepare_doma,
