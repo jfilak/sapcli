@@ -14,7 +14,6 @@ import sap.cli.core
 import sap.platform.abap.abapgit
 from sap.platform.abap.ddic import (
     DEVC,
-    DCLS,
     DDLX,
     BDEF,
     DD02V,
@@ -358,22 +357,6 @@ def _resolve_dependencies(objects):
             others.append(obj)
 
     return [domains + dataelements + structures + ddic, behaviors + libs, bins, others]
-
-
-def prepare_dcls(repo_obj):
-    """Reads and checks the files of the access control"""
-
-    return prepare_cds_source(repo_obj, DCLS, lambda dcls: dcls.DDTEXT, '.asdcls', 'Access Control')
-
-
-def checkin_dcls(connection, repo_obj, corrnr=None, check_before_save=False, prepared=None):
-    """Checkin ADT Access Control"""
-
-    dcl, source_file = checkin_cds_source(
-        CheckinContext(connection, repo_obj.package.name, corrnr, check_before_save), repo_obj,
-        prepared or prepare_dcls(repo_obj), sap.adt.AccessControl, 'Access Control')
-
-    return ObjectCheckinResult([dcl], [source_file])
 
 
 def prepare_ddlx(repo_obj):
@@ -842,7 +825,6 @@ def checkin_dtel(connection, repo_obj, corrnr=None, check_before_save=False, pre
 
 
 OBJECT_CHECKIN_HANDLERS = {
-    'dcls': checkin_dcls,
     'ddlx': checkin_ddlx,
     'bdef': checkin_bdef,
     'tabl': checkin_tabl,
@@ -854,7 +836,6 @@ OBJECT_CHECKIN_HANDLERS = {
 # Functions reading and checking the files of objects without accessing
 # the system
 OBJECT_CHECKIN_PREPARERS = {
-    'dcls': prepare_dcls,
     'ddlx': prepare_ddlx,
     'bdef': prepare_bdef,
     'tabl': prepare_tabl,
