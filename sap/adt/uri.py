@@ -13,6 +13,41 @@ class StatementPosition(NamedTuple):
     start_column: int
     end_line: int
     end_column: int
+    # ADT object type code (e.g. CLAS/OC) or None if the URI is not known
+    adt_type: Optional[str]
+
+
+# ADT object type codes by the parts of URI paths; the more specific
+# patterns go first and * stands for a name
+URI_PATH_ADT_TYPES = (
+    (('oo', 'classes', '*'), 'CLAS/OC'),
+    (('oo', 'interfaces', '*'), 'INTF/OI'),
+    (('programs', 'programs', '*'), 'PROG/P'),
+    (('programs', 'includes', '*'), 'PROG/I'),
+    (('functions', 'groups', '*', 'fmodules', '*'), 'FUGR/FF'),
+    (('functions', 'groups', '*', 'includes', '*'), 'FUGR/I'),
+)
+
+ADT_URI_ROOT = ['sap', 'bc', 'adt']
+
+
+def _adt_type_of_path_parts(parts):
+    """Returns the ADT object type code of the URI path split to parts or
+       None if the path is not known.
+    """
+
+    if parts[:len(ADT_URI_ROOT)] == ADT_URI_ROOT:
+        parts = parts[len(ADT_URI_ROOT):]
+
+    for pattern, adt_type in URI_PATH_ADT_TYPES:
+        candidate = parts[:len(pattern)]
+        if len(candidate) != len(pattern):
+            continue
+
+        if all(expected in ('*', actual) for expected, actual in zip(pattern, candidate)):
+            return adt_type
+
+    return None
 
 
 def _parse_fragment_tokens(fragment: str) -> dict:
@@ -40,7 +75,7 @@ def parse_statement_uri(uri: str) -> StatementPosition:
 
     Statement URIs always contain both start and end:
       /sap/bc/adt/oo/classes/zcx_foo/source/main#start=183,1;end=183,20
-        -> StatementPosition('zcx_foo', 'source/main', 183, 1, 183, 20)
+        -> StatementPosition('zcx_foo', 'source/main', 183, 1, 183, 20, 'CLAS/OC')
     """
 
     path, _, fragment = uri.partition('#')
@@ -75,6 +110,7 @@ def parse_statement_uri(uri: str) -> StatementPosition:
         start_column=tokens['start'][1],
         end_line=tokens['end'][0],
         end_column=tokens['end'][1],
+        adt_type=_adt_type_of_path_parts(parts),
     )
 
 
