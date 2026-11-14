@@ -107,7 +107,7 @@ class TestCheckinGroup(unittest.TestCase):
         with patch('sap.adt.objects.ADTObjectReferences') as fake_references:
             inactive = sap.cli.checkin._checkin_dependency_group('connection', group, self.package_names,
                                                                  self.used_files, corrnr, check_before_save,
-                                                                 self.prepared)
+                                                                 self.prepared, 'observer')
 
         self.assertIs(inactive, fake_references.return_value)
 
@@ -116,9 +116,9 @@ class TestCheckinGroup(unittest.TestCase):
     def test_checkin_group(self):
         inactive = self.checkin_group([self.clas, self.prog])
 
-        self.clas_handler.checkin.assert_called_once_with(CheckinContext('connection', '$root_sub', None, False),
+        self.clas_handler.checkin.assert_called_once_with(CheckinContext('connection', '$root_sub', None, False, 'observer'),
                                                           self.clas, 'prepared class')
-        self.prog_handler.checkin.assert_called_once_with(CheckinContext('connection', '$root', None, False),
+        self.prog_handler.checkin.assert_called_once_with(CheckinContext('connection', '$root', None, False, 'observer'),
                                                           self.prog, 'prepared program')
         self.assertEqual(inactive.add_object.call_args_list, [call('class'), call('class texts'), call('program')])
         self.assertEqual(self.used_files, {'./src/sub/used.abap'})
@@ -126,7 +126,7 @@ class TestCheckinGroup(unittest.TestCase):
     def test_checkin_group_passes_options(self):
         self.checkin_group([self.prog], corrnr='420', check_before_save=True)
 
-        self.prog_handler.checkin.assert_called_once_with(CheckinContext('connection', '$root', '420', True),
+        self.prog_handler.checkin.assert_called_once_with(CheckinContext('connection', '$root', '420', True, 'observer'),
                                                           self.prog, 'prepared program')
 
     def test_checkin_group_failure_stops_checkin(self):
@@ -169,15 +169,15 @@ class TestPrepareRepository(ConsoleOutputTestCase, PatcherTestCase):
         self.intf = new_object('intf', 'zif_good', self.package, self.intf_handler)
         self.clas = new_object('clas', 'zcl_bad', self.package, self.clas_handler)
         self.tabl = new_object('tabl', 'zbad', self.package, self.tabl_handler)
-        self.repo = Repository([self.package], [self.intf, self.clas, self.tabl], [], None)
+        self.repo = Repository([self.package], [self.intf, self.clas, self.tabl], [], None, '/src/')
 
     def test_prepare_repository(self):
-        prepared = sap.cli.checkin._prepare_repository(self.repo, self.console)
+        prepared = sap.cli.checkin._prepare_repository(self.repo, self.console, 'observer')
 
         self.fake_layout.prepare_package.assert_called_once_with(self.package)
-        self.intf_handler.prepare.assert_called_once_with(self.intf)
-        self.clas_handler.prepare.assert_called_once_with(self.clas)
-        self.tabl_handler.prepare.assert_called_once_with(self.tabl)
+        self.intf_handler.prepare.assert_called_once_with(self.intf, 'observer')
+        self.clas_handler.prepare.assert_called_once_with(self.clas, 'observer')
+        self.tabl_handler.prepare.assert_called_once_with(self.tabl, 'observer')
         self.assertEqual(prepared, {
             './src/package.devc.xml': 'prepared package',
             './src/zif_good.intf.xml': 'prepared intf',
@@ -192,10 +192,10 @@ class TestPrepareRepository(ConsoleOutputTestCase, PatcherTestCase):
         self.tabl_handler.prepare.side_effect = sap.errors.InputError('Invalid XML for DD02V: syntax error')
 
         with self.assertRaises(SAPCliError) as caught:
-            sap.cli.checkin._prepare_repository(self.repo, self.console)
+            sap.cli.checkin._prepare_repository(self.repo, self.console, 'observer')
 
         self.assertEqual(str(caught.exception), 'Cannot check in 3 files - nothing has been changed')
-        self.intf_handler.prepare.assert_called_once_with(self.intf)
+        self.intf_handler.prepare.assert_called_once_with(self.intf, 'observer')
         self.assertConsoleContents(self.console, stderr='''./src/package.devc.xml: DEVC does not have the member FOO
 ./src/zcl_bad.clas.xml: No source file for class zcl_bad
 ./src/zbad.tabl.xml: Invalid XML for DD02V: syntax error
@@ -244,7 +244,8 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
                  './src/test_fugr.fugr.include.xml', self.prog.path, self.fugr.path, self.intf.path, self.doma.path]
         files += self.prog.files + self.fugr.files + self.intf.files
 
-        self.repo = Repository([self.root, self.sub], [self.prog, self.fugr, self.intf, self.doma], files, 'settings')
+        self.repo = Repository([self.root, self.sub], [self.prog, self.fugr, self.intf, self.doma], files, 'settings',
+                               '/src/')
 
         self.package_names = {'./src/': '$foo', './src/sub': '$foo_sub'}
         self.devc = DEVC(CTEXT='Test Package')
@@ -253,6 +254,9 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
         self.fake_layout.load_repository.return_value = self.repo
         self.fake_layout.package_name.side_effect = lambda repo, package, name: self.package_names[package.dir_path]
         self.fake_layout.prepare_package.return_value = self.devc
+
+        self.fake_observer_class = self.patch('sap.cli.checkin.ConsoleObserver')
+        self.observer = self.fake_observer_class.return_value
 
         self.fake_checkin_package = self.patch('sap.cli.checkin.checkin_package')
         self.fake_activate = self.patch('sap.adt.wb.try_mass_activate')
@@ -273,14 +277,16 @@ class TestCheckIn(ConsoleOutputTestCase, PatcherTestCase):
             call('connection', '$foo_sub', '$foo', self.devc, args),
         ])
 
-        self.prog.handler.prepare.assert_called_once_with(self.prog)
-        self.prog.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo_sub', None, False),
+        self.fake_observer_class.assert_called_once_with(self.console)
+
+        self.prog.handler.prepare.assert_called_once_with(self.prog, self.observer)
+        self.prog.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo_sub', None, False, self.observer),
                                                           self.prog, 'prepared prog')
-        self.fugr.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo', None, False),
+        self.fugr.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo', None, False, self.observer),
                                                           self.fugr, 'prepared fugr')
-        self.intf.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo_sub', None, False),
+        self.intf.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo_sub', None, False, self.observer),
                                                           self.intf, 'prepared intf')
-        self.doma.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo', None, False),
+        self.doma.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo', None, False, self.observer),
                                                           self.doma, 'prepared doma')
 
         self.assertEqual(self.fake_activate.call_count, 4)
@@ -297,7 +303,8 @@ Activating objects ...
 Creating objects ...
 Activating objects ...
 ''',
-                                   stderr='''Unused file: ./src/README.md
+                                   stderr='''Using starting-folder: /src/
+Unused file: ./src/README.md
 Unused file: ./src/test_fugr.fugr.include.xml
 ''')
 
@@ -310,8 +317,19 @@ Unused file: ./src/test_fugr.fugr.include.xml
         self.assertEqual(exit_code, 0)
         fake_isdir.assert_called_once_with('./backend')
         self.fake_layout.load_repository.assert_called_once_with('backend', sap.cli.checkin.OBJECT_HANDLERS)
-        self.doma.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo', 'K900001', True),
+        self.doma.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo', 'K900001', True, self.observer),
                                                           self.doma, 'prepared doma')
+
+    def test_do_checkin_requested_starting_folder_used(self):
+        args = parse_args('package', '$foo', '--starting-folder', '/src/')
+
+        with patch('sap.cli.checkin.os.path.isdir', return_value=True):
+            exit_code = args.execute('connection', args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(self.console.caperr, '''Unused file: ./src/README.md
+Unused file: ./src/test_fugr.fugr.include.xml
+''')
 
     def test_do_checkin_starting_folder_not_folder(self):
         args = parse_args('package', '$foo', '--starting-folder', 'FILE')
@@ -342,7 +360,8 @@ Unused file: ./src/test_fugr.fugr.include.xml
         self.fake_checkin_package.assert_not_called()
         self.doma.handler.checkin.assert_not_called()
         self.assertConsoleContents(self.console, stdout='Checking files ...\n',
-                                   stderr='''./src/sub/if_strategy.intf.xml: No source file for interface if_strategy
+                                   stderr='''Using starting-folder: /src/
+./src/sub/if_strategy.intf.xml: No source file for interface if_strategy
 Checkin failed: Cannot check in 1 files - nothing has been changed
 ''')
 
@@ -363,7 +382,8 @@ Checkin failed: Cannot check in 1 files - nothing has been changed
 Creating packages ...
 Creating objects ...
 ''',
-                                   stderr='''zdomain: syntax error
+                                   stderr='''Using starting-folder: /src/
+zdomain: syntax error
 zdomain: syntax error
 ''')
 

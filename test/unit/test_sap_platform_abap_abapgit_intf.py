@@ -6,14 +6,14 @@ from unittest.mock import MagicMock, Mock, call, mock_open
 import sap.adt
 import sap.platform.abap.abapgit.intf
 from sap.adt.errors import ExceptionCheckinFailure, ExceptionResourceAlreadyExists
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.intf import InterfaceHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, StringIOFile
+from mock import Connection, PatcherTestCase, StringIOFile
 from fixtures_sap_platform_abap_abapgit_intf import INTF_XML, INTF_WITH_DESCRIPTIONS_SUB_XML
 
 
-class InterfaceHandlerTestCase(ConsoleOutputTestCase, PatcherTestCase):
+class InterfaceHandlerTestCase(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -21,7 +21,7 @@ class InterfaceHandlerTestCase(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
 
         self.handler = InterfaceHandler()
 
@@ -87,7 +87,7 @@ class TestInterfaceHandlerCheckout(InterfaceHandlerTestCase):
         self.connection = Connection()
 
     def test_checkout(self):
-        self.handler.checkout(self.connection, 'INTF/OI', 'ZIF_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'INTF/OI', 'ZIF_HELLO_WORLD', None, self.observer)
 
         self.fake_interface.assert_called_once_with(self.connection, 'ZIF_HELLO_WORLD')
         self.intf.fetch.assert_called_once_with()
@@ -111,13 +111,14 @@ class TestInterfaceHandlerCheckout(InterfaceHandlerTestCase):
         self.assertEqual(vseointerf.STATE, '1')
         self.assertEqual(vseointerf.UNICODE, 'X')
 
-        self.assertConsoleContents(self.console, stdout='''ZIF_HELLO_WORLD
-- zif_hello_world.intf.abap
-- zif_hello_world.intf.xml
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out('ZIF_HELLO_WORLD'),
+            call.file_written('zif_hello_world.intf.abap'),
+            call.file_written('zif_hello_world.intf.xml'),
+        ])
 
     def test_checkout_to_directory(self):
-        self.handler.checkout(self.connection, 'INTF/OI', 'ZIF_HELLO_WORLD', '/repo/src')
+        self.handler.checkout(self.connection, 'INTF/OI', 'ZIF_HELLO_WORLD', '/repo/src', self.observer)
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/repo/src/zif_hello_world.intf.abap', 'w', encoding='utf8'),
@@ -141,7 +142,7 @@ class InterfaceHandlerCheckinTestCase(InterfaceHandlerTestCase):
 class TestInterfaceHandlerPrepare(InterfaceHandlerCheckinTestCase):
 
     def test_prepare(self):
-        prepared = self.handler.prepare(self.interface_object)
+        prepared = self.handler.prepare(self.interface_object, self.observer)
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/src/test_interface.intf.xml', encoding='utf-8'),
@@ -150,12 +151,12 @@ class TestInterfaceHandlerPrepare(InterfaceHandlerCheckinTestCase):
         self.assertEqual(prepared.abap_data.DESCRIPT, 'Test intf descr')
         self.assertEqual(prepared.source_file, 'foo.intf.abap')
         self.assertEqual(prepared.source_code, 'test_intf_body')
-        self.assertEmptyConsole(self.console)
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_prepare_with_descriptions_sub(self):
         self.fake_open.side_effect = [StringIOFile(INTF_WITH_DESCRIPTIONS_SUB_XML), StringIOFile('test_intf_body')]
 
-        prepared = self.handler.prepare(self.interface_object)
+        prepared = self.handler.prepare(self.interface_object, self.observer)
 
         self.assertEqual(prepared.abap_data.DESCRIPT, 'Test intf descr')
         self.assertEqual(prepared.source_code, 'test_intf_body')
@@ -164,17 +165,17 @@ class TestInterfaceHandlerPrepare(InterfaceHandlerCheckinTestCase):
         interface_object = RepoObject('intf', 'test_intf', '/src/boo', [], self.package, self.handler)
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(interface_object)
+            self.handler.prepare(interface_object, self.observer)
 
         self.assertEqual(str(cm.exception), 'No source file for interface test_intf')
         self.fake_open.assert_not_called()
-        self.assertEmptyConsole(self.console)
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_prepare_too_many_files(self):
         self.interface_object.files.append('too-many.intf.abap')
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(self.interface_object)
+            self.handler.prepare(self.interface_object, self.observer)
 
         self.assertEqual(str(cm.exception),
                          'Too many source files for interface test_interface: foo.intf.abap,too-many.intf.abap')
@@ -183,7 +184,7 @@ class TestInterfaceHandlerPrepare(InterfaceHandlerCheckinTestCase):
         interface_object = RepoObject('intf', 'test_intf', '/src/boo', ['random.file'], self.package, self.handler)
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(interface_object)
+            self.handler.prepare(interface_object, self.observer)
 
         self.assertEqual(str(cm.exception), 'No .abap suffix of source file for interface test_intf')
 
@@ -210,10 +211,10 @@ class TestInterfaceHandlerCheckin(InterfaceHandlerCheckinTestCase):
         self.connection.user = 'test_user'
 
     def checkin(self, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(self.interface_object)
+        prepared = self.handler.prepare(self.interface_object, self.observer)
         self.fake_open.reset_mock()
 
-        context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save)
+        context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, self.interface_object, prepared)
 
     def test_checkin(self):
@@ -229,8 +230,10 @@ class TestInterfaceHandlerCheckin(InterfaceHandlerCheckinTestCase):
         self.interface.create.assert_called_once_with(None)
         self.interface.open_editor.assert_called_once_with(corrnr=None)
         self.interface_editor.write.assert_called_once_with('test_intf_body')
-        self.assertConsoleContents(self.console, stdout='Creating Interface: test_interface\n'
-                                                        'Writing Interface: test_interface\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Interface', 'test_interface'),
+            call.writing('Interface', 'test_interface'),
+        ])
 
     def test_checkin_with_corrnr(self):
         self.checkin(corrnr='corrnr')

@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, Mock, call
 import sap
 import sap.platform.abap.abapgit.cds as cds
 from sap.adt.errors import ExceptionCheckinFailure, ExceptionResourceAlreadyExists
-from sap.platform.abap.localrepository import CheckinContext, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.ddic import DCLS
 
-from mock import ConsoleOutputTestCase, PatcherTestCase, StringIOFile
+from mock import PatcherTestCase, StringIOFile
 
 DCLS_XML = '''<?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_DCLS" serializer_version="v1.0.0">
@@ -26,7 +26,7 @@ DCLS_XML = '''<?xml version="1.0" encoding="utf-8"?>
 '''
 
 
-class CdsTestCase(ConsoleOutputTestCase, PatcherTestCase):
+class CdsTestCase(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -34,7 +34,7 @@ class CdsTestCase(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
 
         self.fake_open = self.patch('sap.platform.abap.abapgit.cds.open')
         self.fake_open.side_effect = [StringIOFile(DCLS_XML), StringIOFile('define role zfoo')]
@@ -62,7 +62,7 @@ class TestPrepareCdsSource(CdsTestCase):
         self.assertEqual(prepared.description, 'Test access control')
         self.assertEqual(prepared.source_file, './src/zfoo.dcls.asdcls')
         self.assertEqual(prepared.source_code, 'define role zfoo')
-        self.assertEmptyConsole(self.console)
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_prepare_no_source_file(self):
         self.repo_obj.files.clear()
@@ -89,7 +89,7 @@ class TestCheckinCdsSource(CdsTestCase):
         self.connection.user = 'developer'
 
     def checkin(self, corrnr=None, check_before_save=False):
-        context = CheckinContext(self.connection, '$TMP', corrnr, check_before_save)
+        context = CheckinContext(self.connection, '$TMP', corrnr, check_before_save, self.observer)
         return cds.checkin_cds_source(context, self.repo_obj, self.prepare(), self.adt_type, 'Access Control')
 
     def test_checkin(self):
@@ -106,7 +106,10 @@ class TestCheckinCdsSource(CdsTestCase):
         self.fake_write_source.assert_called_once_with('define role zfoo', self.adt_object, corrnr=None,
                                                        source_label='./src/zfoo.dcls.asdcls',
                                                        check_before_save=False)
-        self.assertConsoleContents(self.console, stdout='Creating Access Control: zfoo\nWriting Access Control: zfoo\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Access Control', 'zfoo'),
+            call.writing('Access Control', 'zfoo'),
+        ])
 
     def test_checkin_with_corrnr_and_check(self):
         self.checkin(corrnr='420', check_before_save=True)

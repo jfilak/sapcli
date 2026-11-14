@@ -7,7 +7,6 @@ from sap import get_logger
 import sap.adt
 import sap.adt.domain
 import sap.adt.errors
-import sap.cli.core
 import sap.errors
 import sap.platform.abap.abapgit
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
@@ -67,15 +66,15 @@ class DomainHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('DOMA/DD',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         adt_domain = sap.adt.Domain(connection, name)
         adt_domain.fetch()
 
-        dump_attributes_to_file(name, build_domain_abap_attributes(adt_domain), '.doma', 'LCL_OBJECT_DOMA',
+        dump_attributes_to_file(observer, name, build_domain_abap_attributes(adt_domain), '.doma', 'LCL_OBJECT_DOMA',
                                 destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         with open(repo_obj.path, encoding='utf-8') as abap_data_file:
             try:
                 # DD01L_EXTRA is parsed only to accept files of newer abapGit versions
@@ -92,7 +91,7 @@ class DomainHandler(ObjectHandler):
 
     # pylint: disable=too-many-locals
     def checkin(self, context, repo_obj, prepared):
-        sap.cli.core.printout('Creating Domain:', repo_obj.name)
+        context.observer.creating('Domain', repo_obj.name)
 
         dd01v = prepared.dd01v
 
@@ -136,7 +135,7 @@ class DomainHandler(ObjectHandler):
             fix_value.text = dd07v.DDTEXT or ''
             value_information.fix_values.append(fix_value)
 
-        sap.cli.core.printout('Writing Domain:', repo_obj.name)
+        context.observer.writing('Domain', repo_obj.name)
         with domain.open_editor(corrnr=context.corrnr) as editor:
             editor.push()
 

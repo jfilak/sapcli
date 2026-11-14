@@ -6,7 +6,6 @@ from sap import get_logger
 
 import sap.adt
 import sap.adt.errors
-import sap.cli.core
 import sap.errors
 import sap.platform.abap.abapgit
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
@@ -83,7 +82,7 @@ def build_data_element_abap_attributes(adt_dataelement):
     definition = adt_dataelement.definition
 
     if definition.typ not in ('domain', 'predefinedAbapType'):
-        raise sap.cli.core.SAPCliError(
+        raise sap.errors.SAPCliError(
             f'Unsupported type of data element {adt_dataelement.name}: {definition.typ}')
 
     # The values are set in the order of the members to keep the order
@@ -136,15 +135,15 @@ class DataElementHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('DTEL/DE',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         adt_dataelement = sap.adt.DataElement(connection, name)
         adt_dataelement.fetch()
 
-        dump_attributes_to_file(name, build_data_element_abap_attributes(adt_dataelement), '.dtel', 'LCL_OBJECT_DTEL',
+        dump_attributes_to_file(observer, name, build_data_element_abap_attributes(adt_dataelement), '.dtel', 'LCL_OBJECT_DTEL',
                                 destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         with open(repo_obj.path, encoding='utf-8') as abap_data_file:
             try:
                 # DD04L_EXTRA is parsed only to accept files of newer abapGit versions
@@ -165,7 +164,7 @@ class DataElementHandler(ObjectHandler):
         return SimpleNamespace(dd04v=dd04v)
 
     def checkin(self, context, repo_obj, prepared):
-        sap.cli.core.printout('Creating Data Element:', repo_obj.name)
+        context.observer.creating('Data Element', repo_obj.name)
 
         dd04v = prepared.dd04v
 
@@ -216,7 +215,7 @@ class DataElementHandler(ObjectHandler):
         definition.left_to_right_direction = abap_flag_to_adt(dd04v.LTRFLDDIS)
         definition.deactivate_bidi_filtering = abap_flag_to_adt(dd04v.BIDICTRLC)
 
-        sap.cli.core.printout('Writing Data Element:', repo_obj.name)
+        context.observer.writing('Data Element', repo_obj.name)
         with dataelement.open_editor(corrnr=context.corrnr) as editor:
             editor.push()
 

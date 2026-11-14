@@ -8,17 +8,17 @@ import sap.adt
 import sap.platform.abap.abapgit.prog
 from sap.adt.errors import ExceptionCheckinFailure, ExceptionResourceCreationFailure
 from sap.adt.textelements import TextSymbol
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.prog import ProgramHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, StringIOFile
+from mock import Connection, PatcherTestCase, StringIOFile
 from fixtures_sap_platform_abap_abapgit_prog import PROG_XML, PROG_WITH_CUA_XML, PROG_WITH_TEXTS_XML, INCLUDE_XML, \
     INCLUDE_WITH_TEXTS_XML, INVALID_TYPE_XML
 
 FIXTURE_TEXT_SYMBOLS = '@MaxLength:20\r\n001=Hello, world!\r\n@MaxLength:10\r\n002=a=b\r\n'
 
 
-class ProgramHandlerTestCase(ConsoleOutputTestCase, PatcherTestCase):
+class ProgramHandlerTestCase(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -26,7 +26,7 @@ class ProgramHandlerTestCase(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
 
         self.handler = ProgramHandler()
 
@@ -120,7 +120,7 @@ class TestProgramHandlerCheckout(ProgramHandlerTestCase):
         self.connection = Connection()
 
     def test_checkout(self):
-        self.handler.checkout(self.connection, 'PROG/P', 'Z_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'PROG/P', 'Z_HELLO_WORLD', None, self.observer)
 
         self.fake_program.assert_called_once_with(self.connection, 'Z_HELLO_WORLD')
         self.program.fetch.assert_called_once_with()
@@ -150,13 +150,14 @@ class TestProgramHandlerCheckout(ProgramHandlerTestCase):
         self.assertEqual(len(tpool), 1)
         self.assertEqual((tpool[0].ID, tpool[0].ENTRY, tpool[0].LENGTH), ('R', 'Cowabunga', 9))
 
-        self.assertConsoleContents(self.console, stdout='''Z_HELLO_WORLD
-- z_hello_world.prog.abap
-- z_hello_world.prog.xml
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out('Z_HELLO_WORLD'),
+            call.file_written('z_hello_world.prog.abap'),
+            call.file_written('z_hello_world.prog.xml'),
+        ])
 
     def test_checkout_to_directory(self):
-        self.handler.checkout(self.connection, 'PROG/P', 'Z_HELLO_WORLD', '/repo/src')
+        self.handler.checkout(self.connection, 'PROG/P', 'Z_HELLO_WORLD', '/repo/src', self.observer)
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/repo/src/z_hello_world.prog.abap', 'w', encoding='utf8'),
@@ -166,7 +167,7 @@ class TestProgramHandlerCheckout(ProgramHandlerTestCase):
     def test_checkout_with_text_symbols(self):
         self.fake_texts.return_value.text = '@MaxLength:20\n001=Hello, world!'
 
-        self.handler.checkout(self.connection, 'PROG/P', 'Z_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'PROG/P', 'Z_HELLO_WORLD', None, self.observer)
 
         self.fake_texts.assert_called_once_with(self.connection, 'Z_HELLO_WORLD')
 
@@ -196,7 +197,7 @@ class TestProgramHandlerPrepare(ProgramHandlerCheckinTestCase):
     def test_prepare_program(self):
         self.open_files(PROG_XML, 'test_prog_body')
 
-        prepared = self.handler.prepare(self.prog_object)
+        prepared = self.handler.prepare(self.prog_object, self.observer)
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/src/test_prog.prog.xml', encoding='utf-8'),
@@ -207,12 +208,12 @@ class TestProgramHandlerPrepare(ProgramHandlerCheckinTestCase):
         self.assertEqual(prepared.text_symbols, [])
         self.assertEqual(prepared.source_file, 'foo.prog.abap')
         self.assertEqual(prepared.source_code, 'test_prog_body')
-        self.assertEmptyConsole(self.console)
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_prepare_include(self):
         self.open_files(INCLUDE_XML, 'test_include_body')
 
-        prepared = self.handler.prepare(self.prog_object)
+        prepared = self.handler.prepare(self.prog_object, self.observer)
 
         self.assertEqual(prepared.progdir.SUBC, 'I')
         self.assertEqual(prepared.description, 'Test include desc')
@@ -221,36 +222,38 @@ class TestProgramHandlerPrepare(ProgramHandlerCheckinTestCase):
     def test_prepare_with_text_symbols(self):
         self.open_files(PROG_WITH_TEXTS_XML, 'test_prog_body')
 
-        prepared = self.handler.prepare(self.prog_object)
+        prepared = self.handler.prepare(self.prog_object, self.observer)
 
         self.assertEqual(prepared.text_symbols, [TextSymbol('001', 'Hello, world!', 20), TextSymbol('002', 'a=b', 10)])
-        self.assertConsoleContents(self.console,
-                                   stderr='Skipping unsupported text pool entry S P_MATNR of test_prog\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.warning('Skipping unsupported text pool entry S P_MATNR of test_prog'),
+        ])
 
     def test_prepare_include_with_text_symbols(self):
         self.open_files(INCLUDE_WITH_TEXTS_XML, 'test_include_body')
 
-        prepared = self.handler.prepare(self.prog_object)
+        prepared = self.handler.prepare(self.prog_object, self.observer)
 
         self.assertEqual(prepared.text_symbols, [])
-        self.assertConsoleContents(self.console,
-                                   stderr='Skipping unsupported text pool entry I 001 of test_prog\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.warning('Skipping unsupported text pool entry I 001 of test_prog'),
+        ])
 
     def test_prepare_no_files(self):
         prog_object = RepoObject('prog', 'test_prog', '/src/test_prog.prog.xml', [], self.package, self.handler)
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(prog_object)
+            self.handler.prepare(prog_object, self.observer)
 
         self.assertEqual(str(cm.exception), 'No source file for program test_prog')
         self.fake_open.assert_not_called()
-        self.assertEmptyConsole(self.console)
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_prepare_too_many_files(self):
         self.prog_object.files.append('foo.many.files.abap')
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(self.prog_object)
+            self.handler.prepare(self.prog_object, self.observer)
 
         self.assertEqual(str(cm.exception),
                          'Too many source files for program test_prog: foo.prog.abap,foo.many.files.abap')
@@ -260,7 +263,7 @@ class TestProgramHandlerPrepare(ProgramHandlerCheckinTestCase):
                                  self.package, self.handler)
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(prog_object)
+            self.handler.prepare(prog_object, self.observer)
 
         self.assertEqual(str(cm.exception), 'No .abap suffix of source file for program test_prog')
 
@@ -268,7 +271,7 @@ class TestProgramHandlerPrepare(ProgramHandlerCheckinTestCase):
         self.fake_open.side_effect = [StringIOFile(INVALID_TYPE_XML)]
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(self.prog_object)
+            self.handler.prepare(self.prog_object, self.observer)
 
         self.assertEqual(str(cm.exception), 'Unknown program type X')
 
@@ -311,10 +314,10 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
 
     def checkin(self, prog_xml=PROG_XML, source_code='test_prog_body', corrnr=None, check_before_save=False):
         self.open_files(prog_xml, source_code)
-        prepared = self.handler.prepare(self.prog_object)
+        prepared = self.handler.prepare(self.prog_object, self.observer)
         self.fake_open.reset_mock()
 
-        context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save)
+        context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, self.prog_object, prepared)
 
     def test_checkin_program(self):
@@ -332,9 +335,10 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
         self.program.open_editor.assert_called_once_with(corrnr=None)
         self.program_editor.write.assert_called_once_with('test_prog_body')
         self.fake_program_text_elements.assert_not_called()
-        self.assertConsoleContents(self.console, stdout='''Creating Program: test_prog
-Writing Program: test_prog
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Program', 'test_prog'),
+            call.writing('Program', 'test_prog'),
+        ])
 
     def test_checkin_with_text_symbols(self):
         result = self.checkin(prog_xml=PROG_WITH_TEXTS_XML, corrnr='corrnr')
@@ -346,11 +350,12 @@ Writing Program: test_prog
         self.fake_program_text_elements.assert_called_once_with(self.connection, 'TEST_PROG')
         self.texts.open_editor.assert_called_once_with(corrnr='corrnr')
         self.texts_editor.write.assert_called_once_with(FIXTURE_TEXT_SYMBOLS)
-        self.assertConsoleContents(self.console, stdout='''Creating Program: test_prog
-Writing Program: test_prog
-Writing Program: test_prog text elements
-''', stderr='''Skipping unsupported text pool entry S P_MATNR of test_prog
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.warning('Skipping unsupported text pool entry S P_MATNR of test_prog'),
+            call.creating('Program', 'test_prog'),
+            call.writing('Program', 'test_prog'),
+            call.writing('Program', 'test_prog', 'text elements'),
+        ])
 
     def test_checkin_include_with_text_symbols(self):
         result = self.checkin(prog_xml=INCLUDE_WITH_TEXTS_XML, source_code='test_include_body')
@@ -358,11 +363,12 @@ Writing Program: test_prog text elements
         self.assertEqual(result.abap_objects, [self.include])
         self.assertEqual(self.include.description, 'Test include desc')
         self.fake_program_text_elements.assert_not_called()
-        self.assertConsoleContents(self.console, stdout='''Creating Program: test_prog
-Creating Include: test_prog
-Writing Program: test_prog
-''', stderr='''Skipping unsupported text pool entry I 001 of test_prog
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.warning('Skipping unsupported text pool entry I 001 of test_prog'),
+            call.creating('Program', 'test_prog'),
+            call.creating('Include', 'test_prog'),
+            call.writing('Program', 'test_prog'),
+        ])
 
     def test_checkin_with_cua(self):
         self.checkin(prog_xml=PROG_WITH_CUA_XML)
@@ -385,10 +391,11 @@ Writing Program: test_prog
         self.include.create.assert_called_once_with(None)
         self.include.open_editor.assert_called_once_with(corrnr=None)
         self.include_editor.write.assert_called_once_with('test_include_body')
-        self.assertConsoleContents(self.console, stdout='''Creating Program: test_prog
-Creating Include: test_prog
-Writing Program: test_prog
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Program', 'test_prog'),
+            call.creating('Include', 'test_prog'),
+            call.writing('Program', 'test_prog'),
+        ])
 
     def test_checkin_with_corrnr(self):
         self.checkin(corrnr='corrnr')

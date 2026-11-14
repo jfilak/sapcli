@@ -11,10 +11,10 @@ import sap.errors
 import sap.platform.abap.abapgit.dtel
 from sap.adt.errors import ExceptionCheckinFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.dtel import DataElementHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, Response, StringIOFile
+from mock import Connection, PatcherTestCase, Response, StringIOFile
 from fixtures_sap_platform_abap_abapgit_dtel import DTEL_ABAPGIT_XML, DTEL_DOMAIN_ABAPGIT_XML, DTEL_STRING_ABAPGIT_XML, \
     DTEL_XML, DTEL_DOMAIN_XML, DTEL_TRANSLATIONS_XML, DTEL_REFERENCE_XML
 from fixtures_adt_dataelement import DATA_ELEMENT_ADT_NEW_OBJECT_REQUEST_XML, \
@@ -45,7 +45,7 @@ class TestDataElementHandlerLocate(unittest.TestCase):
         self.assertIsNone(handler.locate(repo_obj, 'source/main', 1))
 
 
-class TestDataElementHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
+class TestDataElementHandlerCheckout(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -59,14 +59,14 @@ class TestDataElementHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = DataElementHandler()
 
     def checkout(self, adt_response_xml, destdir=None):
         connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
 
         with patch('sap.platform.abap.abapgit.files.open', mock_open()) as fake_open:
-            self.handler.checkout(connection, 'DTEL/DE', DATA_ELEMENT_NEW_NAME, destdir)
+            self.handler.checkout(connection, 'DTEL/DE', DATA_ELEMENT_NEW_NAME, destdir, self.observer)
 
         self.assertEqual(len(connection.execs), 1)
         self.assertEqual(connection.execs[0].adt_uri,
@@ -85,8 +85,10 @@ class TestDataElementHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
         fake_open = self.checkout(DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML)
 
         self.assert_wrote_abapgit_file(fake_open, DTEL_ABAPGIT_XML)
-        self.assertConsoleContents(self.console,
-                                   stdout=f'{DATA_ELEMENT_NEW_NAME}\n- {DATA_ELEMENT_NEW_NAME.lower()}.dtel.xml\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(DATA_ELEMENT_NEW_NAME),
+            call.file_written(f'{DATA_ELEMENT_NEW_NAME.lower()}.dtel.xml'),
+        ])
 
     def test_checkout_dtel_domain(self):
         fake_open = self.checkout(DATA_ELEMENT_ADT_GET_DOMAIN_RESPONSE_XML)
@@ -120,7 +122,7 @@ DTEL_MIME = 'application/vnd.sap.adt.dataelements.v2+xml; charset=utf-8'
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestDataElementHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
+class TestDataElementHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -134,7 +136,7 @@ class TestDataElementHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = DataElementHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -178,8 +180,8 @@ class TestDataElementHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(connection.execs[2].body.decode('utf-8'), define_request_xml)
 
     def checkin_object(self, connection, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
-        context = CheckinContext(connection, '$TMP', corrnr, check_before_save)
+        prepared = self.handler.prepare(repo_obj, self.observer)
+        context = CheckinContext(connection, '$TMP', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_dtel_sample(self, fake_lock, fake_unlock):
@@ -193,9 +195,10 @@ class TestDataElementHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(result.abap_objects[0].name, DATA_ELEMENT_NEW_NAME)
         self.assertEqual(result.used_files, [])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Data Element: {DATA_ELEMENT_NEW_NAME.lower()}
-Writing Data Element: {DATA_ELEMENT_NEW_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Data Element', DATA_ELEMENT_NEW_NAME.lower()),
+            call.writing('Data Element', DATA_ELEMENT_NEW_NAME.lower()),
+        ])
 
     def test_checkin_dtel_domain(self, fake_lock, fake_unlock):
         responses = self.responses_ok()

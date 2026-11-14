@@ -3,7 +3,6 @@
 import re
 
 import sap.adt
-import sap.cli.core
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
 from sap.platform.abap.abapgit.cds import prepare_cds_source, checkin_cds_source
 from sap.platform.abap.abapgit.files import dump_attributes_to_file, write_source, locate_main_source
@@ -47,8 +46,8 @@ class DataDefinitionHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('DDLS/DF',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         adt_ddl = sap.adt.DataDefinition(connection, name)
         adt_ddl.fetch()
 
@@ -57,15 +56,15 @@ class DataDefinitionHandler(ObjectHandler):
         if not source.endswith('\n'):
             source += '\n'
 
-        write_source(source, name, '.ddls', destdir=destdir, fileext='asddls')
+        write_source(observer, source, name, '.ddls', destdir=destdir, fileext='asddls')
 
         ddls = build_data_definition_abap_attributes(adt_ddl, source)
         if ddls.SOURCE_TYPE is None:
-            sap.cli.core.printerr(f'Unknown source type of data definition {name}')
+            observer.warning(f'Unknown source type of data definition {name}')
 
-        dump_attributes_to_file(name, (ddls,), '.ddls', 'LCL_OBJECT_DDLS', destdir=destdir)
+        dump_attributes_to_file(observer, name, (ddls,), '.ddls', 'LCL_OBJECT_DDLS', destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         return prepare_cds_source(repo_obj, DDLS, lambda ddls: ddls.DDTEXT, '.asddls', 'Data Definition')
 
     def checkin(self, context, repo_obj, prepared):

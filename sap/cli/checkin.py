@@ -1,4 +1,5 @@
 """ADT Object import"""
+import functools
 import os
 
 from sap import get_logger
@@ -12,7 +13,7 @@ import sap.adt.errors
 import sap.cli.wb
 from sap.config import config_get
 from sap.platform.abap.localrepository import CheckinContext
-from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT
+from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT, ConsoleObserver
 
 # The activation group and the position in the group by file types.
 # The objects of a group are written in the order of their positions and
@@ -94,7 +95,7 @@ def _resolve_dependencies(objects):
     return groups
 
 
-def _prepare_repository(repo, console):
+def _prepare_repository(repo, console, observer):
     """Reads and checks the files of all packages and objects before
        accessing the system to avoid long running checkins failing at the end
        because of a file which could not be checked in. Reports all problems
@@ -104,12 +105,13 @@ def _prepare_repository(repo, console):
     prepared = {}
     problems = 0
 
-    preparations = [(package.path, REPOSITORY_LAYOUT.prepare_package, package) for package in repo.packages]
-    preparations += [(obj.path, obj.handler.prepare, obj) for obj in repo.objects]
+    preparations = [(package.path, functools.partial(REPOSITORY_LAYOUT.prepare_package, package))
+                    for package in repo.packages]
+    preparations += [(obj.path, functools.partial(obj.handler.prepare, obj, observer)) for obj in repo.objects]
 
-    for path, prepare, repo_item in preparations:
+    for path, prepare in preparations:
         try:
-            prepared[path] = prepare(repo_item)
+            prepared[path] = prepare()
         # InputError (e.g. invalid XML) is not derived from SAPCliError
         except sap.errors.FatalError as ex:
             console.printerr(f'{path}: {ex}')
@@ -122,7 +124,8 @@ def _prepare_repository(repo, console):
 
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments
-def _checkin_dependency_group(connection, group, package_names, used_files, corrnr, check_before_save, prepared):
+def _checkin_dependency_group(connection, group, package_names, used_files, corrnr, check_before_save, prepared,
+                              observer):
     """Writes the objects of the activation group, adds the files they
        consumed to used_files and returns the references to activate.
     """
@@ -130,7 +133,8 @@ def _checkin_dependency_group(connection, group, package_names, used_files, corr
     inactive_objects = sap.adt.objects.ADTObjectReferences()
 
     for repo_obj in group:
-        context = CheckinContext(connection, package_names[repo_obj.package.dir_path], corrnr, check_before_save)
+        context = CheckinContext(connection, package_names[repo_obj.package.dir_path], corrnr, check_before_save,
+                                 observer)
 
         # A failure stops the checkin because the objects using the object
         # would fail later anyway
@@ -149,12 +153,17 @@ def _activate(connection, inactive_objects, console):
 
 
 def _checkin_repository(connection, args, console, check_before_save):
+    observer = ConsoleObserver(console)
+
     repo = REPOSITORY_LAYOUT.load_repository(args.starting_folder, OBJECT_HANDLERS)
+    if repo.starting_folder != args.starting_folder:
+        console.printerr(f'Using starting-folder: {repo.starting_folder}')
+
     package_names = {package.dir_path: REPOSITORY_LAYOUT.package_name(repo, package, args.name)
                      for package in repo.packages}
 
     console.printout('Checking files ...')
-    prepared = _prepare_repository(repo, console)
+    prepared = _prepare_repository(repo, console, observer)
 
     console.printout('Creating packages ...')
     for package in repo.packages:
@@ -167,7 +176,7 @@ def _checkin_repository(connection, args, console, check_before_save):
     for activation_group in _resolve_dependencies(repo.objects):
         console.printout('Creating objects ...')
         inactive_objects = _checkin_dependency_group(connection, activation_group, package_names, used_files,
-                                                     args.corrnr, check_before_save, prepared)
+                                                     args.corrnr, check_before_save, prepared, observer)
 
         if inactive_objects.references:
             console.printout('Activating objects ...')

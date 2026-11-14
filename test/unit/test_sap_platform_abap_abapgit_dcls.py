@@ -11,10 +11,10 @@ import sap.errors
 import sap.platform.abap.abapgit.dcls
 from sap.adt.errors import ExceptionCheckinFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.dcls import AccessControlHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, Response, StringIOFile
+from mock import Connection, PatcherTestCase, Response, StringIOFile
 from fixtures_sap_platform_abap_abapgit_dcls import CHECKOUT_DCLS_SOURCE_CODE, DCLS_ABAPGIT_XML, \
     DCLS_ADT_NEW_OBJECT_REQUEST_XML, DCLS_NAME, DCLS_SOURCE_CODE, DCLS_XML, DCLS_ABAP_LANGUAGE_VERSION_XML, \
     DCLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DCLS_ADT_GET_RESPONSE_XML
@@ -52,7 +52,7 @@ class TestAccessControlHandlerLocate(unittest.TestCase):
         self.assertIsNone(self.handler.locate(self.repo_obj, 'source/main', 12))
 
 
-class TestAccessControlHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
+class TestAccessControlHandlerCheckout(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -66,7 +66,7 @@ class TestAccessControlHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = AccessControlHandler()
 
     def checkout(self, destdir=None):
@@ -83,7 +83,7 @@ class TestAccessControlHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
             return written[path]
 
         with patch('sap.platform.abap.abapgit.files.open', side_effect=open_file):
-            self.handler.checkout(connection, 'DCLS/DL', DCLS_NAME, destdir)
+            self.handler.checkout(connection, 'DCLS/DL', DCLS_NAME, destdir, self.observer)
 
         self.assertEqual(connection.mock_methods(), [
             ('GET', f'/sap/bc/adt/acm/dcl/sources/{DCLS_NAME.lower()}'),
@@ -100,10 +100,11 @@ class TestAccessControlHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(written[f'{DCLS_NAME.lower()}.dcls.asdcls'].getvalue(), CHECKOUT_DCLS_SOURCE_CODE)
         self.maxDiff = None
         self.assertEqual(written[f'{DCLS_NAME.lower()}.dcls.xml'].getvalue(), DCLS_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'''{DCLS_NAME}
-- {DCLS_NAME.lower()}.dcls.asdcls
-- {DCLS_NAME.lower()}.dcls.xml
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(DCLS_NAME),
+            call.file_written(f'{DCLS_NAME.lower()}.dcls.asdcls'),
+            call.file_written(f'{DCLS_NAME.lower()}.dcls.xml'),
+        ])
 
     def test_checkout_dcls_destdir(self):
         written = self.checkout(destdir='src')
@@ -114,7 +115,7 @@ class TestAccessControlHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestAccessControlHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
+class TestAccessControlHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -128,7 +129,7 @@ class TestAccessControlHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = AccessControlHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -161,8 +162,8 @@ class TestAccessControlHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(connection.execs[1].body.decode('utf-8'), DCLS_SOURCE_CODE[:-1])
 
     def checkin_object(self, connection, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
-        context = CheckinContext(connection, '$TMP', corrnr, check_before_save)
+        prepared = self.handler.prepare(repo_obj, self.observer)
+        context = CheckinContext(connection, '$TMP', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_dcls(self, fake_lock, fake_unlock):
@@ -181,9 +182,10 @@ class TestAccessControlHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(result.abap_objects[0].name, DCLS_NAME)
         self.assertEqual(result.used_files, [self.source_file])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Access Control: {DCLS_NAME.lower()}
-Writing Access Control: {DCLS_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Access Control', DCLS_NAME.lower()),
+            call.writing('Access Control', DCLS_NAME.lower()),
+        ])
 
     def test_checkin_dcls_abap_language_version(self, fake_lock, fake_unlock):
         self.fake_open.side_effect = [StringIOFile(DCLS_ABAP_LANGUAGE_VERSION_XML), StringIOFile(DCLS_SOURCE_CODE)]

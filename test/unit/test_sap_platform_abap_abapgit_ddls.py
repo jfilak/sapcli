@@ -11,10 +11,10 @@ import sap.errors
 import sap.platform.abap.abapgit.ddls
 from sap.adt.errors import ExceptionCheckinFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.ddls import DataDefinitionHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, Response, StringIOFile
+from mock import Connection, PatcherTestCase, Response, StringIOFile
 from fixtures_sap_platform_abap_abapgit_ddls import DDLS_SOURCE_CODE, DDLS_ABAPGIT_XML, \
     DDLS_NO_SOURCE_TYPE_ABAPGIT_XML, DDLS_ADT_NEW_OBJECT_REQUEST_XML, DDLS_NAME, DDLS_XML, DDLS_ALL_FIELDS_XML, \
     DDLS_ADT_ALREADY_EXISTS_RESPONSE_XML, DDLS_ADT_GET_RESPONSE_XML
@@ -131,7 +131,7 @@ implemented by method zcl_sapcli_cds=>get_data;
         self.assertIsNone(source_type)
 
 
-class TestDataDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
+class TestDataDefinitionHandlerCheckout(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -145,7 +145,7 @@ class TestDataDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = DataDefinitionHandler()
 
     def checkout(self, source_code, destdir=None):
@@ -162,7 +162,7 @@ class TestDataDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
             return written[path]
 
         with patch('sap.platform.abap.abapgit.files.open', side_effect=open_file):
-            self.handler.checkout(connection, 'DDLS/DF', DDLS_NAME, destdir)
+            self.handler.checkout(connection, 'DDLS/DF', DDLS_NAME, destdir, self.observer)
 
         self.assertEqual(connection.mock_methods(), [
             ('GET', f'/sap/bc/adt/ddic/ddl/sources/{DDLS_NAME.lower()}'),
@@ -178,10 +178,11 @@ class TestDataDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(written[f'{DDLS_NAME.lower()}.ddls.asddls'].getvalue(), DDLS_SOURCE_CODE)
         self.maxDiff = None
         self.assertEqual(written[f'{DDLS_NAME.lower()}.ddls.xml'].getvalue(), DDLS_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'''{DDLS_NAME}
-- {DDLS_NAME.lower()}.ddls.asddls
-- {DDLS_NAME.lower()}.ddls.xml
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(DDLS_NAME),
+            call.file_written(f'{DDLS_NAME.lower()}.ddls.asddls'),
+            call.file_written(f'{DDLS_NAME.lower()}.ddls.xml'),
+        ])
 
     def test_checkout_ddls_adds_trailing_new_line(self):
         written = self.checkout(DDLS_SOURCE_CODE[:-1])
@@ -203,7 +204,7 @@ class TestDataDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
         self.maxDiff = None
         self.assertEqual(written[f'{DDLS_NAME.lower()}.ddls.xml'].getvalue(), DDLS_NO_SOURCE_TYPE_ABAPGIT_XML)
-        self.assertEqual(self.console.caperr, f'Unknown source type of data definition {DDLS_NAME}\n')
+        self.observer.warning.assert_called_once_with(f'Unknown source type of data definition {DDLS_NAME}')
 
 
 DDLS_SOURCE_MIME = 'text/plain; charset=utf-8'
@@ -211,7 +212,7 @@ DDLS_SOURCE_MIME = 'text/plain; charset=utf-8'
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestDataDefinitionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
+class TestDataDefinitionHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -225,7 +226,7 @@ class TestDataDefinitionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = DataDefinitionHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -259,8 +260,8 @@ class TestDataDefinitionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(connection.execs[1].body.decode('utf-8'), DDLS_SOURCE_CODE[:-1])
 
     def checkin_object(self, connection, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
-        context = CheckinContext(connection, '$TMP', corrnr, check_before_save)
+        prepared = self.handler.prepare(repo_obj, self.observer)
+        context = CheckinContext(connection, '$TMP', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_ddls(self, fake_lock, fake_unlock):
@@ -279,9 +280,10 @@ class TestDataDefinitionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(result.abap_objects[0].name, DDLS_NAME)
         self.assertEqual(result.used_files, [self.source_file])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Data Definition: {DDLS_NAME.lower()}
-Writing Data Definition: {DDLS_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Data Definition', DDLS_NAME.lower()),
+            call.writing('Data Definition', DDLS_NAME.lower()),
+        ])
 
     def test_checkin_ddls_with_baseinfo(self, fake_lock, fake_unlock):
         self.repo_obj.files.append(self.baseinfo_file)

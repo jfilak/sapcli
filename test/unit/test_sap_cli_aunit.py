@@ -1390,7 +1390,7 @@ class LocalRepositoryTestCase(unittest.TestCase):
                                ['./src/foo.clas.abap', './src/foo.clas.testclasses.abap'], package, clas_handler)
         self.prog = RepoObject('prog', 'zreport', './src/zreport.prog.xml', ['./src/zreport.prog.abap'], package,
                                prog_handler)
-        self.repo = Repository([package], [self.clas, self.prog], [], None)
+        self.repo = Repository([package], [self.clas, self.prog], [], None, '/src/')
         self.local_objects = {('CLAS/OC', 'FOO'): self.clas, ('PROG/P', 'ZREPORT'): self.prog}
 
 

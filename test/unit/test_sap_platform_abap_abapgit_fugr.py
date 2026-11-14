@@ -10,10 +10,10 @@ import sap.adt.errors
 import sap.platform.abap.abapgit.fugr
 from sap.adt.errors import ExceptionCheckinFailure, ExceptionResourceAlreadyExists, ExceptionResourceCreationFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.fugr import FunctionGroupHandler, SourceCodeFormat
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, StringIOFile
+from mock import Connection, PatcherTestCase, StringIOFile
 from fixtures_sap_platform_abap_abapgit_fugr import FUNCTION_GROUP_XML, FUNCTION_GROUP_XML_NO_RFC, \
     FUNCTION_MODULE_CODE_ABAPGIT, FUNCTION_MODULE_CODE_ADT, FUNCTION_MODULE_CODE_NO_PARAMS_ABAPGIT, \
     FUNCTION_MODULE_CODE_NO_PARAMS_ADT, FUNCTION_MODULE_CODE_ALL_PARAMS_ABAPGIT, FUNCTION_MODULE_CODE_ALL_PARAMS_ADT, \
@@ -33,7 +33,7 @@ class TestFunctionGroupHandlerIdentity(unittest.TestCase):
         self.assertEqual(handler.ADT_TYPES, (sap.adt.FunctionGroup.OBJTYPE.code,))
 
 
-class TestDownloadAbapGitSource(ConsoleOutputTestCase, PatcherTestCase):
+class TestDownloadAbapGitSource(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -41,7 +41,7 @@ class TestDownloadAbapGitSource(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.fake_write_source = self.patch('sap.platform.abap.abapgit.fugr.write_source')
 
     def tearDown(self):
@@ -53,23 +53,26 @@ class TestDownloadAbapGitSource(ConsoleOutputTestCase, PatcherTestCase):
     def test_download(self):
         translate = Mock(return_value='FUNCTION zfoo.')
 
-        sap.platform.abap.abapgit.fugr.download_abapgit_source('ZFUGR', 'function module', '.fugr.ZFOO', translate,
-                                                            destdir='/repo')
+        sap.platform.abap.abapgit.fugr.download_abapgit_source(self.observer, 'ZFUGR', 'function module',
+                                                               '.fugr.ZFOO', translate, destdir='/repo')
 
         translate.assert_called_once_with('function module')
-        self.fake_write_source.assert_called_once_with('FUNCTION zfoo.', 'ZFUGR', '.fugr.ZFOO', '/repo')
-        self.assertEmptyConsole(self.console)
+        self.fake_write_source.assert_called_once_with(self.observer, 'FUNCTION zfoo.', 'ZFUGR', '.fugr.ZFOO', '/repo')
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_download_error(self):
         translate = Mock(side_effect=sap.adt.errors.ExceptionResourceNotFound('No such function'))
 
-        sap.platform.abap.abapgit.fugr.download_abapgit_source('ZFUGR', 'function module', '.fugr.ZFOO', translate)
+        sap.platform.abap.abapgit.fugr.download_abapgit_source(self.observer, 'ZFUGR', 'function module',
+                                                               '.fugr.ZFOO', translate)
 
         self.fake_write_source.assert_not_called()
-        self.assertConsoleContents(self.console, stderr='Download of AbapGit source code failed: No such function\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.warning('Download of AbapGit source code failed: No such function'),
+        ])
 
 
-class TestFunctionGroupHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
+class TestFunctionGroupHandlerCheckout(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -132,7 +135,7 @@ class TestFunctionGroupHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.conn = Connection([])
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = FunctionGroupHandler()
 
         self.fake_metadata = SimpleNamespace(description='TEST FUNCTION GROUP',
@@ -151,12 +154,13 @@ class TestFunctionGroupHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
         fake_download_abap_source = self.patch('sap.platform.abap.abapgit.fugr.download_abap_source')
 
-        self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None)
+        self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None, self.observer)
 
         expected_content = CHECKOUT_FUNCTION_INCLUDE_1_XML + CHECKOUT_FUNCTION_INCLUDE_2_XML + CHECKOUT_FUNCTION_MODULE_1_CODE_ABAPGIT + CHECKOUT_FUNCTION_MODULE_2_CODE_ABAPGIT + CHECKOUT_FUNCTION_GROUP_XML
         self.assertEqual(fake_write.content, expected_content)
         fake_download_abap_source.assert_has_calls(
-            [call(self.fake_funcgrp.name, fn_include, f'.fugr.{fn_include.name}', destdir=None) for fn_include in self.includes]
+            [call(self.observer, self.fake_funcgrp.name, fn_include, f'.fugr.{fn_include.name}', destdir=None)
+             for fn_include in self.includes]
         )
 
     @patch('sap.platform.abap.abapgit.files.open')
@@ -165,7 +169,8 @@ class TestFunctionGroupHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
         fake_write = self.MockOpenWrite()
         fake_open.return_value.__enter__.return_value = fake_write
 
-        sap.platform.abap.abapgit.fugr.checkout_function_group(self.conn, 'TEST_FUNCGRP', source_format=SourceCodeFormat.ABAP)
+        sap.platform.abap.abapgit.fugr.checkout_function_group(self.conn, 'TEST_FUNCGRP', self.observer,
+                                                               source_format=SourceCodeFormat.ABAP)
 
         expected_content = (CHECKOUT_FUNCTION_INCLUDE_1_XML + 'Include 1 source code.' + CHECKOUT_FUNCTION_INCLUDE_2_XML + 'Include 2 source code.' +
                             CHECKOUT_FUNCTION_MODULE_1_CODE + CHECKOUT_FUNCTION_MODULE_2_CODE + CHECKOUT_FUNCTION_GROUP_XML)
@@ -175,10 +180,10 @@ class TestFunctionGroupHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
         self.fake_funcgrp.walk = Mock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='UNSUPPORTED/THIS', name='TEST')])])
 
         with self.assertRaises(SAPCliError) as cm:
-            self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None)
+            self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None, self.observer)
 
         self.assertEqual(str(cm.exception), 'Unsupported function group object: UNSUPPORTED/THIS TEST')
-        self.assertConsoleContents(self.console, stdout='TEST_FUNCGRP\n')
+        self.assertEqual(self.observer.mock_calls, [call.checking_out('TEST_FUNCGRP')])
 
     @patch('sap.platform.abap.abapgit.fugr.build_function_group_abap_attributes')
     @patch('sap.platform.abap.abapgit.fugr.build_system_fn_include_abap_attributes')
@@ -189,12 +194,12 @@ class TestFunctionGroupHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
         fake_build_include.return_value = 'FAKE_INCLUDE_PARAMS'
         fake_build_funcgrp.return_value = 'FAKE_FUNCGRP_PARAMS'
 
-        self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None)
+        self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None, self.observer)
 
         fake_download.assert_called_once()
         fake_dump.assert_has_calls([
-            call(self.fake_funcgrp.name, 'FAKE_INCLUDE_PARAMS', '.fugr.TESTTOP', '', destdir=None),
-            call(self.fake_funcgrp.name, 'FAKE_FUNCGRP_PARAMS', '.fugr', 'LCL_OBJECT_FUGR', destdir=None)
+            call(self.observer, self.fake_funcgrp.name, 'FAKE_INCLUDE_PARAMS', '.fugr.TESTTOP', '', destdir=None),
+            call(self.observer, self.fake_funcgrp.name, 'FAKE_FUNCGRP_PARAMS', '.fugr', 'LCL_OBJECT_FUGR', destdir=None)
         ])
 
     @patch('sap.platform.abap.abapgit.fugr.build_function_group_abap_attributes')
@@ -203,15 +208,18 @@ class TestFunctionGroupHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
     def test_checkout_function_group_skip_uxx(self, fake_download, fake_dump, fake_build_funcgrp):
         self.fake_funcgrp.walk = Mock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/I', name='TESTUXX')])])
 
-        self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None)
+        self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None, self.observer)
 
         fake_download.assert_not_called()
         fake_build_funcgrp.assert_called_once()
         fake_dump.assert_called_once()
-        self.assertConsoleContents(self.console, stdout='TEST_FUNCGRP\nSkipping system generated "UXX" function group include: TESTUXX.\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out('TEST_FUNCGRP'),
+            call.warning('Skipping system generated "UXX" function group include: TESTUXX.'),
+        ])
 
 
-class TestFunctionGroupHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
+class TestFunctionGroupHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -225,7 +233,7 @@ class TestFunctionGroupHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = FunctionGroupHandler()
 
         self.connection = Mock()
@@ -268,9 +276,9 @@ class TestFunctionGroupHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
                                       self.package, self.handler)
 
     def checkin(self, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
+        prepared = self.handler.prepare(repo_obj, self.observer)
 
-        context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save)
+        context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_fugr_no_files(self):
@@ -377,12 +385,13 @@ class TestFunctionGroupHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.function_include.open_editor.assert_called_once_with(corrnr=None)
         self.function_include_editor.write.assert_called_once_with('Test include body')
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Function Group: {self.fugr_object.name}
-Creating Function Group Include: {self.function_include.name}
-Writing Function Group Include: {self.function_include.name}
-Creating Function Module: {self.function_module.name}
-Writing Function Module: {self.function_module.name}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Function Group', self.fugr_object.name),
+            call.creating('Function Group Include', self.function_include.name),
+            call.writing('Function Group Include', self.function_include.name),
+            call.creating('Function Module', self.function_module.name),
+            call.writing('Function Module', self.function_module.name),
+        ])
 
     def test_checkin_fugr_with_corrnr(self):
         corrnr = '123456'

@@ -11,10 +11,10 @@ import sap.errors
 import sap.platform.abap.abapgit.ddlx
 from sap.adt.errors import ExceptionCheckinFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.ddlx import MetadataExtensionHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, Response, StringIOFile
+from mock import Connection, PatcherTestCase, Response, StringIOFile
 from fixtures_sap_platform_abap_abapgit_ddlx import DDLX_SOURCE_CODE, DDLX_ABAPGIT_XML, \
     DDLX_ADT_NEW_OBJECT_REQUEST_XML, DDLX_NAME, DDLX_XML, DDLX_ABAP_LANGUAGE_VERSION_XML, \
     DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, DDLX_ADT_GET_RESPONSE_XML
@@ -52,7 +52,7 @@ class TestMetadataExtensionHandlerLocate(unittest.TestCase):
         self.assertIsNone(self.handler.locate(self.repo_obj, 'source/main', 12))
 
 
-class TestMetadataExtensionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
+class TestMetadataExtensionHandlerCheckout(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -66,7 +66,7 @@ class TestMetadataExtensionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCas
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = MetadataExtensionHandler()
 
     def checkout(self, destdir=None):
@@ -83,7 +83,7 @@ class TestMetadataExtensionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCas
             return written[path]
 
         with patch('sap.platform.abap.abapgit.files.open', side_effect=open_file):
-            self.handler.checkout(connection, 'DDLX/EX', DDLX_NAME, destdir)
+            self.handler.checkout(connection, 'DDLX/EX', DDLX_NAME, destdir, self.observer)
 
         self.assertEqual(connection.mock_methods(), [
             ('GET', f'/sap/bc/adt/ddic/ddlx/sources/{DDLX_NAME.lower()}'),
@@ -100,10 +100,11 @@ class TestMetadataExtensionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCas
         self.assertEqual(written[f'{DDLX_NAME.lower()}.ddlx.asddlxs'].getvalue(), DDLX_SOURCE_CODE)
         self.maxDiff = None
         self.assertEqual(written[f'{DDLX_NAME.lower()}.ddlx.xml'].getvalue(), DDLX_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'''{DDLX_NAME}
-- {DDLX_NAME.lower()}.ddlx.asddlxs
-- {DDLX_NAME.lower()}.ddlx.xml
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(DDLX_NAME),
+            call.file_written(f'{DDLX_NAME.lower()}.ddlx.asddlxs'),
+            call.file_written(f'{DDLX_NAME.lower()}.ddlx.xml'),
+        ])
 
     def test_checkout_ddlx_destdir(self):
         written = self.checkout(destdir='src')
@@ -114,7 +115,7 @@ class TestMetadataExtensionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCas
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestMetadataExtensionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
+class TestMetadataExtensionHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -128,7 +129,7 @@ class TestMetadataExtensionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = MetadataExtensionHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -161,8 +162,8 @@ class TestMetadataExtensionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase
         self.assertEqual(connection.execs[1].body.decode('utf-8'), DDLX_SOURCE_CODE)
 
     def checkin_object(self, connection, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
-        context = CheckinContext(connection, '$TMP', corrnr, check_before_save)
+        prepared = self.handler.prepare(repo_obj, self.observer)
+        context = CheckinContext(connection, '$TMP', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_ddlx(self, fake_lock, fake_unlock):
@@ -181,9 +182,10 @@ class TestMetadataExtensionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase
         self.assertEqual(result.abap_objects[0].name, DDLX_NAME)
         self.assertEqual(result.used_files, [self.source_file])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Metadata Extension: {DDLX_NAME.lower()}
-Writing Metadata Extension: {DDLX_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Metadata Extension', DDLX_NAME.lower()),
+            call.writing('Metadata Extension', DDLX_NAME.lower()),
+        ])
 
     def test_checkin_ddlx_abap_language_version(self, fake_lock, fake_unlock):
         self.fake_open.side_effect = [StringIOFile(DDLX_ABAP_LANGUAGE_VERSION_XML), StringIOFile(DDLX_SOURCE_CODE)]

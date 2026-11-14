@@ -2,16 +2,16 @@
 
 import os
 import unittest
-from unittest.mock import mock_open, patch
+from unittest.mock import Mock, call, mock_open, patch
 
 import sap.adt
 import sap.errors
 import sap.platform.abap.abapgit.ttyp
 from sap.adt.errors import ExceptionCheckinFailure
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.ttyp import TableTypeHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, Response
+from mock import Connection, PatcherTestCase, Response
 from fixtures_sap_platform_abap_abapgit_ttyp import TTYP_STANDARD_XML, TTYP_SORTED_XML, TTYP_PREDEFINED_XML, \
     TTYP_SECONDARY_KEYS_XML, TTYP_RANGE_XML, TTYP_SORTED_ABAPGIT_XML, TTYP_PREDEFINED_ABAPGIT_XML, \
     TTYP_STRING_ABAPGIT_XML, TTYP_SECONDARY_KEYS_ABAPGIT_XML
@@ -40,7 +40,7 @@ class TestTableTypeHandlerIdentity(unittest.TestCase):
         self.assertIsNone(handler.locate(repo_obj, 'source/main', 1))
 
 
-class TestTableTypeHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
+class TestTableTypeHandlerCheckout(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -54,14 +54,14 @@ class TestTableTypeHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = TableTypeHandler()
 
     def checkout(self, adt_response_xml, destdir=None):
         connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
 
         with patch('sap.platform.abap.abapgit.files.open', mock_open()) as fake_open:
-            self.handler.checkout(connection, 'TTYP/DA', TABLE_TYPE_NAME, destdir)
+            self.handler.checkout(connection, 'TTYP/DA', TABLE_TYPE_NAME, destdir, self.observer)
 
         self.assertEqual(len(connection.execs), 1)
         self.assertEqual(connection.execs[0].adt_uri, f'/sap/bc/adt/ddic/tabletypes/{TABLE_TYPE_NAME.lower()}')
@@ -79,7 +79,10 @@ class TestTableTypeHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
         fake_open = self.checkout(TABLE_TYPE_ADT_GET_KEY_COMPONENTS_RESPONSE_XML)
 
         self.assert_wrote_abapgit_file(fake_open, f'{TABLE_TYPE_NAME.lower()}.ttyp.xml', TTYP_SORTED_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'{TABLE_TYPE_NAME}\n- {TABLE_TYPE_NAME.lower()}.ttyp.xml\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(TABLE_TYPE_NAME),
+            call.file_written(f'{TABLE_TYPE_NAME.lower()}.ttyp.xml'),
+        ])
 
     def test_checkout_ttyp_predefined(self):
         fake_open = self.checkout(TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML)
@@ -102,7 +105,7 @@ class TestTableTypeHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
         self.assert_wrote_abapgit_file(fake_open, f'{TABLE_TYPE_NAME.lower()}.ttyp.xml',
                                        TTYP_SECONDARY_KEYS_ABAPGIT_XML)
-        self.assertEqual(self.console.caperr, f'Skipping unsupported secondary keys of {TABLE_TYPE_NAME}\n')
+        self.observer.warning.assert_called_once_with(f'Skipping unsupported secondary keys of {TABLE_TYPE_NAME}')
 
     def test_checkout_ttyp_range_not_supported(self):
         with self.assertRaises(sap.errors.SAPCliError) as caught:
@@ -120,7 +123,7 @@ TTYP_MIME = 'application/vnd.sap.adt.tabletype.v1+xml; charset=utf-8'
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestTableTypeHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
+class TestTableTypeHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -134,7 +137,7 @@ class TestTableTypeHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = TableTypeHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -145,8 +148,8 @@ class TestTableTypeHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         connection = Connection(responses, user='DEVELOPER')
 
         with patch('sap.platform.abap.abapgit.ttyp.open', mock_open(read_data=abapgit_xml)) as fake_open:
-            result = self.handler.checkin(CheckinContext(connection, '$TMP', None, False), self.repo_obj,
-                                          self.handler.prepare(self.repo_obj))
+            result = self.handler.checkin(CheckinContext(connection, '$TMP', None, False, self.observer), self.repo_obj,
+                                          self.handler.prepare(self.repo_obj, self.observer))
 
         fake_open.assert_called_once_with(self.repo_obj.path, encoding='utf-8')
 
@@ -187,9 +190,10 @@ class TestTableTypeHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(result.abap_objects[0].name, TABLE_TYPE_NAME)
         self.assertEqual(result.used_files, [])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Table Type: {TABLE_TYPE_NAME.lower()}
-Writing Table Type: {TABLE_TYPE_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Table Type', TABLE_TYPE_NAME.lower()),
+            call.writing('Table Type', TABLE_TYPE_NAME.lower()),
+        ])
 
     def test_checkin_ttyp_sorted_key_components(self, fake_lock, fake_unlock):
         connection, _ = self.checkin(TTYP_SORTED_XML, self.responses_ok())
@@ -215,8 +219,8 @@ Writing Table Type: {TABLE_TYPE_NAME.lower()}
         connection, _ = self.checkin(TTYP_SECONDARY_KEYS_XML, self.responses_ok())
 
         self.assert_requests(connection, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML)
-        self.assertEqual(self.console.caperr,
-                         f'Skipping unsupported secondary keys of {TABLE_TYPE_NAME.lower()}\n')
+        self.observer.warning.assert_called_once_with(
+            f'Skipping unsupported secondary keys of {TABLE_TYPE_NAME.lower()}')
 
     def test_checkin_ttyp_already_exists(self, fake_lock, fake_unlock):
         responses = self.responses_ok()

@@ -11,10 +11,10 @@ import sap.errors
 import sap.platform.abap.abapgit.doma
 from sap.adt.errors import ExceptionCheckinFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.doma import DomainHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, Response, StringIOFile
+from mock import Connection, PatcherTestCase, Response, StringIOFile
 from fixtures_sap_platform_abap_abapgit_doma import DOMA_ABAPGIT_XML, DOMA_ALL_FIELDS_ABAPGIT_XML, \
     DOMA_RAWSTRING_ABAPGIT_XML, DOMA_XML, DOMA_ALL_FIELDS_XML, DOMA_TRANSLATIONS_XML
 from fixtures_adt_domain import DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML, DOMAIN_ADT_GET_ALL_FIELDS_RESPONSE_XML, \
@@ -44,7 +44,7 @@ class TestDomainHandlerLocate(unittest.TestCase):
         self.assertIsNone(handler.locate(repo_obj, 'source/main', 1))
 
 
-class TestDomainHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
+class TestDomainHandlerCheckout(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -58,14 +58,14 @@ class TestDomainHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = DomainHandler()
 
     def checkout(self, adt_response_xml, destdir=None):
         connection = Connection([Response(text=adt_response_xml, status_code=200, headers={})])
 
         with patch('sap.platform.abap.abapgit.files.open', mock_open()) as fake_open:
-            self.handler.checkout(connection, 'DOMA/DD', DOMAIN_NEW_NAME, destdir)
+            self.handler.checkout(connection, 'DOMA/DD', DOMAIN_NEW_NAME, destdir, self.observer)
 
         self.assertEqual(len(connection.execs), 1)
         self.assertEqual(connection.execs[0].adt_uri, f'/sap/bc/adt/ddic/domains/{DOMAIN_NEW_NAME.lower()}')
@@ -83,7 +83,10 @@ class TestDomainHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
         fake_open = self.checkout(DOMAIN_ADT_GET_SAMPLE_RESPONSE_XML)
 
         self.assert_wrote_abapgit_file(fake_open, f'{DOMAIN_NEW_NAME.lower()}.doma.xml', DOMA_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'{DOMAIN_NEW_NAME}\n- {DOMAIN_NEW_NAME.lower()}.doma.xml\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(DOMAIN_NEW_NAME),
+            call.file_written(f'{DOMAIN_NEW_NAME.lower()}.doma.xml'),
+        ])
 
     def test_checkout_doma_all_fields(self):
         fake_open = self.checkout(DOMAIN_ADT_GET_ALL_FIELDS_RESPONSE_XML)
@@ -107,7 +110,7 @@ DOMA_MIME = 'application/vnd.sap.adt.domains.v2+xml; charset=utf-8'
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestDomainHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
+class TestDomainHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -121,7 +124,7 @@ class TestDomainHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = DomainHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -163,8 +166,8 @@ class TestDomainHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(connection.execs[2].body.decode('utf-8'), define_request_xml)
 
     def checkin_object(self, connection, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
-        context = CheckinContext(connection, '$TMP', corrnr, check_before_save)
+        prepared = self.handler.prepare(repo_obj, self.observer)
+        context = CheckinContext(connection, '$TMP', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_doma_sample(self, fake_lock, fake_unlock):
@@ -178,9 +181,10 @@ class TestDomainHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(result.abap_objects[0].name, DOMAIN_NEW_NAME)
         self.assertEqual(result.used_files, [])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Domain: {DOMAIN_NEW_NAME.lower()}
-Writing Domain: {DOMAIN_NEW_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Domain', DOMAIN_NEW_NAME.lower()),
+            call.writing('Domain', DOMAIN_NEW_NAME.lower()),
+        ])
 
     def test_checkin_doma_all_fields(self, fake_lock, fake_unlock):
         abapgit_xml = DOMA_ALL_FIELDS_XML.replace('<DDTEXT>All fields</DDTEXT>', '<DDTEXT>Testing</DDTEXT>')

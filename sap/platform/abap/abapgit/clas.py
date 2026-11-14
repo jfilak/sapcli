@@ -7,7 +7,6 @@ from sap import get_logger
 import sap.adt
 import sap.adt.errors
 import sap.adt.textelements
-import sap.cli.core
 import sap.adt.checks
 import sap.platform.abap.abapgit
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
@@ -69,25 +68,25 @@ class ClassHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('CLAS/OC',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         clas = sap.adt.Class(connection, name)
         clas.fetch()
 
-        download_abap_source(name, clas, '.clas', destdir=destdir)
-        download_abap_source(name, clas.definitions, '.clas.locals_def', destdir=destdir)
-        download_abap_source(name, clas.implementations, '.clas.locals_imp', destdir=destdir)
-        download_abap_source(name, clas.test_classes, '.clas.testclasses', destdir=destdir)
+        download_abap_source(observer, name, clas, '.clas', destdir=destdir)
+        download_abap_source(observer, name, clas.definitions, '.clas.locals_def', destdir=destdir)
+        download_abap_source(observer, name, clas.implementations, '.clas.locals_imp', destdir=destdir)
+        download_abap_source(observer, name, clas.test_classes, '.clas.testclasses', destdir=destdir)
 
         abap_attributes = (build_class_abap_attributes(clas),)
 
-        text_symbols = download_text_symbols(sap.adt.textelements.ClassTextElements(connection, name))
+        text_symbols = download_text_symbols(observer, sap.adt.textelements.ClassTextElements(connection, name))
         if text_symbols:
             abap_attributes += (build_text_pool(text_symbols),)
 
-        dump_attributes_to_file(name, abap_attributes, '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
+        dump_attributes_to_file(observer, name, abap_attributes, '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         if not repo_obj.files:
             raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for class {repo_obj.name}')
 
@@ -99,7 +98,7 @@ class ClassHandler(ObjectHandler):
                  sap.platform.abap.abapgit.OptionalBody(DESCRIPTIONS_SUB)],
                 abap_data_file.read())
 
-        text_symbols = text_symbols_from_tpool(results.get('TPOOL', []), repo_obj.name)
+        text_symbols = text_symbols_from_tpool(observer, results.get('TPOOL', []), repo_obj.name)
 
         parts = []
         for source_file in repo_obj.files:
@@ -109,7 +108,7 @@ class ClassHandler(ObjectHandler):
 
             sub_obj_id = source_file.split('.')[-2]
             if sub_obj_id not in CLASS_PARTS:
-                sap.cli.core.printerr(f'Unknown class part {source_file}')
+                observer.warning(f'Unknown class part {source_file}')
                 continue
 
             with open(source_file, 'r', encoding='utf-8') as source:
@@ -118,7 +117,7 @@ class ClassHandler(ObjectHandler):
         return SimpleNamespace(abap_data=results['VSEOCLASS'], text_symbols=text_symbols, parts=parts)
 
     def checkin(self, context, repo_obj, prepared):
-        sap.cli.core.printout('Creating Class:', repo_obj.name)
+        context.observer.creating('Class', repo_obj.name)
 
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=context.connection.user.upper(),
                                        description=prepared.abap_data.DESCRIPT)
@@ -151,7 +150,7 @@ class ClassHandler(ObjectHandler):
         used_files = []
 
         for sub_obj_id, source_file, source_code in prepared.parts:
-            sap.cli.core.printout('Writing Clas:', repo_obj.name, sub_obj_id)
+            context.observer.writing('Clas', repo_obj.name, sub_obj_id)
 
             sap.adt.checks.write_source(source_code, class_parts[sub_obj_id], corrnr=context.corrnr,
                                         source_label=source_file,
@@ -162,7 +161,7 @@ class ClassHandler(ObjectHandler):
         abap_objects = [clas]
 
         if prepared.text_symbols:
-            sap.cli.core.printout('Writing Clas:', repo_obj.name, 'text elements')
+            context.observer.writing('Clas', repo_obj.name, 'text elements')
             text_elements = sap.adt.textelements.ClassTextElements(context.connection, repo_obj.name.upper())
             write_text_symbols(text_elements, prepared.text_symbols, context.corrnr)
             abap_objects.append(text_elements)

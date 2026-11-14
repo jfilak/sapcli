@@ -24,10 +24,10 @@ class CompleteHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('CLAS/OC',)
 
-    def checkout(self, connection, adt_type, name, destdir):
+    def checkout(self, connection, adt_type, name, destdir, observer):
         return 'checkout'
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         return 'prepare'
 
     def checkin(self, context, repo_obj, prepared):
@@ -158,7 +158,7 @@ class CompleteLayout(RepositoryLayout):
     def init_repository(self, repo_dir, starting_folder):
         return 'init'
 
-    def checkout_package(self, connection, name, destdir):
+    def checkout_package(self, connection, name, destdir, observer):
         return 'checkout'
 
 
@@ -369,21 +369,24 @@ class TestData(unittest.TestCase):
         self.assertIs(obj.handler, handler)
 
     def test_repository(self):
-        repo = Repository(packages=['package'], objects=['object'], files=['file'], settings='settings')
+        repo = Repository(packages=['package'], objects=['object'], files=['file'], settings='settings',
+                          starting_folder='/src/')
 
         self.assertEqual(repo.packages, ['package'])
         self.assertEqual(repo.objects, ['object'])
         self.assertEqual(repo.files, ['file'])
         self.assertEqual(repo.settings, 'settings')
+        self.assertEqual(repo.starting_folder, '/src/')
 
     def test_checkin_context(self):
         context = CheckinContext(connection='connection', package_name='ZPKG', corrnr='K900001',
-                                 check_before_save=True)
+                                 check_before_save=True, observer='observer')
 
         self.assertEqual(context.connection, 'connection')
         self.assertEqual(context.package_name, 'ZPKG')
         self.assertEqual(context.corrnr, 'K900001')
         self.assertTrue(context.check_before_save)
+        self.assertEqual(context.observer, 'observer')
 
     def test_object_checkin_result(self):
         result = ObjectCheckinResult(abap_objects=['object'], used_files=['file'])

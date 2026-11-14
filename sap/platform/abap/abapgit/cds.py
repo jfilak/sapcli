@@ -8,7 +8,6 @@ from sap import get_logger
 
 import sap.adt
 import sap.adt.errors
-import sap.cli.core
 import sap.adt.checks
 import sap.platform.abap.abapgit
 
@@ -42,7 +41,7 @@ def checkin_cds_source(context, repo_obj, prepared, adt_type, label):
        the ADT object and the path of the source code file.
     """
 
-    sap.cli.core.printout(f'Creating {label}:', repo_obj.name)
+    context.observer.creating(label, repo_obj.name)
 
     metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=context.connection.user.upper(),
                                    description=prepared.description)
@@ -53,7 +52,7 @@ def checkin_cds_source(context, repo_obj, prepared, adt_type, label):
     except sap.adt.errors.ExceptionResourceAlreadyExists as err:
         mod_log().info(err.message)
 
-    sap.cli.core.printout(f'Writing {label}:', repo_obj.name)
+    context.observer.writing(label, repo_obj.name)
     sap.adt.checks.write_source(prepared.source_code, adt_object, corrnr=context.corrnr,
                                 source_label=prepared.source_file,
                                 check_before_save=context.check_before_save)

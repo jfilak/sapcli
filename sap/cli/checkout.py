@@ -5,7 +5,7 @@ import sys
 import sap.adt
 import sap.adt.textelements
 import sap.cli.core
-from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT
+from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT, ConsoleObserver
 from sap.platform.abap.abapgit.fugr import SourceCodeFormat, checkout_function_group
 
 
@@ -16,10 +16,16 @@ class CommandGroup(sap.cli.core.CommandGroup):
         super().__init__('checkout')
 
 
+def _console_observer():
+    """Returns the observer printing the progress to the console"""
+
+    return ConsoleObserver(sap.cli.core.get_console())
+
+
 def _checkout_object(connection, adt_type, name):
     """Checks out the object to the current directory"""
 
-    OBJECT_HANDLERS.for_adt_type(adt_type).checkout(connection, adt_type, name.upper(), None)
+    OBJECT_HANDLERS.for_adt_type(adt_type).checkout(connection, adt_type, name.upper(), None, _console_observer())
 
 
 @CommandGroup.argument('name')
@@ -55,7 +61,8 @@ def function_group(connection, args):
     """Download function group sources command wrapper"""
 
     try:
-        checkout_function_group(connection, args.name.upper(), source_format=SourceCodeFormat(args.format))
+        checkout_function_group(connection, args.name.upper(), _console_observer(),
+                                source_format=SourceCodeFormat(args.format))
     except sap.cli.core.SAPCliError as ex:
         sap.cli.core.printerr(f'Checkout failed: {str(ex)}')
         return 1
@@ -135,7 +142,7 @@ def dataelement(connection, args):
     _checkout_object(connection, sap.adt.DataElement.OBJTYPE.code, args.name)
 
 
-def checkout_objects(connection, objects, destdir=None):
+def checkout_objects(connection, objects, observer, destdir=None):
     """Checkout all objects from the give list"""
 
     if not os.path.isdir(destdir):
@@ -149,7 +156,7 @@ def checkout_objects(connection, objects, destdir=None):
 
         # Errors are reported by raising an SAPCliError because the command
         # line entry point prints out human friendly text.
-        handler.checkout(connection, obj.typ, obj.name, destdir)
+        handler.checkout(connection, obj.typ, obj.name, destdir, observer)
 
 
 def make_repo_dir_for_package(args):
@@ -183,6 +190,7 @@ def package(connection, args):
     source_code_dir = os.path.join(repo_dir, args.starting_folder)
 
     explored = sap.adt.Package(connection, args.name)
+    observer = _console_observer()
 
     for package_name_hier, _, objects in sap.adt.package.walk(explored):
         destdir = os.path.abspath(source_code_dir)
@@ -198,8 +206,8 @@ def package(connection, args):
         else:
             package_name = package_name_hier[-1]
 
-        checkout_objects(connection, objects, destdir=destdir)
-        REPOSITORY_LAYOUT.checkout_package(connection, package_name.upper(), destdir)
+        checkout_objects(connection, objects, observer, destdir=destdir)
+        REPOSITORY_LAYOUT.checkout_package(connection, package_name.upper(), destdir, observer)
 
         if not args.recursive:
             break

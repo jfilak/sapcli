@@ -3,7 +3,6 @@
 import os
 
 import sap.adt.errors
-import sap.cli.core
 from sap.platform.abap.abapgit import XMLWriter
 
 
@@ -18,11 +17,10 @@ def build_filename(object_name, typsfx, fileext, destdir=None):
     return filename
 
 
-def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer, destdir=None):
+def dump_attributes_to_file(observer, object_name, abap_attributes, typsfx, ag_serializer, destdir=None):
     """Writes ABAP attributes to a file"""
 
     filename = build_filename(object_name, typsfx, 'xml', destdir=destdir)
-    sap.cli.core.printout(f'- {os.path.basename(filename)}')
     with open(filename, 'w', encoding='utf8') as dest:
         writer = XMLWriter(ag_serializer, dest)
 
@@ -31,25 +29,28 @@ def dump_attributes_to_file(object_name, abap_attributes, typsfx, ag_serializer,
 
         writer.close()
 
+    observer.file_written(filename)
 
-def write_source(source, object_name, typsfx, destdir=None, fileext='abap'):
+
+def write_source(observer, source, object_name, typsfx, destdir=None, fileext='abap'):
     """Write source code to file"""
 
     filename = build_filename(object_name, typsfx, fileext, destdir=destdir)
-    sap.cli.core.printout(f'- {os.path.basename(filename)}')
     with open(filename, 'w', encoding='utf8') as dest:
         dest.write(source)
 
+    observer.file_written(filename)
 
-def download_abap_source(object_name, source_object, typsfx, destdir=None):
+
+def download_abap_source(observer, object_name, source_object, typsfx, destdir=None):
     """Reads the text and saves it in the corresponding file"""
 
     try:
         text = source_object.text
     except sap.adt.errors.ADTError as err:
-        sap.cli.core.printerr(f'Download of ABAP source code failed: {err}')
+        observer.warning(f'Download of ABAP source code failed: {err}')
     else:
-        write_source(text, object_name, typsfx, destdir)
+        write_source(observer, text, object_name, typsfx, destdir)
 
 
 def find_object_file(repo_obj, file_name_end):

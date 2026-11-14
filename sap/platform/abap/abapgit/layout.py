@@ -13,7 +13,6 @@ import os
 from sap import get_logger
 
 import sap.adt
-import sap.cli.core
 import sap.errors
 import sap.platform.abap
 from sap.platform.abap.localrepository import RepositoryLayout, RepoPackage, RepoObject, Repository
@@ -48,10 +47,6 @@ def load_settings(starting_folder):
             return DOT_ABAP_GIT.for_new_repo()
 
         return DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER=starting_folder)
-
-    if settings.STARTING_FOLDER != starting_folder:
-        # stdout belongs to the results of commands (e.g. XML reports)
-        sap.cli.core.printerr(f'Using starting-folder from {SETTINGS_FILE_NAME}: {settings.STARTING_FOLDER}')
 
     return settings
 
@@ -138,7 +133,7 @@ class AbapGitLayout(RepositoryLayout):
                 dir_path = os.path.join(root, sub_dir)
                 packages[dir_path] = _new_package(dir_path, package)
 
-        return Repository(list(packages.values()), objects, files, settings)
+        return Repository(list(packages.values()), objects, files, settings, settings.STARTING_FOLDER)
 
     def package_name(self, repository, repo_package, root_package_name):
         settings = repository.settings
@@ -176,9 +171,9 @@ class AbapGitLayout(RepositoryLayout):
         with open(os.path.join(repo_dir, SETTINGS_FILE_NAME), 'w', encoding='utf8') as dest:
             sap.platform.abap.to_xml(dot_abapgit, dest=dest, top_element='DATA')
 
-    def checkout_package(self, connection, name, destdir):
+    def checkout_package(self, connection, name, destdir, observer):
         adt_package = sap.adt.Package(connection, name)
         adt_package.fetch()
 
         devc = DEVC(CTEXT=adt_package.description)
-        dump_attributes_to_file('package', (devc,), '.devc', 'LCL_OBJECT_DEVC', destdir=destdir)
+        dump_attributes_to_file(observer, 'package', (devc,), '.devc', 'LCL_OBJECT_DEVC', destdir=destdir)

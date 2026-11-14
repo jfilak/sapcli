@@ -15,7 +15,7 @@ from sap.platform.abap.localrepository import HandlerRegistry, RepoObject, RepoP
 from sap.platform.abap.abapgit.layout import AbapGitLayout
 from sap.platform.abap.abapgit import DOT_ABAP_GIT, FOLDER_LOGIC_FULL, FOLDER_LOGIC_PREFIX
 
-from mock import ConsoleOutputTestCase, PatcherTestCase, StringIOFile
+from mock import PatcherTestCase, StringIOFile
 from fixtures_abap import ABAP_GIT_DEFAULT_XML
 from fixtures_sap_platform_abap_abapgit_layout import PACKAGE_DEVC_XML, PACKAGE_DEVC_LANGUAGE_XML, \
     PACKAGE_DEVC_UNKNOWN_XML
@@ -74,7 +74,7 @@ class DirContentBuilder:
         return self._path, self._dirs, self._files
 
 
-class LayoutTestCase(ConsoleOutputTestCase, PatcherTestCase):
+class LayoutTestCase(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -82,7 +82,6 @@ class LayoutTestCase(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
 
         self.layout = AbapGitLayout()
 
@@ -107,7 +106,6 @@ class TestLoadSettings(LayoutTestCase):
         settings = layout.load_settings('/backend/')
 
         self.assertEqual(settings, DOT_ABAP_GIT.for_new_repo(STARTING_FOLDER='/backend/'))
-        self.assertEmptyConsole(self.console)
 
     def test_no_file_default_starting_folder(self):
         self.patch('sap.platform.abap.abapgit.layout.open', side_effect=OSError(errno.ENOENT, 'No such file'))
@@ -115,7 +113,6 @@ class TestLoadSettings(LayoutTestCase):
         settings = layout.load_settings(None)
 
         self.assertEqual(settings, DOT_ABAP_GIT.for_new_repo())
-        self.assertEmptyConsole(self.console)
 
     def test_no_permissions(self):
         self.patch('sap.platform.abap.abapgit.layout.open', side_effect=OSError(errno.EPERM))
@@ -123,7 +120,6 @@ class TestLoadSettings(LayoutTestCase):
         with self.assertRaises(OSError):
             layout.load_settings('/backend/')
 
-        self.assertEmptyConsole(self.console)
 
     def test_file_overwrites_starting_folder(self):
         fake_open = self.patch('sap.platform.abap.abapgit.layout.open', new=mock_open(read_data=ABAP_GIT_DEFAULT_XML))
@@ -133,7 +129,6 @@ class TestLoadSettings(LayoutTestCase):
         fake_open.assert_called_once_with('.abapgit.xml', 'r', encoding='utf-8')
         self.assertEqual(settings.STARTING_FOLDER, '/src/')
         self.assertEqual(settings.FOLDER_LOGIC, FOLDER_LOGIC_PREFIX)
-        self.assertConsoleContents(self.console, stderr='Using starting-folder from .abapgit.xml: /src/\n')
 
     def test_file_with_the_same_starting_folder(self):
         self.patch('sap.platform.abap.abapgit.layout.open', new=mock_open(read_data=ABAP_GIT_DEFAULT_XML))
@@ -141,7 +136,6 @@ class TestLoadSettings(LayoutTestCase):
         settings = layout.load_settings('/src/')
 
         self.assertEqual(settings.STARTING_FOLDER, '/src/')
-        self.assertEmptyConsole(self.console)
 
 
 class TestLoadRepository(LayoutTestCase):
@@ -177,6 +171,7 @@ class TestLoadRepository(LayoutTestCase):
         self.fake_load_settings.assert_called_once_with(None)
         self.fake_walk.assert_called_once_with('./src/')
         self.assertIs(repo.settings, self.settings)
+        self.assertEqual(repo.starting_folder, '/src/')
         self.assertEqual(repo.files, self.files)
 
         root = RepoPackage('./src/', './src/package.devc.xml', None)
@@ -196,7 +191,6 @@ class TestLoadRepository(LayoutTestCase):
                        ['./src/sub/grand/cl_implementor.clas.abap'], grand,
                        REGISTRY.for_metadata_file('clas', 'xml')),
         ])
-        self.assertEmptyConsole(self.console)
 
     def test_load_repository_starting_folder(self):
         self.settings.STARTING_FOLDER = '/backend/src/'
@@ -288,7 +282,8 @@ class TestPackageName(unittest.TestCase):
         self.layout = AbapGitLayout()
 
     def package_name(self, dir_path, root_package_name='unittest', **settings):
-        repository = Repository([], [], [], DOT_ABAP_GIT.for_new_repo(**settings))
+        dot_abap_git = DOT_ABAP_GIT.for_new_repo(**settings)
+        repository = Repository([], [], [], dot_abap_git, dot_abap_git.STARTING_FOLDER)
         package = RepoPackage(dir_path, os.path.join(dir_path, 'package.devc.xml'), None)
 
         return self.layout.package_name(repository, package, root_package_name)
@@ -410,13 +405,13 @@ class TestCheckoutPackage(LayoutTestCase):
         fake_package = self.patch('sap.adt.Package')
         fake_package.return_value.description = 'Description $VICTORY'
 
-        self.layout.checkout_package('connection', '$VICTORY', '/repo/src')
+        self.layout.checkout_package('connection', '$VICTORY', '/repo/src', 'observer')
 
         fake_package.assert_called_once_with('connection', '$VICTORY')
         fake_package.return_value.fetch.assert_called_once_with()
         self.assertEqual(fake_dump.call_args_list, [
-            call('package', (sap.platform.abap.ddic.DEVC(CTEXT='Description $VICTORY'),), '.devc', 'LCL_OBJECT_DEVC',
-                 destdir='/repo/src')])
+            call('observer', 'package', (sap.platform.abap.ddic.DEVC(CTEXT='Description $VICTORY'),), '.devc',
+                 'LCL_OBJECT_DEVC', destdir='/repo/src')])
 
 
 if __name__ == '__main__':
