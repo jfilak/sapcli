@@ -16,10 +16,10 @@ import sap.platform.abap.abapgit
 import sap.adt
 
 from mock import Connection, Response, patch, PatcherTestCase, ConsoleOutputTestCase, StringIOFile
-from test.unit.fixtures_sap_fileformat_abapgit_tabl import TABL_NAME, DBTAB_NAME
-from test.unit.fixtures_sap_fileformat_abapgit_ddls import DDLS_NAME
-from test.unit.fixtures_sap_fileformat_abapgit_dcls import DCLS_NAME
-from test.unit.fixtures_sap_fileformat_abapgit_ddlx import DDLX_NAME
+from test.unit.fixtures_sap_platform_abap_abapgit_tabl import TABL_NAME, DBTAB_NAME
+from test.unit.fixtures_sap_platform_abap_abapgit_ddls import DDLS_NAME
+from test.unit.fixtures_sap_platform_abap_abapgit_dcls import DCLS_NAME
+from test.unit.fixtures_sap_platform_abap_abapgit_ddlx import DDLX_NAME
 from test.unit.fixtures_adt_domain import DOMAIN_NEW_NAME
 from test.unit.fixtures_adt_dataelement import DATA_ELEMENT_NEW_NAME
 from test.unit.fixtures_sap_adt_behaviordefinition import BDEF_NAME
@@ -54,7 +54,7 @@ class TestCheckoutCommandGroup(unittest.TestCase):
 
 class TestCheckout(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.clas.ClassHandler.checkout')
+    @patch('sap.platform.abap.abapgit.clas.ClassHandler.checkout')
     def test_checkout_uppercase_name_clas(self, fake_clas):
         conn = Connection()
 
@@ -67,7 +67,7 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(fake_clas.mock_calls, [call(conn, 'CLAS/OC', 'ZCL_LOWERCASE', None),
                                                 call(conn, 'CLAS/OC', 'ZCL_UPPERCASE', None)])
 
-    @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout')
+    @patch('sap.platform.abap.abapgit.intf.InterfaceHandler.checkout')
     def test_checkout_uppercase_name_intf(self, fake_intf):
         conn = Connection()
 
@@ -80,7 +80,7 @@ class TestCheckout(unittest.TestCase):
         self.assertEqual(fake_intf.mock_calls, [call(conn, 'INTF/OI', 'ZIF_LOWERCASE', None),
                                                 call(conn, 'INTF/OI', 'ZIF_UPPERCASE', None)])
 
-    @patch('sap.fileformat.abapgit.prog.ProgramHandler.checkout')
+    @patch('sap.platform.abap.abapgit.prog.ProgramHandler.checkout')
     def test_checkout_uppercase_name_prog(self, fake_prog):
         conn = Connection()
 
@@ -130,14 +130,14 @@ class TestCheckoutFunctionGroupCommand(unittest.TestCase):
 
 class TestCheckoutTableTypeCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.ttyp.TableTypeHandler.checkout')
+    @patch('sap.platform.abap.abapgit.ttyp.TableTypeHandler.checkout')
     def test_checkout_ttyp_command(self, fake_checkout):
         args = parse_args(['tabletype', TABLE_TYPE_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'TTYP/DA', TABLE_TYPE_NAME, None)
 
-    @patch('sap.fileformat.abapgit.ttyp.TableTypeHandler.checkout')
+    @patch('sap.platform.abap.abapgit.ttyp.TableTypeHandler.checkout')
     def test_checkout_objects_ttyp(self, fake_checkout):
         objects = [SimpleNamespace(typ='TTYP/DA', name=TABLE_TYPE_NAME)]
 
@@ -149,14 +149,14 @@ class TestCheckoutTableTypeCommand(unittest.TestCase):
 
 class TestCheckoutDataDefinitionCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.ddls.DataDefinitionHandler.checkout')
+    @patch('sap.platform.abap.abapgit.ddls.DataDefinitionHandler.checkout')
     def test_command(self, fake_checkout):
         args = parse_args(['ddl', DDLS_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'DDLS/DF', DDLS_NAME, None)
 
-    @patch('sap.fileformat.abapgit.ddls.DataDefinitionHandler.checkout')
+    @patch('sap.platform.abap.abapgit.ddls.DataDefinitionHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DDLS/DF', name=DDLS_NAME)]
 
@@ -168,14 +168,14 @@ class TestCheckoutDataDefinitionCommand(unittest.TestCase):
 
 class TestCheckoutAccessControlCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.dcls.AccessControlHandler.checkout')
+    @patch('sap.platform.abap.abapgit.dcls.AccessControlHandler.checkout')
     def test_command(self, fake_checkout):
         args = parse_args(['dcl', DCLS_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'DCLS/DL', DCLS_NAME, None)
 
-    @patch('sap.fileformat.abapgit.dcls.AccessControlHandler.checkout')
+    @patch('sap.platform.abap.abapgit.dcls.AccessControlHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DCLS/DL', name=DCLS_NAME)]
 
@@ -187,14 +187,14 @@ class TestCheckoutAccessControlCommand(unittest.TestCase):
 
 class TestCheckoutMetadataExtensionCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.ddlx.MetadataExtensionHandler.checkout')
+    @patch('sap.platform.abap.abapgit.ddlx.MetadataExtensionHandler.checkout')
     def test_command(self, fake_checkout):
         args = parse_args(['ddlx', DDLX_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'DDLX/EX', DDLX_NAME, None)
 
-    @patch('sap.fileformat.abapgit.ddlx.MetadataExtensionHandler.checkout')
+    @patch('sap.platform.abap.abapgit.ddlx.MetadataExtensionHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DDLX/EX', name=DDLX_NAME)]
 
@@ -206,14 +206,14 @@ class TestCheckoutMetadataExtensionCommand(unittest.TestCase):
 
 class TestCheckoutBehaviorDefinitionCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.bdef.BehaviorDefinitionHandler.checkout')
+    @patch('sap.platform.abap.abapgit.bdef.BehaviorDefinitionHandler.checkout')
     def test_command(self, fake_checkout):
         args = parse_args(['bdef', BDEF_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'BDEF/BDO', BDEF_NAME, None)
 
-    @patch('sap.fileformat.abapgit.bdef.BehaviorDefinitionHandler.checkout')
+    @patch('sap.platform.abap.abapgit.bdef.BehaviorDefinitionHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='BDEF/BDO', name=BDEF_NAME)]
 
@@ -225,14 +225,14 @@ class TestCheckoutBehaviorDefinitionCommand(unittest.TestCase):
 
 class TestCheckoutDomainCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.doma.DomainHandler.checkout')
+    @patch('sap.platform.abap.abapgit.doma.DomainHandler.checkout')
     def test_command(self, fake_checkout):
         args = parse_args(['domain', DOMAIN_NEW_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'DOMA/DD', DOMAIN_NEW_NAME, None)
 
-    @patch('sap.fileformat.abapgit.doma.DomainHandler.checkout')
+    @patch('sap.platform.abap.abapgit.doma.DomainHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DOMA/DD', name=DOMAIN_NEW_NAME)]
 
@@ -244,14 +244,14 @@ class TestCheckoutDomainCommand(unittest.TestCase):
 
 class TestCheckoutDataElementCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.dtel.DataElementHandler.checkout')
+    @patch('sap.platform.abap.abapgit.dtel.DataElementHandler.checkout')
     def test_command(self, fake_checkout):
         args = parse_args(['dataelement', DATA_ELEMENT_NEW_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'DTEL/DE', DATA_ELEMENT_NEW_NAME, None)
 
-    @patch('sap.fileformat.abapgit.dtel.DataElementHandler.checkout')
+    @patch('sap.platform.abap.abapgit.dtel.DataElementHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DTEL/DE', name=DATA_ELEMENT_NEW_NAME)]
 
@@ -263,14 +263,14 @@ class TestCheckoutDataElementCommand(unittest.TestCase):
 
 class TestCheckoutStructureCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.tabl.TableHandler.checkout')
+    @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout')
     def test_command(self, fake_checkout):
         args = parse_args(['structure', TABL_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'TABL/DS', TABL_NAME, None)
 
-    @patch('sap.fileformat.abapgit.tabl.TableHandler.checkout')
+    @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='TABL/DS', name=TABL_NAME)]
 
@@ -282,14 +282,14 @@ class TestCheckoutStructureCommand(unittest.TestCase):
 
 class TestCheckoutTableCommand(unittest.TestCase):
 
-    @patch('sap.fileformat.abapgit.tabl.TableHandler.checkout')
+    @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout')
     def test_command(self, fake_checkout):
         args = parse_args(['table', DBTAB_NAME.lower()])
         args.execute('connection', args)
 
         fake_checkout.assert_called_once_with('connection', 'TABL/DT', DBTAB_NAME, None)
 
-    @patch('sap.fileformat.abapgit.tabl.TableHandler.checkout')
+    @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='TABL/DT', name=DBTAB_NAME)]
 
@@ -302,11 +302,11 @@ class TestCheckoutTableCommand(unittest.TestCase):
 class TestCheckoutPackage(unittest.TestCase):
 
     @patch('sap.adt.Package.fetch')
-    @patch('sap.fileformat.abapgit.layout.dump_attributes_to_file')
-    @patch('sap.fileformat.abapgit.fugr.FunctionGroupHandler.checkout')
-    @patch('sap.fileformat.abapgit.clas.ClassHandler.checkout')
-    @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout')
-    @patch('sap.fileformat.abapgit.prog.ProgramHandler.checkout')
+    @patch('sap.platform.abap.abapgit.layout.dump_attributes_to_file')
+    @patch('sap.platform.abap.abapgit.fugr.FunctionGroupHandler.checkout')
+    @patch('sap.platform.abap.abapgit.clas.ClassHandler.checkout')
+    @patch('sap.platform.abap.abapgit.intf.InterfaceHandler.checkout')
+    @patch('sap.platform.abap.abapgit.prog.ProgramHandler.checkout')
     @patch('sap.adt.package.walk')
     def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_fugr, fake_dump, fake_fetch):
         conn = Connection([])
@@ -333,7 +333,7 @@ class TestCheckoutPackage(unittest.TestCase):
             return package
 
         args = parse_args(['package', package_name, '--recursive'])
-        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
+        with patch('sap.platform.abap.abapgit.layout.open', mock_open()) as fake_open, \
              patch('sap.cli.checkout.print') as fake_print, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs, \
@@ -368,7 +368,7 @@ class TestCheckoutPackage(unittest.TestCase):
                                                      destdir=exp_sub_destdir)
                                                 ])
 
-    @patch('sap.fileformat.abapgit.layout.AbapGitLayout.checkout_package')
+    @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
     def test_checkout_package_non_recursive(self, fake_walk, fake_checkout, fake_package):
@@ -381,7 +381,7 @@ class TestCheckoutPackage(unittest.TestCase):
         package_name = '$ROOT'
         starting_folder = 'src'
         args = parse_args(['package', package_name])
-        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
+        with patch('sap.platform.abap.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = True
@@ -391,7 +391,7 @@ class TestCheckoutPackage(unittest.TestCase):
         exp_destdir = os.path.abspath(os.path.join(package_name, starting_folder))
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_destdir)
 
-    @patch('sap.fileformat.abapgit.layout.AbapGitLayout.checkout_package')
+    @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
     def test_checkout_package_starting_folder(self, fake_walk, fake_checkout, fake_package):
@@ -403,7 +403,7 @@ class TestCheckoutPackage(unittest.TestCase):
         package_name = '$VICTORY'
         starting_folder = os.path.join('backend', 'abap', 'src')
         args = parse_args(['package', package_name, '--starting-folder', starting_folder])
-        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
+        with patch('sap.platform.abap.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = True
@@ -417,7 +417,7 @@ class TestCheckoutPackage(unittest.TestCase):
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
 
     @patch('sap.platform.abap.to_xml')
-    @patch('sap.fileformat.abapgit.layout.AbapGitLayout.checkout_package')
+    @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
     def test_checkout_package_create_repo(self, fake_walk, fake_checkout, fake_package, fake_to_xml):
@@ -427,7 +427,7 @@ class TestCheckoutPackage(unittest.TestCase):
         package_name = '$VICTORY'
         starting_folder = os.path.join('backend', 'abap', 'src')
         args = parse_args(['package', package_name, '--starting-folder', starting_folder])
-        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
+        with patch('sap.platform.abap.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = False
@@ -447,7 +447,7 @@ class TestCheckoutPackage(unittest.TestCase):
         self.assertEqual([ignore for ignore in dot_abap.IGNORE], ['/.gitignore', '/LICENSE', '/README.md', '/package.json', '/.travis.yml'])
         self.assertEqual(kwargs['top_element'], 'DATA')
 
-    @patch('sap.fileformat.abapgit.layout.AbapGitLayout.checkout_package')
+    @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
     @patch('sap.adt.package.walk')
     def test_checkout_package_custom_repo_dir(self, fake_walk, fake_checkout, fake_package):
@@ -460,7 +460,7 @@ class TestCheckoutPackage(unittest.TestCase):
         starting_folder = os.path.join('backend', 'abap', 'src')
         repo_dir_name = 'valhalla'
         args = parse_args(['package', package_name, repo_dir_name, '--starting-folder', starting_folder])
-        with patch('sap.fileformat.abapgit.layout.open', mock_open()) as fake_open, \
+        with patch('sap.platform.abap.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = True
@@ -473,7 +473,7 @@ class TestCheckoutPackage(unittest.TestCase):
         exp_sourcedir = os.path.join(exp_repodir, starting_folder)
         fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
 
-    @patch('sap.fileformat.abapgit.intf.InterfaceHandler.checkout', side_effect=KeyError('description'))
+    @patch('sap.platform.abap.abapgit.intf.InterfaceHandler.checkout', side_effect=KeyError('description'))
     def test_checkout_objects_handler_key_error(self, fake_checkout):
         objects = [SimpleNamespace(typ='INTF/OI', name='ZIF_HELLO_WORLD')]
 

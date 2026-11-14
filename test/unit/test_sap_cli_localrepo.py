@@ -4,9 +4,9 @@ import unittest
 from unittest.mock import patch
 
 import sap.cli.localrepo
-import sap.fileformat.abapgit
+import sap.platform.abap.abapgit.handlers
 from sap.errors import SAPCliError
-from sap.fileformat import HandlerRegistry, RepositoryLayout
+from sap.platform.abap.localrepository import HandlerRegistry, RepositoryLayout
 
 
 class TestFormats(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestFormats(unittest.TestCase):
     def test_object_handlers(self):
         self.assertIsInstance(sap.cli.localrepo.OBJECT_HANDLERS, HandlerRegistry)
         self.assertIs(sap.cli.localrepo.OBJECT_HANDLERS.for_metadata_file('clas', 'xml'),
-                      sap.fileformat.abapgit.HANDLERS[0])
+                      sap.platform.abap.abapgit.handlers.HANDLERS[0])
 
     def test_repository_layout(self):
         self.assertIsInstance(sap.cli.localrepo.REPOSITORY_LAYOUT, RepositoryLayout)
@@ -26,7 +26,7 @@ class LocalRepositoryTestCase(unittest.TestCase):
     def setUp(self):
         super().setUp()
 
-        from sap.fileformat import RepoObject, RepoPackage, Repository
+        from sap.platform.abap.localrepository import RepoObject, RepoPackage, Repository
 
         clas_handler = sap.cli.localrepo.OBJECT_HANDLERS.for_adt_type('CLAS/OC')
         prog_handler = sap.cli.localrepo.OBJECT_HANDLERS.for_adt_type('PROG/P')
