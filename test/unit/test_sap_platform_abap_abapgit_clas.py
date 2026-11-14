@@ -8,16 +8,16 @@ import sap.adt.errors
 import sap.platform.abap.abapgit.clas
 from sap.adt.errors import ExceptionCheckinFailure, ExceptionResourceAlreadyExists
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.clas import ClassHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, StringIOFile
+from mock import Connection, PatcherTestCase, StringIOFile
 from fixtures_sap_platform_abap_abapgit_clas import CLAS_XML, CLAS_WITH_DESCRIPTIONS_SUB_XML, CLAS_WITH_TPOOL_XML
 
 FIXTURE_TEXT_SYMBOLS = '@MaxLength:20\r\n001=Hello, world!\r\n@MaxLength:10\r\n002=a=b\r\n'
 
 
-class ClassHandlerTestCase(ConsoleOutputTestCase, PatcherTestCase):
+class ClassHandlerTestCase(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -25,7 +25,7 @@ class ClassHandlerTestCase(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
 
         self.handler = ClassHandler()
 
@@ -78,7 +78,7 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
         self.connection = Connection()
 
     def test_checkout(self):
-        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None, self.observer)
 
         self.fake_class.assert_called_once_with(self.connection, 'ZCL_HELLO_WORLD')
         self.clas.fetch.assert_called_once_with()
@@ -111,16 +111,17 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
         self.assertEqual(vseoclass.FIXPT, 'X')
         self.assertEqual(vseoclass.UNICODE, 'X')
 
-        self.assertConsoleContents(self.console, stdout='''ZCL_HELLO_WORLD
-- zcl_hello_world.clas.abap
-- zcl_hello_world.clas.locals_def.abap
-- zcl_hello_world.clas.locals_imp.abap
-- zcl_hello_world.clas.testclasses.abap
-- zcl_hello_world.clas.xml
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out('ZCL_HELLO_WORLD'),
+            call.file_written('zcl_hello_world.clas.abap'),
+            call.file_written('zcl_hello_world.clas.locals_def.abap'),
+            call.file_written('zcl_hello_world.clas.locals_imp.abap'),
+            call.file_written('zcl_hello_world.clas.testclasses.abap'),
+            call.file_written('zcl_hello_world.clas.xml'),
+        ])
 
     def test_checkout_to_directory(self):
-        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', '/repo/src')
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', '/repo/src', self.observer)
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/repo/src/zcl_hello_world.clas.abap', 'w', encoding='utf8'),
@@ -135,7 +136,7 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
         self.clas.modeled = True
         self.clas.fix_point_arithmetic = False
 
-        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None, self.observer)
 
         vseoclass = self.added[0]
         self.assertEqual(vseoclass.VERSION, '0')
@@ -145,7 +146,7 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
     def test_checkout_with_text_symbols(self):
         self.fake_texts.return_value.text = '@MaxLength:20\n001=Hello, world!\n\n@MaxLength:10\n002=a=b'
 
-        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None, self.observer)
 
         self.fake_texts.assert_called_once_with(self.connection, 'ZCL_HELLO_WORLD')
 
@@ -161,10 +162,10 @@ class TestClassHandlerCheckout(ClassHandlerTestCase):
         type(self.fake_texts.return_value).text = PropertyMock(
             side_effect=sap.adt.errors.ExceptionResourceNotFound('Cannot access text elements'))
 
-        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None)
+        self.handler.checkout(self.connection, 'CLAS/OC', 'ZCL_HELLO_WORLD', None, self.observer)
 
         self.assertEqual(len(self.added), 1)
-        self.assertEqual(self.console.caperr, 'Download of text elements failed: Cannot access text elements\n')
+        self.observer.warning.assert_called_once_with('Download of text elements failed: Cannot access text elements')
 
 
 class ClassHandlerCheckinTestCase(ClassHandlerTestCase):
@@ -191,7 +192,7 @@ class TestClassHandlerPrepare(ClassHandlerCheckinTestCase):
     def test_prepare(self):
         self.open_files(CLAS_XML)
 
-        prepared = self.handler.prepare(self.clas_object)
+        prepared = self.handler.prepare(self.clas_object, self.observer)
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/src/test_clas.clas.xml', encoding='utf-8'),
@@ -208,12 +209,12 @@ class TestClassHandlerPrepare(ClassHandlerCheckinTestCase):
             ('locals_imp', 'foo.locals_imp.abap', 'locals_imp_body'),
             ('testclasses', 'foo.testclasses.abap', 'test_body'),
         ])
-        self.assertEmptyConsole(self.console)
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_prepare_with_descriptions_sub(self):
         self.open_files(CLAS_WITH_DESCRIPTIONS_SUB_XML)
 
-        prepared = self.handler.prepare(self.clas_object)
+        prepared = self.handler.prepare(self.clas_object, self.observer)
 
         self.assertEqual(prepared.abap_data.DESCRIPT, 'Test description')
         self.assertEqual(len(prepared.parts), 4)
@@ -221,7 +222,7 @@ class TestClassHandlerPrepare(ClassHandlerCheckinTestCase):
     def test_prepare_with_text_pool(self):
         self.open_files(CLAS_WITH_TPOOL_XML)
 
-        prepared = self.handler.prepare(self.clas_object)
+        prepared = self.handler.prepare(self.clas_object, self.observer)
 
         self.assertEqual(len(prepared.text_symbols), 2)
         self.assertEqual(prepared.text_symbols[0].id, '001')
@@ -231,18 +232,18 @@ class TestClassHandlerPrepare(ClassHandlerCheckinTestCase):
         clas_obj = RepoObject('clas', 'no_files_clas', '/src/no_files_clas.clas.xml', [], self.package, self.handler)
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(clas_obj)
+            self.handler.prepare(clas_obj, self.observer)
 
         self.assertEqual(str(cm.exception), 'No source file for class no_files_clas')
         self.fake_open.assert_not_called()
-        self.assertEmptyConsole(self.console)
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_prepare_source_file_wrong_suffix(self):
         self.fake_open.return_value = StringIOFile(CLAS_XML)
         self.clas_object.files.append('foo.wrong.prefix')
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
-            self.handler.prepare(self.clas_object)
+            self.handler.prepare(self.clas_object, self.observer)
 
         self.assertEqual(str(cm.exception),
                          'No .abap suffix of source file for class test_clas: foo.wrong.prefix')
@@ -251,10 +252,10 @@ class TestClassHandlerPrepare(ClassHandlerCheckinTestCase):
         self.open_files(CLAS_XML)
         self.clas_object.files.append('foo.unknown.abap')
 
-        prepared = self.handler.prepare(self.clas_object)
+        prepared = self.handler.prepare(self.clas_object, self.observer)
 
         self.assertEqual(len(prepared.parts), 4)
-        self.assertConsoleContents(self.console, stderr='Unknown class part foo.unknown.abap\n')
+        self.assertEqual(self.observer.mock_calls, [call.warning('Unknown class part foo.unknown.abap')])
 
 
 class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
@@ -293,9 +294,9 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
 
     def checkin(self, clas_xml=CLAS_XML, corrnr=None, check_before_save=False):
         self.open_files(clas_xml)
-        prepared = self.handler.prepare(self.clas_object)
+        prepared = self.handler.prepare(self.clas_object, self.observer)
 
-        context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save)
+        context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, self.clas_object, prepared)
 
     def assert_open_editor_calls(self, corrnr=None):
@@ -319,12 +320,13 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
         self.clas.create.assert_called_once_with(None)
         self.assert_open_editor_calls()
         self.fake_class_text_elements.assert_not_called()
-        self.assertConsoleContents(self.console, stdout='''Creating Class: test_clas
-Writing Clas: test_clas clas
-Writing Clas: test_clas locals_def
-Writing Clas: test_clas locals_imp
-Writing Clas: test_clas testclasses
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Class', 'test_clas'),
+            call.writing('Clas', 'test_clas', 'clas'),
+            call.writing('Clas', 'test_clas', 'locals_def'),
+            call.writing('Clas', 'test_clas', 'locals_imp'),
+            call.writing('Clas', 'test_clas', 'testclasses'),
+        ])
 
     def test_checkin_with_text_pool(self):
         result = self.checkin(clas_xml=CLAS_WITH_TPOOL_XML, corrnr='corrnr')
@@ -335,13 +337,14 @@ Writing Clas: test_clas testclasses
         self.fake_class_text_elements.assert_called_once_with(self.connection, 'TEST_CLAS')
         self.texts.open_editor.assert_called_once_with(corrnr='corrnr')
         self.texts_editor.write.assert_called_once_with(FIXTURE_TEXT_SYMBOLS)
-        self.assertConsoleContents(self.console, stdout='''Creating Class: test_clas
-Writing Clas: test_clas clas
-Writing Clas: test_clas locals_def
-Writing Clas: test_clas locals_imp
-Writing Clas: test_clas testclasses
-Writing Clas: test_clas text elements
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Class', 'test_clas'),
+            call.writing('Clas', 'test_clas', 'clas'),
+            call.writing('Clas', 'test_clas', 'locals_def'),
+            call.writing('Clas', 'test_clas', 'locals_imp'),
+            call.writing('Clas', 'test_clas', 'testclasses'),
+            call.writing('Clas', 'test_clas', 'text elements'),
+        ])
 
     def test_checkin_with_corrnr(self):
         self.checkin(corrnr='corrnr')

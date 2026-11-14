@@ -11,10 +11,10 @@ import sap.errors
 import sap.platform.abap.abapgit.tabl
 from sap.adt.errors import ExceptionCheckinFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.tabl import TableHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, Response, StringIOFile
+from mock import Connection, PatcherTestCase, Response, StringIOFile
 from fixtures_sap_platform_abap_abapgit_tabl import TABL_SOURCE_CODE, TABL_ABAPGIT_XML, \
     CHECKOUT_TABL_ALL_FEATURES_SOURCE_CODE, TABL_ALL_FEATURES_ABAPGIT_XML, CHECKOUT_DBTAB_GENERIC_SOURCE_CODE, \
     DBTAB_GENERIC_ABAPGIT_XML, CHECKOUT_DBTAB_FULL_SOURCE_CODE, DBTAB_FULL_ABAPGIT_XML, \
@@ -51,7 +51,7 @@ class TestTableHandlerLocate(unittest.TestCase):
         self.assertIsNone(handler.locate(repo_obj, 'source/main', 1))
 
 
-class TestTableHandlerCheckoutStructure(ConsoleOutputTestCase, PatcherTestCase):
+class TestTableHandlerCheckoutStructure(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -65,7 +65,7 @@ class TestTableHandlerCheckoutStructure(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = TableHandler()
 
     def checkout(self, source_code, destdir=None):
@@ -74,7 +74,7 @@ class TestTableHandlerCheckoutStructure(ConsoleOutputTestCase, PatcherTestCase):
                                           headers={'Content-Type': 'text/plain; charset=utf-8'})])
 
         with patch('sap.platform.abap.abapgit.files.open', mock_open()) as fake_open:
-            self.handler.checkout(connection, 'TABL/DS', TABL_NAME, destdir)
+            self.handler.checkout(connection, 'TABL/DS', TABL_NAME, destdir, self.observer)
 
         self.assertEqual(connection.mock_methods(), [
             ('GET', f'/sap/bc/adt/ddic/structures/{TABL_NAME.lower()}'),
@@ -100,7 +100,10 @@ class TestTableHandlerCheckoutStructure(ConsoleOutputTestCase, PatcherTestCase):
         fake_open = self.checkout(TABL_SOURCE_CODE)
 
         self.assert_wrote_abapgit_file(fake_open, TABL_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'{TABL_NAME}\n- {TABL_NAME.lower()}.tabl.xml\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(TABL_NAME),
+            call.file_written(f'{TABL_NAME.lower()}.tabl.xml'),
+        ])
 
     def test_checkout_tabl_all_features(self):
         fake_open = self.checkout(CHECKOUT_TABL_ALL_FEATURES_SOURCE_CODE)
@@ -174,7 +177,7 @@ class TestTableHandlerCheckoutStructure(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed: unexpected end of source code')
 
 
-class TestTableHandlerCheckoutTable(ConsoleOutputTestCase, PatcherTestCase):
+class TestTableHandlerCheckoutTable(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -188,7 +191,7 @@ class TestTableHandlerCheckoutTable(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = TableHandler()
 
     def checkout(self, source_code, settings_xml=TABLE_SETTINGS_ADT_GET_RESPONSE_XML, destdir=None):
@@ -198,7 +201,7 @@ class TestTableHandlerCheckoutTable(ConsoleOutputTestCase, PatcherTestCase):
                                  Response(text=settings_xml, status_code=200, headers={})])
 
         with patch('sap.platform.abap.abapgit.files.open', mock_open()) as fake_open:
-            self.handler.checkout(connection, 'TABL/DT', DBTAB_NAME, destdir)
+            self.handler.checkout(connection, 'TABL/DT', DBTAB_NAME, destdir, self.observer)
 
         self.assertEqual(connection.mock_methods(), [
             ('GET', f'/sap/bc/adt/ddic/tables/{DBTAB_NAME.lower()}'),
@@ -225,7 +228,10 @@ class TestTableHandlerCheckoutTable(ConsoleOutputTestCase, PatcherTestCase):
         fake_open = self.checkout(CHECKOUT_DBTAB_GENERIC_SOURCE_CODE)
 
         self.assert_wrote_abapgit_file(fake_open, DBTAB_GENERIC_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'{DBTAB_NAME}\n- {DBTAB_NAME.lower()}.tabl.xml\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(DBTAB_NAME),
+            call.file_written(f'{DBTAB_NAME.lower()}.tabl.xml'),
+        ])
 
     def test_checkout_dbtab_full(self):
         fake_open = self.checkout(CHECKOUT_DBTAB_FULL_SOURCE_CODE, settings_xml=DBTAB_FULL_SETTINGS_RESPONSE_XML)
@@ -279,7 +285,7 @@ class TestTableHandlerCheckoutTable(ConsoleOutputTestCase, PatcherTestCase):
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestTableHandlerCheckinStructure(ConsoleOutputTestCase, PatcherTestCase):
+class TestTableHandlerCheckinStructure(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -293,7 +299,7 @@ class TestTableHandlerCheckinStructure(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = TableHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -343,8 +349,8 @@ class TestTableHandlerCheckinStructure(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(connection.execs[1].body.decode('utf-8'), source_code)
 
     def checkin_object(self, connection, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
-        context = CheckinContext(connection, '$TMP', corrnr, check_before_save)
+        prepared = self.handler.prepare(repo_obj, self.observer)
+        context = CheckinContext(connection, '$TMP', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_tabl(self, fake_lock, fake_unlock):
@@ -358,9 +364,10 @@ class TestTableHandlerCheckinStructure(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(result.abap_objects[0].name, TABL_NAME)
         self.assertEqual(result.used_files, [])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Structure: {TABL_NAME.lower()}
-Writing Structure: {TABL_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Structure', TABL_NAME.lower()),
+            call.writing('Structure', TABL_NAME.lower()),
+        ])
 
     def test_checkin_tabl_all_features(self, fake_lock, fake_unlock):
         connection, _ = self.checkin(TABL_ALL_FEATURES_XML, self.responses_ok())
@@ -443,7 +450,7 @@ Writing Structure: {TABL_NAME.lower()}
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestTableHandlerCheckinTable(ConsoleOutputTestCase, PatcherTestCase):
+class TestTableHandlerCheckinTable(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -457,7 +464,7 @@ class TestTableHandlerCheckinTable(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = TableHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -515,8 +522,8 @@ class TestTableHandlerCheckinTable(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(connection.execs[3].body.decode('utf-8'), settings_request_xml)
 
     def checkin_object(self, connection, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
-        context = CheckinContext(connection, '$TMP', corrnr, check_before_save)
+        prepared = self.handler.prepare(repo_obj, self.observer)
+        context = CheckinContext(connection, '$TMP', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_dbtab(self, fake_lock, fake_unlock):
@@ -532,10 +539,11 @@ class TestTableHandlerCheckinTable(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(result.abap_objects[0].objtype.code, 'TABL/DT')
         self.assertEqual(result.used_files, [])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Table: {DBTAB_NAME.lower()}
-Writing Table: {DBTAB_NAME.lower()}
-Writing Technical Settings: {DBTAB_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Table', DBTAB_NAME.lower()),
+            call.writing('Table', DBTAB_NAME.lower()),
+            call.writing('Technical Settings', DBTAB_NAME.lower()),
+        ])
 
     def test_checkin_dbtab_full(self, fake_lock, fake_unlock):
         connection, _ = self.checkin(DBTAB_FULL_XML, self.responses_ok())

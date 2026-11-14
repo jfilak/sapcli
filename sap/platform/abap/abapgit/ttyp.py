@@ -6,7 +6,7 @@ from sap import get_logger
 
 import sap.adt
 import sap.adt.errors
-import sap.cli.core
+import sap.errors
 import sap.platform.abap.abapgit
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
 from sap.platform.abap.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number
@@ -31,7 +31,7 @@ def build_table_type_abap_attributes(adt_tabletype):
 
     row_type = adt_tabletype.row_type
     if row_type.type_kind not in ('dictionaryType', 'predefinedAbapType'):
-        raise sap.cli.core.SAPCliError(f'unsupported row type kind {row_type.type_kind}')
+        raise sap.errors.SAPCliError(f'unsupported row type kind {row_type.type_kind}')
 
     data_type = row_type.built_in_type.data_type
     data_type = ADT_TO_DDIC_DATATYPE.get(data_type, data_type)
@@ -84,22 +84,22 @@ class TableTypeHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('TTYP/DA',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         adt_tabletype = sap.adt.TableType(connection, name)
         adt_tabletype.fetch()
 
         try:
             abap_attributes = build_table_type_abap_attributes(adt_tabletype)
-        except sap.cli.core.SAPCliError as ex:
-            raise sap.cli.core.SAPCliError(f'Checkout of table type {name} failed: {ex}')
+        except sap.errors.SAPCliError as ex:
+            raise sap.errors.SAPCliError(f'Checkout of table type {name} failed: {ex}')
 
         if adt_tabletype.secondary_keys.keys:
-            sap.cli.core.printerr(f'Skipping unsupported secondary keys of {name}')
+            observer.warning(f'Skipping unsupported secondary keys of {name}')
 
-        dump_attributes_to_file(name, abap_attributes, '.ttyp', 'LCL_OBJECT_TTYP', destdir=destdir)
+        dump_attributes_to_file(observer, name, abap_attributes, '.ttyp', 'LCL_OBJECT_TTYP', destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         with open(repo_obj.path, encoding='utf-8') as abap_data_file:
             # DD40L_EXTRA is parsed only to accept files of newer abapGit versions
             results = sap.platform.abap.abapgit.from_xml(
@@ -114,7 +114,7 @@ class TableTypeHandler(ObjectHandler):
                                                          ' only dictionary and predefined types are supported')
 
         if results.get('DD43V'):
-            sap.cli.core.printerr(f'Skipping unsupported secondary keys of {repo_obj.name}')
+            observer.warning(f'Skipping unsupported secondary keys of {repo_obj.name}')
 
         return SimpleNamespace(
             dd40v=dd40v,
@@ -124,7 +124,7 @@ class TableTypeHandler(ObjectHandler):
             key_components=[line.KEYFIELD for line in results.get('DD42V', []) if not line.SECKEYNAME])
 
     def checkin(self, context, repo_obj, prepared):
-        sap.cli.core.printout('Creating Table Type:', repo_obj.name)
+        context.observer.creating('Table Type', repo_obj.name)
 
         dd40v = prepared.dd40v
 
@@ -149,7 +149,7 @@ class TableTypeHandler(ObjectHandler):
         tabletype.access_type = prepared.access_type
         tabletype.set_primary_key(prepared.key_definition, prepared.key_kind, prepared.key_components)
 
-        sap.cli.core.printout('Writing Table Type:', repo_obj.name)
+        context.observer.writing('Table Type', repo_obj.name)
         with tabletype.open_editor(corrnr=context.corrnr) as editor:
             editor.push()
 

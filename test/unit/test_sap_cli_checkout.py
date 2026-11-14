@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from io import StringIO
 
 import sap.cli.checkout
+import sap.cli.localrepo
 import sap.platform.abap
 from sap.adt.textelements import TextSymbol
 import sap.platform.abap.abapgit
@@ -52,6 +53,20 @@ class TestCheckoutCommandGroup(unittest.TestCase):
         sap.cli.checkout.CommandGroup()
 
 
+class TestConsoleObserver(ConsoleOutputTestCase):
+
+    def test_prints_to_the_current_console(self):
+        with patch('sap.cli.core.get_console', return_value=self.console):
+            observer = sap.cli.checkout._console_observer()
+
+        observer.checking_out('ZCL_FOO')
+        observer.warning('Skipping')
+
+        self.assertIsInstance(observer, sap.cli.localrepo.ConsoleObserver)
+        self.assertConsoleContents(self.console, stdout='ZCL_FOO\n', stderr='Skipping\n')
+
+
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckout(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.clas.ClassHandler.checkout')
@@ -64,8 +79,8 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['class', 'ZCL_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_clas.mock_calls, [call(conn, 'CLAS/OC', 'ZCL_LOWERCASE', None),
-                                                call(conn, 'CLAS/OC', 'ZCL_UPPERCASE', None)])
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'CLAS/OC', 'ZCL_LOWERCASE', None, 'observer'),
+                                                call(conn, 'CLAS/OC', 'ZCL_UPPERCASE', None, 'observer')])
 
     @patch('sap.platform.abap.abapgit.intf.InterfaceHandler.checkout')
     def test_checkout_uppercase_name_intf(self, fake_intf):
@@ -77,8 +92,8 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['interface', 'ZIF_UPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_intf.mock_calls, [call(conn, 'INTF/OI', 'ZIF_LOWERCASE', None),
-                                                call(conn, 'INTF/OI', 'ZIF_UPPERCASE', None)])
+        self.assertEqual(fake_intf.mock_calls, [call(conn, 'INTF/OI', 'ZIF_LOWERCASE', None, 'observer'),
+                                                call(conn, 'INTF/OI', 'ZIF_UPPERCASE', None, 'observer')])
 
     @patch('sap.platform.abap.abapgit.prog.ProgramHandler.checkout')
     def test_checkout_uppercase_name_prog(self, fake_prog):
@@ -90,8 +105,9 @@ class TestCheckout(unittest.TestCase):
         args = parse_args(['program', 'ZUPPERCASE'])
         args.execute(conn, args)
 
-        self.assertEqual(fake_prog.mock_calls, [call(conn, 'PROG/P', 'ZLOWERCASE', None), call(conn, 'PROG/P', 'ZUPPERCASE', None)])
+        self.assertEqual(fake_prog.mock_calls, [call(conn, 'PROG/P', 'ZLOWERCASE', None, 'observer'), call(conn, 'PROG/P', 'ZUPPERCASE', None, 'observer')])
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutFunctionGroupCommand(unittest.TestCase):
 
     @patch('sap.cli.checkout.checkout_function_group')
@@ -102,7 +118,7 @@ class TestCheckoutFunctionGroupCommand(unittest.TestCase):
         exit_code = args.execute(conn, args)
 
         self.assertEqual(exit_code, 0)
-        fake_checkout.assert_called_once_with(conn, 'ZFUGR_LOWERCASE',
+        fake_checkout.assert_called_once_with(conn, 'ZFUGR_LOWERCASE', 'observer',
                                               source_format=sap.cli.checkout.SourceCodeFormat.ABAPGIT)
 
     @patch('sap.cli.checkout.checkout_function_group')
@@ -113,7 +129,7 @@ class TestCheckoutFunctionGroupCommand(unittest.TestCase):
         exit_code = args.execute(conn, args)
 
         self.assertEqual(exit_code, 0)
-        fake_checkout.assert_called_once_with(conn, 'ZFUGR', source_format=sap.cli.checkout.SourceCodeFormat.ABAP)
+        fake_checkout.assert_called_once_with(conn, 'ZFUGR', 'observer', source_format=sap.cli.checkout.SourceCodeFormat.ABAP)
 
     @patch('sap.cli.core.printerr')
     @patch('sap.cli.checkout.checkout_function_group')
@@ -128,6 +144,7 @@ class TestCheckoutFunctionGroupCommand(unittest.TestCase):
         fake_printerr.assert_called_once_with('Checkout failed: Unsupported function group object: FOO BAR')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutTableTypeCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.ttyp.TableTypeHandler.checkout')
@@ -135,18 +152,19 @@ class TestCheckoutTableTypeCommand(unittest.TestCase):
         args = parse_args(['tabletype', TABLE_TYPE_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'TTYP/DA', TABLE_TYPE_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'TTYP/DA', TABLE_TYPE_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.ttyp.TableTypeHandler.checkout')
     def test_checkout_objects_ttyp(self, fake_checkout):
         objects = [SimpleNamespace(typ='TTYP/DA', name=TABLE_TYPE_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'TTYP/DA', TABLE_TYPE_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'TTYP/DA', TABLE_TYPE_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutDataDefinitionCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.ddls.DataDefinitionHandler.checkout')
@@ -154,18 +172,19 @@ class TestCheckoutDataDefinitionCommand(unittest.TestCase):
         args = parse_args(['ddl', DDLS_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'DDLS/DF', DDLS_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'DDLS/DF', DDLS_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.ddls.DataDefinitionHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DDLS/DF', name=DDLS_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'DDLS/DF', DDLS_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'DDLS/DF', DDLS_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutAccessControlCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.dcls.AccessControlHandler.checkout')
@@ -173,18 +192,19 @@ class TestCheckoutAccessControlCommand(unittest.TestCase):
         args = parse_args(['dcl', DCLS_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'DCLS/DL', DCLS_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'DCLS/DL', DCLS_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.dcls.AccessControlHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DCLS/DL', name=DCLS_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'DCLS/DL', DCLS_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'DCLS/DL', DCLS_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutMetadataExtensionCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.ddlx.MetadataExtensionHandler.checkout')
@@ -192,18 +212,19 @@ class TestCheckoutMetadataExtensionCommand(unittest.TestCase):
         args = parse_args(['ddlx', DDLX_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'DDLX/EX', DDLX_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'DDLX/EX', DDLX_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.ddlx.MetadataExtensionHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DDLX/EX', name=DDLX_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'DDLX/EX', DDLX_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'DDLX/EX', DDLX_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutBehaviorDefinitionCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.bdef.BehaviorDefinitionHandler.checkout')
@@ -211,18 +232,19 @@ class TestCheckoutBehaviorDefinitionCommand(unittest.TestCase):
         args = parse_args(['bdef', BDEF_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'BDEF/BDO', BDEF_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'BDEF/BDO', BDEF_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.bdef.BehaviorDefinitionHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='BDEF/BDO', name=BDEF_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'BDEF/BDO', BDEF_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'BDEF/BDO', BDEF_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutDomainCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.doma.DomainHandler.checkout')
@@ -230,18 +252,19 @@ class TestCheckoutDomainCommand(unittest.TestCase):
         args = parse_args(['domain', DOMAIN_NEW_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'DOMA/DD', DOMAIN_NEW_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'DOMA/DD', DOMAIN_NEW_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.doma.DomainHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DOMA/DD', name=DOMAIN_NEW_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'DOMA/DD', DOMAIN_NEW_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'DOMA/DD', DOMAIN_NEW_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutDataElementCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.dtel.DataElementHandler.checkout')
@@ -249,18 +272,19 @@ class TestCheckoutDataElementCommand(unittest.TestCase):
         args = parse_args(['dataelement', DATA_ELEMENT_NEW_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'DTEL/DE', DATA_ELEMENT_NEW_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'DTEL/DE', DATA_ELEMENT_NEW_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.dtel.DataElementHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='DTEL/DE', name=DATA_ELEMENT_NEW_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'DTEL/DE', DATA_ELEMENT_NEW_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'DTEL/DE', DATA_ELEMENT_NEW_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutStructureCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout')
@@ -268,18 +292,19 @@ class TestCheckoutStructureCommand(unittest.TestCase):
         args = parse_args(['structure', TABL_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'TABL/DS', TABL_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'TABL/DS', TABL_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='TABL/DS', name=TABL_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'TABL/DS', TABL_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'TABL/DS', TABL_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutTableCommand(unittest.TestCase):
 
     @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout')
@@ -287,18 +312,19 @@ class TestCheckoutTableCommand(unittest.TestCase):
         args = parse_args(['table', DBTAB_NAME.lower()])
         args.execute('connection', args)
 
-        fake_checkout.assert_called_once_with('connection', 'TABL/DT', DBTAB_NAME, None)
+        fake_checkout.assert_called_once_with('connection', 'TABL/DT', DBTAB_NAME, None, 'observer')
 
     @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout')
     def test_checkout_objects(self, fake_checkout):
         objects = [SimpleNamespace(typ='TABL/DT', name=DBTAB_NAME)]
 
         with patch('os.path.isdir', return_value=True):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
-        fake_checkout.assert_called_once_with('connection', 'TABL/DT', DBTAB_NAME, 'src')
+        fake_checkout.assert_called_once_with('connection', 'TABL/DT', DBTAB_NAME, 'src', 'observer')
 
 
+@patch('sap.cli.checkout._console_observer', new=lambda: 'observer')
 class TestCheckoutPackage(unittest.TestCase):
 
     @patch('sap.adt.Package.fetch')
@@ -347,21 +373,21 @@ class TestCheckoutPackage(unittest.TestCase):
 
         exp_destdir = os.path.abspath(os.path.join(package_name, 'src'))
         exp_sub_destdir = os.path.abspath(os.path.join(package_name, 'src', sub_package_name.lower()))
-        fake_prog.assert_called_once_with(conn, 'PROG/P', 'Z_HELLO_WORLD', exp_destdir)
-        fake_intf.assert_called_once_with(conn, 'INTF/OI', 'ZIF_HELLO_WORLD', exp_destdir)
-        fake_fugr.assert_called_once_with(conn, 'FUGR/F', 'ZFUGR_HELLO', exp_destdir)
-        self.assertEqual(fake_clas.mock_calls, [call(conn, 'CLAS/OC', 'ZCL_HELLO_WORLD', exp_destdir),
-                                                call(conn, 'CLAS/OC', 'ZCL_TESTS', exp_sub_destdir)])
+        fake_prog.assert_called_once_with(conn, 'PROG/P', 'Z_HELLO_WORLD', exp_destdir, 'observer')
+        fake_intf.assert_called_once_with(conn, 'INTF/OI', 'ZIF_HELLO_WORLD', exp_destdir, 'observer')
+        fake_fugr.assert_called_once_with(conn, 'FUGR/F', 'ZFUGR_HELLO', exp_destdir, 'observer')
+        self.assertEqual(fake_clas.mock_calls, [call(conn, 'CLAS/OC', 'ZCL_HELLO_WORLD', exp_destdir, 'observer'),
+                                                call(conn, 'CLAS/OC', 'ZCL_TESTS', exp_sub_destdir, 'observer')])
 
         self.assertEqual(fake_print.mock_calls, [call('Unsupported object: 7777/3 Magic Unicorn', file=sys.stderr)])
 
         self.assertEqual(fake_fetch.mock_calls, [call(), call()])
-        self.assertEqual(fake_dump.mock_calls, [call('package',
+        self.assertEqual(fake_dump.mock_calls, [call('observer', 'package',
                                                      (sap.platform.abap.ddic.DEVC(CTEXT='Description $VICTORY'),),
                                                      '.devc',
                                                      'LCL_OBJECT_DEVC',
                                                      destdir=exp_destdir),
-                                                call('package',
+                                                call('observer', 'package',
                                                      (sap.platform.abap.ddic.DEVC(CTEXT='Description $VICTORY_TESTS'),),
                                                      '.devc',
                                                      'LCL_OBJECT_DEVC',
@@ -389,7 +415,7 @@ class TestCheckoutPackage(unittest.TestCase):
             args.execute(conn, args)
 
         exp_destdir = os.path.abspath(os.path.join(package_name, starting_folder))
-        fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_destdir)
+        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_destdir)
 
     @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')
@@ -414,7 +440,7 @@ class TestCheckoutPackage(unittest.TestCase):
         fake_isdir.assert_called_once_with(exp_repodir)
 
         exp_sourcedir = os.path.abspath(os.path.join(exp_repodir, starting_folder))
-        fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
+        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_sourcedir)
 
     @patch('sap.platform.abap.to_xml')
     @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
@@ -471,7 +497,7 @@ class TestCheckoutPackage(unittest.TestCase):
         fake_isdir.assert_called_once_with(exp_repodir)
 
         exp_sourcedir = os.path.join(exp_repodir, starting_folder)
-        fake_checkout.assert_called_once_with(conn, exp_objects, destdir=exp_sourcedir)
+        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_sourcedir)
 
     @patch('sap.platform.abap.abapgit.intf.InterfaceHandler.checkout', side_effect=KeyError('description'))
     def test_checkout_objects_handler_key_error(self, fake_checkout):
@@ -480,7 +506,7 @@ class TestCheckoutPackage(unittest.TestCase):
         with patch('os.path.isdir', return_value=True), \
              patch('sap.cli.checkout.print') as fake_print, \
              self.assertRaises(KeyError):
-            sap.cli.checkout.checkout_objects('connection', objects, destdir='src')
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
         fake_print.assert_not_called()
 
@@ -491,7 +517,7 @@ class TestCheckoutPackage(unittest.TestCase):
         with patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
             fake_isdir.return_value = False
-            sap.cli.checkout.checkout_objects(conn, [], destdir=starting_folder)
+            sap.cli.checkout.checkout_objects(conn, [], 'observer', destdir=starting_folder)
 
         fake_isdir.assert_called_once_with(starting_folder)
         fake_makedirs.assert_called_once_with(starting_folder)

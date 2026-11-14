@@ -50,6 +50,8 @@ class Repository(typing.NamedTuple):
     files: list
     # Owned by the layout
     settings: typing.Any
+    # The folder of the root package the layout really used
+    starting_folder: str
 
 
 class CheckinContext(typing.NamedTuple):
@@ -60,6 +62,8 @@ class CheckinContext(typing.NamedTuple):
     package_name: str
     corrnr: typing.Optional[str]
     check_before_save: bool
+    # RepositoryObserver
+    observer: typing.Any
 
 
 class ObjectCheckinResult(typing.NamedTuple):
@@ -120,20 +124,22 @@ class ObjectHandler(abc.ABC):
             raise TypeError(f'{type(self).__name__} does not define {name}')
 
     @abc.abstractmethod
-    def checkout(self, connection, adt_type, name, destdir):
+    def checkout(self, connection, adt_type, name, destdir, observer):
         """Reads the object of the ADT object type (one of ADT_TYPES) from
-           the system and writes its files.
+           the system and writes its files. Reports to the observer.
         """
 
     @abc.abstractmethod
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         """Reads and checks the files without accessing the system.
-           Returns the data for checkin().
+           Returns the data for checkin(). Reports to the observer.
         """
 
     @abc.abstractmethod
     def checkin(self, context, repo_obj, prepared):
-        """Writes the object to the system. Returns ObjectCheckinResult."""
+        """Writes the object to the system. Returns ObjectCheckinResult.
+           Reports to the observer of the context.
+        """
 
     @abc.abstractmethod
     def locate(self, repo_obj, part, line):
@@ -162,8 +168,8 @@ class RepositoryLayout(abc.ABC):
         """Creates the repository files"""
 
     @abc.abstractmethod
-    def checkout_package(self, connection, name, destdir):
-        """Writes the package file"""
+    def checkout_package(self, connection, name, destdir, observer):
+        """Writes the package file. Reports to the observer."""
 
 
 class HandlerRegistry:

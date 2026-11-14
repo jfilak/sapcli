@@ -1,7 +1,6 @@
 """Metadata extensions in the abapGit serialization"""
 
 import sap.adt
-import sap.cli.core
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
 from sap.platform.abap.abapgit.cds import prepare_cds_source, checkin_cds_source
 from sap.platform.abap.abapgit.files import dump_attributes_to_file, write_source, locate_main_source
@@ -23,17 +22,17 @@ class MetadataExtensionHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('DDLX/EX',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         adt_ddlx = sap.adt.MetadataExtension(connection, name)
         adt_ddlx.fetch()
 
-        write_source(adt_ddlx.text, name, '.ddlx', destdir=destdir, fileext='asddlxs')
+        write_source(observer, adt_ddlx.text, name, '.ddlx', destdir=destdir, fileext='asddlxs')
 
         ddlx = build_metadata_extension_abap_attributes(adt_ddlx)
-        dump_attributes_to_file(name, (ddlx,), '.ddlx', 'LCL_OBJECT_DDLX', destdir=destdir)
+        dump_attributes_to_file(observer, name, (ddlx,), '.ddlx', 'LCL_OBJECT_DDLX', destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         # Old abapGit versions stored the source code in the XML file but abapGit
         # has been writing it to the file .asddlxs for years
         return prepare_cds_source(repo_obj, DDLX, lambda ddlx: ddlx.METADATA.DESCRIPTION, '.asddlxs',

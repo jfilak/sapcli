@@ -1,7 +1,6 @@
 """Behavior definitions in the abapGit serialization"""
 
 import sap.adt
-import sap.cli.core
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
 from sap.platform.abap.abapgit.cds import prepare_cds_source, checkin_cds_source
 from sap.platform.abap.abapgit.files import dump_attributes_to_file, write_source, locate_main_source
@@ -44,17 +43,17 @@ class BehaviorDefinitionHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('BDEF/BDO',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         adt_bdef = sap.adt.BehaviorDefinition(connection, name)
         adt_bdef.fetch()
 
-        write_source(adt_bdef.text, name, '.bdef', destdir=destdir, fileext='asbdef')
+        write_source(observer, adt_bdef.text, name, '.bdef', destdir=destdir, fileext='asbdef')
 
         bdef = build_behavior_definition_abap_attributes(adt_bdef)
-        dump_attributes_to_file(name, (bdef,), '.bdef', 'LCL_OBJECT_BDEF', destdir=destdir)
+        dump_attributes_to_file(observer, name, (bdef,), '.bdef', 'LCL_OBJECT_BDEF', destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         return prepare_cds_source(repo_obj, BDEF, lambda bdef: bdef.DESCRIPTION, '.asbdef', 'Behavior Definition')
 
     def checkin(self, context, repo_obj, prepared):

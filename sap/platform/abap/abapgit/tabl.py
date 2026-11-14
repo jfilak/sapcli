@@ -11,7 +11,6 @@ from sap import get_logger
 
 import sap.adt
 import sap.adt.errors
-import sap.cli.core
 import sap.errors
 import sap.adt.checks
 import sap.platform.abap.abapgit
@@ -110,7 +109,7 @@ class StructureSourceParser:
 
     def _peek(self):
         if self._index >= len(self._tokens):
-            raise sap.cli.core.SAPCliError('unexpected end of source code')
+            raise sap.errors.SAPCliError('unexpected end of source code')
 
         return self._tokens[self._index]
 
@@ -122,7 +121,7 @@ class StructureSourceParser:
     def _expect(self, expected):
         token = self._next()
         if token.lower() != expected:
-            raise sap.cli.core.SAPCliError(f'unexpected token "{token}"')
+            raise sap.errors.SAPCliError(f'unexpected token "{token}"')
 
     def _annotations(self, supported):
         annotations = {}
@@ -130,7 +129,7 @@ class StructureSourceParser:
         while self._peek().startswith('@'):
             name = self._next()
             if name.lower() not in supported:
-                raise sap.cli.core.SAPCliError(f'unsupported annotation {name}')
+                raise sap.errors.SAPCliError(f'unsupported annotation {name}')
 
             self._expect(':')
             annotations[name.lower()] = self._next()
@@ -172,10 +171,10 @@ class StructureSourceParser:
         try:
             datatype, param_count = DDL_TO_DDIC_DATATYPE[type_name.lower()[5:]]
         except KeyError as ex:
-            raise sap.cli.core.SAPCliError(f'unsupported data type {type_name}') from ex
+            raise sap.errors.SAPCliError(f'unsupported data type {type_name}') from ex
 
         if len(params) != param_count:
-            raise sap.cli.core.SAPCliError(f'invalid parameters of data type {type_name}')
+            raise sap.errors.SAPCliError(f'invalid parameters of data type {type_name}')
 
         length, decimals = (params + ['0', '0'])[:2] if param_count else DDIC_DATATYPE_FIXED_LENGTH[datatype]
 
@@ -204,7 +203,7 @@ class StructureSourceParser:
             field.KEYFLAG = 'X'
             name = self._next()
             if name.lower() == 'include':
-                raise sap.cli.core.SAPCliError('unsupported key include')
+                raise sap.errors.SAPCliError('unsupported key include')
 
         if name.lower() == 'include':
             self._include(field)
@@ -251,7 +250,7 @@ class StructureSourceParser:
 
         self._next()
         if self._index < len(self._tokens):
-            raise sap.cli.core.SAPCliError(f'unexpected token "{self._tokens[self._index]}"')
+            raise sap.errors.SAPCliError(f'unexpected token "{self._tokens[self._index]}"')
 
         return (annotations, fields)
 
@@ -268,7 +267,7 @@ def _ddl_annotation_to_code(annotations, name, mapping, label):
     try:
         return mapping[value.upper()]
     except KeyError as ex:
-        raise sap.cli.core.SAPCliError(f'unsupported {label} {value}') from ex
+        raise sap.errors.SAPCliError(f'unsupported {label} {value}') from ex
 
 
 def build_structure_abap_attributes(adt_structure, source):
@@ -289,19 +288,19 @@ def build_structure_abap_attributes(adt_structure, source):
     return (dd02v, fields)
 
 
-def checkout_structure(connection, name, destdir=None):
+def checkout_structure(connection, name, observer, destdir=None):
     """Download structure attributes"""
 
-    sap.cli.core.printout(name)
+    observer.checking_out(name)
     adt_structure = sap.adt.Structure(connection, name)
     adt_structure.fetch()
 
     try:
         abap_attributes = build_structure_abap_attributes(adt_structure, adt_structure.text)
-    except sap.cli.core.SAPCliError as ex:
-        raise sap.cli.core.SAPCliError(f'Checkout of structure {name} failed: {ex}')
+    except sap.errors.SAPCliError as ex:
+        raise sap.errors.SAPCliError(f'Checkout of structure {name} failed: {ex}')
 
-    dump_attributes_to_file(name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
+    dump_attributes_to_file(observer, name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
 
 
 def build_table_abap_attributes(adt_table, source, settings):
@@ -311,7 +310,7 @@ def build_table_abap_attributes(adt_table, source, settings):
 
     table_category = annotations.get('@abapcatalog.tablecategory')
     if table_category is None or table_category.upper() != '#TRANSPARENT':
-        raise sap.cli.core.SAPCliError(f'unsupported table category {table_category}')
+        raise sap.errors.SAPCliError(f'unsupported table category {table_category}')
 
     language = iso_code_to_sap_code(adt_table.master_language)
 
@@ -348,10 +347,10 @@ def build_table_abap_attributes(adt_table, source, settings):
     return (dd02v, dd09l, fields)
 
 
-def checkout_table(connection, name, destdir=None):
+def checkout_table(connection, name, observer, destdir=None):
     """Download table attributes"""
 
-    sap.cli.core.printout(name)
+    observer.checking_out(name)
     adt_table = sap.adt.Table(connection, name)
     adt_table.fetch()
     source = adt_table.text
@@ -361,10 +360,10 @@ def checkout_table(connection, name, destdir=None):
 
     try:
         abap_attributes = build_table_abap_attributes(adt_table, source, settings)
-    except sap.cli.core.SAPCliError as ex:
-        raise sap.cli.core.SAPCliError(f'Checkout of table {name} failed: {ex}')
+    except sap.errors.SAPCliError as ex:
+        raise sap.errors.SAPCliError(f'Checkout of table {name} failed: {ex}')
 
-    dump_attributes_to_file(name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
+    dump_attributes_to_file(observer, name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
 
 
 # .INCLUDE or .INCLU-<SUFFIX> but not .INCLU--AP of append structures
@@ -575,13 +574,13 @@ class TableHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('TABL/DT', 'TABL/DS')
 
-    def checkout(self, connection, adt_type, name, destdir):
+    def checkout(self, connection, adt_type, name, destdir, observer):
         if adt_type == sap.adt.Table.OBJTYPE.code:
-            checkout_table(connection, name, destdir=destdir)
+            checkout_table(connection, name, observer, destdir=destdir)
         else:
-            checkout_structure(connection, name, destdir=destdir)
+            checkout_structure(connection, name, observer, destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         with open(repo_obj.path, encoding='utf-8') as abap_data_file:
             try:
                 results = sap.platform.abap.abapgit.from_xml(
@@ -611,7 +610,7 @@ class TableHandler(ObjectHandler):
         is_table = prepared.dd02v.TABCLASS == TABCLASS_TRANSPARENT
         label = 'Table' if is_table else 'Structure'
 
-        sap.cli.core.printout(f'Creating {label}:', repo_obj.name)
+        context.observer.creating(label, repo_obj.name)
 
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=context.connection.user.upper(),
                                        description=prepared.dd02v.DDTEXT)
@@ -623,12 +622,12 @@ class TableHandler(ObjectHandler):
         except sap.adt.errors.ExceptionResourceAlreadyExists as err:
             mod_log().info(err.message)
 
-        sap.cli.core.printout(f'Writing {label}:', repo_obj.name)
+        context.observer.writing(label, repo_obj.name)
         sap.adt.checks.write_source(prepared.source_code, adt_object, corrnr=context.corrnr, source_label=repo_obj.path,
                                     check_before_save=context.check_before_save)
 
         if is_table:
-            sap.cli.core.printout('Writing Technical Settings:', repo_obj.name)
+            context.observer.writing('Technical Settings', repo_obj.name)
             _write_table_settings(context.connection, repo_obj.name.upper(), prepared.dd09l, context.corrnr)
 
         # Activation of the table activates its technical settings too

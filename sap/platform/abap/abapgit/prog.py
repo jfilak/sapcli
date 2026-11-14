@@ -7,7 +7,6 @@ from sap import get_logger
 import sap.adt
 import sap.adt.errors
 import sap.adt.textelements
-import sap.cli.core
 import sap.adt.checks
 import sap.platform.abap.abapgit
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
@@ -57,18 +56,18 @@ class ProgramHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('PROG/P',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         adt_program = sap.adt.Program(connection, name)
         adt_program.fetch()
 
-        download_abap_source(name, adt_program, '.prog', destdir=destdir)
+        download_abap_source(observer, name, adt_program, '.prog', destdir=destdir)
 
-        text_symbols = download_text_symbols(sap.adt.textelements.ProgramTextElements(connection, name))
+        text_symbols = download_text_symbols(observer, sap.adt.textelements.ProgramTextElements(connection, name))
         progdir, tpool = build_program_abap_attributes(adt_program, text_symbols=text_symbols)
-        dump_attributes_to_file(name, (progdir, tpool), '.prog', 'LCL_OBJECT_PROG', destdir=destdir)
+        dump_attributes_to_file(observer, name, (progdir, tpool), '.prog', 'LCL_OBJECT_PROG', destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         if not repo_obj.files:
             raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for program {repo_obj.name}')
 
@@ -99,7 +98,7 @@ class ProgramHandler(ObjectHandler):
 
         # ADT does not allow editing text elements of includes
         supported_ids = ('I',) if progdir.SUBC == SUBC_EXECUTABLE_PROGRAM else ()
-        text_symbols = text_symbols_from_tpool(tpool, repo_obj.name, known_ids=('R',), supported_ids=supported_ids)
+        text_symbols = text_symbols_from_tpool(observer, tpool, repo_obj.name, known_ids=('R',), supported_ids=supported_ids)
 
         with open(source_file, 'r', encoding='utf-8') as source:
             source_code = source.read()
@@ -108,13 +107,13 @@ class ProgramHandler(ObjectHandler):
                                source_file=source_file, source_code=source_code)
 
     def checkin(self, context, repo_obj, prepared):
-        sap.cli.core.printout('Creating Program:', repo_obj.name)
+        context.observer.creating('Program', repo_obj.name)
 
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=context.connection.user.upper())
         if prepared.progdir.SUBC == SUBC_EXECUTABLE_PROGRAM:
             program = sap.adt.Program(context.connection, repo_obj.name, package=context.package_name, metadata=metadata)
         else:
-            sap.cli.core.printout('Creating Include:', repo_obj.name)
+            context.observer.creating('Include', repo_obj.name)
             program = sap.adt.Include(context.connection, repo_obj.name, package=context.package_name, metadata=metadata)
 
         if prepared.description is not None:
@@ -128,7 +127,7 @@ class ProgramHandler(ObjectHandler):
 
             mod_log().info(err.message)
 
-        sap.cli.core.printout('Writing Program:', repo_obj.name)
+        context.observer.writing('Program', repo_obj.name)
         sap.adt.checks.write_source(prepared.source_code, program, corrnr=context.corrnr,
                                     source_label=prepared.source_file,
                                     check_before_save=context.check_before_save)
@@ -136,7 +135,7 @@ class ProgramHandler(ObjectHandler):
         abap_objects = [program]
 
         if prepared.text_symbols:
-            sap.cli.core.printout('Writing Program:', repo_obj.name, 'text elements')
+            context.observer.writing('Program', repo_obj.name, 'text elements')
             text_elements = sap.adt.textelements.ProgramTextElements(context.connection, repo_obj.name.upper())
             write_text_symbols(text_elements, prepared.text_symbols, context.corrnr)
             # ADT does not activate inactive text elements together with the program

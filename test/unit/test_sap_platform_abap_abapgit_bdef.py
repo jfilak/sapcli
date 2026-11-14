@@ -11,10 +11,10 @@ import sap.errors
 import sap.platform.abap.abapgit.bdef
 from sap.adt.errors import ExceptionCheckinFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.bdef import BehaviorDefinitionHandler
 
-from mock import Connection, ConsoleOutputTestCase, PatcherTestCase, Response, StringIOFile
+from mock import Connection, PatcherTestCase, Response, StringIOFile
 from fixtures_sap_platform_abap_abapgit_bdef import BDEF_SOURCE_CODE, BDEF_ABAPGIT_XML, \
     BDEF_ADT_NEW_OBJECT_REQUEST_XML, BDEF_NAME, BDEF_XML, BDEF_ADT_ALREADY_EXISTS_RESPONSE_XML
 from fixtures_sap_adt_behaviordefinition import BDEF_ADT_GET_RESPONSE_XML
@@ -52,7 +52,7 @@ class TestBehaviorDefinitionHandlerLocate(unittest.TestCase):
         self.assertIsNone(self.handler.locate(self.repo_obj, 'source/main', 12))
 
 
-class TestBehaviorDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCase):
+class TestBehaviorDefinitionHandlerCheckout(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -66,7 +66,7 @@ class TestBehaviorDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCa
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = BehaviorDefinitionHandler()
 
     def checkout(self, adt_response_xml, destdir=None):
@@ -83,7 +83,7 @@ class TestBehaviorDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCa
             return written[path]
 
         with patch('sap.platform.abap.abapgit.files.open', side_effect=open_file):
-            self.handler.checkout(connection, 'BDEF/BDO', BDEF_NAME, destdir)
+            self.handler.checkout(connection, 'BDEF/BDO', BDEF_NAME, destdir, self.observer)
 
         self.assertEqual(connection.mock_methods(), [
             ('GET', f'/sap/bc/adt/bo/behaviordefinitions/{BDEF_NAME.lower()}'),
@@ -100,10 +100,11 @@ class TestBehaviorDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCa
         self.assertEqual(written[f'{BDEF_NAME.lower()}.bdef.asbdef'].getvalue(), BDEF_SOURCE_CODE)
         self.maxDiff = None
         self.assertEqual(written[f'{BDEF_NAME.lower()}.bdef.xml'].getvalue(), BDEF_ABAPGIT_XML)
-        self.assertConsoleContents(self.console, stdout=f'''{BDEF_NAME}
-- {BDEF_NAME.lower()}.bdef.asbdef
-- {BDEF_NAME.lower()}.bdef.xml
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.checking_out(BDEF_NAME),
+            call.file_written(f'{BDEF_NAME.lower()}.bdef.asbdef'),
+            call.file_written(f'{BDEF_NAME.lower()}.bdef.xml'),
+        ])
 
     def test_checkout_bdef_cloud_development(self):
         written = self.checkout(BDEF_ADT_GET_RESPONSE_XML.replace('adtcore:abapLanguageVersion="standard"',
@@ -135,7 +136,7 @@ class TestBehaviorDefinitionHandlerCheckout(ConsoleOutputTestCase, PatcherTestCa
 
 @patch('sap.adt.objects.ADTObject.unlock')
 @patch('sap.adt.objects.ADTObject.lock', return_value='lock_handle')
-class TestBehaviorDefinitionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCase):
+class TestBehaviorDefinitionHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -149,7 +150,7 @@ class TestBehaviorDefinitionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCas
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
         self.handler = BehaviorDefinitionHandler()
 
         self.package = RepoPackage('./src', './src/package.devc.xml', None)
@@ -183,8 +184,8 @@ class TestBehaviorDefinitionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCas
         self.assertEqual(connection.execs[1].body.decode('utf-8'), BDEF_SOURCE_CODE)
 
     def checkin_object(self, connection, repo_obj, corrnr=None, check_before_save=False):
-        prepared = self.handler.prepare(repo_obj)
-        context = CheckinContext(connection, '$TMP', corrnr, check_before_save)
+        prepared = self.handler.prepare(repo_obj, self.observer)
+        context = CheckinContext(connection, '$TMP', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, repo_obj, prepared)
 
     def test_checkin_bdef(self, fake_lock, fake_unlock):
@@ -203,9 +204,10 @@ class TestBehaviorDefinitionHandlerCheckin(ConsoleOutputTestCase, PatcherTestCas
         self.assertEqual(result.abap_objects[0].name, BDEF_NAME)
         self.assertEqual(result.used_files, [self.source_file])
 
-        self.assertConsoleContents(self.console, stdout=f'''Creating Behavior Definition: {BDEF_NAME.lower()}
-Writing Behavior Definition: {BDEF_NAME.lower()}
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Behavior Definition', BDEF_NAME.lower()),
+            call.writing('Behavior Definition', BDEF_NAME.lower()),
+        ])
 
     def test_checkin_bdef_with_corrnr(self, fake_lock, fake_unlock):
         connection = Connection(self.responses_ok(), user='DEVELOPER')

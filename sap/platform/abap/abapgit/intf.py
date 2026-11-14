@@ -6,7 +6,6 @@ from sap import get_logger
 
 import sap.adt
 import sap.adt.errors
-import sap.cli.core
 import sap.adt.checks
 import sap.platform.abap.abapgit
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
@@ -44,17 +43,17 @@ class InterfaceHandler(ObjectHandler):
     METADATA_EXT = 'xml'
     ADT_TYPES = ('INTF/OI',)
 
-    def checkout(self, connection, adt_type, name, destdir):
-        sap.cli.core.printout(name)
+    def checkout(self, connection, adt_type, name, destdir, observer):
+        observer.checking_out(name)
         intf = sap.adt.Interface(connection, name)
         intf.fetch()
 
-        download_abap_source(name, intf, '.intf', destdir=destdir)
+        download_abap_source(observer, name, intf, '.intf', destdir=destdir)
 
         vseointerf = build_interface_abap_attributes(intf)
-        dump_attributes_to_file(name, (vseointerf,), '.intf', 'LCL_OBJECT_INTF', destdir=destdir)
+        dump_attributes_to_file(observer, name, (vseointerf,), '.intf', 'LCL_OBJECT_INTF', destdir=destdir)
 
-    def prepare(self, repo_obj):
+    def prepare(self, repo_obj, observer):
         if not repo_obj.files:
             raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for interface {repo_obj.name}')
 
@@ -80,7 +79,7 @@ class InterfaceHandler(ObjectHandler):
         return SimpleNamespace(abap_data=abap_data, source_file=source_file, source_code=source_code)
 
     def checkin(self, context, repo_obj, prepared):
-        sap.cli.core.printout('Creating Interface:', repo_obj.name)
+        context.observer.creating('Interface', repo_obj.name)
 
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=context.connection.user.upper(),
                                        description=prepared.abap_data.DESCRIPT)
@@ -92,7 +91,7 @@ class InterfaceHandler(ObjectHandler):
         except sap.adt.errors.ExceptionResourceAlreadyExists as err:
             mod_log().info(err.message)
 
-        sap.cli.core.printout('Writing Interface:', repo_obj.name)
+        context.observer.writing('Interface', repo_obj.name)
         sap.adt.checks.write_source(prepared.source_code, interface, corrnr=context.corrnr,
                                     source_label=prepared.source_file,
                                     check_before_save=context.check_before_save)

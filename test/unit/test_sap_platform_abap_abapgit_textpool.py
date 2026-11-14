@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 
 import unittest
-from unittest.mock import MagicMock, Mock, PropertyMock
+from unittest.mock import MagicMock, Mock, PropertyMock, call
 
 import sap.adt.errors
 import sap.platform.abap.abapgit.textpool as textpool
 from sap.adt.textelements import TextSymbol
 from sap.platform.abap.ddic import TPOOL
 
-from mock import ConsoleOutputTestCase, PatcherTestCase
+from sap.platform.abap.localrepository import RepositoryObserver
+
+from mock import PatcherTestCase
 
 
-class TextPoolTestCase(ConsoleOutputTestCase, PatcherTestCase):
+class TextPoolTestCase(unittest.TestCase, PatcherTestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -19,7 +21,7 @@ class TextPoolTestCase(ConsoleOutputTestCase, PatcherTestCase):
 
     def setUp(self):
         super().setUp()
-        self.patch_console(self.console)
+        self.observer = Mock(spec=RepositoryObserver)
 
     def tearDown(self):
         try:
@@ -33,19 +35,19 @@ class TestDownloadTextSymbols(TextPoolTestCase):
     def test_download(self):
         text_elements = Mock(text='@MaxLength:20\n001=Hello, world!\n\n@MaxLength:10\n002=a=b')
 
-        symbols = textpool.download_text_symbols(text_elements)
+        symbols = textpool.download_text_symbols(self.observer, text_elements)
 
         self.assertEqual(symbols, [TextSymbol('001', 'Hello, world!', 20), TextSymbol('002', 'a=b', 10)])
-        self.assertEmptyConsole(self.console)
+        self.assertEqual(self.observer.mock_calls, [])
 
     def test_download_error(self):
         text_elements = Mock()
         type(text_elements).text = PropertyMock(side_effect=sap.adt.errors.ExceptionResourceNotFound('No texts'))
 
-        symbols = textpool.download_text_symbols(text_elements)
+        symbols = textpool.download_text_symbols(self.observer, text_elements)
 
         self.assertEqual(symbols, [])
-        self.assertConsoleContents(self.console, stderr='Download of text elements failed: No texts\n')
+        self.assertEqual(self.observer.mock_calls, [call.warning('Download of text elements failed: No texts')])
 
 
 class TestBuildTextPool(unittest.TestCase):
@@ -72,25 +74,29 @@ class TestTextSymbolsFromTPool(TextPoolTestCase):
         self.tpool.append(ID='S', KEY='P_PARAM', ENTRY='Parameter', LENGTH='17')
 
     def test_symbols_and_skipped_entries(self):
-        symbols = textpool.text_symbols_from_tpool(self.tpool, 'zprog')
+        symbols = textpool.text_symbols_from_tpool(self.observer, self.tpool, 'zprog')
 
         self.assertEqual(symbols, [TextSymbol('001', 'Hello', 20)])
-        self.assertConsoleContents(self.console, stderr='''Skipping unsupported text pool entry R of zprog
-Skipping unsupported text pool entry S P_PARAM of zprog
-''')
+        self.assertEqual(self.observer.mock_calls, [
+            call.warning('Skipping unsupported text pool entry R of zprog'),
+            call.warning('Skipping unsupported text pool entry S P_PARAM of zprog'),
+        ])
 
     def test_known_ids_are_not_reported(self):
-        symbols = textpool.text_symbols_from_tpool(self.tpool, 'zprog', known_ids=('R',))
+        symbols = textpool.text_symbols_from_tpool(self.observer, self.tpool, 'zprog', known_ids=('R',))
 
         self.assertEqual(symbols, [TextSymbol('001', 'Hello', 20)])
-        self.assertConsoleContents(self.console,
-                                   stderr='Skipping unsupported text pool entry S P_PARAM of zprog\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.warning('Skipping unsupported text pool entry S P_PARAM of zprog'),
+        ])
 
     def test_no_supported_ids(self):
-        symbols = textpool.text_symbols_from_tpool(self.tpool, 'zincl', known_ids=('R', 'S'), supported_ids=())
+        symbols = textpool.text_symbols_from_tpool(self.observer, self.tpool, 'zincl', known_ids=('R', 'S'), supported_ids=())
 
         self.assertEqual(symbols, [])
-        self.assertConsoleContents(self.console, stderr='Skipping unsupported text pool entry I 001 of zincl\n')
+        self.assertEqual(self.observer.mock_calls, [
+            call.warning('Skipping unsupported text pool entry I 001 of zincl'),
+        ])
 
 
 class TestWriteTextSymbols(unittest.TestCase):
