@@ -11,7 +11,7 @@ import sap.adt.objects
 import sap.adt.errors
 import sap.cli.wb
 from sap.config import config_get
-from sap.fileformat import CheckinContext
+from sap.platform.abap.localrepository import CheckinContext
 from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT
 
 # The activation group and the position in the group by file types.

@@ -7,11 +7,11 @@ from unittest.mock import patch, Mock, call
 import sap.adt.checks
 import sap.cli.checkin
 import sap.errors
-import sap.fileformat.abapgit
+import sap.platform.abap.abapgit.handlers
 from sap.adt.wb import CheckMessage, CheckMessageList
 from sap.errors import SAPCliError
 from sap.adt.errors import ExceptionResourceAlreadyExists, ExceptionCheckinFailure
-from sap.fileformat import CheckinContext, ObjectCheckinResult, RepoObject, RepoPackage, Repository
+from sap.platform.abap.localrepository import CheckinContext, ObjectCheckinResult, RepoObject, RepoPackage, Repository
 from sap.platform.abap.ddic import DEVC
 
 from mock import PatcherTestCase, ConsoleOutputTestCase
@@ -55,7 +55,7 @@ class ActivationMessageGenerator:
 class TestActivationOrder(unittest.TestCase):
 
     def test_every_handler_has_activation_order(self):
-        file_types = {handler.FILE_TYPE for handler in sap.fileformat.abapgit.HANDLERS}
+        file_types = {handler.FILE_TYPE for handler in sap.platform.abap.abapgit.handlers.HANDLERS}
 
         self.assertEqual(file_types - set(sap.cli.checkin.ACTIVATION_ORDER), set())
 

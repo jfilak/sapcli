@@ -4,13 +4,13 @@ import os
 
 from sap import get_logger
 
-import sap.fileformat.abapgit
+import sap.platform.abap.abapgit.handlers
 from sap.errors import FatalError
-from sap.fileformat import HandlerRegistry
-from sap.fileformat.abapgit.layout import AbapGitLayout
+from sap.platform.abap.localrepository import HandlerRegistry
+from sap.platform.abap.abapgit.layout import AbapGitLayout
 
 # Handlers of object files in the priority order
-OBJECT_HANDLERS = HandlerRegistry(sap.fileformat.abapgit.HANDLERS)
+OBJECT_HANDLERS = HandlerRegistry(sap.platform.abap.abapgit.handlers.HANDLERS)
 
 # Directory structure of the repository
 REPOSITORY_LAYOUT = AbapGitLayout()

@@ -6,7 +6,7 @@ import sap.adt
 import sap.adt.textelements
 import sap.cli.core
 from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT
-from sap.fileformat.abapgit.fugr import SourceCodeFormat, checkout_function_group
+from sap.platform.abap.abapgit.fugr import SourceCodeFormat, checkout_function_group
 
 
 class CommandGroup(sap.cli.core.CommandGroup):

@@ -1380,7 +1380,7 @@ class LocalRepositoryTestCase(unittest.TestCase):
     def setUp(self):
         super().setUp()
 
-        from sap.fileformat import RepoObject, RepoPackage, Repository
+        from sap.platform.abap.localrepository import RepoObject, RepoPackage, Repository
 
         clas_handler = sap.cli.localrepo.OBJECT_HANDLERS.for_adt_type('CLAS/OC')
         prog_handler = sap.cli.localrepo.OBJECT_HANDLERS.for_adt_type('PROG/P')
