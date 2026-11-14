@@ -3,7 +3,8 @@
 A RepositoryLayout knows directories: where packages and object files are.
 An ObjectHandler knows one object type in one serialization: its files and
 how to move the object between the files and the system. A HandlerRegistry
-is a plain lookup of handlers.
+is a plain lookup of handlers. A RepositoryObserver is told what layouts and
+handlers do because they never print anything.
 
 Nothing in this module knows any particular format.
 """
@@ -67,6 +68,36 @@ class ObjectCheckinResult(typing.NamedTuple):
     # ADT objects to be activated
     abap_objects: list
     used_files: list
+
+
+class RepositoryObserver(abc.ABC):
+    """Observer of the progress of checkin and checkout"""
+
+    @abc.abstractmethod
+    def checking_out(self, name):
+        """The object is going to be read from the system"""
+
+    @abc.abstractmethod
+    def file_written(self, path):
+        """The file has been written"""
+
+    @abc.abstractmethod
+    def creating(self, kind, name):
+        """The object of the kind (e.g. Class) is going to be created in
+           the system
+        """
+
+    @abc.abstractmethod
+    def writing(self, kind, name, part=None):
+        """The object of the kind (e.g. Class) or only its part (e.g.
+           definitions) is going to be written to the system
+        """
+
+    @abc.abstractmethod
+    def warning(self, message):
+        """Something was skipped or could not be done but the operation
+           continues
+        """
 
 
 class ObjectHandler(abc.ABC):
