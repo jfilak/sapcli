@@ -6,7 +6,7 @@ from sap import get_logger
 
 import sap.platform.abap.abapgit.handlers
 from sap.errors import FatalError
-from sap.platform.abap.localrepository import HandlerRegistry
+from sap.platform.abap.localrepository import HandlerRegistry, RepositoryObserver
 from sap.platform.abap.abapgit.layout import AbapGitLayout
 
 # Handlers of object files in the priority order
@@ -20,6 +20,31 @@ def mod_log():
     """Module logger"""
 
     return get_logger()
+
+
+class ConsoleObserver(RepositoryObserver):
+    """Prints the progress of checkin and checkout to the console"""
+
+    def __init__(self, console):
+        self._console = console
+
+    def checking_out(self, name):
+        self._console.printout(name)
+
+    def file_written(self, path):
+        self._console.printout(f'- {os.path.basename(path)}')
+
+    def creating(self, kind, name):
+        self._console.printout(f'Creating {kind}:', name)
+
+    def writing(self, kind, name, part=None):
+        if part is None:
+            self._console.printout(f'Writing {kind}:', name)
+        else:
+            self._console.printout(f'Writing {kind}:', name, part)
+
+    def warning(self, message):
+        self._console.printerr(message)
 
 
 def load_local_objects():

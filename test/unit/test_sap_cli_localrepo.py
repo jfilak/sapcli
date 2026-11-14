@@ -6,7 +6,9 @@ from unittest.mock import patch
 import sap.cli.localrepo
 import sap.platform.abap.abapgit.handlers
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import HandlerRegistry, RepositoryLayout
+from sap.platform.abap.localrepository import HandlerRegistry, RepositoryLayout, RepositoryObserver
+
+from mock import ConsoleOutputTestCase
 
 
 class TestFormats(unittest.TestCase):
@@ -18,6 +20,47 @@ class TestFormats(unittest.TestCase):
 
     def test_repository_layout(self):
         self.assertIsInstance(sap.cli.localrepo.REPOSITORY_LAYOUT, RepositoryLayout)
+
+
+class TestConsoleObserver(ConsoleOutputTestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        self.observer = sap.cli.localrepo.ConsoleObserver(self.console)
+
+    def test_is_repository_observer(self):
+        self.assertIsInstance(self.observer, RepositoryObserver)
+
+    def test_checking_out(self):
+        self.observer.checking_out('ZCL_FOO')
+
+        self.assertConsoleContents(self.console, stdout='ZCL_FOO\n')
+
+    def test_file_written(self):
+        self.observer.file_written('/repo/src/zcl_foo.clas.xml')
+
+        self.assertConsoleContents(self.console, stdout='- zcl_foo.clas.xml\n')
+
+    def test_creating(self):
+        self.observer.creating('Class', 'zcl_foo')
+
+        self.assertConsoleContents(self.console, stdout='Creating Class: zcl_foo\n')
+
+    def test_writing(self):
+        self.observer.writing('Program', 'zreport')
+
+        self.assertConsoleContents(self.console, stdout='Writing Program: zreport\n')
+
+    def test_writing_part(self):
+        self.observer.writing('Clas', 'zcl_foo', 'text elements')
+
+        self.assertConsoleContents(self.console, stdout='Writing Clas: zcl_foo text elements\n')
+
+    def test_warning(self):
+        self.observer.warning('Skipping unsupported secondary keys of ZTT')
+
+        self.assertConsoleContents(self.console, stderr='Skipping unsupported secondary keys of ZTT\n')
 
 
 class LocalRepositoryTestCase(unittest.TestCase):

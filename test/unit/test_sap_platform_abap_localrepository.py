@@ -7,6 +7,7 @@ import sap.platform.abap.localrepository
 from sap.platform.abap.localrepository import (
     ObjectHandler,
     RepositoryLayout,
+    RepositoryObserver,
     HandlerRegistry,
     RepoPackage,
     RepoObject,
@@ -212,6 +213,83 @@ class TestRepositoryLayout(unittest.TestCase):
             Layout()
 
         self.assertIn('checkout_package', str(caught.exception))
+
+
+class CompleteObserver(RepositoryObserver):
+    """Observer implementing everything"""
+
+    def checking_out(self, name):
+        return 'checking out'
+
+    def file_written(self, path):
+        return 'file written'
+
+    def creating(self, kind, name):
+        return 'creating'
+
+    def writing(self, kind, name, part=None):
+        return 'writing'
+
+    def warning(self, message):
+        return 'warning'
+
+
+class TestRepositoryObserver(unittest.TestCase):
+
+    def test_complete_observer_can_be_instantiated(self):
+        observer = CompleteObserver()
+
+        self.assertEqual(observer.checking_out('ZCL_FOO'), 'checking out')
+        self.assertEqual(observer.file_written('./src/zcl_foo.clas.xml'), 'file written')
+        self.assertEqual(observer.creating('Class', 'zcl_foo'), 'creating')
+        self.assertEqual(observer.writing('Class', 'zcl_foo'), 'writing')
+        self.assertEqual(observer.writing('Class', 'zcl_foo', 'definitions'), 'writing')
+        self.assertEqual(observer.warning('Skipping'), 'warning')
+
+    def test_missing_checking_out(self):
+        class Observer(CompleteObserver):
+            checking_out = RepositoryObserver.checking_out
+
+        with self.assertRaises(TypeError) as caught:
+            Observer()
+
+        self.assertIn('checking_out', str(caught.exception))
+
+    def test_missing_file_written(self):
+        class Observer(CompleteObserver):
+            file_written = RepositoryObserver.file_written
+
+        with self.assertRaises(TypeError) as caught:
+            Observer()
+
+        self.assertIn('file_written', str(caught.exception))
+
+    def test_missing_creating(self):
+        class Observer(CompleteObserver):
+            creating = RepositoryObserver.creating
+
+        with self.assertRaises(TypeError) as caught:
+            Observer()
+
+        self.assertIn('creating', str(caught.exception))
+
+    def test_missing_writing(self):
+        class Observer(CompleteObserver):
+            writing = RepositoryObserver.writing
+
+        with self.assertRaises(TypeError) as caught:
+            Observer()
+
+        self.assertIn('writing', str(caught.exception))
+
+    def test_missing_warning(self):
+        class Observer(CompleteObserver):
+            warning = RepositoryObserver.warning
+
+        with self.assertRaises(TypeError) as caught:
+            Observer()
+
+        self.assertIn('warning', str(caught.exception))
 
 
 class TestHandlerRegistry(unittest.TestCase):
