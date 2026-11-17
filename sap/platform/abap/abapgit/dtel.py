@@ -8,7 +8,7 @@ import sap.adt
 import sap.adt.errors
 import sap.errors
 import sap.platform.abap.abapgit
-from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
+from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult, UnsupportedContent
 from sap.platform.abap.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number, adt_flag_to_abap, abap_flag_to_adt
 from sap.platform.abap.abapgit.files import dump_attributes_to_file
 from sap.platform.abap.ddic import DD04V, DD04L_EXTRA, REFKIND_DOMAIN, DDIC_DATATYPE_TO_ADT
@@ -82,7 +82,7 @@ def build_data_element_abap_attributes(adt_dataelement):
     definition = adt_dataelement.definition
 
     if definition.typ not in ('domain', 'predefinedAbapType'):
-        raise sap.errors.SAPCliError(
+        raise UnsupportedContent(
             f'Unsupported type of data element {adt_dataelement.name}: {definition.typ}')
 
     # The values are set in the order of the members to keep the order

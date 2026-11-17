@@ -7,6 +7,7 @@ import sap.adt.textelements
 import sap.cli.core
 from sap.cli.localrepo import OBJECT_HANDLERS, REPOSITORY_LAYOUT, ConsoleObserver
 from sap.platform.abap.abapgit.fugr import SourceCodeFormat, checkout_function_group
+from sap.platform.abap.localrepository import UnsupportedContent
 
 
 class CommandGroup(sap.cli.core.CommandGroup):
@@ -142,11 +143,15 @@ def dataelement(connection, args):
     _checkout_object(connection, sap.adt.DataElement.OBJTYPE.code, args.name)
 
 
-def checkout_objects(connection, objects, observer, destdir=None):
-    """Checkout all objects from the give list"""
+def checkout_objects(connection, objects, observer, destdir=None, skip_unsupported=False):
+    """Checkout all objects from the give list and returns the number of
+       objects skipped because of unsupported contents.
+    """
 
     if not os.path.isdir(destdir):
         os.makedirs(destdir)
+
+    skipped = 0
 
     for obj in objects:
         handler = OBJECT_HANDLERS.for_adt_type(obj.typ)
@@ -156,7 +161,18 @@ def checkout_objects(connection, objects, observer, destdir=None):
 
         # Errors are reported by raising an SAPCliError because the command
         # line entry point prints out human friendly text.
-        handler.checkout(connection, obj.typ, obj.name, destdir, observer)
+        try:
+            handler.checkout(connection, obj.typ, obj.name, destdir, observer)
+        except UnsupportedContent as ex:
+            if not skip_unsupported:
+                raise
+
+            # The user asked to skip such objects - the handler has not
+            # written any file of the object
+            observer.warning(f'Skipped {obj.typ} {obj.name}: {ex}')
+            skipped += 1
+
+    return skipped
 
 
 def make_repo_dir_for_package(args):
@@ -177,6 +193,8 @@ def make_repo_dir_for_package(args):
 
 
 # @CommandGroup.argument('--folder-logic', choices=['full', 'prefix'], default='prefix')
+@CommandGroup.argument('--skip-unsupported', action='store_true', default=False,
+                       help='Skip objects with contents which cannot be checked out yet instead of failing')
 @CommandGroup.argument('--no-recursive', dest='recursive', action='store_false',
                        help='Do not download the sub-packages')
 @CommandGroup.argument('--recursive', dest='recursive', action='store_true', default=True,
@@ -194,6 +212,7 @@ def package(connection, args):
 
     explored = sap.adt.Package(connection, args.name)
     observer = _console_observer()
+    skipped = 0
 
     for package_name_hier, _, objects in sap.adt.package.walk(explored):
         destdir = os.path.abspath(source_code_dir)
@@ -209,8 +228,16 @@ def package(connection, args):
         else:
             package_name = package_name_hier[-1]
 
-        checkout_objects(connection, objects, observer, destdir=destdir)
+        try:
+            skipped += checkout_objects(connection, objects, observer, destdir=destdir,
+                                        skip_unsupported=args.skip_unsupported)
+        except UnsupportedContent as ex:
+            raise sap.cli.core.SAPCliError(f'{ex} (use --skip-unsupported to skip such objects)') from ex
+
         REPOSITORY_LAYOUT.checkout_package(connection, package_name.upper(), destdir, observer)
 
         if not args.recursive:
             break
+
+    if skipped:
+        observer.warning(f'Skipped {skipped} objects with unsupported contents')

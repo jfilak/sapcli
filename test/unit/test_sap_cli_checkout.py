@@ -15,6 +15,8 @@ import sap.platform.abap
 from sap.adt.textelements import TextSymbol
 import sap.platform.abap.abapgit
 import sap.adt
+from sap.errors import SAPCliError
+from sap.platform.abap.localrepository import RepositoryObserver, UnsupportedContent
 
 from mock import Connection, Response, patch, PatcherTestCase, ConsoleOutputTestCase, StringIOFile
 from test.unit.fixtures_sap_platform_abap_abapgit_tabl import TABL_NAME, DBTAB_NAME
@@ -395,7 +397,7 @@ class TestCheckoutPackage(unittest.TestCase):
                                                 ])
 
     @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
-    @patch('sap.cli.checkout.checkout_objects')
+    @patch('sap.cli.checkout.checkout_objects', return_value=0)
     @patch('sap.adt.package.walk')
     def test_checkout_package_non_recursive(self, fake_walk, fake_checkout, fake_package):
         conn = Connection([])
@@ -415,7 +417,8 @@ class TestCheckoutPackage(unittest.TestCase):
             args.execute(conn, args)
 
         exp_destdir = os.path.abspath(os.path.join(package_name, starting_folder))
-        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_destdir)
+        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_destdir,
+                                              skip_unsupported=False)
 
     def test_checkout_package_recursive_option_default(self):
         args = parse_args(['package', '$ROOT'])
@@ -433,7 +436,7 @@ class TestCheckoutPackage(unittest.TestCase):
         self.assertFalse(args.recursive)
 
     @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
-    @patch('sap.cli.checkout.checkout_objects')
+    @patch('sap.cli.checkout.checkout_objects', return_value=0)
     @patch('sap.adt.package.walk')
     def test_checkout_package_starting_folder(self, fake_walk, fake_checkout, fake_package):
         conn = Connection([])
@@ -455,11 +458,12 @@ class TestCheckoutPackage(unittest.TestCase):
         fake_isdir.assert_called_once_with(exp_repodir)
 
         exp_sourcedir = os.path.abspath(os.path.join(exp_repodir, starting_folder))
-        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_sourcedir)
+        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_sourcedir,
+                                              skip_unsupported=False)
 
     @patch('sap.platform.abap.to_xml')
     @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
-    @patch('sap.cli.checkout.checkout_objects')
+    @patch('sap.cli.checkout.checkout_objects', return_value=0)
     @patch('sap.adt.package.walk')
     def test_checkout_package_create_repo(self, fake_walk, fake_checkout, fake_package, fake_to_xml):
         conn = Connection([])
@@ -489,7 +493,7 @@ class TestCheckoutPackage(unittest.TestCase):
         self.assertEqual(kwargs['top_element'], 'DATA')
 
     @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
-    @patch('sap.cli.checkout.checkout_objects')
+    @patch('sap.cli.checkout.checkout_objects', return_value=0)
     @patch('sap.adt.package.walk')
     def test_checkout_package_custom_repo_dir(self, fake_walk, fake_checkout, fake_package):
         conn = Connection([])
@@ -512,7 +516,8 @@ class TestCheckoutPackage(unittest.TestCase):
         fake_isdir.assert_called_once_with(exp_repodir)
 
         exp_sourcedir = os.path.join(exp_repodir, starting_folder)
-        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_sourcedir)
+        fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_sourcedir,
+                                              skip_unsupported=False)
 
     @patch('sap.platform.abap.abapgit.intf.InterfaceHandler.checkout', side_effect=KeyError('description'))
     def test_checkout_objects_handler_key_error(self, fake_checkout):
@@ -524,6 +529,102 @@ class TestCheckoutPackage(unittest.TestCase):
             sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
 
         fake_print.assert_not_called()
+
+    @patch('sap.platform.abap.abapgit.clas.ClassHandler.checkout')
+    @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout',
+           side_effect=UnsupportedContent('Checkout of table ZTAB failed: unsupported annotation @Foo'))
+    def test_checkout_objects_skip_unsupported(self, fake_tabl, fake_clas):
+        observer = Mock(spec=RepositoryObserver)
+        objects = [SimpleNamespace(typ='TABL/DT', name='ZTAB'), SimpleNamespace(typ='CLAS/OC', name='ZCL_FOO')]
+
+        with patch('os.path.isdir', return_value=True):
+            skipped = sap.cli.checkout.checkout_objects('connection', objects, observer, destdir='src',
+                                                        skip_unsupported=True)
+
+        self.assertEqual(skipped, 1)
+        fake_clas.assert_called_once_with('connection', 'CLAS/OC', 'ZCL_FOO', 'src', observer)
+        self.assertEqual(observer.mock_calls, [
+            call.warning('Skipped TABL/DT ZTAB: Checkout of table ZTAB failed: unsupported annotation @Foo')])
+
+    @patch('sap.platform.abap.abapgit.clas.ClassHandler.checkout')
+    def test_checkout_objects_nothing_skipped(self, fake_clas):
+        objects = [SimpleNamespace(typ='CLAS/OC', name='ZCL_FOO')]
+
+        with patch('os.path.isdir', return_value=True):
+            skipped = sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src',
+                                                        skip_unsupported=True)
+
+        self.assertEqual(skipped, 0)
+
+    @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout',
+           side_effect=UnsupportedContent('Checkout of table ZTAB failed: unsupported annotation @Foo'))
+    def test_checkout_objects_unsupported_not_skipped(self, fake_tabl):
+        objects = [SimpleNamespace(typ='TABL/DT', name='ZTAB')]
+
+        with patch('os.path.isdir', return_value=True), \
+             self.assertRaises(UnsupportedContent):
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src')
+
+    @patch('sap.platform.abap.abapgit.tabl.TableHandler.checkout', side_effect=SAPCliError('Connection refused'))
+    def test_checkout_objects_skip_unsupported_other_error(self, fake_tabl):
+        objects = [SimpleNamespace(typ='TABL/DT', name='ZTAB')]
+
+        with patch('os.path.isdir', return_value=True), \
+             self.assertRaises(SAPCliError) as caught:
+            sap.cli.checkout.checkout_objects('connection', objects, 'observer', destdir='src', skip_unsupported=True)
+
+        self.assertEqual(str(caught.exception), 'Connection refused')
+
+    @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
+    @patch('sap.cli.checkout.checkout_objects', side_effect=[1, 2])
+    @patch('sap.adt.package.walk')
+    def test_checkout_package_skip_unsupported(self, fake_walk, fake_checkout, fake_package):
+        observer = Mock(spec=RepositoryObserver)
+        fake_walk.return_value = iter((([], ['$TESTS'], ['objects']), (['$TESTS'], [], ['sub objects'])))
+
+        args = parse_args(['package', '$ROOT', '--skip-unsupported'])
+        with patch('sap.platform.abap.abapgit.layout.open', mock_open()), \
+             patch('sap.cli.checkout._console_observer', return_value=observer), \
+             patch('os.path.isdir', return_value=True):
+            args.execute('connection', args)
+
+        exp_destdir = os.path.abspath(os.path.join('$ROOT', 'src'))
+        self.assertEqual(fake_checkout.mock_calls, [
+            call('connection', ['objects'], observer, destdir=exp_destdir, skip_unsupported=True),
+            call('connection', ['sub objects'], observer, destdir=os.path.join(exp_destdir, '$tests'),
+                 skip_unsupported=True)])
+        self.assertEqual(observer.mock_calls, [call.warning('Skipped 3 objects with unsupported contents')])
+
+    @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
+    @patch('sap.cli.checkout.checkout_objects', return_value=0)
+    @patch('sap.adt.package.walk')
+    def test_checkout_package_skip_unsupported_nothing_skipped(self, fake_walk, fake_checkout, fake_package):
+        observer = Mock(spec=RepositoryObserver)
+        fake_walk.return_value = iter((([], [], ['objects']), ))
+
+        args = parse_args(['package', '$ROOT', '--skip-unsupported'])
+        with patch('sap.platform.abap.abapgit.layout.open', mock_open()), \
+             patch('sap.cli.checkout._console_observer', return_value=observer), \
+             patch('os.path.isdir', return_value=True):
+            args.execute('connection', args)
+
+        self.assertEqual(observer.mock_calls, [])
+
+    @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
+    @patch('sap.cli.checkout.checkout_objects',
+           side_effect=UnsupportedContent('Checkout of table ZTAB failed: unsupported annotation @Foo'))
+    @patch('sap.adt.package.walk')
+    def test_checkout_package_unsupported_hint(self, fake_walk, fake_checkout, fake_package):
+        fake_walk.return_value = iter((([], [], ['objects']), ))
+
+        args = parse_args(['package', '$ROOT'])
+        with patch('sap.platform.abap.abapgit.layout.open', mock_open()), \
+             patch('os.path.isdir', return_value=True), \
+             self.assertRaises(SAPCliError) as caught:
+            args.execute('connection', args)
+
+        self.assertEqual(str(caught.exception), 'Checkout of table ZTAB failed: unsupported annotation @Foo'
+                                                ' (use --skip-unsupported to skip such objects)')
 
     def test_checkout_objects_makedirs(self):
         conn = Connection([])

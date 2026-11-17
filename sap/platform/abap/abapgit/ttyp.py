@@ -8,7 +8,7 @@ import sap.adt
 import sap.adt.errors
 import sap.errors
 import sap.platform.abap.abapgit
-from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
+from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult, UnsupportedContent
 from sap.platform.abap.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number
 from sap.platform.abap.abapgit.files import dump_attributes_to_file
 from sap.platform.abap.ddic import DD40V, DD42V, DD42V_TABLE, DD43V_TABLE, DD40L_EXTRA, DD40V_ACCESSMODE_TO_ADT, \
@@ -92,7 +92,7 @@ class TableTypeHandler(ObjectHandler):
         try:
             abap_attributes = build_table_type_abap_attributes(adt_tabletype)
         except sap.errors.SAPCliError as ex:
-            raise sap.errors.SAPCliError(f'Checkout of table type {name} failed: {ex}')
+            raise UnsupportedContent(f'Checkout of table type {name} failed: {ex}') from ex
 
         if adt_tabletype.secondary_keys.keys:
             observer.warning(f'Skipping unsupported secondary keys of {name}')

@@ -15,6 +15,12 @@ import typing
 import sap.errors
 
 
+class UnsupportedContent(sap.errors.SAPCliError):
+    """The object contains something the handler cannot serialize yet.
+       Handlers raise it before they write any file of the object.
+    """
+
+
 class RepoPackage(typing.NamedTuple):
     """Package directory of a repository"""
 
