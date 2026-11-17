@@ -2401,6 +2401,62 @@ Use --add if you really want to add them to the repository.
             [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_NEW'}]
         )
 
+    def test_commit_objects_dry_run(self):
+        repo_name = 'the_repo'
+
+        self.fake_connection.set_responses(
+            Response.with_json(json={'objects': [
+                {'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO', 'description': 'Class'},
+                {'pgmid': 'R3TR', 'type': 'APIS', 'object': 'STRING_TABLE                        TTYP'},
+            ]}),
+        )
+
+        commit_cmd = self.commit_cmd(repo_name, '--dry-run', '--object', 'CLAS:ZCL_FOO', '--objects-from', '-')
+        with patch('sys.stdin', StringIO('R3TR APIS STRING_TABLE                        TTYP\nR3TR CLAS ZCL_FOO\n')):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(self.fake_connection.execs), 1)
+        self.fake_connection.execs[0].assertEqual(
+            Request.get_json(uri=f'repository/{repo_name}/getObjects'),
+            self
+        )
+        self.assertConsoleContents(self.console, stdout='''R3TR\tCLAS\tZCL_FOO
+R3TR\tAPIS\tSTRING_TABLE                        TTYP
+''')
+
+    def test_commit_objects_dry_run_not_part_of_repository(self):
+        repo_name = 'the_repo'
+
+        self.fake_connection.set_responses(Response.with_json(json={}))
+
+        commit_cmd = self.commit_cmd(repo_name, '--dry-run', '--object', 'CLAS:ZCL_FOO')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(len(self.fake_connection.execs), 1)
+        self.assertConsoleContents(self.console, stderr=f'''The following objects are not part of the repository "{repo_name}":
+  R3TR CLAS ZCL_FOO
+Use --add if you really want to add them to the repository.
+''')
+
+    def test_commit_new_objects_dry_run_with_add(self):
+        commit_cmd = self.commit_cmd('the_repo', '--dry-run', '--add', '--object', 'LIMU:METH:ZCL_FOO                       RUN')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console, stdout='LIMU\tMETH\tZCL_FOO                       RUN\n')
+
+    def test_commit_dry_run_without_objects(self):
+        commit_cmd = self.commit_cmd('the_repo', '--dry-run')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='The parameter --dry-run can be used only with --object or --objects-from\n')
+
     def test_commit_add_without_objects(self):
         commit_cmd = self.commit_cmd('the_repo', 'CORRNR', '--add')
         exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)

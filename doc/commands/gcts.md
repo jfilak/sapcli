@@ -146,7 +146,7 @@ Commits all object of an ABAP package, a released transport or the listed object
 ```bash
 sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] PACKAGE [CORRNR]
 sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] \
-                   [--object [PGMID:]TYPE:NAME[,NAME...]]... [--objects-from FILE]... [--add] PACKAGE
+                   [--object [PGMID:]TYPE:NAME[,NAME...]]... [--objects-from FILE]... [--add] [--dry-run] PACKAGE
 ```
 
 **Parameters:**:
@@ -158,6 +158,7 @@ sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] \
 - `--object [PGMID:]TYPE:NAME[,NAME...]`: Commit the given objects; repeat the parameter to commit objects of different types; PGMID defaults to R3TR; the value is upper cased
 - `--objects-from FILE`: Commit the objects listed in FILE; use `-` to read the list from standard input; repeat the parameter to read more files
 - `--add`: Commit also objects which are not part of the repository yet
+- `--dry-run`: Check the objects and print them in the format of `--objects-from` but do not commit them
 - `--message MESSAGE`: Short commit message; default: _Export PGMID TYPE NAME_ for a single object and _Export N objects_ for more objects
 - `--description DESCRIPTION`: Long commit description
 
@@ -207,6 +208,15 @@ The check also catches misspelled object names because gCTS itself does not chec
 the objects exist and a misspelled object name results in a commit without the object.
 The repository lists only R3TR objects, hence other objects (e.g. LIMU METH) can be committed
 only with `--add`.
+
+The parameter `--dry-run` performs all the checks and prints the objects which would be committed
+in the format of `--objects-from` but it does not commit them.
+
+```bash
+$ sapcli gcts commit my_repo --dry-run --object CLAS:ZCL_FOO,ZCL_BAR
+R3TR	CLAS	ZCL_FOO
+R3TR	CLAS	ZCL_BAR
+```
 
 ## delete
 
