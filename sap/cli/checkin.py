@@ -152,11 +152,24 @@ def _activate(connection, inactive_objects, console):
     sap.cli.wb.activate(connection, inactive_objects, console)
 
 
-def _checkin_repository(connection, args, console, check_before_save):
+def _abapgit_starting_folder(starting_folder):
+    """Returns the starting folder in the form of abapGit: /<dir>/"""
+
+    if starting_folder is None:
+        return None
+
+    stripped = starting_folder.strip('/')
+    if not stripped:
+        return '/'
+
+    return f'/{stripped}/'
+
+
+def _checkin_repository(connection, args, console, check_before_save, starting_folder):
     observer = ConsoleObserver(console)
 
-    repo = REPOSITORY_LAYOUT.load_repository(args.starting_folder, OBJECT_HANDLERS)
-    if repo.starting_folder != args.starting_folder:
+    repo = REPOSITORY_LAYOUT.load_repository(starting_folder, OBJECT_HANDLERS)
+    if repo.starting_folder != starting_folder:
         console.printerr(f'Using starting-folder: {repo.starting_folder}')
 
     package_names = {package.dir_path: REPOSITORY_LAYOUT.package_name(repo, package, args.name)
@@ -204,9 +217,11 @@ def do_checkin_directory(connection, args):
 
     console = args.console_factory()
 
+    starting_folder = _abapgit_starting_folder(args.starting_folder)
+
     top_dir = '.'
-    if args.starting_folder:
-        top_dir = os.path.join(top_dir, args.starting_folder)
+    if starting_folder:
+        top_dir += starting_folder
 
     if not os.path.isdir(top_dir):
         console.printerr(f'Cannot check-in ABAP objects from "{top_dir}": not a directory')
@@ -216,7 +231,7 @@ def do_checkin_directory(connection, args):
     check_before_save = flag if flag is not None else config_get('check_before_save', False)
 
     try:
-        _checkin_repository(connection, args, console, check_before_save)
+        _checkin_repository(connection, args, console, check_before_save, starting_folder)
     except sap.adt.checks.ObjectCheckFindings as findings:
         for line in str(findings).splitlines():
             console.printerr(line)
