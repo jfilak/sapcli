@@ -264,6 +264,12 @@ class TestTableHandlerCheckoutTable(unittest.TestCase, PatcherTestCase):
 
         self.assertEqual(message, f'Checkout of table {DBTAB_NAME} failed: unexpected token "true"')
 
+    def test_checkout_dbtab_display_maintenance(self):
+        fake_open = self.checkout(CHECKOUT_DBTAB_GENERIC_SOURCE_CODE.replace('#NOT_ALLOWED', '#DISPLAY'))
+
+        self.assert_wrote_abapgit_file(fake_open, DBTAB_GENERIC_ABAPGIT_XML.replace('<MAINFLAG>N</MAINFLAG>',
+                                                                                    '<MAINFLAG>D</MAINFLAG>'))
+
     def test_checkout_dbtab_destdir(self):
         fake_open = self.checkout(CHECKOUT_DBTAB_GENERIC_SOURCE_CODE, destdir='src')
 
@@ -592,6 +598,13 @@ class TestTableHandlerCheckinTable(unittest.TestCase, PatcherTestCase):
 
         self.assert_requests(connection,
                              DBTAB_GENERIC_SOURCE_CODE.replace('  value ', '  @AbapCatalog.textLanguage\n  value '),
+                             DBTAB_GENERIC_SETTINGS_REQUEST_XML)
+
+    def test_checkin_dbtab_display_maintenance(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(DBTAB_GENERIC_XML.replace('<MAINFLAG>N</MAINFLAG>', '<MAINFLAG>D</MAINFLAG>'),
+                                     self.responses_ok())
+
+        self.assert_requests(connection, DBTAB_GENERIC_SOURCE_CODE.replace('#NOT_ALLOWED', '#DISPLAY'),
                              DBTAB_GENERIC_SETTINGS_REQUEST_XML)
 
     def test_checkin_dbtab_foreign_keys(self, fake_lock, fake_unlock):
