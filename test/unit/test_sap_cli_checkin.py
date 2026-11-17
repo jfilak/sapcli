@@ -315,21 +315,66 @@ Unused file: ./src/test_fugr.fugr.include.xml
             exit_code = args.execute('connection', args)
 
         self.assertEqual(exit_code, 0)
-        fake_isdir.assert_called_once_with('./backend')
-        self.fake_layout.load_repository.assert_called_once_with('backend', sap.cli.checkin.OBJECT_HANDLERS)
+        fake_isdir.assert_called_once_with('./backend/')
+        self.fake_layout.load_repository.assert_called_once_with('/backend/', sap.cli.checkin.OBJECT_HANDLERS)
         self.doma.handler.checkin.assert_called_once_with(CheckinContext('connection', '$foo', 'K900001', True, self.observer),
                                                           self.doma, 'prepared doma')
 
     def test_do_checkin_requested_starting_folder_used(self):
         args = parse_args('package', '$foo', '--starting-folder', '/src/')
 
-        with patch('sap.cli.checkin.os.path.isdir', return_value=True):
+        with patch('sap.cli.checkin.os.path.isdir', return_value=True) as fake_isdir:
             exit_code = args.execute('connection', args)
 
         self.assertEqual(exit_code, 0)
+        fake_isdir.assert_called_once_with('./src/')
+        self.fake_layout.load_repository.assert_called_once_with('/src/', sap.cli.checkin.OBJECT_HANDLERS)
         self.assertEqual(self.console.caperr, '''Unused file: ./src/README.md
 Unused file: ./src/test_fugr.fugr.include.xml
 ''')
+
+    def test_do_checkin_starting_folder_without_slashes(self):
+        args = parse_args('package', '$foo', '--starting-folder', 'src')
+
+        with patch('sap.cli.checkin.os.path.isdir', return_value=True) as fake_isdir:
+            exit_code = args.execute('connection', args)
+
+        self.assertEqual(exit_code, 0)
+        fake_isdir.assert_called_once_with('./src/')
+        self.fake_layout.load_repository.assert_called_once_with('/src/', sap.cli.checkin.OBJECT_HANDLERS)
+        self.assertEqual(self.console.caperr, '''Unused file: ./src/README.md
+Unused file: ./src/test_fugr.fugr.include.xml
+''')
+
+    def test_do_checkin_starting_folder_trailing_slash(self):
+        args = parse_args('package', '$foo', '--starting-folder', 'src/')
+
+        with patch('sap.cli.checkin.os.path.isdir', return_value=True) as fake_isdir:
+            exit_code = args.execute('connection', args)
+
+        self.assertEqual(exit_code, 0)
+        fake_isdir.assert_called_once_with('./src/')
+        self.fake_layout.load_repository.assert_called_once_with('/src/', sap.cli.checkin.OBJECT_HANDLERS)
+
+    def test_do_checkin_starting_folder_nested(self):
+        args = parse_args('package', '$foo', '--starting-folder', 'abap/src')
+
+        with patch('sap.cli.checkin.os.path.isdir', return_value=True) as fake_isdir:
+            exit_code = args.execute('connection', args)
+
+        self.assertEqual(exit_code, 0)
+        fake_isdir.assert_called_once_with('./abap/src/')
+        self.fake_layout.load_repository.assert_called_once_with('/abap/src/', sap.cli.checkin.OBJECT_HANDLERS)
+
+    def test_do_checkin_starting_folder_root(self):
+        args = parse_args('package', '$foo', '--starting-folder', '/')
+
+        with patch('sap.cli.checkin.os.path.isdir', return_value=True) as fake_isdir:
+            exit_code = args.execute('connection', args)
+
+        self.assertEqual(exit_code, 0)
+        fake_isdir.assert_called_once_with('./')
+        self.fake_layout.load_repository.assert_called_once_with('/', sap.cli.checkin.OBJECT_HANDLERS)
 
     def test_do_checkin_starting_folder_not_folder(self):
         args = parse_args('package', '$foo', '--starting-folder', 'FILE')
@@ -339,7 +384,7 @@ Unused file: ./src/test_fugr.fugr.include.xml
 
         self.assertEqual(exit_code, 1)
         self.fake_layout.load_repository.assert_not_called()
-        self.assertConsoleContents(self.console, stderr='Cannot check-in ABAP objects from "./FILE": not a directory\n')
+        self.assertConsoleContents(self.console, stderr='Cannot check-in ABAP objects from "./FILE/": not a directory\n')
 
     def test_do_checkin_error(self):
         self.fake_layout.load_repository.side_effect = sap.errors.SAPCliError('Load failed.')
