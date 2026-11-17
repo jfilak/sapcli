@@ -129,10 +129,18 @@ class TestTableHandlerCheckoutStructure(unittest.TestCase, PatcherTestCase):
 
     def test_checkout_tabl_unsupported_field_annotation(self):
         message = self.checkout_failure(TABL_SOURCE_CODE.replace('  created_at',
-                                                                 '  @AbapCatalog.textLanguage\n  created_at'))
+                                                                 '  @AbapCatalog.anonymizedWhenDelivered : true\n'
+                                                                 '  created_at'))
 
         self.assertEqual(message, f'Checkout of structure {TABL_NAME} failed:'
-                                  ' unsupported annotation @AbapCatalog.textLanguage')
+                                  ' unsupported annotation @AbapCatalog.anonymizedWhenDelivered')
+
+    def test_checkout_tabl_text_language(self):
+        fake_open = self.checkout(TABL_SOURCE_CODE.replace('  is_offline', '  @AbapCatalog.textLanguage\n  is_offline'))
+
+        self.assert_wrote_abapgit_file(fake_open, TABL_ABAPGIT_XML.replace(
+            '     <ROLLNAME>XFELD</ROLLNAME>\n     <ADMINFIELD>0</ADMINFIELD>\n',
+            '     <ROLLNAME>XFELD</ROLLNAME>\n     <ADMINFIELD>0</ADMINFIELD>\n     <LANGUFLAG>X</LANGUFLAG>\n'))
 
     def test_checkout_tabl_unsupported_enhancement_category(self):
         message = self.checkout_failure(TABL_SOURCE_CODE.replace('#NOT_EXTENSIBLE', '#FOO'))
@@ -242,6 +250,19 @@ class TestTableHandlerCheckoutTable(unittest.TestCase, PatcherTestCase):
         fake_open = self.checkout(CHECKOUT_DBTAB_GENERIC_SOURCE_CODE.replace('#NOT_ALLOWED', '#RESTRICTED'))
 
         self.assert_wrote_abapgit_file(fake_open, DBTAB_GENERIC_ABAPGIT_XML.replace('    <MAINFLAG>N</MAINFLAG>\n', ''))
+
+    def test_checkout_dbtab_text_language(self):
+        fake_open = self.checkout(CHECKOUT_DBTAB_GENERIC_SOURCE_CODE.replace('  value ',
+                                                                             '  @AbapCatalog.textLanguage\n  value '))
+
+        self.assert_wrote_abapgit_file(fake_open, DBTAB_GENERIC_ABAPGIT_XML.replace(
+            '     <MASK>  STRG</MASK>\n', '     <MASK>  STRG</MASK>\n     <LANGUFLAG>X</LANGUFLAG>\n'))
+
+    def test_checkout_dbtab_text_language_with_value(self):
+        message = self.checkout_failure(CHECKOUT_DBTAB_GENERIC_SOURCE_CODE.replace(
+            '  value ', '  @AbapCatalog.textLanguage : true\n  value '))
+
+        self.assertEqual(message, f'Checkout of table {DBTAB_NAME} failed: unexpected token "true"')
 
     def test_checkout_dbtab_destdir(self):
         fake_open = self.checkout(CHECKOUT_DBTAB_GENERIC_SOURCE_CODE, destdir='src')
@@ -374,6 +395,15 @@ class TestTableHandlerCheckinStructure(unittest.TestCase, PatcherTestCase):
 
         # the description of the new object is not part of the test
         self.assertEqual(connection.execs[1].body.decode('utf-8'), TABL_ALL_FEATURES_SOURCE_CODE)
+
+    def test_checkin_tabl_text_language(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(TABL_XML.replace(
+            '     <ROLLNAME>XFELD</ROLLNAME>\n     <ADMINFIELD>0</ADMINFIELD>\n',
+            '     <ROLLNAME>XFELD</ROLLNAME>\n     <ADMINFIELD>0</ADMINFIELD>\n     <LANGUFLAG>X</LANGUFLAG>\n'),
+            self.responses_ok())
+
+        self.assert_requests(connection,
+                             TABL_SOURCE_CODE.replace('  is_offline', '  @AbapCatalog.textLanguage\n  is_offline'))
 
     def test_checkin_tabl_no_exclass(self, fake_lock, fake_unlock):
         connection, _ = self.checkin(TABL_NO_EXCLASS_XML, self.responses_ok())
@@ -554,6 +584,15 @@ class TestTableHandlerCheckinTable(unittest.TestCase, PatcherTestCase):
         connection, _ = self.checkin(DBTAB_GENERIC_XML, self.responses_ok())
 
         self.assert_requests(connection, DBTAB_GENERIC_SOURCE_CODE, DBTAB_GENERIC_SETTINGS_REQUEST_XML)
+
+    def test_checkin_dbtab_text_language(self, fake_lock, fake_unlock):
+        connection, _ = self.checkin(DBTAB_GENERIC_XML.replace(
+            '     <MASK>  STRG</MASK>\n', '     <MASK>  STRG</MASK>\n     <LANGUFLAG>X</LANGUFLAG>\n'),
+            self.responses_ok())
+
+        self.assert_requests(connection,
+                             DBTAB_GENERIC_SOURCE_CODE.replace('  value ', '  @AbapCatalog.textLanguage\n  value '),
+                             DBTAB_GENERIC_SETTINGS_REQUEST_XML)
 
     def test_checkin_dbtab_foreign_keys(self, fake_lock, fake_unlock):
         message = self.checkin_failure(DBTAB_FOREIGN_KEYS_XML)
