@@ -884,6 +884,7 @@ DD02V_MAINFLAG_TO_DDL = {
     '': '#RESTRICTED',
     'X': '#ALLOWED',
     'N': '#NOT_ALLOWED',
+    'D': '#DISPLAY',
 }
 
 
