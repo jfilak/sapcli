@@ -38,6 +38,8 @@ from sap.cli.gcts_utils import (
     gcts_exception_handler,
     gcts_activity_rc_handler,
     print_process_messages,
+    parse_object_list,
+    parse_object_spec,
     TaskOperationProgress,
     ConsoleSugarOperationProgress,
 )
@@ -1057,9 +1059,64 @@ def push(connection, args):
     return 0
 
 
+def _read_object_list(path):
+    """Reads the transport object list from the file or from stdin if path is -"""
+
+    source = '<stdin>' if path == '-' else path
+    try:
+        if path == '-':
+            return parse_object_list(sys.stdin, source)
+
+        with open(path, 'r', encoding='utf-8') as objects_file:
+            return parse_object_list(objects_file, source)
+    except OSError as ex:
+        raise SAPCliError(f'Cannot read objects from "{source}": {ex.strerror}') from ex
+    except UnicodeDecodeError as ex:
+        raise SAPCliError(f'Cannot read objects from "{source}": expected {ex.encoding} encoded text') from ex
+
+
+def _commit_objects(connection, args, console):
+    """Commits the objects given by the parameters --object and --objects-from"""
+
+    if args.corrnr is not None or args.devc is not None:
+        raise SAPCliError('Objects cannot be combined with CORRNR or --devc')
+
+    abap_objects = [obj for spec in args.objects or [] for obj in parse_object_spec(spec)]
+    for path in args.objects_from or []:
+        abap_objects += _read_object_list(path)
+
+    if not abap_objects:
+        raise SAPCliError('No objects to commit')
+
+    if len(abap_objects) == 1:
+        object_id = ' '.join(abap_objects[0])
+        message = f'Export {object_id}'
+        report = f'The object "{object_id}" has been committed'
+    else:
+        message = f'Export {len(abap_objects)} objects'
+        report = f'The {len(abap_objects)} objects have been committed'
+
+    repo = get_repository(connection, args.package)
+    with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
+        repo.commit_objects(abap_objects, args.message or message, args.description)
+    console.printout(report)
+
+    return 0
+
+
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--description', type=str, default=None)
 @CommandGroup.argument('-m', '--message', type=str, default=None)
+@CommandGroup.argument('--objects-from', type=str, action='append', default=None, metavar='FILE',
+                       help='Commit objects listed in FILE (- for stdin; repeat for multiple): one object per line'
+                            ' in the format "PGMID TYPE NAME" as printed by'
+                            ' "gcts repo objects --format TRANSPORT"; names are case sensitive;'
+                            ' lines starting with # are ignored')
+@CommandGroup.argument('--object', dest='objects', action='append', default=None,
+                       metavar='[PGMID:]TYPE:NAME[,NAME...]',
+                       help='Commit the objects (repeat for multiple); PGMID defaults to R3TR;'
+                            ' the value is upper cased.'
+                            ' Example: --object CLAS:ZCL_A,ZCL_B --object LIMU:REPS:ZREPORT')
 @CommandGroup.argument('-d', '--devc', type=str, default=None,
                        help="Name of committed ABAP package if corrnr is not give. "
                             "Default: the repository name aka the parameter package")
@@ -1071,6 +1128,9 @@ def commit(connection, args):
     """
 
     console = args.console_factory()
+
+    if args.objects is not None or args.objects_from is not None:
+        return _commit_objects(connection, args, console)
 
     repo = get_repository(connection, args.package)
     if args.corrnr is None:

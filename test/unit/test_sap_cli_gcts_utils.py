@@ -13,6 +13,8 @@ from sap.cli.gcts_utils import (
     dump_gcts_messages,
     gcts_exception_handler,
     print_process_messages,
+    parse_object_spec,
+    parse_object_list,
 )
 from sap.rest.errors import HTTPRequestError
 from sap.rest.gcts.errors import SAPCliError, GCTSRequestError, GCTSProcessError
@@ -321,3 +323,144 @@ class TestGCTSExceptionHandlerProcessError(ConsoleOutputTestCase, unittest.TestC
         mock_get_console.assert_called_once()
         mock_print.assert_called_once_with(mock_console, process_messages)
 
+
+
+class TestParseObjectSpec(unittest.TestCase):
+
+    def assert_invalid_spec(self, spec):
+        with self.assertRaises(SAPCliError) as caught:
+            parse_object_spec(spec)
+
+        self.assertEqual(str(caught.exception),
+                         f'Invalid object "{spec}": expected [PGMID:]TYPE:NAME[,NAME...]')
+
+    def test_type_and_name_defaults_to_r3tr(self):
+        self.assertEqual(parse_object_spec('CLAS:ZCL_FOO'), [('R3TR', 'CLAS', 'ZCL_FOO')])
+
+    def test_pgmid_type_and_name(self):
+        self.assertEqual(parse_object_spec('LIMU:METH:ZCL_FOO                       BAR'),
+                         [('LIMU', 'METH', 'ZCL_FOO                       BAR')])
+
+    def test_more_names(self):
+        self.assertEqual(parse_object_spec('R3TR:CLAS:ZCL_A,ZCL_B,ZCL_C'),
+                         [('R3TR', 'CLAS', 'ZCL_A'),
+                          ('R3TR', 'CLAS', 'ZCL_B'),
+                          ('R3TR', 'CLAS', 'ZCL_C')])
+
+    def test_more_names_defaults_to_r3tr(self):
+        self.assertEqual(parse_object_spec('PROG:ZREPORT,ZINCLUDE'),
+                         [('R3TR', 'PROG', 'ZREPORT'),
+                          ('R3TR', 'PROG', 'ZINCLUDE')])
+
+    def test_surrounding_spaces_are_removed(self):
+        self.assertEqual(parse_object_spec(' limu : meth : ZCL_A                         RUN , ZCL_B '),
+                         [('LIMU', 'METH', 'ZCL_A                         RUN'),
+                          ('LIMU', 'METH', 'ZCL_B')])
+
+    def test_blank_name_in_list(self):
+        self.assert_invalid_spec('CLAS:ZCL_A, ,ZCL_B')
+
+    def test_namespaced_name(self):
+        self.assertEqual(parse_object_spec('CLAS:/NMSPC/CL_FOO'), [('R3TR', 'CLAS', '/NMSPC/CL_FOO')])
+
+    def test_pgmid_and_type_are_upper_cased(self):
+        self.assertEqual(parse_object_spec('limu:reps:ZREPORT'), [('LIMU', 'REPS', 'ZREPORT')])
+
+    def test_names_are_upper_cased(self):
+        self.assertEqual(parse_object_spec('clas:zcl_a,/nmspc/cl_b'),
+                         [('R3TR', 'CLAS', 'ZCL_A'),
+                          ('R3TR', 'CLAS', '/NMSPC/CL_B')])
+
+    def test_name_only(self):
+        self.assert_invalid_spec('ZCL_FOO')
+
+    def test_too_many_parts(self):
+        self.assert_invalid_spec('R3TR:CLAS:ZCL_FOO:BAR')
+
+    def test_empty_pgmid(self):
+        self.assert_invalid_spec(':CLAS:ZCL_FOO')
+
+    def test_empty_type(self):
+        self.assert_invalid_spec(':ZCL_FOO')
+
+    def test_empty_name(self):
+        self.assert_invalid_spec('CLAS:')
+
+    def test_empty_name_in_list(self):
+        self.assert_invalid_spec('CLAS:ZCL_A,,ZCL_B')
+
+    def test_trailing_comma(self):
+        self.assert_invalid_spec('CLAS:ZCL_A,')
+
+    def assert_line_break_in_name(self, spec):
+        with self.assertRaises(SAPCliError) as caught:
+            parse_object_spec(spec)
+
+        self.assertEqual(str(caught.exception),
+                         f'Invalid object "{spec}": names must not contain line breaks')
+
+    def test_name_with_line_feed(self):
+        self.assert_line_break_in_name('CLAS:ZCL_A\nZCL_B')
+
+    def test_name_with_carriage_return(self):
+        self.assert_line_break_in_name('CLAS:ZCL_A\rZCL_B')
+
+    def test_name_with_line_break_in_list(self):
+        self.assert_line_break_in_name('CLAS:ZCL_A,ZCL_B\r\nZCL_C')
+
+    def test_trailing_line_break_is_removed(self):
+        self.assertEqual(parse_object_spec('CLAS:ZCL_A\n'), [('R3TR', 'CLAS', 'ZCL_A')])
+
+
+class TestParseObjectList(unittest.TestCase):
+
+    def test_empty(self):
+        self.assertEqual(parse_object_list([], 'objects.txt'), [])
+
+    def test_tab_separated(self):
+        self.assertEqual(parse_object_list(['R3TR\tCLAS\tZCL_FOO\n'], 'objects.txt'),
+                         [('R3TR', 'CLAS', 'ZCL_FOO')])
+
+    def test_space_separated(self):
+        self.assertEqual(parse_object_list(['  R3TR   PROG ZREPORT  \n'], 'objects.txt'),
+                         [('R3TR', 'PROG', 'ZREPORT')])
+
+    def test_windows_line_endings(self):
+        self.assertEqual(parse_object_list(['R3TR CLAS ZCL_FOO\r\n'], 'objects.txt'),
+                         [('R3TR', 'CLAS', 'ZCL_FOO')])
+
+    def test_name_with_spaces(self):
+        self.assertEqual(parse_object_list(['R3TR\tAPIS\tSTRING_TABLE                        TTYP\n',
+                                            'LIMU METH ZCL_FOO                       BAR\n'], 'objects.txt'),
+                         [('R3TR', 'APIS', 'STRING_TABLE                        TTYP'),
+                          ('LIMU', 'METH', 'ZCL_FOO                       BAR')])
+
+    def test_pgmid_and_type_are_upper_cased(self):
+        self.assertEqual(parse_object_list(['limu wapp ZBSP_APP                      index.htm\n'], 'objects.txt'),
+                         [('LIMU', 'WAPP', 'ZBSP_APP                      index.htm')])
+
+    def test_comments_and_blank_lines(self):
+        self.assertEqual(parse_object_list(['# objects to commit\n',
+                                            '\n',
+                                            'R3TR CLAS ZCL_FOO\n',
+                                            '   \n',
+                                            '  # R3TR CLAS ZCL_SKIPPED\n',
+                                            'R3TR PROG ZREPORT'], 'objects.txt'),
+                         [('R3TR', 'CLAS', 'ZCL_FOO'),
+                          ('R3TR', 'PROG', 'ZREPORT')])
+
+    def test_missing_name(self):
+        with self.assertRaises(SAPCliError) as caught:
+            parse_object_list(['R3TR CLAS ZCL_FOO\n',
+                               '# comment\n',
+                               'R3TR CLAS\n'], 'objects.txt')
+
+        self.assertEqual(str(caught.exception),
+                         'objects.txt:3: Invalid object "R3TR CLAS": expected PGMID TYPE NAME')
+
+    def test_compact_notation_is_not_accepted(self):
+        with self.assertRaises(SAPCliError) as caught:
+            parse_object_list(['CLAS:ZCL_FOO\n'], '<stdin>')
+
+        self.assertEqual(str(caught.exception),
+                         '<stdin>:1: Invalid object "CLAS:ZCL_FOO": expected PGMID TYPE NAME')
