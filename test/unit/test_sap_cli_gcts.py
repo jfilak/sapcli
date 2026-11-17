@@ -2250,6 +2250,22 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
              {'pgmid': 'R3TR', 'type': 'PROG', 'object': 'ZREPORT'}]
         )
 
+    def test_commit_duplicate_objects(self):
+        repo_name = 'the_repo'
+
+        commit_cmd = self.commit_cmd(repo_name, '--add', '--object', 'CLAS:ZCL_FOO,ZCL_FOO', '--objects-from', '-')
+        with patch('sys.stdin', StringIO('R3TR PROG ZREPORT\nR3TR CLAS ZCL_FOO\nR3TR PROG ZREPORT\n')):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assert_commit_objects_request(
+            repo_name,
+            'Export 2 objects',
+            [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO'},
+             {'pgmid': 'R3TR', 'type': 'PROG', 'object': 'ZREPORT'}]
+        )
+        self.assertConsoleContents(self.console, stdout='The 2 objects have been committed\n')
+
     def test_commit_objects_from_more_files(self):
         repo_name = 'the_repo'
         first_file = mock_open(read_data='R3TR CLAS ZCL_FOO\n')()
