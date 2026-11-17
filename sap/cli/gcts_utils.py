@@ -168,3 +168,54 @@ class ConsoleSugarOperationProgress(SugarOperationProgress):
 
     def _handle_recover(self, message):
         self._console.printerr(message)
+
+
+DEFAULT_PGMID = 'R3TR'
+
+
+def parse_object_spec(spec: str) -> List[tuple]:
+    """Parses the command line object specification [PGMID:]TYPE:NAME[,NAME...]
+       and returns the list of upper cased triples (PGMID, TYPE, NAME).
+    """
+
+    parts = [part.strip() for part in spec.upper().split(':')]
+    if len(parts) == 2:
+        parts.insert(0, DEFAULT_PGMID)
+
+    if len(parts) != 3:
+        raise SAPCliError(f'Invalid object "{spec}": expected [PGMID:]TYPE:NAME[,NAME...]')
+
+    pgmid, objtype, name_list = parts
+    names = [name.strip() for name in name_list.split(',')]
+    if not pgmid or not objtype or not all(names):
+        raise SAPCliError(f'Invalid object "{spec}": expected [PGMID:]TYPE:NAME[,NAME...]')
+
+    if any('\r' in name or '\n' in name for name in names):
+        raise SAPCliError(f'Invalid object "{spec}": names must not contain line breaks')
+
+    return [(pgmid, objtype, name) for name in names]
+
+
+def parse_object_list(lines, source: str) -> List[tuple]:
+    """Parses the transport object list - the lines PGMID TYPE NAME where NAME
+       is the rest of the line because it may contain spaces - and returns
+       the list of triples (PGMID, TYPE, NAME). NAME is kept as is because
+       some object names are case sensitive (e.g. BSP pages). Empty lines and
+       lines starting with # are skipped. The parameter source is used in
+       error messages.
+    """
+
+    objects = []
+    for lineno, line in enumerate(lines, start=1):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+
+        parts = line.split(None, 2)
+        if len(parts) != 3:
+            raise SAPCliError(f'{source}:{lineno}: Invalid object "{line}": expected PGMID TYPE NAME')
+
+        pgmid, objtype, name = parts
+        objects.append((pgmid.upper(), objtype.upper(), name))
+
+    return objects

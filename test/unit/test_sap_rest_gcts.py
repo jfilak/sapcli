@@ -897,6 +897,49 @@ class TestGCTSRepostiroy(GCTSTestSetUp, unittest.TestCase):
 
         self.assertIsNone(repo._data)
 
+    def test_commit_objects(self):
+        message = 'Message'
+        description = 'Description'
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        repo.commit_objects([('R3TR', 'CLAS', 'ZCL_FOO'),
+                             ('LIMU', 'METH', 'ZCL_FOO                       BAR')],
+                            message, description=description)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(
+                uri=f'repository/{self.repo_rid}/commit',
+                body={
+                    'message': message,
+                    'autoPush': 'true',
+                    'objects': [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO'},
+                                {'pgmid': 'LIMU', 'type': 'METH', 'object': 'ZCL_FOO                       BAR'}],
+                    'description': description
+                }
+            ),
+            self
+        )
+
+        self.assertIsNone(repo._data)
+
+    def test_commit_objects_without_description(self):
+        message = 'Message'
+
+        repo = sap.rest.gcts.remote_repo.Repository(self.conn, self.repo_rid, data=self.repo_server_data)
+        repo.commit_objects([('R3TR', 'PROG', 'ZREPORT')], message)
+
+        self.conn.execs[0].assertEqual(
+            Request.post_json(
+                uri=f'repository/{self.repo_rid}/commit',
+                body={
+                    'message': message,
+                    'autoPush': 'true',
+                    'objects': [{'pgmid': 'R3TR', 'type': 'PROG', 'object': 'ZREPORT'}],
+                }
+            ),
+            self
+        )
+
     def test_set_url_change(self):
         CALL_ID_FETCH_REPO_DATA = 0
         CALL_ID_SET_URL = 1

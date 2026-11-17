@@ -719,6 +719,15 @@ class Repository:
         return self.commit(message, [{'object': package, 'type': 'FULL_PACKAGE'}], description=description,
                            autopush=True)
 
+    def commit_objects(self, objects, message, description=None):
+        """Turns the objects - triples (PGMID, TYPE, NAME) - into a commit and pushes it"""
+
+        # cl_cts_abap_vcs_transport_req=>prepare_object_list
+        return self.commit(message,
+                           [{'pgmid': pgmid, 'type': objtype, 'object': name} for pgmid, objtype, name in objects],
+                           description=description,
+                           autopush=True)
+
     def set_url(self, url):
         """Sets repository URL"""
 

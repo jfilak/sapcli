@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from io import StringIO
+from io import StringIO, BytesIO, TextIOWrapper
 import unittest
 import json
 from unittest.mock import MagicMock, patch, Mock, PropertyMock, mock_open, call, ANY
@@ -2135,6 +2135,220 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
             ),
             self
         )
+
+    def assert_commit_objects_request(self, repo_name, message, objects, description=None):
+        body = {
+            'message': message,
+            'autoPush': 'true',
+            'objects': objects,
+        }
+
+        if description is not None:
+            body['description'] = description
+
+        self.assertEqual(len(self.fake_connection.execs), 1)
+        self.fake_connection.execs[0].assertEqual(
+            Request.post_json(uri=f'repository/{repo_name}/commit', body=body),
+            self
+        )
+
+    def test_commit_single_object(self):
+        repo_name = 'the_repo'
+
+        commit_cmd = self.commit_cmd(repo_name, '--object', 'CLAS:ZCL_FOO')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assert_commit_objects_request(
+            repo_name,
+            'Export R3TR CLAS ZCL_FOO',
+            [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO'}]
+        )
+        self.assertConsoleContents(self.console, stdout='The object "R3TR CLAS ZCL_FOO" has been committed\n')
+
+    def test_commit_more_objects(self):
+        repo_name = 'the_repo'
+        message = 'Message'
+        description = 'Description'
+
+        commit_cmd = self.commit_cmd(repo_name, '-m', message, '--description', description,
+                                     '--object', 'R3TR:CLAS:ZCL_A,ZCL_B',
+                                     '--object', 'LIMU:METH:ZCL_C                         RUN')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assert_commit_objects_request(
+            repo_name,
+            message,
+            [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_A'},
+             {'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_B'},
+             {'pgmid': 'LIMU', 'type': 'METH', 'object': 'ZCL_C                         RUN'}],
+            description=description
+        )
+        self.assertConsoleContents(self.console, stdout='The 3 objects have been committed\n')
+
+    def test_commit_more_objects_default_message(self):
+        repo_name = 'the_repo'
+
+        commit_cmd = self.commit_cmd(repo_name, '--object', 'PROG:ZREPORT,ZINCLUDE')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assert_commit_objects_request(
+            repo_name,
+            'Export 2 objects',
+            [{'pgmid': 'R3TR', 'type': 'PROG', 'object': 'ZREPORT'},
+             {'pgmid': 'R3TR', 'type': 'PROG', 'object': 'ZINCLUDE'}]
+        )
+
+    def test_commit_objects_from_file(self):
+        repo_name = 'the_repo'
+        object_list = '# my objects\nR3TR\tCLAS\tZCL_FOO\nLIMU REPS ZREPORT\n'
+
+        commit_cmd = self.commit_cmd(repo_name, '--objects-from', 'objects.txt')
+        with patch('sap.cli.gcts.open', mock_open(read_data=object_list), create=True) as fake_open:
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        fake_open.assert_called_once_with('objects.txt', 'r', encoding='utf-8')
+        self.assert_commit_objects_request(
+            repo_name,
+            'Export 2 objects',
+            [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO'},
+             {'pgmid': 'LIMU', 'type': 'REPS', 'object': 'ZREPORT'}]
+        )
+        self.assertConsoleContents(self.console, stdout='The 2 objects have been committed\n')
+
+    def test_commit_objects_from_stdin(self):
+        repo_name = 'the_repo'
+        object_list = 'R3TR\tAPIS\tSTRING_TABLE                        TTYP\n'
+
+        commit_cmd = self.commit_cmd(repo_name, '--objects-from', '-')
+        with patch('sys.stdin', StringIO(object_list)):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assert_commit_objects_request(
+            repo_name,
+            'Export R3TR APIS STRING_TABLE                        TTYP',
+            [{'pgmid': 'R3TR', 'type': 'APIS', 'object': 'STRING_TABLE                        TTYP'}]
+        )
+
+    def test_commit_objects_from_file_and_command_line(self):
+        repo_name = 'the_repo'
+
+        commit_cmd = self.commit_cmd(repo_name, '--object', 'CLAS:ZCL_FOO', '--objects-from', '-')
+        with patch('sys.stdin', StringIO('R3TR PROG ZREPORT\n')):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assert_commit_objects_request(
+            repo_name,
+            'Export 2 objects',
+            [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO'},
+             {'pgmid': 'R3TR', 'type': 'PROG', 'object': 'ZREPORT'}]
+        )
+
+    def test_commit_objects_from_more_files(self):
+        repo_name = 'the_repo'
+        first_file = mock_open(read_data='R3TR CLAS ZCL_FOO\n')()
+        second_file = mock_open(read_data='R3TR PROG ZREPORT\n')()
+
+        commit_cmd = self.commit_cmd(repo_name, '--objects-from', 'first.txt', '--objects-from', 'second.txt')
+        with patch('sap.cli.gcts.open', side_effect=[first_file, second_file], create=True) as fake_open:
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(fake_open.call_args_list, [call('first.txt', 'r', encoding='utf-8'),
+                                                    call('second.txt', 'r', encoding='utf-8')])
+        self.assert_commit_objects_request(
+            repo_name,
+            'Export 2 objects',
+            [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO'},
+             {'pgmid': 'R3TR', 'type': 'PROG', 'object': 'ZREPORT'}]
+        )
+        self.assertConsoleContents(self.console, stdout='The 2 objects have been committed\n')
+
+    def test_commit_objects_file_not_utf8(self):
+        objects_file = TextIOWrapper(BytesIO(b'R3TR CLAS ZCL_\xff\n'), encoding='utf-8')
+
+        commit_cmd = self.commit_cmd('the_repo', '--objects-from', 'objects.txt')
+        with patch('sap.cli.gcts.open', return_value=objects_file, create=True):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='Cannot read objects from "objects.txt": expected utf-8 encoded text\n')
+
+    def test_commit_objects_stdin_not_in_stdin_encoding(self):
+        stdin = TextIOWrapper(BytesIO(b'R3TR CLAS ZCL_\xff\n'), encoding='ascii')
+
+        commit_cmd = self.commit_cmd('the_repo', '--objects-from', '-')
+        with patch('sys.stdin', stdin):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='Cannot read objects from "<stdin>": expected ascii encoded text\n')
+
+    def test_commit_objects_file_not_found(self):
+        commit_cmd = self.commit_cmd('the_repo', '--objects-from', 'missing.txt')
+        with patch('sap.cli.gcts.open', side_effect=FileNotFoundError(2, 'No such file or directory'), create=True):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='Cannot read objects from "missing.txt": No such file or directory\n')
+
+    def test_commit_objects_invalid_file(self):
+        commit_cmd = self.commit_cmd('the_repo', '--objects-from', '-')
+        with patch('sys.stdin', StringIO('R3TR CLAS ZCL_FOO\nCLAS ZCL_BAR\n')):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='<stdin>:2: Invalid object "CLAS ZCL_BAR": expected PGMID TYPE NAME\n')
+
+    def test_commit_objects_invalid_spec(self):
+        commit_cmd = self.commit_cmd('the_repo', '--object', 'ZCL_FOO')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='Invalid object "ZCL_FOO": expected [PGMID:]TYPE:NAME[,NAME...]\n')
+
+    def test_commit_objects_empty_list(self):
+        commit_cmd = self.commit_cmd('the_repo', '--objects-from', '-')
+        with patch('sys.stdin', StringIO('# nothing to commit\n\n')):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console, stderr='No objects to commit\n')
+
+    def test_commit_objects_with_corrnr(self):
+        commit_cmd = self.commit_cmd('the_repo', 'CORRNR', '--object', 'CLAS:ZCL_FOO')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='Objects cannot be combined with CORRNR or --devc\n')
+
+    def test_commit_objects_with_devc(self):
+        commit_cmd = self.commit_cmd('the_repo', '--devc', 'PACKAGE', '--objects-from', '-')
+        with patch('sys.stdin', StringIO('R3TR CLAS ZCL_FOO\n')):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='Objects cannot be combined with CORRNR or --devc\n')
 
 
 class TestgCTSRepoSetUrl(ConsoleOutputTestCase, PatcherTestCase):

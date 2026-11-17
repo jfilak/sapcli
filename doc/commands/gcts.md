@@ -141,10 +141,12 @@ sapcli gcts push [-h] [--heartbeat [HEARTBEAT]] package
 
 ## commit
 
-Commits all object of an ABAP package or a released transport to the correspoding repository
+Commits all object of an ABAP package, a released transport or the listed objects to the correspoding repository
 
 ```bash
 sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] PACKAGE [CORRNR]
+sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] \
+                   [--object [PGMID:]TYPE:NAME[,NAME...]]... [--objects-from FILE]... PACKAGE
 ```
 
 **Parameters:**:
@@ -153,10 +155,51 @@ sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] PACKAGE [C
 - `CORRNR`: Transport number whose objects will be commited in the give repository (PACKAGE)
 - `--heartbeat SECONDS`: Console heart beat printing dots
 - `--devc DEVC`:  Name of committed ABAP package if CORRNR is not give. Default: the parameter PACKAGE
-- `--message MESSAGE`: Short commit message
+- `--object [PGMID:]TYPE:NAME[,NAME...]`: Commit the given objects; repeat the parameter to commit objects of different types; PGMID defaults to R3TR; the value is upper cased
+- `--objects-from FILE`: Commit the objects listed in FILE; use `-` to read the list from standard input; repeat the parameter to read more files
+- `--message MESSAGE`: Short commit message; default: _Export PGMID TYPE NAME_ for a single object and _Export N objects_ for more objects
 - `--description DESCRIPTION`: Long commit description
 
-Without the positional parameter CORRNR, all change objects belonging to the PACKAGE hierarchy will be committed.
+Without the positional parameter CORRNR and the parameters `--object` and `--objects-from`,
+all change objects belonging to the PACKAGE hierarchy will be committed.
+
+The parameters `--object` and `--objects-from` can be combined together but not with CORRNR nor `--devc`.
+ABAP objects are identified by the triple PGMID (Program ID), TYPE (Object Type) and NAME (Object Name) -
+i.e. the same way as in transport requests.
+
+```bash
+# commit the class ZCL_FOO
+sapcli gcts commit my_repo --object CLAS:ZCL_FOO
+
+# commit two classes, the program ZREPORT and the source code of the method ZCL_BAR->RUN
+sapcli gcts commit my_repo -m "Fix the report" \
+    --object CLAS:ZCL_FOO,ZCL_BAR \
+    --object R3TR:PROG:ZREPORT \
+    --object "LIMU:METH:ZCL_BAR                       RUN"
+```
+
+The file given by `--objects-from` contains one object per line in the format `PGMID TYPE NAME`
+separated by tabs or spaces - the format printed by `sapcli gcts repo objects --format TRANSPORT`.
+NAME is the rest of the line because some object names contain spaces (e.g. LIMU METH)
+and it is taken as is because some object names are case sensitive (e.g. LIMU WAPP).
+Empty lines and lines starting with `#` are ignored.
+
+```
+# my objects
+R3TR CLAS ZCL_FOO
+R3TR PROG ZREPORT
+LIMU METH ZCL_BAR                       RUN
+```
+
+```bash
+sapcli gcts commit my_repo --objects-from objects.txt
+
+# re-commit all classes of the repository
+sapcli gcts repo objects my_repo --format TRANSPORT | awk '$2 == "CLAS"' | sapcli gcts commit my_repo --objects-from -
+```
+
+gCTS does not check whether the listed objects exist - a misspelled object name results
+in a commit without the object.
 
 ## delete
 
