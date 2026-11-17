@@ -95,7 +95,7 @@ The new directory is populated with the file _.abapgit.xml_ which has the format
 recognized by [abapGit](https://github.com/larshp/abapGit).
 
 ```bash
-sapcli checkout package '$hello_world' [directory] [--no-recursive] [--starting-folder DIR]
+sapcli checkout package '$hello_world' [directory] [--no-recursive] [--skip-unsupported] [--starting-folder DIR]
 ```
 
 * _directory_ the name of a new directory to checkout the given package into;
@@ -106,6 +106,11 @@ sapcli checkout package '$hello_world' [directory] [--no-recursive] [--starting-
 
 * _--no-recursive_ makes sapcli download only the given package; by default,
   sapcli downloads also the sub-packages into sub-directories
+
+* _--skip-unsupported_ makes sapcli skip objects with contents it cannot
+  check out yet (e.g. tables with foreign keys) and report them as warnings;
+  without the option, the checkout stops at the first such object. Objects
+  of unsupported types are always skipped with a warning.
 
 ## Checkin of packages
 

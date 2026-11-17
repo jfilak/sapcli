@@ -14,7 +14,7 @@ import sap.adt.errors
 import sap.errors
 import sap.adt.checks
 import sap.platform.abap.abapgit
-from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
+from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult, UnsupportedContent
 from sap.platform.abap.abapgit.ddic import ddic_number, adt_flag_to_abap, abap_flag_to_adt
 from sap.platform.abap.abapgit.files import dump_attributes_to_file
 from sap.platform.abap.ddic import DD02V, DD03P, DD03P_TABLE, DD09L, TABCLASS_STRUCTURE, TABCLASS_TRANSPARENT, \
@@ -309,7 +309,7 @@ def checkout_structure(connection, name, observer, destdir=None):
     try:
         abap_attributes = build_structure_abap_attributes(adt_structure, adt_structure.text)
     except sap.errors.SAPCliError as ex:
-        raise sap.errors.SAPCliError(f'Checkout of structure {name} failed: {ex}')
+        raise UnsupportedContent(f'Checkout of structure {name} failed: {ex}') from ex
 
     dump_attributes_to_file(observer, name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
 
@@ -372,7 +372,7 @@ def checkout_table(connection, name, observer, destdir=None):
     try:
         abap_attributes = build_table_abap_attributes(adt_table, source, settings)
     except sap.errors.SAPCliError as ex:
-        raise sap.errors.SAPCliError(f'Checkout of table {name} failed: {ex}')
+        raise UnsupportedContent(f'Checkout of table {name} failed: {ex}') from ex
 
     dump_attributes_to_file(observer, name, abap_attributes, '.tabl', 'LCL_OBJECT_TABL', destdir=destdir)
 

@@ -11,7 +11,8 @@ import sap.errors
 import sap.platform.abap.abapgit.tabl
 from sap.adt.errors import ExceptionCheckinFailure
 from sap.errors import SAPCliError
-from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
+from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, \
+    RepositoryObserver, UnsupportedContent
 from sap.platform.abap.abapgit.tabl import TableHandler
 
 from mock import Connection, PatcherTestCase, Response, StringIOFile
@@ -84,7 +85,7 @@ class TestTableHandlerCheckoutStructure(unittest.TestCase, PatcherTestCase):
         return fake_open
 
     def checkout_failure(self, source_code):
-        with self.assertRaises(sap.cli.core.SAPCliError) as caught:
+        with self.assertRaises(UnsupportedContent) as caught:
             self.checkout(source_code)
 
         return str(caught.exception)
@@ -220,7 +221,7 @@ class TestTableHandlerCheckoutTable(unittest.TestCase, PatcherTestCase):
         return fake_open
 
     def checkout_failure(self, source_code):
-        with self.assertRaises(sap.cli.core.SAPCliError) as caught:
+        with self.assertRaises(UnsupportedContent) as caught:
             self.checkout(source_code)
 
         return str(caught.exception)

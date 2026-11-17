@@ -14,6 +14,7 @@ from sap.platform.abap.localrepository import (
     Repository,
     CheckinContext,
     ObjectCheckinResult,
+    UnsupportedContent,
 )
 
 
@@ -340,6 +341,15 @@ class TestHandlerRegistry(unittest.TestCase):
 
         self.assertEqual(str(caught.exception),
                          'Duplicate object handlers of the files *.clas.xml: CompleteHandler and CompleteHandler')
+
+
+class TestUnsupportedContent(unittest.TestCase):
+
+    def test_is_sapcli_error(self):
+        error = UnsupportedContent('unsupported annotation @Foo')
+
+        self.assertIsInstance(error, sap.errors.SAPCliError)
+        self.assertEqual(str(error), 'unsupported annotation @Foo')
 
 
 class TestData(unittest.TestCase):

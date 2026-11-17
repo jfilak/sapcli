@@ -3,6 +3,8 @@
 import os
 import re
 import unittest
+
+import sap.platform.abap.localrepository
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
@@ -104,7 +106,7 @@ class TestDataElementHandlerCheckout(unittest.TestCase, PatcherTestCase):
         adt_response_xml = DATA_ELEMENT_ADT_GET_SAMPLE_RESPONSE_XML.replace(
             '<dtel:typeKind>predefinedAbapType</dtel:typeKind>', '<dtel:typeKind>refToClifType</dtel:typeKind>')
 
-        with self.assertRaises(sap.errors.SAPCliError) as caught:
+        with self.assertRaises(sap.platform.abap.localrepository.UnsupportedContent) as caught:
             self.checkout(adt_response_xml)
 
         self.assertEqual(str(caught.exception),
