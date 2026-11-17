@@ -177,7 +177,10 @@ def make_repo_dir_for_package(args):
 
 
 # @CommandGroup.argument('--folder-logic', choices=['full', 'prefix'], default='prefix')
-@CommandGroup.argument('--recursive', action='store_true', default=False)
+@CommandGroup.argument('--no-recursive', dest='recursive', action='store_false',
+                       help='Do not download the sub-packages')
+@CommandGroup.argument('--recursive', dest='recursive', action='store_true', default=True,
+                       help='Download also the sub-packages into sub-directories (default)')
 @CommandGroup.argument('--starting-folder', default='src')
 @CommandGroup.argument('directory', nargs='?', default=None,
                        help='To checkout the package into it; default=<PACKAGE NAME>')
