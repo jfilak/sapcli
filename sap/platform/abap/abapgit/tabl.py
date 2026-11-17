@@ -99,6 +99,10 @@ DDL_HEADER_ANNOTATIONS = {
 }
 
 
+# Annotations of DDL source code without values
+DDL_FLAG_ANNOTATIONS = ('@abapcatalog.textlanguage',)
+
+
 class StructureSourceParser:
     """Parser of DDL source code of structures and tables"""
 
@@ -130,6 +134,10 @@ class StructureSourceParser:
             name = self._next()
             if name.lower() not in supported:
                 raise sap.errors.SAPCliError(f'unsupported annotation {name}')
+
+            if name.lower() in DDL_FLAG_ANNOTATIONS:
+                annotations[name.lower()] = True
+                continue
 
             self._expect(':')
             annotations[name.lower()] = self._next()
@@ -190,7 +198,7 @@ class StructureSourceParser:
 
     def _field(self):
         annotations = self._annotations(('@endusertext.label', '@semantics.amount.currencycode',
-                                         '@semantics.quantity.unitofmeasure'))
+                                         '@semantics.quantity.unitofmeasure', '@abapcatalog.textlanguage'))
 
         # The values are set in the order of the members to keep the order
         # of XML elements
@@ -231,6 +239,9 @@ class StructureSourceParser:
                                     annotations.get('@semantics.quantity.unitofmeasure'))
         if reference:
             field.REFTABLE, _, field.REFFIELD = _ddl_unquote(reference).upper().partition('.')
+
+        if '@abapcatalog.textlanguage' in annotations:
+            field.LANGUFLAG = 'X'
 
         return field
 
@@ -498,6 +509,9 @@ def _build_ddl_source(dd02v, fields, object_name, kind, annotations):
 
         if field.REFFIELD:
             lines.append(f'  {_structure_field_reference(field, dd02v, fields, object_name, kind)}')
+
+        if field.LANGUFLAG:
+            lines.append('  @AbapCatalog.textLanguage')
 
         definition = f'{_ddl_field_name(field).ljust(width)} : {_structure_field_type(field, object_name, kind)}'
         if field.NOTNULL:
