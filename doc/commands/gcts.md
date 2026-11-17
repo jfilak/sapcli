@@ -165,6 +165,7 @@ Without the positional parameter CORRNR and the parameters `--object` and `--obj
 all change objects belonging to the PACKAGE hierarchy will be committed.
 
 The parameters `--object` and `--objects-from` can be combined together but not with CORRNR nor `--devc`.
+Objects listed more than once are committed only once.
 ABAP objects are identified by the triple PGMID (Program ID), TYPE (Object Type) and NAME (Object Name) -
 i.e. the same way as in transport requests.
 

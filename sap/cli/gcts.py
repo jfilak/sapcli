@@ -1097,6 +1097,8 @@ def _commit_objects(connection, args, console):
     for path in args.objects_from or []:
         abap_objects += _read_object_list(path)
 
+    # remove duplicates but keep the order
+    abap_objects = list(dict.fromkeys(abap_objects))
     if not abap_objects:
         raise SAPCliError('No objects to commit')
 
