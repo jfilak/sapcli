@@ -146,7 +146,7 @@ Commits all object of an ABAP package, a released transport or the listed object
 ```bash
 sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] PACKAGE [CORRNR]
 sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] \
-                   [--object [PGMID:]TYPE:NAME[,NAME...]]... [--objects-from FILE]... PACKAGE
+                   [--object [PGMID:]TYPE:NAME[,NAME...]]... [--objects-from FILE]... [--add] PACKAGE
 ```
 
 **Parameters:**:
@@ -157,6 +157,7 @@ sapcli gcts commit [-m|--message MESSAGE] [--description DESCRIPTION] \
 - `--devc DEVC`:  Name of committed ABAP package if CORRNR is not give. Default: the parameter PACKAGE
 - `--object [PGMID:]TYPE:NAME[,NAME...]`: Commit the given objects; repeat the parameter to commit objects of different types; PGMID defaults to R3TR; the value is upper cased
 - `--objects-from FILE`: Commit the objects listed in FILE; use `-` to read the list from standard input; repeat the parameter to read more files
+- `--add`: Commit also objects which are not part of the repository yet
 - `--message MESSAGE`: Short commit message; default: _Export PGMID TYPE NAME_ for a single object and _Export N objects_ for more objects
 - `--description DESCRIPTION`: Long commit description
 
@@ -172,7 +173,8 @@ i.e. the same way as in transport requests.
 sapcli gcts commit my_repo --object CLAS:ZCL_FOO
 
 # commit two classes, the program ZREPORT and the source code of the method ZCL_BAR->RUN
-sapcli gcts commit my_repo -m "Fix the report" \
+# (--add is needed for LIMU objects - see below)
+sapcli gcts commit my_repo -m "Fix the report" --add \
     --object CLAS:ZCL_FOO,ZCL_BAR \
     --object R3TR:PROG:ZREPORT \
     --object "LIMU:METH:ZCL_BAR                       RUN"
@@ -192,14 +194,18 @@ LIMU METH ZCL_BAR                       RUN
 ```
 
 ```bash
-sapcli gcts commit my_repo --objects-from objects.txt
+sapcli gcts commit my_repo --add --objects-from objects.txt
 
 # re-commit all classes of the repository
 sapcli gcts repo objects my_repo --format TRANSPORT | awk '$2 == "CLAS"' | sapcli gcts commit my_repo --objects-from -
 ```
 
-gCTS does not check whether the listed objects exist - a misspelled object name results
-in a commit without the object.
+The command refuses to commit objects which are not part of the repository yet,
+i.e. objects not listed by `sapcli gcts repo objects`, unless the parameter `--add` is given.
+The check also catches misspelled object names because gCTS itself does not check whether
+the objects exist and a misspelled object name results in a commit without the object.
+The repository lists only R3TR objects, hence other objects (e.g. LIMU METH) can be committed
+only with `--add`.
 
 ## delete
 

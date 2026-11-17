@@ -1075,6 +1075,18 @@ def _read_object_list(path):
         raise SAPCliError(f'Cannot read objects from "{source}": expected {ex.encoding} encoded text') from ex
 
 
+def _check_objects_in_repository(repo, abap_objects):
+    """Refuses objects which are not part of the repository yet"""
+
+    repo_objects = {(obj['pgmid'], obj['type'], obj['object']) for obj in repo.objects()}
+    new_objects = [obj for obj in abap_objects if obj not in repo_objects]
+    if new_objects:
+        listing = '\n'.join('  ' + ' '.join(obj) for obj in new_objects)
+        raise SAPCliError(f'The following objects are not part of the repository "{repo.rid}":\n'
+                          f'{listing}\n'
+                          'Use --add if you really want to add them to the repository.')
+
+
 def _commit_objects(connection, args, console):
     """Commits the objects given by the parameters --object and --objects-from"""
 
@@ -1097,6 +1109,9 @@ def _commit_objects(connection, args, console):
         report = f'The {len(abap_objects)} objects have been committed'
 
     repo = get_repository(connection, args.package)
+    if not args.add:
+        _check_objects_in_repository(repo, abap_objects)
+
     with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
         repo.commit_objects(abap_objects, args.message or message, args.description)
     console.printout(report)
@@ -1107,6 +1122,10 @@ def _commit_objects(connection, args, console):
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--description', type=str, default=None)
 @CommandGroup.argument('-m', '--message', type=str, default=None)
+@CommandGroup.argument('--add', action='store_true', default=False,
+                       help='Commit also objects which are not part of the repository yet;'
+                            ' the repository lists only R3TR objects, hence other objects'
+                            ' (e.g. LIMU METH) can be committed only with this parameter')
 @CommandGroup.argument('--objects-from', type=str, action='append', default=None, metavar='FILE',
                        help='Commit objects listed in FILE (- for stdin; repeat for multiple): one object per line'
                             ' in the format "PGMID TYPE NAME" as printed by'
@@ -1131,6 +1150,9 @@ def commit(connection, args):
 
     if args.objects is not None or args.objects_from is not None:
         return _commit_objects(connection, args, console)
+
+    if args.add:
+        raise SAPCliError('The parameter --add can be used only with --object or --objects-from')
 
     repo = get_repository(connection, args.package)
     if args.corrnr is None:
