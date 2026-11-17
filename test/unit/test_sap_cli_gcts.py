@@ -15,6 +15,7 @@ from sap.errors import OperationTimeoutError
 from test.unit.mock import (
     RESTConnection,
     Request,
+    Response,
     ConsoleOutputTestCase,
     PatcherTestCase,
     GCTSLogBuilder,
@@ -2155,7 +2156,7 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
     def test_commit_single_object(self):
         repo_name = 'the_repo'
 
-        commit_cmd = self.commit_cmd(repo_name, '--object', 'CLAS:ZCL_FOO')
+        commit_cmd = self.commit_cmd(repo_name, '--add', '--object', 'CLAS:ZCL_FOO')
         exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
 
         self.assertEqual(exit_code, 0)
@@ -2171,7 +2172,7 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
         message = 'Message'
         description = 'Description'
 
-        commit_cmd = self.commit_cmd(repo_name, '-m', message, '--description', description,
+        commit_cmd = self.commit_cmd(repo_name, '-m', message, '--description', description, '--add',
                                      '--object', 'R3TR:CLAS:ZCL_A,ZCL_B',
                                      '--object', 'LIMU:METH:ZCL_C                         RUN')
         exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
@@ -2190,7 +2191,7 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
     def test_commit_more_objects_default_message(self):
         repo_name = 'the_repo'
 
-        commit_cmd = self.commit_cmd(repo_name, '--object', 'PROG:ZREPORT,ZINCLUDE')
+        commit_cmd = self.commit_cmd(repo_name, '--add', '--object', 'PROG:ZREPORT,ZINCLUDE')
         exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
 
         self.assertEqual(exit_code, 0)
@@ -2205,7 +2206,7 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
         repo_name = 'the_repo'
         object_list = '# my objects\nR3TR\tCLAS\tZCL_FOO\nLIMU REPS ZREPORT\n'
 
-        commit_cmd = self.commit_cmd(repo_name, '--objects-from', 'objects.txt')
+        commit_cmd = self.commit_cmd(repo_name, '--add', '--objects-from', 'objects.txt')
         with patch('sap.cli.gcts.open', mock_open(read_data=object_list), create=True) as fake_open:
             exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
 
@@ -2223,7 +2224,7 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
         repo_name = 'the_repo'
         object_list = 'R3TR\tAPIS\tSTRING_TABLE                        TTYP\n'
 
-        commit_cmd = self.commit_cmd(repo_name, '--objects-from', '-')
+        commit_cmd = self.commit_cmd(repo_name, '--add', '--objects-from', '-')
         with patch('sys.stdin', StringIO(object_list)):
             exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
 
@@ -2237,7 +2238,7 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
     def test_commit_objects_from_file_and_command_line(self):
         repo_name = 'the_repo'
 
-        commit_cmd = self.commit_cmd(repo_name, '--object', 'CLAS:ZCL_FOO', '--objects-from', '-')
+        commit_cmd = self.commit_cmd(repo_name, '--add', '--object', 'CLAS:ZCL_FOO', '--objects-from', '-')
         with patch('sys.stdin', StringIO('R3TR PROG ZREPORT\n')):
             exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
 
@@ -2254,7 +2255,8 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
         first_file = mock_open(read_data='R3TR CLAS ZCL_FOO\n')()
         second_file = mock_open(read_data='R3TR PROG ZREPORT\n')()
 
-        commit_cmd = self.commit_cmd(repo_name, '--objects-from', 'first.txt', '--objects-from', 'second.txt')
+        commit_cmd = self.commit_cmd(repo_name, '--add',
+                                     '--objects-from', 'first.txt', '--objects-from', 'second.txt')
         with patch('sap.cli.gcts.open', side_effect=[first_file, second_file], create=True) as fake_open:
             exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
 
@@ -2292,6 +2294,105 @@ class TestgCTSCommit(ConsoleOutputTestCase, PatcherTestCase):
         self.assertEqual(self.fake_connection.execs, [])
         self.assertConsoleContents(self.console,
                                    stderr='Cannot read objects from "<stdin>": expected ascii encoded text\n')
+
+    def test_commit_objects_part_of_repository(self):
+        repo_name = 'the_repo'
+
+        self.fake_connection.set_responses(
+            Response.with_json(json={'objects': [
+                {'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO', 'description': 'Class'},
+                {'pgmid': 'R3TR', 'type': 'APIS', 'object': 'STRING_TABLE                        TTYP'},
+                {'pgmid': 'R3TR', 'type': 'PROG', 'object': 'ZREPORT', 'description': 'Program'},
+            ]}),
+            Response.with_json(json={}),
+        )
+
+        commit_cmd = self.commit_cmd(repo_name, '--object', 'CLAS:ZCL_FOO', '--objects-from', '-')
+        with patch('sys.stdin', StringIO('R3TR APIS STRING_TABLE                        TTYP\n')):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(len(self.fake_connection.execs), 2)
+        self.fake_connection.execs[0].assertEqual(
+            Request.get_json(uri=f'repository/{repo_name}/getObjects'),
+            self
+        )
+        self.fake_connection.execs[1].assertEqual(
+            Request.post_json(
+                uri=f'repository/{repo_name}/commit',
+                body={
+                    'message': 'Export 2 objects',
+                    'autoPush': 'true',
+                    'objects': [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO'},
+                                {'pgmid': 'R3TR', 'type': 'APIS', 'object': 'STRING_TABLE                        TTYP'}],
+                }
+            ),
+            self
+        )
+        self.assertConsoleContents(self.console, stdout='The 2 objects have been committed\n')
+
+    def test_commit_objects_not_part_of_repository(self):
+        repo_name = 'the_repo'
+
+        self.fake_connection.set_responses(
+            Response.with_json(json={'objects': [
+                {'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_FOO', 'description': 'Class'},
+            ]}),
+        )
+
+        commit_cmd = self.commit_cmd(repo_name, '--object', 'CLAS:ZCL_FOO,ZCL_NEW', '--objects-from', '-')
+        with patch('sys.stdin', StringIO('LIMU METH ZCL_FOO                       RUN\nR3TR CLAS zcl_foo\n')):
+            exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(len(self.fake_connection.execs), 1)
+        self.fake_connection.execs[0].assertEqual(
+            Request.get_json(uri=f'repository/{repo_name}/getObjects'),
+            self
+        )
+        self.assertConsoleContents(self.console, stderr=f'''The following objects are not part of the repository "{repo_name}":
+  R3TR CLAS ZCL_NEW
+  LIMU METH ZCL_FOO                       RUN
+  R3TR CLAS zcl_foo
+Use --add if you really want to add them to the repository.
+''')
+
+    def test_commit_objects_to_empty_repository(self):
+        repo_name = 'the_repo'
+
+        self.fake_connection.set_responses(Response.with_json(json={}))
+
+        commit_cmd = self.commit_cmd(repo_name, '--object', 'CLAS:ZCL_FOO')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(len(self.fake_connection.execs), 1)
+        self.assertConsoleContents(self.console, stderr=f'''The following objects are not part of the repository "{repo_name}":
+  R3TR CLAS ZCL_FOO
+Use --add if you really want to add them to the repository.
+''')
+
+    def test_commit_new_objects_with_add(self):
+        repo_name = 'the_repo'
+
+        commit_cmd = self.commit_cmd(repo_name, '--add', '--object', 'CLAS:ZCL_NEW')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 0)
+        self.assert_commit_objects_request(
+            repo_name,
+            'Export R3TR CLAS ZCL_NEW',
+            [{'pgmid': 'R3TR', 'type': 'CLAS', 'object': 'ZCL_NEW'}]
+        )
+
+    def test_commit_add_without_objects(self):
+        commit_cmd = self.commit_cmd('the_repo', 'CORRNR', '--add')
+        exit_code = commit_cmd.execute(self.fake_connection, commit_cmd)
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(self.fake_connection.execs, [])
+        self.assertConsoleContents(self.console,
+                                   stderr='The parameter --add can be used only with --object or --objects-from\n')
 
     def test_commit_objects_file_not_found(self):
         commit_cmd = self.commit_cmd('the_repo', '--objects-from', 'missing.txt')
