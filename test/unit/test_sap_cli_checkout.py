@@ -334,7 +334,7 @@ class TestCheckoutPackage(unittest.TestCase):
     @patch('sap.platform.abap.abapgit.intf.InterfaceHandler.checkout')
     @patch('sap.platform.abap.abapgit.prog.ProgramHandler.checkout')
     @patch('sap.adt.package.walk')
-    def test_checkout_package_recursive(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_fugr, fake_dump, fake_fetch):
+    def test_checkout_package_recursive_by_default(self, fake_walk, fake_prog, fake_intf, fake_clas, fake_fugr, fake_dump, fake_fetch):
         conn = Connection([])
 
         package_name = '$VICTORY'
@@ -358,7 +358,7 @@ class TestCheckoutPackage(unittest.TestCase):
             package.description = f'Description {name}'
             return package
 
-        args = parse_args(['package', package_name, '--recursive'])
+        args = parse_args(['package', package_name])
         with patch('sap.platform.abap.abapgit.layout.open', mock_open()) as fake_open, \
              patch('sap.cli.checkout.print') as fake_print, \
              patch('os.path.isdir') as fake_isdir, \
@@ -406,7 +406,7 @@ class TestCheckoutPackage(unittest.TestCase):
 
         package_name = '$ROOT'
         starting_folder = 'src'
-        args = parse_args(['package', package_name])
+        args = parse_args(['package', package_name, '--no-recursive'])
         with patch('sap.platform.abap.abapgit.layout.open', mock_open()) as fake_open, \
              patch('os.path.isdir') as fake_isdir, \
              patch('os.makedirs') as fake_makedirs:
@@ -416,6 +416,21 @@ class TestCheckoutPackage(unittest.TestCase):
 
         exp_destdir = os.path.abspath(os.path.join(package_name, starting_folder))
         fake_checkout.assert_called_once_with(conn, exp_objects, 'observer', destdir=exp_destdir)
+
+    def test_checkout_package_recursive_option_default(self):
+        args = parse_args(['package', '$ROOT'])
+
+        self.assertTrue(args.recursive)
+
+    def test_checkout_package_recursive_option(self):
+        args = parse_args(['package', '$ROOT', '--recursive'])
+
+        self.assertTrue(args.recursive)
+
+    def test_checkout_package_no_recursive_option(self):
+        args = parse_args(['package', '$ROOT', '--no-recursive'])
+
+        self.assertFalse(args.recursive)
 
     @patch('sap.platform.abap.abapgit.layout.AbapGitLayout.checkout_package')
     @patch('sap.cli.checkout.checkout_objects')

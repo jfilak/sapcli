@@ -95,7 +95,7 @@ The new directory is populated with the file _.abapgit.xml_ which has the format
 recognized by [abapGit](https://github.com/larshp/abapGit).
 
 ```bash
-sapcli checkout package '$hello_world' [directory] [--recursive] [--starting-folder DIR]
+sapcli checkout package '$hello_world' [directory] [--no-recursive] [--starting-folder DIR]
 ```
 
 * _directory_ the name of a new directory to checkout the given package into;
@@ -104,7 +104,8 @@ sapcli checkout package '$hello_world' [directory] [--recursive] [--starting-fol
 * _--starting-folder_ forces sapcli to create the corresponding object files in
   the given directory; by default, sapcli uses the directory `src`
 
-* _--recursive_ forces sapcli to download also the sub-packages into sub-directories
+* _--no-recursive_ makes sapcli download only the given package; by default,
+  sapcli downloads also the sub-packages into sub-directories
 
 ## Checkin of packages
 
