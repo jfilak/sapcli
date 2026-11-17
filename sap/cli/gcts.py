@@ -1102,6 +1102,16 @@ def _commit_objects(connection, args, console):
     if not abap_objects:
         raise SAPCliError('No objects to commit')
 
+    repo = get_repository(connection, args.package)
+    if not args.add:
+        _check_objects_in_repository(repo, abap_objects)
+
+    if args.dry_run:
+        for pgmid, objtype, name in abap_objects:
+            console.printout(f'{pgmid}\t{objtype}\t{name}')
+
+        return 0
+
     if len(abap_objects) == 1:
         object_id = ' '.join(abap_objects[0])
         message = f'Export {object_id}'
@@ -1109,10 +1119,6 @@ def _commit_objects(connection, args, console):
     else:
         message = f'Export {len(abap_objects)} objects'
         report = f'The {len(abap_objects)} objects have been committed'
-
-    repo = get_repository(connection, args.package)
-    if not args.add:
-        _check_objects_in_repository(repo, abap_objects)
 
     with sap.cli.helpers.ConsoleHeartBeat(console, args.heartbeat):
         repo.commit_objects(abap_objects, args.message or message, args.description)
@@ -1124,6 +1130,9 @@ def _commit_objects(connection, args, console):
 @CommandGroup.argument('--heartbeat', type=int, nargs='?', default=0)
 @CommandGroup.argument('--description', type=str, default=None)
 @CommandGroup.argument('-m', '--message', type=str, default=None)
+@CommandGroup.argument('--dry-run', action='store_true', default=False,
+                       help='Check the objects and print them in the format of --objects-from'
+                            ' but do not commit them')
 @CommandGroup.argument('--add', action='store_true', default=False,
                        help='Commit also objects which are not part of the repository yet;'
                             ' the repository lists only R3TR objects, hence other objects'
@@ -1155,6 +1164,9 @@ def commit(connection, args):
 
     if args.add:
         raise SAPCliError('The parameter --add can be used only with --object or --objects-from')
+
+    if args.dry_run:
+        raise SAPCliError('The parameter --dry-run can be used only with --object or --objects-from')
 
     repo = get_repository(connection, args.package)
     if args.corrnr is None:
