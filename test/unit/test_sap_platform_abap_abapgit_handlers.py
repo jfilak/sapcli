@@ -22,7 +22,11 @@ class TestHandlers(unittest.TestCase):
         registry = HandlerRegistry(sap.platform.abap.abapgit.handlers.HANDLERS)
 
         self.assertEqual(registry.for_metadata_file('clas', 'xml').ADT_TYPES, ('CLAS/OC',))
-        self.assertIs(registry.for_adt_type('TABL/DS'), registry.for_adt_type('TABL/DT'))
+
+        tabl_handler = registry.for_metadata_file('tabl', 'xml')
+        self.assertIsNotNone(tabl_handler)
+        self.assertIs(registry.for_adt_type('TABL/DT'), tabl_handler)
+        self.assertIs(registry.for_adt_type('TABL/DS'), tabl_handler)
 
 
 if __name__ == '__main__':
