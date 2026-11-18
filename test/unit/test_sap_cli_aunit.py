@@ -855,6 +855,28 @@ foo (source/main)
 - 55, 224-225
 ''')
 
+    def test_sorts_and_deduplicates_lines(self):
+        from sap.adt.acoverage_statements import StatementResponse
+
+        responses = [
+            StatementResponse(name='METHOD_B', statements=[
+                make_statement('0', '/sap/bc/adt/oo/classes/foo/source/main#start=224,1;end=225,24'),
+                make_statement('0', '/sap/bc/adt/oo/classes/foo/source/main#start=225,26;end=225,59'),
+            ]),
+            StatementResponse(name='METHOD_A', statements=[
+                make_statement('0', '/sap/bc/adt/oo/classes/foo/source/main#start=55,1;end=55,10'),
+            ]),
+        ]
+
+        output = BufferConsole()
+        sap.cli.aunit.print_missed_statements(responses, output)
+
+        self.assertEqual(output.capout,
+'''Missed statements:
+foo (source/main)
+- 55, 224-225
+''')
+
     def test_skips_executed_statements(self):
         from sap.adt.acoverage_statements import StatementResponse
 
