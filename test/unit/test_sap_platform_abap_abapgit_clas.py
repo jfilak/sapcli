@@ -177,8 +177,8 @@ class ClassHandlerCheckinTestCase(ClassHandlerTestCase):
 
         self.package = RepoPackage('/src', '/src/package.devc.xml', None)
         self.clas_object = RepoObject('clas', 'test_clas', '/src/test_clas.clas.xml',
-                                      ['foo.clas.abap', 'foo.locals_def.abap', 'foo.locals_imp.abap',
-                                       'foo.testclasses.abap'],
+                                      ['test_clas.clas.abap', 'test_clas.clas.locals_def.abap',
+                                       'test_clas.clas.locals_imp.abap', 'test_clas.clas.testclasses.abap'],
                                       self.package, self.handler)
 
         self.source_files_content = ['class_body', 'locals_def_body', 'locals_imp_body', 'test_body']
@@ -196,18 +196,18 @@ class TestClassHandlerPrepare(ClassHandlerCheckinTestCase):
 
         self.assertEqual(self.fake_open.call_args_list, [
             call('/src/test_clas.clas.xml', encoding='utf-8'),
-            call('foo.clas.abap', 'r', encoding='utf-8'),
-            call('foo.locals_def.abap', 'r', encoding='utf-8'),
-            call('foo.locals_imp.abap', 'r', encoding='utf-8'),
-            call('foo.testclasses.abap', 'r', encoding='utf-8'),
+            call('test_clas.clas.abap', 'r', encoding='utf-8'),
+            call('test_clas.clas.locals_def.abap', 'r', encoding='utf-8'),
+            call('test_clas.clas.locals_imp.abap', 'r', encoding='utf-8'),
+            call('test_clas.clas.testclasses.abap', 'r', encoding='utf-8'),
         ])
         self.assertEqual(prepared.abap_data.DESCRIPT, 'Test description')
         self.assertEqual(prepared.text_symbols, [])
         self.assertEqual(prepared.parts, [
-            ('clas', 'foo.clas.abap', 'class_body'),
-            ('locals_def', 'foo.locals_def.abap', 'locals_def_body'),
-            ('locals_imp', 'foo.locals_imp.abap', 'locals_imp_body'),
-            ('testclasses', 'foo.testclasses.abap', 'test_body'),
+            ('clas', 'test_clas.clas.abap', 'class_body'),
+            ('locals_def', 'test_clas.clas.locals_def.abap', 'locals_def_body'),
+            ('locals_imp', 'test_clas.clas.locals_imp.abap', 'locals_imp_body'),
+            ('testclasses', 'test_clas.clas.testclasses.abap', 'test_body'),
         ])
         self.assertEqual(self.observer.mock_calls, [])
 
@@ -237,6 +237,27 @@ class TestClassHandlerPrepare(ClassHandlerCheckinTestCase):
         self.assertEqual(str(cm.exception), 'No source file for class no_files_clas')
         self.fake_open.assert_not_called()
         self.assertEqual(self.observer.mock_calls, [])
+
+    def test_prepare_no_main_source_file(self):
+        clas_obj = RepoObject('clas', 'test_clas', '/src/test_clas.clas.xml',
+                              ['/src/test_clas.clas.locals_def.abap', '/src/test_clas.clas.testclasses.abap'],
+                              self.package, self.handler)
+
+        with self.assertRaises(ExceptionCheckinFailure) as cm:
+            self.handler.prepare(clas_obj, self.observer)
+
+        self.assertEqual(str(cm.exception), 'No source file for class test_clas')
+        self.fake_open.assert_not_called()
+        self.assertEqual(self.observer.mock_calls, [])
+
+    def test_prepare_main_source_file_only(self):
+        self.fake_open.side_effect = [StringIOFile(CLAS_XML), StringIOFile('class_body')]
+        clas_obj = RepoObject('clas', 'test_clas', '/src/test_clas.clas.xml', ['/src/test_clas.clas.abap'],
+                              self.package, self.handler)
+
+        prepared = self.handler.prepare(clas_obj, self.observer)
+
+        self.assertEqual(prepared.parts, [('clas', '/src/test_clas.clas.abap', 'class_body')])
 
     def test_prepare_source_file_wrong_suffix(self):
         self.fake_open.return_value = StringIOFile(CLAS_XML)
@@ -311,8 +332,8 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
         result = self.checkin()
 
         self.assertEqual(result.abap_objects, [self.clas])
-        self.assertEqual(result.used_files, ['foo.clas.abap', 'foo.locals_def.abap', 'foo.locals_imp.abap',
-                                             'foo.testclasses.abap'])
+        self.assertEqual(result.used_files, ['test_clas.clas.abap', 'test_clas.clas.locals_def.abap',
+                                             'test_clas.clas.locals_imp.abap', 'test_clas.clas.testclasses.abap'])
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN',
                                                     responsible='TEST_USER', description='Test description')
         self.fake_class.assert_called_once_with(self.connection, 'TEST_CLAS', package='test_package',
@@ -332,8 +353,8 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
         result = self.checkin(clas_xml=CLAS_WITH_TPOOL_XML, corrnr='corrnr')
 
         self.assertEqual(result.abap_objects, [self.clas, self.texts])
-        self.assertEqual(result.used_files, ['foo.clas.abap', 'foo.locals_def.abap', 'foo.locals_imp.abap',
-                                             'foo.testclasses.abap'])
+        self.assertEqual(result.used_files, ['test_clas.clas.abap', 'test_clas.clas.locals_def.abap',
+                                             'test_clas.clas.locals_imp.abap', 'test_clas.clas.testclasses.abap'])
         self.fake_class_text_elements.assert_called_once_with(self.connection, 'TEST_CLAS')
         self.texts.open_editor.assert_called_once_with(corrnr='corrnr')
         self.texts_editor.write.assert_called_once_with(FIXTURE_TEXT_SYMBOLS)
@@ -357,13 +378,13 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
             self.checkin(corrnr='corrnr', check_before_save=True)
 
         self.assertEqual(fake_write.call_args_list, [
-            call('class_body', self.clas, corrnr='corrnr', source_label='foo.clas.abap', check_before_save=True),
-            call('locals_def_body', self.clas.definitions, corrnr='corrnr', source_label='foo.locals_def.abap',
-                 check_before_save=True),
-            call('locals_imp_body', self.clas.implementations, corrnr='corrnr', source_label='foo.locals_imp.abap',
-                 check_before_save=True),
-            call('test_body', self.clas.test_classes, corrnr='corrnr', source_label='foo.testclasses.abap',
-                 check_before_save=True),
+            call('class_body', self.clas, corrnr='corrnr', source_label='test_clas.clas.abap', check_before_save=True),
+            call('locals_def_body', self.clas.definitions, corrnr='corrnr',
+                 source_label='test_clas.clas.locals_def.abap', check_before_save=True),
+            call('locals_imp_body', self.clas.implementations, corrnr='corrnr',
+                 source_label='test_clas.clas.locals_imp.abap', check_before_save=True),
+            call('test_body', self.clas.test_classes, corrnr='corrnr',
+                 source_label='test_clas.clas.testclasses.abap', check_before_save=True),
         ])
 
     def test_checkin_already_exists(self):
