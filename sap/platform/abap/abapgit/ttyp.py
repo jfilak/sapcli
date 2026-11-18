@@ -140,6 +140,7 @@ class TableTypeHandler(ObjectHandler):
 
         # ADT fills in the definition defaults on creation
         tabletype.fetch()
+        tabletype.description = dd40v.DDTEXT
 
         if dd40v.ROWKIND:
             tabletype.set_dictionary_row_type(dd40v.ROWTYPE)
