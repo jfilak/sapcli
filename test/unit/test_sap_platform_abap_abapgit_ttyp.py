@@ -236,6 +236,18 @@ class TestTableTypeHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
         self.assert_requests(connection, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML)
 
+    def test_checkin_ttyp_already_exists_with_old_description(self, fake_lock, fake_unlock):
+        old_description_xml = TABLE_TYPE_ADT_GET_NEW_RESPONSE_XML.replace('adtcore:description="Test table type"',
+                                                                          'adtcore:description="Old description"')
+        responses = self.responses_ok()
+        responses[0] = Response(text=TABLE_TYPE_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                                headers={'content-type': 'application/xml'})
+        responses[1] = Response(text=old_description_xml, status_code=200, headers={})
+
+        connection, _ = self.checkin(TTYP_STANDARD_XML, responses)
+
+        self.assert_requests(connection, TABLE_TYPE_ADT_DEFINE_STANDARD_REQUEST_XML)
+
     def test_checkin_ttyp_range_not_supported(self, fake_lock, fake_unlock):
         with self.assertRaises(ExceptionCheckinFailure) as caught:
             self.checkin(TTYP_RANGE_XML, [])
