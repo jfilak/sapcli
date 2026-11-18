@@ -34,7 +34,7 @@ def text_symbols_from_tpool(observer, tpool, object_name, known_ids=(), supporte
 
     for text in tpool:
         if text.ID in supported_ids:
-            text_symbols.append(sap.adt.textelements.TextSymbol(text.KEY, text.ENTRY, int(text.LENGTH)))
+            text_symbols.append(sap.adt.textelements.TextSymbol(text.KEY, text.ENTRY or '', int(text.LENGTH)))
         elif text.ID not in known_ids:
             entry = f'{text.ID} {text.KEY}' if text.KEY else text.ID
             observer.warning(f'Skipping unsupported text pool entry {entry} of {object_name}')

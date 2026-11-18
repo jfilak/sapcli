@@ -82,6 +82,15 @@ class TestTextSymbolsFromTPool(TextPoolTestCase):
             call.warning('Skipping unsupported text pool entry S P_PARAM of zprog'),
         ])
 
+    def test_symbol_without_entry(self):
+        tpool = TPOOL()
+        tpool.append(ID='I', KEY='002', LENGTH='10')
+
+        symbols = textpool.text_symbols_from_tpool(self.observer, tpool, 'zprog')
+
+        self.assertEqual(symbols, [TextSymbol('002', '', 10)])
+        self.assertEqual(self.observer.mock_calls, [])
+
     def test_known_ids_are_not_reported(self):
         symbols = textpool.text_symbols_from_tpool(self.observer, self.tpool, 'zprog', known_ids=('R',))
 
