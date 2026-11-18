@@ -4,6 +4,7 @@ import base64
 from fnmatch import fnmatch
 from typing import Optional
 
+from sap import get_logger
 from sap.errors import SAPCliError
 from sap.adt.errors import ExceptionResourceSaveFailure
 from sap.adt.objects import ADTObjectType, XMLNamespace, xmlns_adtcore_ancestor
@@ -329,7 +330,14 @@ def write_source(source_code, adt_object, corrnr=None, source_label=None, check_
         with adt_object.open_editor(corrnr=corrnr) as editor:
             editor.write(source_code)
     except ExceptionResourceSaveFailure as save_exc:
-        result = run_object_check(adt_object, source_code)
+        try:
+            result = run_object_check(adt_object, source_code)
+        except SAPCliError as check_exc:
+            # The check only explains the save failure, which is the real
+            # error the user must see.
+            get_logger().debug('Check after the failed save failed: %s', check_exc)
+            raise save_exc from None
+
         if result.has_errors:
             raise ObjectCheckFindings(
                 adt_object, result, source_label=source_label

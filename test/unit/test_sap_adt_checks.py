@@ -10,6 +10,7 @@ import sap
 import sap.adt
 import sap.adt.checks
 import sap.adt.errors
+import sap.errors
 from sap.adt.marshalling import Marshal
 
 from mock import Connection, Response, Request
@@ -387,6 +388,20 @@ class TestWriteSource(unittest.TestCase):
                 sap.adt.checks.write_source('CODE', adt_object)
 
         fake_check.assert_called_once()
+
+    def test_failed_put_with_failed_check_reraises_original(self):
+        adt_object, editor = new_adt_object()
+        save_failure = sap.adt.errors.ExceptionResourceSaveFailure('locked')
+        editor.write.side_effect = save_failure
+
+        check_failure = sap.errors.SAPCliError('check run failed')
+
+        with patch('sap.adt.checks.run_object_check', side_effect=check_failure) as fake_check:
+            with self.assertRaises(sap.adt.errors.ExceptionResourceSaveFailure) as cm:
+                sap.adt.checks.write_source('CODE', adt_object)
+
+        fake_check.assert_called_once()
+        self.assertIs(cm.exception, save_failure)
 
 
 if __name__ == '__main__':
