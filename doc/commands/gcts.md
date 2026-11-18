@@ -174,12 +174,10 @@ i.e. the same way as in transport requests.
 # commit the class ZCL_FOO
 sapcli gcts commit my_repo --object CLAS:ZCL_FOO
 
-# commit two classes, the program ZREPORT and the source code of the method ZCL_BAR->RUN
-# (--add is needed for LIMU objects - see below)
-sapcli gcts commit my_repo -m "Fix the report" --add \
+# commit two classes and the program ZREPORT
+sapcli gcts commit my_repo -m "Fix the report" \
     --object CLAS:ZCL_FOO,ZCL_BAR \
-    --object R3TR:PROG:ZREPORT \
-    --object "LIMU:METH:ZCL_BAR                       RUN"
+    --object R3TR:PROG:ZREPORT
 ```
 
 The file given by `--objects-from` contains one object per line in the format `PGMID TYPE NAME`
@@ -192,11 +190,10 @@ Empty lines and lines starting with `#` are ignored.
 # my objects
 R3TR CLAS ZCL_FOO
 R3TR PROG ZREPORT
-LIMU METH ZCL_BAR                       RUN
 ```
 
 ```bash
-sapcli gcts commit my_repo --add --objects-from objects.txt
+sapcli gcts commit my_repo --objects-from objects.txt
 
 # re-commit all classes of the repository
 sapcli gcts repo objects my_repo --format TRANSPORT | awk '$2 == "CLAS"' | sapcli gcts commit my_repo --objects-from -
@@ -206,8 +203,8 @@ The command refuses to commit objects which are not part of the repository yet,
 i.e. objects not listed by `sapcli gcts repo objects`, unless the parameter `--add` is given.
 The check also catches misspelled object names because gCTS itself does not check whether
 the objects exist and a misspelled object name results in a commit without the object.
-The repository lists only R3TR objects, hence other objects (e.g. LIMU METH) can be committed
-only with `--add`.
+The repository lists only R3TR objects. To commit changes of sub-objects (e.g. single methods),
+commit your transport request (CORRNR) instead.
 
 The parameter `--dry-run` performs all the checks and prints the objects which would be committed
 in the format of `--objects-from` but it does not commit them.

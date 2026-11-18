@@ -1134,9 +1134,7 @@ def _commit_objects(connection, args, console):
                        help='Check the objects and print them in the format of --objects-from'
                             ' but do not commit them')
 @CommandGroup.argument('--add', action='store_true', default=False,
-                       help='Commit also objects which are not part of the repository yet;'
-                            ' the repository lists only R3TR objects, hence other objects'
-                            ' (e.g. LIMU METH) can be committed only with this parameter')
+                       help='Commit also objects which are not part of the repository yet')
 @CommandGroup.argument('--objects-from', type=str, action='append', default=None, metavar='FILE',
                        help='Commit objects listed in FILE (- for stdin; repeat for multiple): one object per line'
                             ' in the format "PGMID TYPE NAME" as printed by'
@@ -1146,7 +1144,7 @@ def _commit_objects(connection, args, console):
                        metavar='[PGMID:]TYPE:NAME[,NAME...]',
                        help='Commit the objects (repeat for multiple); PGMID defaults to R3TR;'
                             ' the value is upper cased.'
-                            ' Example: --object CLAS:ZCL_A,ZCL_B --object LIMU:REPS:ZREPORT')
+                            ' Example: --object CLAS:ZCL_A,ZCL_B --object PROG:ZREPORT')
 @CommandGroup.argument('-d', '--devc', type=str, default=None,
                        help="Name of committed ABAP package if corrnr is not give. "
                             "Default: the repository name aka the parameter package")
