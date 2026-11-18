@@ -571,7 +571,7 @@ def print_missed_statements(statement_responses, console, local_objects=None):
 
     for label, lines in groups.items():
         console.printout(label)
-        console.printout(f'- {_format_line_ranges(lines)}')
+        console.printout(f'- {_format_line_ranges(sorted(set(lines)))}')
 
 
 def get_method_lines_mapping(statement_responses):
