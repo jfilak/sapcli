@@ -87,7 +87,7 @@ class ClassHandler(ObjectHandler):
         dump_attributes_to_file(observer, name, abap_attributes, '.clas', 'LCL_OBJECT_CLAS', destdir=destdir)
 
     def prepare(self, repo_obj, observer):
-        if not repo_obj.files:
+        if find_object_file(repo_obj, '.clas.abap') is None:
             raise sap.adt.errors.ExceptionCheckinFailure(f'No source file for class {repo_obj.name}')
 
         with open(repo_obj.path, encoding='utf-8') as abap_data_file:
