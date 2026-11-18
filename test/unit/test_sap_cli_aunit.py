@@ -1471,6 +1471,23 @@ foo (source/main)
     def test_jacoco_source_file_no_repository(self):
         self.assertEqual(sap.cli.aunit.jacoco_source_file('FOO', None), 'FOO')
 
+    def test_jacoco_quotes_source_file_names(self):
+        from sap.adt.acoverage import parse_acoverage_response
+        from sap.adt.acoverage_statements import parse_statements_response
+
+        root_node = parse_acoverage_response(ACOVERAGE_RESULTS_XML.encode('utf-8')).root_node
+        parsed = parse_statements_response(ACOVERAGE_STATEMENTS_RESULTS_XML.encode('utf-8'))
+        foo = self.clas._replace(files=['./src/a&b/foo.clas.abap'])
+        bar = self.clas._replace(name='bar', path='./src/a<b/bar.clas.xml', files=['./src/a<b/bar.clas.abap'])
+        output = BufferConsole()
+
+        sap.cli.aunit.print_acoverage_jacoco(root_node, parsed.statement_responses, SimpleNamespace(name=['foo']),
+                                             output, local_objects={('CLAS/OC', 'FOO'): foo, ('CLAS/OC', 'BAR'): bar})
+
+        self.assertIn('<class name="FOO" sourcefilename="src/a&amp;b/foo.clas.abap">', output.capout)
+        self.assertIn('<sourcefile name="src/a&amp;b/foo.clas.abap">', output.capout)
+        self.assertIn('<class name="BAR" sourcefilename="src/a&lt;b/bar.clas.abap">', output.capout)
+
     def test_sonar(self):
         results = sap.adt.aunit.parse_aunit_response(AUNIT_RESULTS_NO_TEST_METHODS_XML).run_results
         clas = self.clas._replace(name='zcl_theking_manual_hardcore',

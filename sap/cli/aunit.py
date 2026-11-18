@@ -616,7 +616,7 @@ def _print_source_file_jacoco(file_name, lines_data, console, indent, indent_lev
     file_level_indent = indent * indent_level
     line_level_indent = indent * (indent_level + 1)
 
-    console.printout(f'{file_level_indent}<sourcefile name="{file_name}">')
+    console.printout(f'{file_level_indent}<sourcefile name={quoteattr(file_name)}>')
     for line_number, is_covered in lines_data:
         covered_instructions = '1' if is_covered else '0'
         missed_instructions = '0' if is_covered else '1'
@@ -653,14 +653,14 @@ def _print_class_jacoco(node, method_lines_mapping, console, indent, indent_leve
         else:
             class_name = node.name[:30].rstrip('=')
             source_file = jacoco_source_file(class_name, local_objects)
-            console.printout(f'{class_level_indent}<class name="{class_name}" sourcefilename="{source_file}">')
+            console.printout(f'{class_level_indent}<class name="{class_name}" sourcefilename={quoteattr(source_file)}>')
             _print_counters_jacoco(node, console, indent, indent_level + 1)
             console.printout(f'{class_level_indent}</class>')
             return
 
     lines_data = []
     source_file = jacoco_source_file(node.name, local_objects)
-    console.printout(f'{class_level_indent}<class name="{node.name}" sourcefilename="{source_file}">')
+    console.printout(f'{class_level_indent}<class name="{node.name}" sourcefilename={quoteattr(source_file)}>')
     for method in node.nodes:
         line, _ = sap.adt.uri.parse_object_implementation_start_uri(method.uri)
         console.printout(f'{method_level_indent}<method name="{method.name}" desc="" line="{line}">')
