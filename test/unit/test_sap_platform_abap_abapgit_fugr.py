@@ -218,6 +218,25 @@ class TestFunctionGroupHandlerCheckout(unittest.TestCase, PatcherTestCase):
             call.warning('Skipping system generated "UXX" function group include: TESTUXX.'),
         ])
 
+    @patch('sap.platform.abap.abapgit.fugr.build_function_group_abap_attributes')
+    @patch('sap.platform.abap.abapgit.fugr.dump_attributes_to_file')
+    @patch('sap.platform.abap.abapgit.fugr.download_abapgit_source')
+    def test_checkout_function_group_module_ending_with_uxx(self, fake_download, fake_dump, fake_build_funcgrp):
+        self.fake_funcgrp.walk = Mock(return_value=[('path', 'subpackages', [SimpleNamespace(typ='FUGR/FF', name='Z_TESTUXX')])])
+
+        self.handler.checkout(self.conn, 'FUGR/F', 'TEST_FUNCGRP', None, self.observer)
+
+        fake_download.assert_called_once()
+        self.assertEqual(fake_download.call_args.args[2].name, 'Z_TESTUXX')
+        self.assertEqual(fake_download.call_args.args[3], '.fugr.Z_TESTUXX')
+
+        fake_build_funcgrp.assert_called_once()
+        function_modules = fake_build_funcgrp.call_args.args[1]
+        self.assertEqual(len(function_modules), 1)
+        self.assertEqual(function_modules[0].name, 'Z_TESTUXX')
+        fake_dump.assert_called_once()
+        self.assertEqual(self.observer.mock_calls, [call.checking_out('TEST_FUNCGRP')])
+
 
 class TestFunctionGroupHandlerCheckin(unittest.TestCase, PatcherTestCase):
 

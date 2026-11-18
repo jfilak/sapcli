@@ -152,7 +152,7 @@ def checkout_function_group(connection, name, observer, destdir=None, source_for
     walk_step = funcgrp.walk()[0]  # Function group always has only a single step
     objects = walk_step[2]
     for obj in objects:
-        if obj.name.endswith('UXX'):
+        if obj.typ == sap.adt.FunctionInclude.OBJTYPE.code and obj.name.endswith('UXX'):
             observer.warning(f'Skipping system generated "UXX" function group include: {obj.name}.')
             continue
 
