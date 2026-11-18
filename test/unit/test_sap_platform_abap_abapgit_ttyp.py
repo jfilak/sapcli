@@ -110,9 +110,12 @@ class TestTableTypeHandlerCheckout(unittest.TestCase, PatcherTestCase):
         self.observer.warning.assert_called_once_with(f'Skipping unsupported secondary keys of {TABLE_TYPE_NAME}')
 
     def test_checkout_ttyp_range_not_supported(self):
-        with self.assertRaises(sap.platform.abap.localrepository.UnsupportedContent) as caught:
-            fake_open = self.checkout(TABLE_TYPE_ADT_GET_RANGE_RESPONSE_XML)
-            # Dead code ...
+        connection = Connection([Response(text=TABLE_TYPE_ADT_GET_RANGE_RESPONSE_XML, status_code=200, headers={})])
+
+        with patch('sap.platform.abap.abapgit.files.open', mock_open()) as fake_open:
+            with self.assertRaises(sap.platform.abap.localrepository.UnsupportedContent) as caught:
+                self.handler.checkout(connection, 'TTYP/DA', TABLE_TYPE_NAME, None, self.observer)
+
             fake_open.assert_not_called()
 
         self.assertEqual(str(caught.exception),
