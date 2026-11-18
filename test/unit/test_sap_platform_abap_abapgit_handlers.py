@@ -16,7 +16,8 @@ class TestHandlers(unittest.TestCase):
 
     def test_all_are_abapgit_xml_handlers(self):
         self.assertEqual({handler.METADATA_EXT for handler in sap.platform.abap.abapgit.handlers.HANDLERS}, {'xml'})
-        self.assertTrue(all(isinstance(handler, ObjectHandler) for handler in sap.platform.abap.abapgit.handlers.HANDLERS))
+        self.assertEqual([handler for handler in sap.platform.abap.abapgit.handlers.HANDLERS
+                          if not isinstance(handler, ObjectHandler)], [])
 
     def test_registry_can_be_built(self):
         registry = HandlerRegistry(sap.platform.abap.abapgit.handlers.HANDLERS)
