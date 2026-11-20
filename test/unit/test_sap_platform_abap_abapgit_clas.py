@@ -406,15 +406,26 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
         self.clas.delete.assert_called_once_with('corrnr')
         self.assertEqual(self.clas.create.call_args_list, [call('corrnr'), call('corrnr')])
 
+    def test_checkin_already_exists_package_in_upper_case(self):
+        self.clas.create.side_effect = [ExceptionResourceAlreadyExists('Class already exists.'), None]
+        self.package_reference.name = 'TEST_PACKAGE'
+
+        self.checkin()
+
+        self.clas.fetch.assert_called_once()
+        self.clas.delete.assert_called_once_with(None)
+        self.assertEqual(self.clas.create.call_args_list, [call(None), call(None)])
+
     def test_checkin_in_different_package(self):
         self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+        self.clas.name = 'TEST_CLAS'
         self.package_reference.name = 'different_package'
 
         with self.assertRaises(ExceptionCheckinFailure) as cm:
             self.checkin()
 
         self.assertEqual(str(cm.exception),
-                         'Cannot checkin class test_clas into package test_package.'
+                         'Cannot checkin class TEST_CLAS into package test_package.'
                          ' It already exists in package different_package.')
         self.clas.delete.assert_not_called()
 
