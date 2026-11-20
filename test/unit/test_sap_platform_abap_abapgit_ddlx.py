@@ -204,14 +204,40 @@ class TestMetadataExtensionHandlerCheckin(unittest.TestCase, PatcherTestCase):
                              write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
 
     def test_checkin_ddlx_already_exists(self, fake_lock, fake_unlock):
-        responses = self.responses_ok()
-        responses[0] = Response(text=DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
-                                headers={'content-type': 'application/xml'})
-        connection = Connection(responses, user='DEVELOPER')
+        connection = Connection([
+            Response(text=DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                     headers={'content-type': 'application/xml'}),
+            Response(text=DDLX_ADT_GET_RESPONSE_XML, status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ], user='DEVELOPER')
 
         self.checkin_object(connection, self.repo_obj)
 
-        self.assert_requests(connection)
+        self.assertEqual(connection.mock_methods(), [
+            ('POST', '/sap/bc/adt/ddic/ddlx/sources'),
+            ('GET', f'/sap/bc/adt/ddic/ddlx/sources/{DDLX_NAME.lower()}'),
+            ('PUT', f'/sap/bc/adt/ddic/ddlx/sources/{DDLX_NAME.lower()}/source/main'),
+        ])
+        self.assertEqual(connection.execs[2].body.decode('utf-8'), DDLX_SOURCE_CODE)
+
+    def test_checkin_ddlx_already_exists_in_other_package(self, fake_lock, fake_unlock):
+        connection = Connection([
+            Response(text=DDLX_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                     headers={'content-type': 'application/xml'}),
+            Response(text=DDLX_ADT_GET_RESPONSE_XML.replace('adtcore:name="$TMP"', 'adtcore:name="ZPROD"'),
+                     status_code=200, headers={}),
+        ], user='DEVELOPER')
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin_object(connection, self.repo_obj)
+
+        self.assertEqual(str(caught.exception), f'Cannot checkin metadata extension {DDLX_NAME} into package $TMP.'
+                                                ' It already exists in package ZPROD.')
+        self.assertEqual(connection.mock_methods(), [
+            ('POST', '/sap/bc/adt/ddic/ddlx/sources'),
+            ('GET', f'/sap/bc/adt/ddic/ddlx/sources/{DDLX_NAME.lower()}'),
+        ])
+        fake_lock.assert_not_called()
 
     def test_checkin_ddlx_no_source_file(self, fake_lock, fake_unlock):
         # Old abapGit versions stored the source code in the XML file

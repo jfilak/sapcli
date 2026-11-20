@@ -204,6 +204,9 @@ class TestInterfaceHandlerCheckin(InterfaceHandlerCheckinTestCase):
         self.interface_editor.__enter__.return_value = self.interface_editor
 
         self.interface = MagicMock()
+        self.interface.name = 'TEST_INTERFACE'
+        # ADT returns package names in upper case
+        self.interface.reference.name = 'TEST_PACKAGE'
         self.interface.open_editor.return_value = self.interface_editor
         self.fake_interface.return_value = self.interface
 
@@ -257,7 +260,19 @@ class TestInterfaceHandlerCheckin(InterfaceHandlerCheckinTestCase):
 
         self.assertEqual([record.getMessage() for record in logs.records], ['Interface already exists.'])
         self.interface.create.assert_called_once_with(None)
+        self.interface.fetch.assert_called_once_with()
         self.interface.open_editor.assert_called_once_with(corrnr=None)
+
+    def test_checkin_already_exists_in_other_package(self):
+        self.interface.create.side_effect = ExceptionResourceAlreadyExists('Interface already exists.')
+        self.interface.reference.name = 'OTHER_PACKAGE'
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin()
+
+        self.assertEqual(str(caught.exception), 'Cannot checkin interface TEST_INTERFACE into package test_package.'
+                                                ' It already exists in package OTHER_PACKAGE.')
+        self.interface.open_editor.assert_not_called()
 
 
 class TestInterfaceHandlerLocate(unittest.TestCase):

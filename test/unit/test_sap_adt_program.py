@@ -70,6 +70,7 @@ class TestADTProgram(unittest.TestCase):
         self.assertEqual(program.program_type, '1')
         self.assertEqual(program.master_language, 'EN')
         self.assertEqual(program.description, 'Say hello!')
+        self.assertEqual(program.reference.name, '$IAMTHEKING')
         self.assertEqual(program.logical_database.reference.name, 'D$S')
         self.assertEqual(program.fix_point_arithmetic, True)
         self.assertEqual(program.case_sensitive, True)

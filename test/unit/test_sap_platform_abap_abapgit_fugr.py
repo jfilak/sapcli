@@ -265,6 +265,9 @@ class TestFunctionGroupHandlerCheckin(unittest.TestCase, PatcherTestCase):
         self.fake_core_data = self.patch('sap.adt.ADTCoreData')
 
         self.function_group = MagicMock()
+        self.function_group.name = 'TEST_FUGR'
+        # ADT returns package names in upper case
+        self.function_group.reference.name = 'TEST_PACKAGE'
         self.fake_function_group = self.patch('sap.adt.FunctionGroup')
         self.fake_function_group.return_value = self.function_group
 
@@ -452,6 +455,21 @@ class TestFunctionGroupHandlerCheckin(unittest.TestCase, PatcherTestCase):
                          ['Function group already exists',
                           'Function include already exists',
                           'Function module already exists'])
+        self.function_group.fetch.assert_called_once_with()
+
+    def test_checkin_fugr_already_created_in_other_package(self):
+        self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),
+                                                                         StringIOFile('Test module body')]
+        self.function_group.create.side_effect = ExceptionResourceAlreadyExists('Function group already exists')
+        self.function_group.reference.name = 'OTHER_PACKAGE'
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin(self.fugr_object)
+
+        self.assertEqual(str(caught.exception), 'Cannot checkin function group TEST_FUGR into package test_package.'
+                                                ' It already exists in package OTHER_PACKAGE.')
+        self.function_include.create.assert_not_called()
+        self.function_module.create.assert_not_called()
 
     def test_checkin_fugr_check_before_save(self):
         self.fake_open.side_effect = list(self.fake_open.side_effect) + [StringIOFile('Test include body'),

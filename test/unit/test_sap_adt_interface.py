@@ -73,6 +73,7 @@ class TestADTIFace(unittest.TestCase):
         self.assertEqual(intf.active, 'active')
         self.assertEqual(intf.master_language, 'EN')
         self.assertEqual(intf.description, 'You cannot stop me!')
+        self.assertEqual(intf.reference.name, 'SADT_UTILITIES')
         self.assertEqual(intf.modeled, False)
 
 

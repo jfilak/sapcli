@@ -292,6 +292,9 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
         self.program_editor.__enter__.return_value = self.program_editor
 
         self.program = MagicMock()
+        self.program.name = 'test_prog'
+        # ADT returns package names in upper case
+        self.program.reference.name = 'TEST_PACKAGE'
         self.program.open_editor.return_value = self.program_editor
         self.fake_program.return_value = self.program
 
@@ -299,6 +302,8 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
         self.include_editor.__enter__.return_value = self.include_editor
 
         self.include = MagicMock()
+        self.include.name = 'test_prog'
+        self.include.reference.name = 'TEST_PACKAGE'
         self.include.open_editor.return_value = self.include_editor
         self.fake_include.return_value = self.include
 
@@ -420,8 +425,33 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
 
         self.assertEqual([record.getMessage() for record in logs.records],
                          ['A program or include already exists with the name TEST_PROG'])
+        self.program.fetch.assert_called_once_with()
         self.program.open_editor.assert_called_once_with(corrnr=None)
         self.program_editor.write.assert_called_once_with('test_prog_body')
+
+    def test_checkin_already_exists_in_other_package(self):
+        self.program.create.side_effect = ExceptionResourceCreationFailure(
+            'A program or include already exists with the name TEST_PROG')
+        self.program.reference.name = 'OTHER_PACKAGE'
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin()
+
+        self.assertEqual(str(caught.exception), 'Cannot checkin program test_prog into package test_package.'
+                                                ' It already exists in package OTHER_PACKAGE.')
+        self.program.open_editor.assert_not_called()
+
+    def test_checkin_include_already_exists_in_other_package(self):
+        self.include.create.side_effect = ExceptionResourceCreationFailure(
+            'A program or include already exists with the name TEST_PROG')
+        self.include.reference.name = 'OTHER_PACKAGE'
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin(prog_xml=INCLUDE_XML, source_code='test_include_body')
+
+        self.assertEqual(str(caught.exception), 'Cannot checkin include test_prog into package test_package.'
+                                                ' It already exists in package OTHER_PACKAGE.')
+        self.include.open_editor.assert_not_called()
 
     def test_checkin_creation_error(self):
         self.program.create.side_effect = ExceptionResourceCreationFailure('Failed to create program')

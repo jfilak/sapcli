@@ -2,9 +2,8 @@
 
 from types import SimpleNamespace
 
-from sap import get_logger
-
 import sap.adt
+import sap.adt.checkin
 import sap.adt.errors
 import sap.adt.checks
 import sap.platform.abap.abapgit
@@ -12,12 +11,6 @@ from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
 from sap.platform.abap.abapgit.files import download_abap_source, dump_attributes_to_file, locate_main_source
 from sap.platform.abap.ddic import VSEOINTERF, DESCRIPTIONS_SUB
 from sap.platform.language import iso_code_to_sap_code
-
-
-def mod_log():
-    """Module logger"""
-
-    return get_logger()
 
 
 def build_interface_abap_attributes(adt_intf):
@@ -86,10 +79,7 @@ class InterfaceHandler(ObjectHandler):
         interface = sap.adt.Interface(context.connection, repo_obj.name.upper(), package=context.package_name,
                                       metadata=metadata)
 
-        try:
-            interface.create(context.corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-            mod_log().info(err.message)
+        sap.adt.checkin.create_in_package(interface, context.corrnr, context.package_name, 'interface')
 
         context.observer.writing('Interface', repo_obj.name)
         sap.adt.checks.write_source(prepared.source_code, interface, corrnr=context.corrnr,

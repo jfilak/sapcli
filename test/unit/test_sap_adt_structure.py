@@ -20,6 +20,7 @@ class TestADTStructure(unittest.TestCase):
         self.assertEqual(structure.active, 'active')
         self.assertEqual(structure.master_language, 'EN')
         self.assertEqual(structure.description, 'Test structure')
+        self.assertEqual(structure.reference.name, 'PACKAGE')
 
     def test_structure_serialize(self):
         connection = Connection()

@@ -207,6 +207,19 @@ class TestDomainHandlerCheckin(unittest.TestCase, PatcherTestCase):
 
         self.assert_requests(connection, DOMAIN_ADT_DEFINE_SAMPLE_REQUEST_XML)
 
+    def test_checkin_doma_already_exists_in_other_package(self, fake_lock, fake_unlock):
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin(DOMA_XML, [
+                Response(text=DOMAIN_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                         headers={'content-type': 'application/xml'}),
+                Response(text=DOMAIN_ADT_GET_NEW_RESPONSE_XML.replace('adtcore:name="$TMP"', 'adtcore:name="ZPROD"'),
+                         status_code=200, headers={}),
+            ])
+
+        self.assertEqual(str(caught.exception), f'Cannot checkin domain {DOMAIN_NEW_NAME} into package $TMP.'
+                                                ' It already exists in package ZPROD.')
+        fake_lock.assert_not_called()
+
     def test_checkin_doma_translations_not_supported(self, fake_lock, fake_unlock):
         with self.assertRaises(ExceptionCheckinFailure) as caught:
             self.checkin(DOMA_TRANSLATIONS_XML, [])
