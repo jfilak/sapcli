@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from sap import get_logger
 
 import sap.adt
+import sap.adt.checkin
 import sap.adt.errors
 import sap.adt.textelements
 import sap.adt.checks
@@ -111,9 +112,11 @@ class ProgramHandler(ObjectHandler):
 
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=context.connection.user.upper())
         if prepared.progdir.SUBC == SUBC_EXECUTABLE_PROGRAM:
+            label = 'program'
             program = sap.adt.Program(context.connection, repo_obj.name, package=context.package_name, metadata=metadata)
         else:
             context.observer.creating('Include', repo_obj.name)
+            label = 'include'
             program = sap.adt.Include(context.connection, repo_obj.name, package=context.package_name, metadata=metadata)
 
         if prepared.description is not None:
@@ -126,6 +129,7 @@ class ProgramHandler(ObjectHandler):
                 raise
 
             mod_log().info(err.message)
+            sap.adt.checkin.check_package(program, context.package_name, label)
 
         context.observer.writing('Program', repo_obj.name)
         sap.adt.checks.write_source(prepared.source_code, program, corrnr=context.corrnr,

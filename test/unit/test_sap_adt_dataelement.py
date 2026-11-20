@@ -20,6 +20,7 @@ class TestADTDataElement(unittest.TestCase):
         self.assertEqual(data_element.active, 'active')
         self.assertEqual(data_element.master_language, 'EN')
         self.assertEqual(data_element.description, 'Test data element')
+        self.assertEqual(data_element.reference.name, 'PACKAGE')
 
     def test_data_element_serialize(self):
         connection = Connection()

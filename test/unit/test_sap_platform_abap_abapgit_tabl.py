@@ -429,13 +429,32 @@ class TestTableHandlerCheckinStructure(unittest.TestCase, PatcherTestCase):
                              write_params={'lockHandle': 'lock_handle', 'corrNr': '420'})
 
     def test_checkin_tabl_already_exists(self, fake_lock, fake_unlock):
-        responses = self.responses_ok()
-        responses[0] = Response(text=TABL_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
-                                headers={'content-type': 'application/xml'})
+        connection, _ = self.checkin(TABL_XML, [
+            Response(text=TABL_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                     headers={'content-type': 'application/xml'}),
+            Response(text=TABL_ADT_GET_RESPONSE_XML, status_code=200, headers={}),
+            Response(text='', status_code=200, headers={}),
+        ])
 
-        connection, _ = self.checkin(TABL_XML, responses)
+        self.assertEqual(connection.mock_methods(), [
+            ('POST', '/sap/bc/adt/ddic/structures'),
+            ('GET', f'/sap/bc/adt/ddic/structures/{TABL_NAME.lower()}'),
+            ('PUT', f'/sap/bc/adt/ddic/structures/{TABL_NAME.lower()}/source/main'),
+        ])
+        self.assertEqual(connection.execs[2].body.decode('utf-8'), TABL_SOURCE_CODE)
 
-        self.assert_requests(connection, TABL_SOURCE_CODE)
+    def test_checkin_tabl_already_exists_in_other_package(self, fake_lock, fake_unlock):
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin(TABL_XML, [
+                Response(text=TABL_ADT_ALREADY_EXISTS_RESPONSE_XML, status_code=500,
+                         headers={'content-type': 'application/xml'}),
+                Response(text=TABL_ADT_GET_RESPONSE_XML.replace('adtcore:name="$TMP"', 'adtcore:name="ZPROD"'),
+                         status_code=200, headers={}),
+            ])
+
+        self.assertEqual(str(caught.exception), f'Cannot checkin structure {TABL_NAME} into package $TMP.'
+                                                ' It already exists in package ZPROD.')
+        fake_lock.assert_not_called()
 
     def test_checkin_tabl_check_before_save(self, fake_lock, fake_unlock):
         connection = Connection(self.responses_ok(), user='DEVELOPER')

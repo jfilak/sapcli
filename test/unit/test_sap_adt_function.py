@@ -82,6 +82,7 @@ class TestFunctionGroup(unittest.TestCase):
         self.assertEqual(fugr.active, 'active')
         self.assertEqual(fugr.master_language, 'EN')
         self.assertEqual(fugr.description, 'You cannot stop me!')
+        self.assertEqual(fugr.reference.name, '$TEST')
         self.assertEqual(fugr.fix_point_arithmetic, True)
 
     @patch('sap.adt.function.Repository')

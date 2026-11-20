@@ -2,9 +2,8 @@
 
 from types import SimpleNamespace
 
-from sap import get_logger
-
 import sap.adt
+import sap.adt.checkin
 import sap.adt.errors
 import sap.errors
 import sap.platform.abap.abapgit
@@ -13,12 +12,6 @@ from sap.platform.abap.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number, ad
 from sap.platform.abap.abapgit.files import dump_attributes_to_file
 from sap.platform.abap.ddic import DD04V, DD04L_EXTRA, REFKIND_DOMAIN, DDIC_DATATYPE_TO_ADT
 from sap.platform.language import iso_code_to_sap_code
-
-
-def mod_log():
-    """Module logger"""
-
-    return get_logger()
 
 
 # DDIC output lengths of the DDIC built-in data types which do not depend on
@@ -173,12 +166,9 @@ class DataElementHandler(ObjectHandler):
         dataelement = sap.adt.DataElement(context.connection, repo_obj.name.upper(), package=context.package_name,
                                           metadata=metadata)
 
-        try:
-            dataelement.create(context.corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-            mod_log().info(err.message)
+        if sap.adt.checkin.create_in_package(dataelement, context.corrnr, context.package_name, 'data element'):
+            dataelement.fetch()
 
-        dataelement.fetch()
         dataelement.description = dd04v.DDTEXT
 
         definition = dataelement.definition

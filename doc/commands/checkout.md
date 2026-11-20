@@ -126,7 +126,13 @@ error and the system stays untouched.
 Checkin failed: Cannot check in 2 files - nothing has been changed
 ```
 
-Errors the system reports while writing the objects, e.g. a class existing
+Checkin writes into an object which already exists in the system only if the
+object is in the package of its directory. An object existing in another
+package stops the checkin with the error
+`Cannot checkin <type> <name> into package <package>. It already exists in package <other>.`
+and the object stays untouched.
+
+Errors the system reports while writing the objects, e.g. an object existing
 in another package, stop the checkin immediately because the objects using
 the failed object would fail later anyway.
 

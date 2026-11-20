@@ -2,9 +2,8 @@
 
 from types import SimpleNamespace
 
-from sap import get_logger
-
 import sap.adt
+import sap.adt.checkin
 import sap.adt.errors
 import sap.errors
 import sap.platform.abap.abapgit
@@ -18,12 +17,6 @@ from sap.platform.language import iso_code_to_sap_code
 ADT_TO_DD40V_ACCESSMODE = {adt: code for code, adt in DD40V_ACCESSMODE_TO_ADT.items()}
 ADT_TO_DD40V_KEYDEF = {adt: code for code, adt in DD40V_KEYDEF_TO_ADT.items()}
 ADT_TO_DD40V_KEYKIND = {adt: code for code, adt in DD40V_KEYKIND_TO_ADT.items()}
-
-
-def mod_log():
-    """Module logger"""
-
-    return get_logger()
 
 
 def build_table_type_abap_attributes(adt_tabletype):
@@ -133,13 +126,9 @@ class TableTypeHandler(ObjectHandler):
         tabletype = sap.adt.TableType(context.connection, repo_obj.name.upper(), package=context.package_name,
                                       metadata=metadata)
 
-        try:
-            tabletype.create(context.corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-            mod_log().info(err.message)
-
-        # ADT fills in the definition defaults on creation
-        tabletype.fetch()
+        if sap.adt.checkin.create_in_package(tabletype, context.corrnr, context.package_name, 'table type'):
+            # ADT fills in the definition defaults on creation
+            tabletype.fetch()
         tabletype.description = dd40v.DDTEXT
 
         if dd40v.ROWKIND:

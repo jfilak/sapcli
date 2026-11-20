@@ -22,6 +22,7 @@ class TestADTTable(unittest.TestCase):
         self.assertEqual(table.active, 'active')
         self.assertEqual(table.master_language, 'EN')
         self.assertEqual(table.description, 'Test table')
+        self.assertEqual(table.reference.name, 'SADT_COMPATIBILITY')
 
     def test_table_serialize(self):
         connection = Connection()

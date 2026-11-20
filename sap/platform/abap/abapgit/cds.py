@@ -4,18 +4,11 @@
 
 from types import SimpleNamespace
 
-from sap import get_logger
-
 import sap.adt
+import sap.adt.checkin
 import sap.adt.errors
 import sap.adt.checks
 import sap.platform.abap.abapgit
-
-
-def mod_log():
-    """Module logger"""
-
-    return get_logger()
 
 
 def prepare_cds_source(repo_obj, abap_type, get_description, source_suffix, label):
@@ -47,10 +40,7 @@ def checkin_cds_source(context, repo_obj, prepared, adt_type, label):
                                    description=prepared.description)
     adt_object = adt_type(context.connection, repo_obj.name.upper(), package=context.package_name, metadata=metadata)
 
-    try:
-        adt_object.create(context.corrnr)
-    except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-        mod_log().info(err.message)
+    sap.adt.checkin.create_in_package(adt_object, context.corrnr, context.package_name, label.lower())
 
     context.observer.writing(label, repo_obj.name)
     sap.adt.checks.write_source(prepared.source_code, adt_object, corrnr=context.corrnr,

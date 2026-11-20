@@ -2,9 +2,8 @@
 
 from types import SimpleNamespace
 
-from sap import get_logger
-
 import sap.adt
+import sap.adt.checkin
 import sap.adt.domain
 import sap.adt.errors
 import sap.errors
@@ -14,12 +13,6 @@ from sap.platform.abap.abapgit.ddic import ADT_TO_DDIC_DATATYPE, ddic_number, ad
 from sap.platform.abap.abapgit.files import dump_attributes_to_file
 from sap.platform.abap.ddic import DD01V, DD07V, DD07V_TAB, DD01L_EXTRA
 from sap.platform.language import iso_code_to_sap_code
-
-
-def mod_log():
-    """Module logger"""
-
-    return get_logger()
 
 
 def build_domain_abap_attributes(adt_domain):
@@ -99,13 +92,10 @@ class DomainHandler(ObjectHandler):
                                        description=dd01v.DDTEXT)
         domain = sap.adt.Domain(context.connection, repo_obj.name.upper(), package=context.package_name, metadata=metadata)
 
-        try:
-            domain.create(context.corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-            mod_log().info(err.message)
-
         # ADT accepts the content only in modifications of existing domains
-        domain.fetch()
+        if sap.adt.checkin.create_in_package(domain, context.corrnr, context.package_name, 'domain'):
+            domain.fetch()
+
         domain.description = dd01v.DDTEXT
 
         type_information = domain.content.type_information

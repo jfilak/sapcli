@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from sap import get_logger
 
 import sap.adt
+import sap.adt.checkin
 import sap.adt.errors
 import sap.adt.function
 import sap.errors
@@ -330,10 +331,7 @@ class FunctionGroupHandler(ObjectHandler):
                                                metadata=metadata)
         function_group.description = prepared.description
 
-        try:
-            function_group.create(context.corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-            mod_log().info(err.message)
+        sap.adt.checkin.create_in_package(function_group, context.corrnr, context.package_name, 'function group')
 
         abap_objs_inactive = [function_group]
         used_files = []

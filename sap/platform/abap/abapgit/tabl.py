@@ -7,9 +7,8 @@
 import re
 from types import SimpleNamespace
 
-from sap import get_logger
-
 import sap.adt
+import sap.adt.checkin
 import sap.adt.errors
 import sap.errors
 import sap.adt.checks
@@ -20,12 +19,6 @@ from sap.platform.abap.abapgit.files import dump_attributes_to_file
 from sap.platform.abap.ddic import DD02V, DD03P, DD03P_TABLE, DD09L, TABCLASS_STRUCTURE, TABCLASS_TRANSPARENT, \
     DD02V_EXCLASS_TO_DDL, DD02V_MAINFLAG_TO_DDL, DDIC_DATATYPE_TO_DDL
 from sap.platform.language import iso_code_to_sap_code
-
-
-def mod_log():
-    """Module logger"""
-
-    return get_logger()
 
 
 DDL_TO_DD02V_EXCLASS = {ddl: code for code, ddl in DD02V_EXCLASS_TO_DDL.items()}
@@ -631,10 +624,7 @@ class TableHandler(ObjectHandler):
         adt_type = sap.adt.Table if is_table else sap.adt.Structure
         adt_object = adt_type(context.connection, repo_obj.name.upper(), package=context.package_name, metadata=metadata)
 
-        try:
-            adt_object.create(context.corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists as err:
-            mod_log().info(err.message)
+        sap.adt.checkin.create_in_package(adt_object, context.corrnr, context.package_name, label.lower())
 
         context.observer.writing(label, repo_obj.name)
         sap.adt.checks.write_source(prepared.source_code, adt_object, corrnr=context.corrnr, source_label=repo_obj.path,

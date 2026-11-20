@@ -83,6 +83,8 @@ class TestCheckinCdsSource(CdsTestCase):
         self.fake_write_source = self.patch('sap.adt.checks.write_source')
 
         self.adt_object = MagicMock()
+        self.adt_object.name = 'ZFOO'
+        self.adt_object.reference.name = '$TMP'
         self.adt_type = Mock(return_value=self.adt_object)
 
         self.connection = Mock()
@@ -126,7 +128,19 @@ class TestCheckinCdsSource(CdsTestCase):
             self.checkin()
 
         self.assertEqual([record.getMessage() for record in logs.records], ['Access Control ZFOO already exists'])
+        self.adt_object.fetch.assert_called_once_with()
         self.fake_write_source.assert_called_once()
+
+    def test_checkin_already_exists_in_other_package(self):
+        self.adt_object.create.side_effect = ExceptionResourceAlreadyExists('Access Control ZFOO already exists')
+        self.adt_object.reference.name = 'ZPROD'
+
+        with self.assertRaises(ExceptionCheckinFailure) as caught:
+            self.checkin()
+
+        self.assertEqual(str(caught.exception), 'Cannot checkin access control ZFOO into package $TMP.'
+                                                ' It already exists in package ZPROD.')
+        self.fake_write_source.assert_not_called()
 
 
 if __name__ == '__main__':

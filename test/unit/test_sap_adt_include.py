@@ -95,6 +95,7 @@ class TestADTInclude(unittest.TestCase):
 
         self.assertEqual(include.name, 'ZHELLO_INCLUDE')
         self.assertEqual(include.active, 'inactive')
+        self.assertEqual(include.reference.name, '$TEST')
         self.assertEqual(include.master_language, 'EN')
         self.assertEqual(include.description, 'Hello include!')
         self.assertEqual(include.fix_point_arithmetic, False)
