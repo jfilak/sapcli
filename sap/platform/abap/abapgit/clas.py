@@ -8,6 +8,7 @@ import sap.adt
 import sap.adt.errors
 import sap.adt.textelements
 import sap.adt.checks
+import sap.adt.checkin
 import sap.platform.abap.abapgit
 from sap.platform.abap.localrepository import ObjectHandler, ObjectCheckinResult
 from sap.platform.abap.abapgit.files import download_abap_source, dump_attributes_to_file, find_object_file
@@ -125,15 +126,9 @@ class ClassHandler(ObjectHandler):
 
         try:
             clas.create(context.corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists as exc:
+        except sap.adt.errors.ExceptionResourceAlreadyExists:
             mod_log().info('Class already exists. Recreating.')
-            clas.fetch()
-
-            # pylint: disable=no-member
-            if clas.reference.name != context.package_name:
-                raise sap.adt.errors.ExceptionCheckinFailure(
-                    f'Cannot checkin class {repo_obj.name} into package {context.package_name}.'
-                    f' It already exists in package {clas.reference.name}.') from exc
+            sap.adt.checkin.check_package(clas, context.package_name, 'class')
 
             clas.delete(context.corrnr)
             # Recreate class object to avoid stale data, which causes create to fail
