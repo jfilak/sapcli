@@ -151,7 +151,12 @@ class AbapGitLayout(RepositoryLayout):
             return root_package_name
 
         if settings.FOLDER_LOGIC == FOLDER_LOGIC_FULL:
-            return ('$' if root_package_name[0] == '$' else '') + sub_parts[-1]
+            sub_package_name = sub_parts[-1]
+            # checkout package names the directories of local packages with $
+            if root_package_name[0] == '$' and sub_package_name[0] != '$':
+                sub_package_name = '$' + sub_package_name
+
+            return sub_package_name
 
         if settings.FOLDER_LOGIC == FOLDER_LOGIC_PREFIX:
             return f'{root_package_name}_' + '_'.join(sub_parts)
