@@ -709,6 +709,17 @@ class TestADTObjectSourceEditorFactoryMethods(unittest.TestCase):
         put_request = connection.execs[1]
         self.assertEqual(put_request.body, b'line1\nline2')
 
+    def test_plain_text_factory_writes_empty_source(self):
+        connection = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, EMPTY_RESPONSE_OK])
+        obj = DummyADTObject(connection=connection, name='test_obj')
+
+        with obj.open_editor() as editor:
+            editor.write('')
+
+        put_request = connection.execs[1]
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.body, b'')
+
     def test_json_factory_returns_source_editor(self):
         editor = sap.adt.objects.ADTObjectSourceEditor.json(
             SimpleNamespace(connection=None, uri='test', objtype=None),

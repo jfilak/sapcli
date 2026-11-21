@@ -941,7 +941,7 @@ class ADTObjectSourceEditor(ADTObjectEditor):
 
         text_uri = append_uri_path(self.uri, self.get_uri_for_type(self._content_type))
 
-        if content[-1] == '\n':
+        if content.endswith('\n'):
             content = content[:-1]
 
         data = bytes(content, 'utf-8')
