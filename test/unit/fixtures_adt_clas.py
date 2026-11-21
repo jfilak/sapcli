@@ -59,3 +59,28 @@ GET_CLASS_WITHOUT_TEST_CLASSES_ADT_XML = '''<?xml version="1.0" encoding="utf-8"
   <class:include class:includeType="macros" adtcore:name="" adtcore:type="CLAS/I"/>
   <class:include class:includeType="main" adtcore:name="" adtcore:type="CLAS/I"/>
 </class:abapClass>'''
+
+DESCRIPTION_GET_CLASS_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="ZCL_HELLO_WORLD" adtcore:type="CLAS/OC" adtcore:description="You cannot stop me!" adtcore:language="EN">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24iamtheking" adtcore:type="DEVC/K" adtcore:name="$IAMTHEKING" adtcore:description="You cannot stop me!"/>
+</class:abapClass>'''
+
+DESCRIPTION_PUT_CLASS_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="ZCL_HELLO_WORLD" adtcore:type="CLAS/OC" adtcore:description="Tom &amp; &quot;Jerry&quot; &lt;3" adtcore:language="EN">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24iamtheking" adtcore:type="DEVC/K" adtcore:name="$IAMTHEKING" adtcore:description="You cannot stop me!"/>
+</class:abapClass>'''
+
+DESCRIPTION_GT_GET_CLASS_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="ZCL_HELLO_WORLD" adtcore:changedBy="A>B" adtcore:description="You cannot stop me!">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24iamtheking" adtcore:type="DEVC/K" adtcore:name="$IAMTHEKING" adtcore:description="You cannot stop me!"/>
+</class:abapClass>'''
+
+DESCRIPTION_GT_PUT_CLASS_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="ZCL_HELLO_WORLD" adtcore:changedBy="A>B" adtcore:description="New description">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24iamtheking" adtcore:type="DEVC/K" adtcore:name="$IAMTHEKING" adtcore:description="You cannot stop me!"/>
+</class:abapClass>'''
+
+NO_DESCRIPTION_GET_CLASS_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="ZCL_HELLO_WORLD" adtcore:language="EN">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24iamtheking" adtcore:type="DEVC/K" adtcore:name="$IAMTHEKING" adtcore:description="You cannot stop me!"/>
+</class:abapClass>'''
