@@ -3,8 +3,10 @@
 import unittest
 
 from sap import get_logger
+from sap.errors import SAPCliError
 import sap.adt
 import sap.adt.wb
+from sap.adt.objects import replace_root_description
 
 from mock import Connection, Response
 
@@ -12,7 +14,10 @@ from fixtures_adt import (LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, TEST_CLASSES_READ
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 
 from fixtures_adt_clas import (CREATE_CLASS_ADT_XML, GET_CLASS_ADT_XML, WRITE_INCLUDE_ERROR_XML,
-                               GENERATE_INCLUDE_REQUEST_XML, GET_CLASS_WITHOUT_TEST_CLASSES_ADT_XML)
+                               GENERATE_INCLUDE_REQUEST_XML, GET_CLASS_WITHOUT_TEST_CLASSES_ADT_XML,
+                               DESCRIPTION_GET_CLASS_ADT_XML, DESCRIPTION_PUT_CLASS_ADT_XML,
+                               DESCRIPTION_GT_GET_CLASS_ADT_XML, DESCRIPTION_GT_PUT_CLASS_ADT_XML,
+                               NO_DESCRIPTION_GET_CLASS_ADT_XML)
 
 
 FIXTURE_CLASS_MAIN_CODE='''class zcl_hello_world definition public.
@@ -258,6 +263,76 @@ class TestADTClass(unittest.TestCase):
 
         self.assertEqual(payload.count('<class:include '), 1)
 
+    def test_adt_class_write_description(self):
+        conn = Connection([LOCK_RESPONSE_OK,
+                           Response(text=DESCRIPTION_GET_CLASS_ADT_XML, status_code=200,
+                                    headers={'Content-Type': 'application/vnd.sap.adt.oo.classes.v4+xml'}),
+                           EMPTY_RESPONSE_OK,
+                           None])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+
+        clas.write_description('Tom & "Jerry" <3')
+
+        self.assertEqual(conn.mock_methods(), [('POST', '/sap/bc/adt/oo/classes/zcl_hello_world'),
+                                               ('GET', '/sap/bc/adt/oo/classes/zcl_hello_world'),
+                                               ('PUT', '/sap/bc/adt/oo/classes/zcl_hello_world'),
+                                               ('POST', '/sap/bc/adt/oo/classes/zcl_hello_world')])
+
+        get_request = conn.execs[1]
+        self.assertEqual(get_request.headers, {'Accept': 'application/vnd.sap.adt.oo.classes.v4+xml'})
+
+        put_request = conn.execs[2]
+        self.assertEqual(put_request.headers, {'Content-Type': 'application/vnd.sap.adt.oo.classes.v4+xml; charset=utf-8'})
+        self.assertEqual(put_request.params, {'lockHandle': 'win'})
+        self.maxDiff = None
+        self.assertEqual(put_request.body.decode('utf-8'), DESCRIPTION_PUT_CLASS_ADT_XML)
+
+        self.assertEqual(clas.description, 'Tom & "Jerry" <3')
+
+    def test_adt_class_write_description_with_corrnr(self):
+        conn = Connection([LOCK_RESPONSE_OK,
+                           Response(text=DESCRIPTION_GET_CLASS_ADT_XML, status_code=200,
+                                    headers={'Content-Type': 'application/vnd.sap.adt.oo.classes.v4+xml'}),
+                           EMPTY_RESPONSE_OK,
+                           None])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+
+        clas.write_description('Tom & "Jerry" <3', corrnr='420')
+
+        put_request = conn.execs[2]
+        self.assertEqual(put_request.params, {'lockHandle': 'win', 'corrNr': '420'})
+
+    def test_adt_class_write_description_gt_in_root_attribute(self):
+        conn = Connection([LOCK_RESPONSE_OK,
+                           Response(text=DESCRIPTION_GT_GET_CLASS_ADT_XML, status_code=200,
+                                    headers={'Content-Type': 'application/vnd.sap.adt.oo.classes.v4+xml'}),
+                           EMPTY_RESPONSE_OK,
+                           None])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+
+        clas.write_description('New description')
+
+        put_request = conn.execs[2]
+        self.maxDiff = None
+        self.assertEqual(put_request.body.decode('utf-8'), DESCRIPTION_GT_PUT_CLASS_ADT_XML)
+
+    def test_adt_class_write_description_without_description_attribute(self):
+        conn = Connection([LOCK_RESPONSE_OK,
+                           Response(text=NO_DESCRIPTION_GET_CLASS_ADT_XML, status_code=200,
+                                    headers={'Content-Type': 'application/vnd.sap.adt.oo.classes.v4+xml'}),
+                           None])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+
+        with self.assertRaises(SAPCliError) as caught:
+            clas.write_description('New description')
+
+        self.assertEqual(str(caught.exception),
+                         'Cannot change the description of class ZCL_HELLO_WORLD:'
+                         ' the class XML has no root element with adtcore:description')
+        self.assertEqual(conn.mock_methods(), [('POST', '/sap/bc/adt/oo/classes/zcl_hello_world'),
+                                               ('GET', '/sap/bc/adt/oo/classes/zcl_hello_world'),
+                                               ('POST', '/sap/bc/adt/oo/classes/zcl_hello_world')])
+
     def test_adt_class_execute(self):
         expected = 'Output from executed class'
 
@@ -266,6 +341,21 @@ class TestADTClass(unittest.TestCase):
 
         actual = clas.execute()
         self.assertEqual(actual, expected)
+
+
+class TestReplaceRootDescription(unittest.TestCase):
+
+    def test_special_characters(self):
+        xml = replace_root_description(DESCRIPTION_GET_CLASS_ADT_XML, '"&<>')
+
+        self.assertIn('adtcore:description="&quot;&amp;&lt;&gt;" adtcore:language="EN">', xml)
+        self.assertIn('adtcore:description="You cannot stop me!"/>', xml)
+
+    def test_without_root_start_tag(self):
+        self.assertIsNone(replace_root_description('<?xml version="1.0" encoding="utf-8"?>', 'New description'))
+
+    def test_without_description_attribute(self):
+        self.assertIsNone(replace_root_description(NO_DESCRIPTION_GET_CLASS_ADT_XML, 'New description'))
 
 
 if __name__ == '__main__':

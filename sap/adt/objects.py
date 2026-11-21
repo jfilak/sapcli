@@ -4,6 +4,7 @@
 import re
 from typing import NamedTuple, Optional, Union, List, cast
 from urllib.parse import quote_plus
+from xml.sax.saxutils import escape as xml_escape
 
 from sap.adt.core import mod_log
 from sap.errors import SAPCliError
@@ -1324,6 +1325,27 @@ class ClassIncludeReference(metaclass=OrderedClassMembers):
     include_type = XmlNodeAttributeProperty('class:includeType')
 
 
+def replace_root_description(xml, description):
+    """Returns the ADT object XML with the given description of the root
+       element or None if the root element has no adtcore:description.
+       The root start tag is the first tag after the XML declaration and ADT
+       always uses the prefix adtcore.
+    """
+
+    # quoted attribute values may contain '>'
+    root = re.search(r'<[^?!](?:[^>"\']|"[^"]*"|\'[^\']*\')*>', xml)
+    if root is None:
+        return None
+
+    value = xml_escape(description, {'"': '&quot;'})
+    new_root, count = re.subn(r'(\s)adtcore:description="[^"]*"', lambda match: f'{match.group(1)}adtcore:description="{value}"',
+                              root.group(0), count=1)
+    if count == 0:
+        return None
+
+    return xml[:root.start()] + new_root + xml[root.end():]
+
+
 # pylint: disable=too-many-instance-attributes
 class Class(OOADTObjectBase):
     """ABAP OO Class
@@ -1536,6 +1558,29 @@ class Class(OOADTObjectBase):
         """
 
         return [include.include_type for include in self._includes]
+
+    def write_description(self, description, corrnr=None):
+        """Changes the description of the existing class.
+
+           ADT accepts only the complete class XML, so the current XML is read
+           and written back with the new description.
+        """
+
+        mimetype, _ = self._get_mime_and_version()
+
+        with self.open_editor(corrnr=corrnr) as editor:
+            xml = self.connection.execute('GET', self.uri, accept=mimetype).text
+
+            new_xml = replace_root_description(xml, description)
+            if new_xml is None:
+                raise SAPCliError(f'Cannot change the description of class {self.name}:'
+                                  ' the class XML has no root element with adtcore:description')
+
+            self.connection.execute('PUT', self.uri, headers={'Content-Type': f'{mimetype}; charset=utf-8'},
+                                    params=modify_object_params(editor.lock_handle, editor.corrnr),
+                                    body=bytes(new_xml, 'utf-8'))
+
+        self.description = description
 
     @xml_element('class:superClassRef')
     def super_class(self):
