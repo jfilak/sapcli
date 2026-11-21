@@ -50,3 +50,12 @@ GET_CLASS_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
 WRITE_INCLUDE_ERROR_XML = '''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceSaveFailure"/><message lang="EN">TEST=====CCAU does not have any inactive version</message></exc:exception>'''
 
 GENERATE_INCLUDE_REQUEST_XML = '''<?xml version="1.0" encoding="UTF-8"?><class:abapClassInclude xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="dummy" class:includeType="testclasses"/>'''
+
+GET_CLASS_WITHOUT_TEST_CLASSES_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
+<class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="ZCL_HELLO_WORLD" adtcore:type="CLAS/OC" adtcore:description="No tests">
+  <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24iamtheking" adtcore:type="DEVC/K" adtcore:name="$IAMTHEKING"/>
+  <class:include class:includeType="definitions" adtcore:name="" adtcore:type="CLAS/I"/>
+  <class:include class:includeType="implementations" adtcore:name="" adtcore:type="CLAS/I"/>
+  <class:include class:includeType="macros" adtcore:name="" adtcore:type="CLAS/I"/>
+  <class:include class:includeType="main" adtcore:name="" adtcore:type="CLAS/I"/>
+</class:abapClass>'''

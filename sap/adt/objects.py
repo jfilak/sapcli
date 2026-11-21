@@ -1317,6 +1317,13 @@ class ClassIncludeMetadata(NamedTuple):
         return self.source_uri
 
 
+# pylint: disable=too-few-public-methods
+class ClassIncludeReference(metaclass=OrderedClassMembers):
+    """An include listed in the XML of a fetched class"""
+
+    include_type = XmlNodeAttributeProperty('class:includeType')
+
+
 # pylint: disable=too-many-instance-attributes
 class Class(OOADTObjectBase):
     """ABAP OO Class
@@ -1460,6 +1467,7 @@ class Class(OOADTObjectBase):
         self._definitions = None
         self._implementations = None
         self._test_classes = None
+        self._includes = []
         self._fixpntar = None
         self._final = 'true'
         self._visibility = 'public'
@@ -1500,11 +1508,34 @@ class Class(OOADTObjectBase):
 
         self._fixpntar = value == 'true'
 
-    @xml_element('class:include', deserialize=False)
+    def fetch(self):
+        """Retrieve data from ADT - the includes of the previous fetch are
+           replaced because the include setter appends
+        """
+
+        self._includes = []
+        super().fetch()
+
+    @xml_element('class:include', factory=ClassIncludeReference)
     def include(self):
-        """Class include"""
+        """Class include - create requests the test classes include"""
 
         return self.test_classes
+
+    @include.setter
+    def include(self, value):
+        """Collects the includes listed in the XML of the fetched class"""
+
+        self._includes.append(value)
+
+    @property
+    def include_types(self):
+        """Types of the includes of the fetched class - only existing includes
+           are listed (e.g. no testclasses if the class has no test classes
+           include)
+        """
+
+        return [include.include_type for include in self._includes]
 
     @xml_element('class:superClassRef')
     def super_class(self):
