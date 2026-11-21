@@ -125,11 +125,6 @@ class ClassHandler(ObjectHandler):
 
         created = sap.adt.checkin.create_in_package(clas, context.corrnr, context.package_name, 'class')
 
-        description = prepared.abap_data.DESCRIPT or ''
-        if not created and (clas.description or '') != description:
-            context.observer.writing('Clas', repo_obj.name, 'description')
-            clas.write_description(description, corrnr=context.corrnr)
-
         class_parts = {
             'clas': clas,
             'locals_def': clas.definitions,
@@ -137,21 +132,28 @@ class ClassHandler(ObjectHandler):
             'testclasses': clas.test_classes,
         }
 
-        used_files = []
+        parts = self._parts_to_write(prepared, clas, created)
 
-        for sub_obj_id, source_file, source_code in prepared.parts:
-            context.observer.writing('Clas', repo_obj.name, sub_obj_id)
-
-            sap.adt.checks.write_source(source_code, class_parts[sub_obj_id], corrnr=context.corrnr,
-                                        source_label=source_file,
-                                        check_before_save=context.check_before_save)
-
-            used_files.append(source_file)
+        if context.check_before_save:
+            self._check_parts(clas, class_parts, parts)
 
         if not created:
-            # The repository is the truth: the includes of the existing class
-            # which have no file are emptied - instead of deleting the class
-            self._empty_includes_without_file(context, repo_obj, prepared, clas, class_parts)
+            self._update_description(context, repo_obj, prepared, clas)
+
+        used_files = []
+
+        for sub_obj_id, source_file, source_code in parts:
+            if source_file is None:
+                context.observer.writing('Clas', repo_obj.name, f'{sub_obj_id} (empty)')
+            else:
+                context.observer.writing('Clas', repo_obj.name, sub_obj_id)
+                used_files.append(source_file)
+
+            # The parts were checked together above - a part checked alone
+            # would be judged against the other parts stored in the system
+            sap.adt.checks.write_source(source_code, class_parts[sub_obj_id], corrnr=context.corrnr,
+                                        source_label=source_file, check_before_save=False,
+                                        check_after_failed_save=not context.check_before_save)
 
         abap_objects = [clas]
 
@@ -163,21 +165,45 @@ class ClassHandler(ObjectHandler):
 
         return ObjectCheckinResult(abap_objects, used_files)
 
-    def _empty_includes_without_file(self, context, repo_obj, prepared, clas, class_parts):
-        """Writes empty source code to the includes of the existing class
-           which have no file in the repository. Includes which do not exist
-           in the system are not created.
+    def _update_description(self, context, repo_obj, prepared, clas):
+        """Writes the description of the existing class if it differs"""
+
+        description = prepared.abap_data.DESCRIPT or ''
+        if (clas.description or '') != description:
+            context.observer.writing('Clas', repo_obj.name, 'description')
+            clas.write_description(description, corrnr=context.corrnr)
+
+    def _parts_to_write(self, prepared, clas, created):
+        """Returns (part, source file or None, source code) of the parts to
+           write in the order main source, definitions, implementations, test
+           classes. The repository is the truth: every part with a file is
+           written - ClassIncludeEditor.write() generates an include which
+           does not exist in the system. The includes of an existing class
+           which have no file are emptied (source file None); an include
+           which neither exists in the system nor has a file is not created.
         """
 
-        parts_with_file = [sub_obj_id for sub_obj_id, _, _ in prepared.parts]
+        files = {sub_obj_id: (source_file, source_code) for sub_obj_id, source_file, source_code in prepared.parts}
 
-        for sub_obj_id, include_type in INCLUDE_TYPES.items():
-            if sub_obj_id in parts_with_file or include_type not in clas.include_types:
-                continue
+        parts = []
+        for sub_obj_id in CLASS_PARTS:
+            if sub_obj_id in files:
+                parts.append((sub_obj_id,) + files[sub_obj_id])
+            elif not created and INCLUDE_TYPES.get(sub_obj_id) in clas.include_types:
+                parts.append((sub_obj_id, None, ''))
 
-            context.observer.writing('Clas', repo_obj.name, f'{sub_obj_id} (empty)')
-            sap.adt.checks.write_source('', class_parts[sub_obj_id], corrnr=context.corrnr,
-                                        check_before_save=context.check_before_save)
+        return parts
+
+    def _check_parts(self, clas, class_parts, parts):
+        """Checks all parts together before any of them is written"""
+
+        result = sap.adt.checks.run_object_parts_check(
+            clas, [(class_parts[sub_obj_id], source_code) for sub_obj_id, _, source_code in parts])
+
+        if result.has_errors:
+            source_labels = {sap.adt.checks.source_artifact_uri(class_parts[sub_obj_id]): source_file
+                             for sub_obj_id, source_file, _ in parts if source_file is not None}
+            raise sap.adt.checks.ObjectCheckFindings(clas, result, source_labels=source_labels)
 
     def locate(self, repo_obj, part, line):
         file_name_end = SOURCE_PART_FILES.get(part)
