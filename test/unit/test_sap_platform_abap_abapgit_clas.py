@@ -12,7 +12,8 @@ from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, Rep
 from sap.platform.abap.abapgit.clas import ClassHandler
 
 from mock import Connection, PatcherTestCase, StringIOFile
-from fixtures_sap_platform_abap_abapgit_clas import CLAS_XML, CLAS_WITH_DESCRIPTIONS_SUB_XML, CLAS_WITH_TPOOL_XML
+from fixtures_sap_platform_abap_abapgit_clas import (CLAS_XML, CLAS_WITH_DESCRIPTIONS_SUB_XML, CLAS_WITH_TPOOL_XML,
+                                                     CLAS_WITHOUT_DESCRIPTION_XML)
 
 FIXTURE_TEXT_SYMBOLS = '@MaxLength:20\r\n001=Hello, world!\r\n@MaxLength:10\r\n002=a=b\r\n'
 
@@ -297,6 +298,8 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
         self.package_reference.name = 'test_package'
 
         self.clas = MagicMock(reference=self.package_reference)
+        self.clas.description = 'Test description'
+        self.clas.include_types = ['definitions', 'implementations', 'macros', 'testclasses', 'main']
         self.clas.open_editor.return_value = self.clas_editor
         self.clas.definitions.open_editor.return_value = self.clas_editor
         self.clas.implementations.open_editor.return_value = self.clas_editor
@@ -319,6 +322,13 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
 
         context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, self.clas_object, prepared)
+
+    def checkin_main_source_only(self):
+        self.clas_object = RepoObject('clas', 'test_clas', '/src/test_clas.clas.xml', ['test_clas.clas.abap'],
+                                      self.package, self.handler)
+        self.source_files_content = ['class_body']
+
+        return self.checkin()
 
     def assert_open_editor_calls(self, corrnr=None):
         self.clas.open_editor.assert_called_once_with(corrnr=corrnr)
@@ -388,33 +398,127 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
         ])
 
     def test_checkin_already_exists(self):
-        self.clas.create.side_effect = [ExceptionResourceAlreadyExists('Class already exists.'), None]
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
 
-        self.checkin()
+        result = self.checkin()
 
+        self.assertEqual(result.abap_objects, [self.clas])
+        self.assertEqual(result.used_files, ['test_clas.clas.abap', 'test_clas.clas.locals_def.abap',
+                                             'test_clas.clas.locals_imp.abap', 'test_clas.clas.testclasses.abap'])
+        self.clas.create.assert_called_once_with(None)
         self.clas.fetch.assert_called_once()
-        self.clas.delete.assert_called_once_with(None)
-        self.assertEqual(self.clas.create.call_args_list, [call(None), call(None)])
-        self.assertEqual(self.fake_class.call_count, 2)
+        self.clas.delete.assert_not_called()
+        self.clas.write_description.assert_not_called()
+        self.assertEqual(self.fake_class.call_count, 1)
+        self.assert_open_editor_calls()
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Class', 'test_clas'),
+            call.writing('Clas', 'test_clas', 'clas'),
+            call.writing('Clas', 'test_clas', 'locals_def'),
+            call.writing('Clas', 'test_clas', 'locals_imp'),
+            call.writing('Clas', 'test_clas', 'testclasses'),
+        ])
 
     def test_checkin_already_exists_with_corrnr(self):
-        self.clas.create.side_effect = [ExceptionResourceAlreadyExists('Class already exists.'), None]
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
 
         self.checkin(corrnr='corrnr')
 
-        self.clas.fetch.assert_called_once()
-        self.clas.delete.assert_called_once_with('corrnr')
-        self.assertEqual(self.clas.create.call_args_list, [call('corrnr'), call('corrnr')])
+        self.clas.create.assert_called_once_with('corrnr')
+        self.clas.delete.assert_not_called()
+        self.assert_open_editor_calls(corrnr='corrnr')
 
     def test_checkin_already_exists_package_in_upper_case(self):
-        self.clas.create.side_effect = [ExceptionResourceAlreadyExists('Class already exists.'), None]
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
         self.package_reference.name = 'TEST_PACKAGE'
 
         self.checkin()
 
         self.clas.fetch.assert_called_once()
-        self.clas.delete.assert_called_once_with(None)
-        self.assertEqual(self.clas.create.call_args_list, [call(None), call(None)])
+        self.clas.delete.assert_not_called()
+        self.assert_open_editor_calls()
+
+    def test_checkin_already_exists_changed_description(self):
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+        self.clas.description = 'Old description'
+
+        self.checkin(corrnr='corrnr')
+
+        self.clas.write_description.assert_called_once_with('Test description', corrnr='corrnr')
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Class', 'test_clas'),
+            call.writing('Clas', 'test_clas', 'description'),
+            call.writing('Clas', 'test_clas', 'clas'),
+            call.writing('Clas', 'test_clas', 'locals_def'),
+            call.writing('Clas', 'test_clas', 'locals_imp'),
+            call.writing('Clas', 'test_clas', 'testclasses'),
+        ])
+
+    def test_checkin_already_exists_without_description(self):
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+        self.clas.description = 'Old description'
+
+        self.checkin(clas_xml=CLAS_WITHOUT_DESCRIPTION_XML)
+
+        self.clas.write_description.assert_called_once_with('', corrnr=None)
+
+    def test_checkin_already_exists_empties_includes_without_file(self):
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+
+        result = self.checkin_main_source_only()
+
+        self.assertEqual(result.used_files, ['test_clas.clas.abap'])
+        self.clas.open_editor.assert_called_once_with(corrnr=None)
+        self.clas.definitions.open_editor.assert_called_once_with(corrnr=None)
+        self.clas.implementations.open_editor.assert_called_once_with(corrnr=None)
+        self.clas.test_classes.open_editor.assert_called_once_with(corrnr=None)
+        self.assertEqual(self.clas_editor.write.call_args_list, [call('class_body'), call(''), call(''), call('')])
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Class', 'test_clas'),
+            call.writing('Clas', 'test_clas', 'clas'),
+            call.writing('Clas', 'test_clas', 'locals_def (empty)'),
+            call.writing('Clas', 'test_clas', 'locals_imp (empty)'),
+            call.writing('Clas', 'test_clas', 'testclasses (empty)'),
+        ])
+
+    def test_checkin_already_exists_does_not_create_missing_include(self):
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+        self.clas.include_types = ['definitions', 'implementations', 'macros', 'main']
+
+        self.checkin_main_source_only()
+
+        self.clas.definitions.open_editor.assert_called_once_with(corrnr=None)
+        self.clas.implementations.open_editor.assert_called_once_with(corrnr=None)
+        self.clas.test_classes.open_editor.assert_not_called()
+        self.assertEqual(self.clas_editor.write.call_args_list, [call('class_body'), call(''), call('')])
+
+    def test_checkin_already_exists_writes_missing_include_with_file(self):
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+        # e.g. a class created in SAPGUI has no test classes include
+        self.clas.include_types = ['definitions', 'implementations', 'macros', 'main']
+        test_classes_editor = MagicMock()
+        test_classes_editor.__enter__.return_value = test_classes_editor
+        self.clas.test_classes.open_editor.return_value = test_classes_editor
+
+        result = self.checkin()
+
+        # The repository is the truth - ClassIncludeEditor.write() generates
+        # the missing include
+        self.clas.test_classes.open_editor.assert_called_once_with(corrnr=None)
+        test_classes_editor.write.assert_called_once_with('test_body')
+        self.assertIn('test_clas.clas.testclasses.abap', result.used_files)
+
+    def test_checkin_new_class_keeps_includes_without_file(self):
+        result = self.checkin_main_source_only()
+
+        self.assertEqual(result.used_files, ['test_clas.clas.abap'])
+        self.clas.fetch.assert_not_called()
+        self.clas.write_description.assert_not_called()
+        self.clas.open_editor.assert_called_once_with(corrnr=None)
+        self.clas.definitions.open_editor.assert_not_called()
+        self.clas.implementations.open_editor.assert_not_called()
+        self.clas.test_classes.open_editor.assert_not_called()
+        self.assertEqual(self.clas_editor.write.call_args_list, [call('class_body')])
 
     def test_checkin_in_different_package(self):
         self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
@@ -428,6 +532,8 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
                          'Cannot checkin class TEST_CLAS into package test_package.'
                          ' It already exists in package different_package.')
         self.clas.delete.assert_not_called()
+        self.clas.write_description.assert_not_called()
+        self.clas.open_editor.assert_not_called()
 
     def test_checkin_create_error(self):
         self.clas.create.side_effect = SAPCliError('Class creation failed.')
@@ -436,6 +542,8 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
             self.checkin()
 
         self.assertEqual(str(cm.exception), 'Class creation failed.')
+        self.clas.fetch.assert_not_called()
+        self.clas.delete.assert_not_called()
         self.clas.open_editor.assert_not_called()
 
 
