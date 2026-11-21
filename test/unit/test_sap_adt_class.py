@@ -12,7 +12,7 @@ from fixtures_adt import (LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, TEST_CLASSES_READ
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
 
 from fixtures_adt_clas import (CREATE_CLASS_ADT_XML, GET_CLASS_ADT_XML, WRITE_INCLUDE_ERROR_XML,
-                               GENERATE_INCLUDE_REQUEST_XML)
+                               GENERATE_INCLUDE_REQUEST_XML, GET_CLASS_WITHOUT_TEST_CLASSES_ADT_XML)
 
 
 FIXTURE_CLASS_MAIN_CODE='''class zcl_hello_world definition public.
@@ -220,6 +220,43 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual(clas.description, 'You cannot stop me!')
         self.assertEqual(clas.modeled, False)
         self.assertEqual(clas.fix_point_arithmetic, True)
+
+    def test_adt_class_include_types_not_fetched(self):
+        clas = sap.adt.Class(Connection(), 'ZCL_HELLO_WORLD')
+
+        self.assertEqual(clas.include_types, [])
+
+    def test_adt_class_fetch_include_types(self):
+        conn = Connection([Response(text=GET_CLASS_ADT_XML, status_code=200, headers={})])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        clas.fetch()
+
+        self.assertEqual(clas.include_types, ['definitions', 'implementations', 'macros', 'testclasses', 'main'])
+
+    def test_adt_class_fetch_include_types_without_test_classes(self):
+        conn = Connection([Response(text=GET_CLASS_WITHOUT_TEST_CLASSES_ADT_XML, status_code=200, headers={})])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        clas.fetch()
+
+        self.assertEqual(clas.include_types, ['definitions', 'implementations', 'macros', 'main'])
+
+    def test_adt_class_fetch_again_replaces_include_types(self):
+        conn = Connection([Response(text=GET_CLASS_ADT_XML, status_code=200, headers={}),
+                           Response(text=GET_CLASS_WITHOUT_TEST_CLASSES_ADT_XML, status_code=200, headers={})])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        clas.fetch()
+        clas.fetch()
+
+        self.assertEqual(clas.include_types, ['definitions', 'implementations', 'macros', 'main'])
+
+    def test_adt_class_serialize_fetched_include_types_not_added(self):
+        conn = Connection([Response(text=GET_CLASS_ADT_XML, status_code=200, headers={})])
+        clas = sap.adt.Class(conn, 'ZCL_HELLO_WORLD')
+        clas.fetch()
+
+        payload, _ = clas.serialize()
+
+        self.assertEqual(payload.count('<class:include '), 1)
 
     def test_adt_class_execute(self):
         expected = 'Output from executed class'
