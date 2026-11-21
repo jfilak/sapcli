@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import MagicMock, Mock, PropertyMock, call, mock_open, patch
 
 import sap.adt
+import sap.adt.checks
 import sap.adt.errors
 import sap.platform.abap.abapgit.clas
 from sap.adt.errors import ExceptionCheckinFailure, ExceptionResourceAlreadyExists
@@ -323,12 +324,12 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
         context = CheckinContext(self.connection, 'test_package', corrnr, check_before_save, self.observer)
         return self.handler.checkin(context, self.clas_object, prepared)
 
-    def checkin_main_source_only(self):
+    def checkin_main_source_only(self, check_before_save=False):
         self.clas_object = RepoObject('clas', 'test_clas', '/src/test_clas.clas.xml', ['test_clas.clas.abap'],
                                       self.package, self.handler)
         self.source_files_content = ['class_body']
 
-        return self.checkin()
+        return self.checkin(check_before_save=check_before_save)
 
     def assert_open_editor_calls(self, corrnr=None):
         self.clas.open_editor.assert_called_once_with(corrnr=corrnr)
@@ -383,18 +384,160 @@ class TestClassHandlerCheckin(ClassHandlerCheckinTestCase):
         self.clas.create.assert_called_once_with('corrnr')
         self.assert_open_editor_calls(corrnr='corrnr')
 
+    def set_up_part_uris(self):
+        self.clas.full_adt_uri = '/sap/bc/adt/oo/classes/test_clas'
+        self.clas.objtype.get_uri_for_type.return_value = '/source/main'
+        self.clas.definitions.full_adt_uri = '/sap/bc/adt/oo/classes/test_clas'
+        self.clas.definitions.objtype.get_uri_for_type.return_value = '/includes/definitions'
+        self.clas.implementations.full_adt_uri = '/sap/bc/adt/oo/classes/test_clas'
+        self.clas.implementations.objtype.get_uri_for_type.return_value = '/includes/implementations'
+        self.clas.test_classes.full_adt_uri = '/sap/bc/adt/oo/classes/test_clas'
+        self.clas.test_classes.objtype.get_uri_for_type.return_value = '/includes/testclasses'
+
     def test_checkin_check_before_save(self):
-        with patch('sap.adt.checks.write_source') as fake_write:
+        steps = Mock()
+        steps.check.return_value = Mock(has_errors=False)
+
+        with patch('sap.adt.checks.run_object_parts_check', steps.check), \
+             patch('sap.adt.checks.write_source', steps.write):
             self.checkin(corrnr='corrnr', check_before_save=True)
 
+        self.assertEqual(steps.mock_calls, [
+            call.check(self.clas, [(self.clas, 'class_body'),
+                                   (self.clas.definitions, 'locals_def_body'),
+                                   (self.clas.implementations, 'locals_imp_body'),
+                                   (self.clas.test_classes, 'test_body')]),
+            call.write('class_body', self.clas, corrnr='corrnr', source_label='test_clas.clas.abap',
+                       check_before_save=False, check_after_failed_save=False),
+            call.write('locals_def_body', self.clas.definitions, corrnr='corrnr',
+                       source_label='test_clas.clas.locals_def.abap', check_before_save=False,
+                       check_after_failed_save=False),
+            call.write('locals_imp_body', self.clas.implementations, corrnr='corrnr',
+                       source_label='test_clas.clas.locals_imp.abap', check_before_save=False,
+                       check_after_failed_save=False),
+            call.write('test_body', self.clas.test_classes, corrnr='corrnr',
+                       source_label='test_clas.clas.testclasses.abap', check_before_save=False,
+                       check_after_failed_save=False),
+        ])
+
+    def test_checkin_check_before_save_failed_write_raises_save_failure(self):
+        save_failure = sap.adt.errors.ExceptionResourceSaveFailure('locked')
+        self.clas_editor.write.side_effect = save_failure
+
+        with patch('sap.adt.checks.run_object_parts_check', return_value=Mock(has_errors=False)), \
+             patch('sap.adt.checks.run_object_check') as fake_check, \
+             self.assertRaises(sap.adt.errors.ExceptionResourceSaveFailure) as cm:
+            self.checkin(check_before_save=True)
+
+        # all parts were checked together - a check of the failed part alone
+        # would be judged against partially written parts
+        fake_check.assert_not_called()
+        self.assertIs(cm.exception, save_failure)
+
+    def test_checkin_without_check_before_save_failed_write_runs_check(self):
+        self.clas_editor.write.side_effect = sap.adt.errors.ExceptionResourceSaveFailure('syntax')
+
+        with patch('sap.adt.checks.run_object_check', return_value=Mock(has_errors=True)) as fake_check, \
+             self.assertRaises(sap.adt.checks.ObjectCheckFindings):
+            self.checkin()
+
+        fake_check.assert_called_once_with(self.clas, 'class_body')
+
+    def test_checkin_check_before_save_errors(self):
+        self.set_up_part_uris()
+        result = Mock(has_errors=True)
+
+        with patch('sap.adt.checks.run_object_parts_check', return_value=result), \
+             self.assertRaises(sap.adt.checks.ObjectCheckFindings) as cm:
+            self.checkin(check_before_save=True)
+
+        self.assertIs(cm.exception.adt_object, self.clas)
+        self.assertIs(cm.exception.result, result)
+        self.assertEqual(cm.exception.source_labels, {
+            '/sap/bc/adt/oo/classes/test_clas/source/main': 'test_clas.clas.abap',
+            '/sap/bc/adt/oo/classes/test_clas/includes/definitions': 'test_clas.clas.locals_def.abap',
+            '/sap/bc/adt/oo/classes/test_clas/includes/implementations': 'test_clas.clas.locals_imp.abap',
+            '/sap/bc/adt/oo/classes/test_clas/includes/testclasses': 'test_clas.clas.testclasses.abap',
+        })
+        self.clas.open_editor.assert_not_called()
+        self.clas.definitions.open_editor.assert_not_called()
+        self.clas.implementations.open_editor.assert_not_called()
+        self.clas.test_classes.open_editor.assert_not_called()
+
+    def test_checkin_already_exists_check_before_save_errors_writes_nothing(self):
+        self.set_up_part_uris()
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+        self.clas.description = 'Old description'
+
+        with patch('sap.adt.checks.run_object_parts_check', return_value=Mock(has_errors=True)), \
+             self.assertRaises(sap.adt.checks.ObjectCheckFindings):
+            self.checkin(check_before_save=True)
+
+        self.clas.write_description.assert_not_called()
+        self.clas.open_editor.assert_not_called()
+        self.clas.definitions.open_editor.assert_not_called()
+        self.clas.implementations.open_editor.assert_not_called()
+        self.clas.test_classes.open_editor.assert_not_called()
+
+    def test_checkin_already_exists_check_before_save_with_emptied_includes(self):
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+
+        with patch('sap.adt.checks.run_object_parts_check', return_value=Mock(has_errors=False)) as fake_check, \
+             patch('sap.adt.checks.write_source') as fake_write:
+            self.checkin_main_source_only(check_before_save=True)
+
+        fake_check.assert_called_once_with(self.clas, [(self.clas, 'class_body'),
+                                                       (self.clas.definitions, ''),
+                                                       (self.clas.implementations, ''),
+                                                       (self.clas.test_classes, '')])
         self.assertEqual(fake_write.call_args_list, [
-            call('class_body', self.clas, corrnr='corrnr', source_label='test_clas.clas.abap', check_before_save=True),
-            call('locals_def_body', self.clas.definitions, corrnr='corrnr',
-                 source_label='test_clas.clas.locals_def.abap', check_before_save=True),
-            call('locals_imp_body', self.clas.implementations, corrnr='corrnr',
-                 source_label='test_clas.clas.locals_imp.abap', check_before_save=True),
-            call('test_body', self.clas.test_classes, corrnr='corrnr',
-                 source_label='test_clas.clas.testclasses.abap', check_before_save=True),
+            call('class_body', self.clas, corrnr=None, source_label='test_clas.clas.abap', check_before_save=False,
+                 check_after_failed_save=False),
+            call('', self.clas.definitions, corrnr=None, source_label=None, check_before_save=False,
+                 check_after_failed_save=False),
+            call('', self.clas.implementations, corrnr=None, source_label=None, check_before_save=False,
+                 check_after_failed_save=False),
+            call('', self.clas.test_classes, corrnr=None, source_label=None, check_before_save=False,
+                 check_after_failed_save=False),
+        ])
+
+    def test_checkin_without_check_before_save_runs_no_check(self):
+        with patch('sap.adt.checks.run_object_parts_check') as fake_check:
+            self.checkin()
+
+        fake_check.assert_not_called()
+
+    def test_checkin_writes_main_source_first(self):
+        self.clas_object = RepoObject('clas', 'test_clas', '/src/test_clas.clas.xml',
+                                      ['test_clas.clas.testclasses.abap', 'test_clas.clas.locals_imp.abap',
+                                       'test_clas.clas.abap', 'test_clas.clas.locals_def.abap'],
+                                      self.package, self.handler)
+        self.source_files_content = ['test_body', 'locals_imp_body', 'class_body', 'locals_def_body']
+
+        result = self.checkin()
+
+        self.assertEqual(self.clas_editor.write.call_args_list,
+                         [call('class_body'), call('locals_def_body'), call('locals_imp_body'), call('test_body')])
+        self.assertEqual(result.used_files, ['test_clas.clas.abap', 'test_clas.clas.locals_def.abap',
+                                             'test_clas.clas.locals_imp.abap', 'test_clas.clas.testclasses.abap'])
+
+    def test_checkin_already_exists_empties_includes_in_order(self):
+        self.clas.create.side_effect = ExceptionResourceAlreadyExists('Class already exists.')
+        self.clas_object = RepoObject('clas', 'test_clas', '/src/test_clas.clas.xml',
+                                      ['test_clas.clas.testclasses.abap', 'test_clas.clas.abap'],
+                                      self.package, self.handler)
+        self.source_files_content = ['test_body', 'class_body']
+
+        self.checkin()
+
+        self.assertEqual(self.clas_editor.write.call_args_list,
+                         [call('class_body'), call(''), call(''), call('test_body')])
+        self.assertEqual(self.observer.mock_calls, [
+            call.creating('Class', 'test_clas'),
+            call.writing('Clas', 'test_clas', 'clas'),
+            call.writing('Clas', 'test_clas', 'locals_def (empty)'),
+            call.writing('Clas', 'test_clas', 'locals_imp (empty)'),
+            call.writing('Clas', 'test_clas', 'testclasses'),
         ])
 
     def test_checkin_already_exists(self):
