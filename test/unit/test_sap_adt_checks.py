@@ -20,6 +20,7 @@ from fixtures_adt_checks import (
     ADT_XML_RUN_OBJECT_CHECK_RESPONSE_ERRORS,
     ADT_XML_RUN_OBJECT_CHECK_RESPONSE_WARNINGS_ONLY,
     ADT_XML_RUN_OBJECT_CHECK_RESPONSE_CLEAN,
+    ADT_XML_RUN_CLASS_PARTS_CHECK_RESPONSE_ERRORS,
 )
 
 
@@ -180,6 +181,55 @@ class TestCheckObjectWithArtifacts(unittest.TestCase):
         self.assertIn('chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/source/main"', xml)
         self.assertIn('<chkrun:content>UkVQT1JUIHpmb28u</chkrun:content>', xml)
 
+    def test_add_object_with_sources_of_class_parts(self):
+        connection = Connection()
+        clas = sap.adt.Class(connection, 'CL_FOO')
+
+        obj_list = sap.adt.checks.CheckObjectList()
+        obj_list.add_object_with_sources(clas, [(clas, 'REPORT zfoo.\n'),
+                                                (clas.definitions, 'DEFS.'),
+                                                (clas.test_classes, '')])
+
+        self.assertEqual(Marshal().serialize(obj_list), '''<?xml version="1.0" encoding="UTF-8"?>
+<chkrun:checkObjectList xmlns:chkrun="http://www.sap.com/adt/checkrun" xmlns:adtcore="http://www.sap.com/adt/core">
+<chkrun:checkObject adtcore:uri="/sap/bc/adt/oo/classes/cl_foo" chkrun:version="active">
+<chkrun:artifacts>
+<chkrun:artifact chkrun:contentType="text/plain; charset=utf-8" chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/source/main">
+<chkrun:content>UkVQT1JUIHpmb28u</chkrun:content>
+</chkrun:artifact>
+<chkrun:artifact chkrun:contentType="text/plain; charset=utf-8" chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/includes/definitions">
+<chkrun:content>REVGUy4=</chkrun:content>
+</chkrun:artifact>
+<chkrun:artifact chkrun:contentType="text/plain; charset=utf-8" chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/includes/testclasses">
+<chkrun:content></chkrun:content>
+</chkrun:artifact>
+</chkrun:artifacts>
+</chkrun:checkObject>
+</chkrun:checkObjectList>''')
+
+    def test_add_object_with_sources_version(self):
+        connection = Connection()
+        clas = sap.adt.Class(connection, 'CL_FOO')
+
+        obj_list = sap.adt.checks.CheckObjectList()
+        check_object = obj_list.add_object_with_sources(clas, [(clas, 'REPORT zfoo.')], version='inactive')
+
+        self.assertIs(obj_list.objects[0], check_object)
+        self.assertEqual(check_object.chkrun_version, 'inactive')
+
+    def test_source_artifact_uri_of_class_include(self):
+        clas = sap.adt.Class(Connection(), 'CL_FOO')
+
+        self.assertEqual(sap.adt.checks.source_artifact_uri(clas.test_classes),
+                         '/sap/bc/adt/oo/classes/cl_foo/includes/testclasses')
+
+    def test_source_artifact_uri_of_include_with_master(self):
+        include = sap.adt.Include(Connection(), 'ZHELLO_INCLUDE', master='ZHELLO_WORLD')
+
+        self.assertEqual(sap.adt.checks.source_artifact_uri(include),
+                         '/sap/bc/adt/programs/includes/zhello_include/source/main'
+                         '?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzhello_world')
+
     def test_plain_add_object_does_not_emit_artifacts_node(self):
         connection = Connection()
 
@@ -285,6 +335,24 @@ class TestRunObjectCheck(unittest.TestCase):
         self.assertEqual(list(result.messages), [])
 
 
+class TestRunObjectPartsCheck(unittest.TestCase):
+
+    def test_one_request_with_all_parts(self):
+        connection = Connection([Response(status_code=200,
+                                          content_type='application/vnd.sap.adt.checkmessages+xml; charset=utf-8',
+                                          text=ADT_XML_RUN_CLASS_PARTS_CHECK_RESPONSE_ERRORS)])
+        clas = sap.adt.Class(connection, 'CL_FOO')
+
+        result = sap.adt.checks.run_object_parts_check(clas, [(clas, 'REPORT zfoo.'), (clas.test_classes, '')])
+
+        self.assertTrue(result.has_errors)
+        self.assertEqual(connection.mock_methods(), [('POST', '/sap/bc/adt/checkruns')])
+        self.assertEqual(connection.execs[0].params, {'reporters': 'abapCheckRun'})
+        self.assertIn('adtcore:uri="/sap/bc/adt/oo/classes/cl_foo" chkrun:version="active"', connection.execs[0].body)
+        self.assertIn('chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/source/main"', connection.execs[0].body)
+        self.assertIn('chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/includes/testclasses"', connection.execs[0].body)
+
+
 class TestObjectCheckFindings(unittest.TestCase):
 
     def _make_connection(self, response_text):
@@ -320,6 +388,51 @@ class TestObjectCheckFindings(unittest.TestCase):
 
         self.assertIn('src/cl_foo.clas.abap:27:2: E SYNTAX(001)', rendered)
         self.assertNotIn('cl_foo:27:2:', rendered)
+
+    def test_str_uses_source_labels_of_parts(self):
+        connection = self._make_connection(ADT_XML_RUN_CLASS_PARTS_CHECK_RESPONSE_ERRORS)
+        clas = sap.adt.Class(connection, 'CL_FOO')
+        result = sap.adt.checks.run_object_parts_check(clas, [(clas, 'foo')])
+
+        exc = sap.adt.checks.ObjectCheckFindings(clas, result, source_labels={
+            '/sap/bc/adt/oo/classes/cl_foo/source/main': 'src/cl_foo.clas.abap',
+            '/sap/bc/adt/oo/classes/cl_foo/includes/testclasses': 'src/cl_foo.clas.testclasses.abap',
+        })
+
+        self.assertEqual(str(exc), 'src/cl_foo.clas.testclasses.abap:8:72: E MESSAGE(G$S): Method "GET_VALUX" does not exist.\n'
+                                   'src/cl_foo.clas.abap:3:1: W OBSOLETE(001): Obsolete syntax\n'
+                                   'cl_foo/includes/definitions:1:7: E SYNTAX(002): Unknown type')
+
+    def test_str_uses_source_label_for_parts_without_label(self):
+        connection = self._make_connection(ADT_XML_RUN_CLASS_PARTS_CHECK_RESPONSE_ERRORS)
+        clas = sap.adt.Class(connection, 'CL_FOO')
+        result = sap.adt.checks.run_object_parts_check(clas, [(clas, 'foo')])
+
+        exc = sap.adt.checks.ObjectCheckFindings(clas, result, source_label='src/cl_foo', source_labels={
+            '/sap/bc/adt/oo/classes/cl_foo/includes/testclasses': 'src/cl_foo.clas.testclasses.abap',
+        })
+
+        self.assertEqual(str(exc), 'src/cl_foo.clas.testclasses.abap:8:72: E MESSAGE(G$S): Method "GET_VALUX" does not exist.\n'
+                                   'src/cl_foo:3:1: W OBSOLETE(001): Obsolete syntax\n'
+                                   'src/cl_foo:1:7: E SYNTAX(002): Unknown type')
+
+    def test_str_source_labels_ignore_query_and_case(self):
+        connection = self._make_connection(ADT_XML_RUN_CLASS_PARTS_CHECK_RESPONSE_ERRORS)
+        clas = sap.adt.Class(connection, 'CL_FOO')
+        result = sap.adt.checks.run_object_parts_check(clas, [(clas, 'foo')])
+
+        exc = sap.adt.checks.ObjectCheckFindings(clas, result, source_labels={
+            '/sap/bc/adt/oo/classes/CL_FOO/includes/testclasses?context=foo': 'src/cl_foo.clas.testclasses.abap',
+        })
+
+        self.assertIn('src/cl_foo.clas.testclasses.abap:8:72: E MESSAGE(G$S)', str(exc))
+
+    def test_source_labels_are_normalized(self):
+        exc = sap.adt.checks.ObjectCheckFindings(Mock(), Mock(), source_labels={
+            '/sap/bc/adt/oo/classes/CL_FOO/source/main?context=foo': 'src/cl_foo.clas.abap',
+        })
+
+        self.assertEqual(exc.source_labels, {'/sap/bc/adt/oo/classes/cl_foo/source/main': 'src/cl_foo.clas.abap'})
 
 
 def new_adt_object():
@@ -416,6 +529,18 @@ class TestWriteSource(unittest.TestCase):
                 sap.adt.checks.write_source('CODE', adt_object)
 
         fake_check.assert_called_once()
+        self.assertIs(cm.exception, save_failure)
+
+    def test_failed_put_without_check_after_failed_save_reraises_original(self):
+        adt_object, editor = new_adt_object()
+        save_failure = sap.adt.errors.ExceptionResourceSaveFailure('locked')
+        editor.write.side_effect = save_failure
+
+        with patch('sap.adt.checks.run_object_check') as fake_check:
+            with self.assertRaises(sap.adt.errors.ExceptionResourceSaveFailure) as cm:
+                sap.adt.checks.write_source('CODE', adt_object, check_after_failed_save=False)
+
+        fake_check.assert_not_called()
         self.assertIs(cm.exception, save_failure)
 
 

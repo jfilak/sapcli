@@ -92,6 +92,14 @@ class CheckObject(metaclass=OrderedClassMembers):
         self.artifacts.append(artifact)
 
 
+def source_artifact_uri(part_object):
+    """Returns the URI of the source code of the object (or of the object
+       part, e.g. a class include) in check run requests and messages.
+    """
+
+    return append_uri_path(part_object.full_adt_uri, part_object.objtype.get_uri_for_type('text/plain'))
+
+
 class CheckObjectList(metaclass=OrderedClassMembers):
     """ADT run request items"""
 
@@ -127,15 +135,26 @@ class CheckObjectList(metaclass=OrderedClassMembers):
         the payload is Base64 encoded.
         """
 
+        return self.add_object_with_sources(adt_object, [(adt_object, source)], version=version)
+
+    def add_object_with_sources(self, adt_object, sources, *, version='active'):
+        """Adds an object along with candidate source payloads of its parts
+           - e.g. the main source and the includes of a class - which the
+           server checks together.
+
+        ``sources`` is a list of ``(part_object, source)``; the part
+        objects give the artifact URIs (see :func:`source_artifact_uri`).
+        """
+
         check_object = CheckObject(adt_object.full_adt_uri)
         check_object.chkrun_version = version
 
-        if source and source[-1] == '\n':
-            source = source[:-1]
+        for part_object, source in sources:
+            if source and source[-1] == '\n':
+                source = source[:-1]
 
-        artifact_uri = append_uri_path(adt_object.full_adt_uri, adt_object.objtype.get_uri_for_type('text/plain'))
-        encoded = base64.b64encode(source.encode('utf-8')).decode('ascii')
-        check_object.add_artifact(CheckArtifact(uri=artifact_uri, content=encoded))
+            encoded = base64.b64encode(source.encode('utf-8')).decode('ascii')
+            check_object.add_artifact(CheckArtifact(uri=source_artifact_uri(part_object), content=encoded))
 
         self.objects = check_object
         return check_object
@@ -268,23 +287,41 @@ def format_check_message(message, source_label: Optional[str] = None) -> str:
     return f'{location}: {message.typ}{code_part}: {message.short_text}'
 
 
+def _uri_path(uri):
+    """Returns the URI without the query and the fragment in lower case"""
+
+    return uri.partition('#')[0].partition('?')[0].lower()
+
+
 class ObjectCheckFindings(SAPCliError):
     """Raised when abapCheckRun reports error messages for a candidate source.
 
     Carries the :class:`CheckResult` unchanged so callers can re-render
     the location (for instance, map the ADT URI back to a filesystem
     path when the code came from an abapgit repository).
+
+    ``source_labels`` maps the source artifact URIs of object parts (see
+    :func:`source_artifact_uri`) to labels - e.g. the files of class
+    includes; messages of other URIs use ``source_label``.
     """
 
-    def __init__(self, adt_object, result, *, source_label: Optional[str] = None):
+    def __init__(self, adt_object, result, *, source_label: Optional[str] = None,
+                 source_labels: Optional[dict] = None):
         super().__init__()
         self.adt_object = adt_object
         self.result = result
         self.source_label = source_label
+        self.source_labels = {_uri_path(uri): label for uri, label in (source_labels or {}).items()}
+
+    def _label(self, message):
+        if self.source_labels and message.uri:
+            return self.source_labels.get(_uri_path(message.uri), self.source_label)
+
+        return self.source_label
 
     def __str__(self):
         return '\n'.join(
-            format_check_message(msg, self.source_label)
+            format_check_message(msg, self._label(msg))
             for msg in self.result.messages
         )
 
@@ -297,14 +334,27 @@ def run_object_check(adt_object, source, *, version='active', reporter='abapChec
     :class:`CheckResult`.
     """
 
+    return run_object_parts_check(adt_object, [(adt_object, source)], version=version, reporter=reporter)
+
+
+def run_object_parts_check(adt_object, sources, *, version='active', reporter='abapCheckRun'):
+    """Runs ``abapCheckRun`` against candidate sources of several parts of
+       an ADT object at once - e.g. the main source and the includes of a
+       class - so that the parts are judged together.
+
+    ``sources`` is a list of ``(part_object, source)``. Returns a
+    :class:`CheckResult`.
+    """
+
     object_list = CheckObjectList()
-    object_list.add_object_with_source(adt_object, source, version=version)
+    object_list.add_object_with_sources(adt_object, sources, version=version)
 
     reports = run(adt_object.connection, Reporter(reporter), object_list)
     return CheckResult(reports)
 
 
-def write_source(source_code, adt_object, corrnr=None, source_label=None, check_before_save=False):
+def write_source(source_code, adt_object, corrnr=None, source_label=None, check_before_save=False,
+                 check_after_failed_save=True):
     """Write ``source_code`` to ``adt_object``.
 
     When ``check_before_save`` is ``True`` (because the user passed
@@ -317,6 +367,11 @@ def write_source(source_code, adt_object, corrnr=None, source_label=None, check_
     readable diagnostic instead of the cryptic save error. If the
     check has nothing to say, the original failure carries the real
     reason (lock, missing inactive version, ...) and is re-raised.
+
+    Callers which checked the source together with the other parts of
+    the object pass ``check_after_failed_save=False``: the part checked
+    alone would be judged against partially written parts and its
+    findings would hide the real reason of the failure.
     """
 
     if check_before_save:
@@ -330,6 +385,9 @@ def write_source(source_code, adt_object, corrnr=None, source_label=None, check_
         with adt_object.open_editor(corrnr=corrnr) as editor:
             editor.write(source_code)
     except ExceptionResourceSaveFailure as save_exc:
+        if not check_after_failed_save:
+            raise
+
         try:
             result = run_object_check(adt_object, source_code)
         except SAPCliError as check_exc:
