@@ -113,11 +113,13 @@ class ProgramHandler(ObjectHandler):
         metadata = sap.adt.ADTCoreData(language='EN', master_language='EN', responsible=context.connection.user.upper())
         if prepared.progdir.SUBC == SUBC_EXECUTABLE_PROGRAM:
             label = 'program'
-            program = sap.adt.Program(context.connection, repo_obj.name, package=context.package_name, metadata=metadata)
+            program = sap.adt.Program(context.connection, repo_obj.name.upper(), package=context.package_name,
+                                      metadata=metadata)
         else:
             context.observer.creating('Include', repo_obj.name)
             label = 'include'
-            program = sap.adt.Include(context.connection, repo_obj.name, package=context.package_name, metadata=metadata)
+            program = sap.adt.Include(context.connection, repo_obj.name.upper(), package=context.package_name,
+                                      metadata=metadata)
 
         if prepared.description is not None:
             program.description = prepared.description

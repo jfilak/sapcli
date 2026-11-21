@@ -206,3 +206,5 @@ INCLUDE_XML = '''<?xml version="1.0" encoding="utf-8"?>
   </asx:values>
  </asx:abap>
 </abapGit>'''
+
+ERROR_XML_PROGRAM_ALREADY_EXISTS = '''<?xml version="1.0" encoding="utf-8"?><exc:exception xmlns:exc="http://www.sap.com/abapxml/types/communicationframework"><namespace id="com.sap.adt"/><type id="ExceptionResourceCreationFailure"/><message lang="EN">A program or include already exists with the name ZHELLO_WORLD</message><localizedMessage lang="EN">A program or include already exists with the name ZHELLO_WORLD</localizedMessage><properties/></exc:exception>'''

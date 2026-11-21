@@ -11,9 +11,11 @@ from sap.adt.textelements import TextSymbol
 from sap.platform.abap.localrepository import CheckinContext, ObjectHandler, RepoObject, RepoPackage, RepositoryObserver
 from sap.platform.abap.abapgit.prog import ProgramHandler
 
-from mock import Connection, PatcherTestCase, StringIOFile
+from mock import Connection, PatcherTestCase, Response, StringIOFile
+from fixtures_adt import LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK
+from fixtures_adt_program import GET_EXECUTABLE_PROGRAM_ADT_XML
 from fixtures_sap_platform_abap_abapgit_prog import PROG_XML, PROG_WITH_CUA_XML, PROG_WITH_TEXTS_XML, INCLUDE_XML, \
-    INCLUDE_WITH_TEXTS_XML, INVALID_TYPE_XML
+    INCLUDE_WITH_TEXTS_XML, INVALID_TYPE_XML, ERROR_XML_PROGRAM_ALREADY_EXISTS
 
 FIXTURE_TEXT_SYMBOLS = '@MaxLength:20\r\n001=Hello, world!\r\n@MaxLength:10\r\n002=a=b\r\n'
 
@@ -332,7 +334,7 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
         self.assertEqual(result.used_files, ['foo.prog.abap'])
         self.fake_open.assert_not_called()
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible='TEST_USER')
-        self.fake_program.assert_called_once_with(self.connection, 'test_prog', package='test_package',
+        self.fake_program.assert_called_once_with(self.connection, 'TEST_PROG', package='test_package',
                                                   metadata=self.metadata)
         self.fake_include.assert_not_called()
         self.assertEqual(self.program.description, 'Test program desc')
@@ -378,7 +380,7 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
     def test_checkin_with_cua(self):
         self.checkin(prog_xml=PROG_WITH_CUA_XML)
 
-        self.fake_program.assert_called_once_with(self.connection, 'test_prog', package='test_package',
+        self.fake_program.assert_called_once_with(self.connection, 'TEST_PROG', package='test_package',
                                                   metadata=self.metadata)
         self.assertEqual(self.program.description, 'Test program desc')
         self.program.create.assert_called_once_with(None)
@@ -389,7 +391,7 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
 
         self.assertEqual(result.abap_objects, [self.include])
         self.fake_core_data.assert_called_once_with(language='EN', master_language='EN', responsible='TEST_USER')
-        self.fake_include.assert_called_once_with(self.connection, 'test_prog', package='test_package',
+        self.fake_include.assert_called_once_with(self.connection, 'TEST_PROG', package='test_package',
                                                   metadata=self.metadata)
         self.fake_program.assert_not_called()
         self.assertEqual(self.include.description, 'Test include desc')
@@ -461,6 +463,35 @@ class TestProgramHandlerCheckin(ProgramHandlerCheckinTestCase):
 
         self.assertEqual(str(cm.exception), 'Failed to create program')
         self.program.open_editor.assert_not_called()
+
+
+class TestProgramHandlerCheckinExisting(ProgramHandlerCheckinTestCase):
+
+    def test_checkin_program_already_exists(self):
+        connection = Connection([
+            Response(status_code=400, headers={'content-type': 'application/xml'},
+                     text=ERROR_XML_PROGRAM_ALREADY_EXISTS),
+            Response(text=GET_EXECUTABLE_PROGRAM_ADT_XML, status_code=200, headers={}),
+            LOCK_RESPONSE_OK,
+            EMPTY_RESPONSE_OK,
+            None,
+        ])
+
+        repo_obj = RepoObject('prog', 'zhello_world', '/src/zhello_world.prog.xml',
+                              ['/src/zhello_world.prog.abap'], self.package, self.handler)
+        self.open_files(PROG_XML, 'test_prog_body')
+        prepared = self.handler.prepare(repo_obj, self.observer)
+
+        context = CheckinContext(connection, '$iamtheking', None, False, self.observer)
+        with self.assertLogs(sap.get_logger(), 'INFO'):
+            self.handler.checkin(context, repo_obj, prepared)
+
+        self.assertEqual(len(connection.execs), 5)
+
+        put_request = connection.execs[3]
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, '/sap/bc/adt/programs/programs/zhello_world/source/main')
+        self.assertEqual(put_request.body, b'test_prog_body')
 
 
 class TestProgramHandlerLocate(unittest.TestCase):
