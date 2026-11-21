@@ -72,3 +72,14 @@ ADT_XML_RUN_CHECK_2_REPORTERS = '''<?xml version="1.0" encoding="UTF-8"?>
     </chkrun:checkMessageList>
   </chkrun:checkReport>
 </chkrun:checkRunReports>'''
+
+ADT_XML_RUN_CLASS_PARTS_CHECK_RESPONSE_ERRORS = '''<?xml version="1.0" encoding="UTF-8"?>
+<chkrun:checkRunReports xmlns:chkrun="http://www.sap.com/adt/checkrun">
+  <chkrun:checkReport chkrun:reporter="abapCheckRun" chkrun:triggeringUri="/sap/bc/adt/oo/classes/cl_foo" chkrun:status="processed" chkrun:statusText="Object cl_foo has been checked">
+    <chkrun:checkMessageList>
+      <chkrun:checkMessage chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/includes/testclasses#start=8,72;end=8,81" chkrun:type="E" chkrun:shortText="Method &quot;GET_VALUX&quot; does not exist." chkrun:code="MESSAGE(G$S)"/>
+      <chkrun:checkMessage chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/source/main#start=3,1;end=3,5" chkrun:type="W" chkrun:shortText="Obsolete syntax" chkrun:code="OBSOLETE(001)"/>
+      <chkrun:checkMessage chkrun:uri="/sap/bc/adt/oo/classes/cl_foo/includes/definitions#start=1,7;end=1,9" chkrun:type="E" chkrun:shortText="Unknown type" chkrun:code="SYNTAX(002)"/>
+    </chkrun:checkMessageList>
+  </chkrun:checkReport>
+</chkrun:checkRunReports>'''
