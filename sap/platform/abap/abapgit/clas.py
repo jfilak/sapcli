@@ -2,8 +2,6 @@
 
 from types import SimpleNamespace
 
-from sap import get_logger
-
 import sap.adt
 import sap.adt.errors
 import sap.adt.textelements
@@ -25,6 +23,13 @@ from sap.platform.language import iso_code_to_sap_code
 # Class parts by the suffix of their source files
 CLASS_PARTS = ('clas', 'locals_def', 'locals_imp', 'testclasses')
 
+# ADT include types of the optional class parts
+INCLUDE_TYPES = {
+    'locals_def': 'definitions',
+    'locals_imp': 'implementations',
+    'testclasses': 'testclasses',
+}
+
 # Ends of file names of class parts by ADT source parts
 SOURCE_PART_FILES = {
     'source/main': '.clas.abap',
@@ -32,12 +37,6 @@ SOURCE_PART_FILES = {
     'includes/implementations': '.clas.locals_imp.abap',
     'includes/testclasses': '.clas.testclasses.abap',
 }
-
-
-def mod_log():
-    """Module logger"""
-
-    return get_logger()
 
 
 def build_class_abap_attributes(clas):
@@ -124,16 +123,12 @@ class ClassHandler(ObjectHandler):
                                        description=prepared.abap_data.DESCRIPT)
         clas = sap.adt.Class(context.connection, repo_obj.name.upper(), package=context.package_name, metadata=metadata)
 
-        try:
-            clas.create(context.corrnr)
-        except sap.adt.errors.ExceptionResourceAlreadyExists:
-            mod_log().info('Class already exists. Recreating.')
-            sap.adt.checkin.check_package(clas, context.package_name, 'class')
+        created = sap.adt.checkin.create_in_package(clas, context.corrnr, context.package_name, 'class')
 
-            clas.delete(context.corrnr)
-            # Recreate class object to avoid stale data, which causes create to fail
-            clas = sap.adt.Class(context.connection, repo_obj.name.upper(), package=context.package_name, metadata=metadata)
-            clas.create(context.corrnr)
+        description = prepared.abap_data.DESCRIPT or ''
+        if not created and (clas.description or '') != description:
+            context.observer.writing('Clas', repo_obj.name, 'description')
+            clas.write_description(description, corrnr=context.corrnr)
 
         class_parts = {
             'clas': clas,
@@ -153,6 +148,11 @@ class ClassHandler(ObjectHandler):
 
             used_files.append(source_file)
 
+        if not created:
+            # The repository is the truth: the includes of the existing class
+            # which have no file are emptied - instead of deleting the class
+            self._empty_includes_without_file(context, repo_obj, prepared, clas, class_parts)
+
         abap_objects = [clas]
 
         if prepared.text_symbols:
@@ -162,6 +162,22 @@ class ClassHandler(ObjectHandler):
             abap_objects.append(text_elements)
 
         return ObjectCheckinResult(abap_objects, used_files)
+
+    def _empty_includes_without_file(self, context, repo_obj, prepared, clas, class_parts):
+        """Writes empty source code to the includes of the existing class
+           which have no file in the repository. Includes which do not exist
+           in the system are not created.
+        """
+
+        parts_with_file = [sub_obj_id for sub_obj_id, _, _ in prepared.parts]
+
+        for sub_obj_id, include_type in INCLUDE_TYPES.items():
+            if sub_obj_id in parts_with_file or include_type not in clas.include_types:
+                continue
+
+            context.observer.writing('Clas', repo_obj.name, f'{sub_obj_id} (empty)')
+            sap.adt.checks.write_source('', class_parts[sub_obj_id], corrnr=context.corrnr,
+                                        check_before_save=context.check_before_save)
 
     def locate(self, repo_obj, part, line):
         file_name_end = SOURCE_PART_FILES.get(part)

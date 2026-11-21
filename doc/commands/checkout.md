@@ -132,6 +132,11 @@ package stops the checkin with the error
 `Cannot checkin <type> <name> into package <package>. It already exists in package <other>.`
 and the object stays untouched.
 
+An existing class is updated, not deleted and created again: checkin writes
+the description of the class and the source code files of the repository and
+empties the local definitions, local implementations and test classes which
+exist in the system but have no file in the repository.
+
 Errors the system reports while writing the objects, e.g. an object existing
 in another package, stop the checkin immediately because the objects using
 the failed object would fail later anyway.
