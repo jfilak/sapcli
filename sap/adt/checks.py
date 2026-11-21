@@ -7,7 +7,7 @@ from typing import Optional
 from sap import get_logger
 from sap.errors import SAPCliError
 from sap.adt.errors import ExceptionResourceSaveFailure
-from sap.adt.objects import ADTObjectType, XMLNamespace, xmlns_adtcore_ancestor
+from sap.adt.objects import ADTObjectType, XMLNamespace, append_uri_path, xmlns_adtcore_ancestor
 from sap.adt.marshalling import Marshal
 from sap.adt.annotations import OrderedClassMembers, XmlNodeAttributeProperty, XmlListNodeProperty, XmlElementKind, \
     XmlContainer, XmlNodeProperty
@@ -133,7 +133,7 @@ class CheckObjectList(metaclass=OrderedClassMembers):
         if source and source[-1] == '\n':
             source = source[:-1]
 
-        artifact_uri = adt_object.full_adt_uri + adt_object.objtype.get_uri_for_type('text/plain')
+        artifact_uri = append_uri_path(adt_object.full_adt_uri, adt_object.objtype.get_uri_for_type('text/plain'))
         encoded = base64.b64encode(source.encode('utf-8')).decode('ascii')
         check_object.add_artifact(CheckArtifact(uri=artifact_uri, content=encoded))
 

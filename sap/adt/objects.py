@@ -108,6 +108,15 @@ def modify_object_params(lock_handle, corrnr):
     return params
 
 
+def append_uri_path(uri, suffix):
+    """Appends the suffix to the path of the URI - in front of its query
+       (e.g. ?context= of includes)
+    """
+
+    path, sep, query = uri.partition('?')
+    return f'{path}{suffix}{sep}{query}'
+
+
 class XMLNamespace:
     """XML Namespace definition"""
 
@@ -720,7 +729,7 @@ class ADTObject(metaclass=OrderedClassMembers):
         mime_type = self.objtype.source_mimetype
         text_uri = self.objtype.get_uri_for_type(mime_type)
 
-        return self._connection.get_text(f'{self.uri}{text_uri}', accept=mime_type).replace('\r\n', '\n')
+        return self._connection.get_text(append_uri_path(self.uri, text_uri), accept=mime_type).replace('\r\n', '\n')
 
     @xml_attribute('adtcore:version')
     def active(self):
@@ -930,7 +939,7 @@ class ADTObjectSourceEditor(ADTObjectEditor):
     def write(self, content):
         """Changes Source Code of the source object"""
 
-        text_uri = self.uri + self.get_uri_for_type(self._content_type)
+        text_uri = append_uri_path(self.uri, self.get_uri_for_type(self._content_type))
 
         if content[-1] == '\n':
             content = content[:-1]

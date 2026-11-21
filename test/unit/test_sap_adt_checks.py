@@ -152,6 +152,21 @@ class TestCheckObjectWithArtifacts(unittest.TestCase):
         ).decode('ascii')
         self.assertEqual(artifact.content, expected_b64)
 
+    def test_add_object_with_source_of_include_with_master(self):
+        connection = Connection()
+
+        obj_list = sap.adt.checks.CheckObjectList()
+        obj_list.add_object_with_source(sap.adt.Include(connection, 'ZHELLO_INCLUDE', master='ZHELLO_WORLD'),
+                                        'WRITE 1.')
+
+        check_object = obj_list.objects[0]
+        self.assertEqual(check_object.uri, '/sap/bc/adt/programs/includes/zhello_include'
+                                           '?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzhello_world')
+
+        artifact = check_object.artifacts.items[0]
+        self.assertEqual(artifact.uri, '/sap/bc/adt/programs/includes/zhello_include/source/main'
+                                       '?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzhello_world')
+
     def test_add_object_with_source_serializes_with_artifacts_block(self):
         connection = Connection()
 

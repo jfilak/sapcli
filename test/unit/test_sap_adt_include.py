@@ -72,6 +72,30 @@ class TestADTInclude(unittest.TestCase):
         self.maxDiff = None
         self.assertEqual(put_request.body, bytes(FIXTURE_INCLUDE_CODE, 'utf-8'))
 
+    def test_adt_include_write_with_master(self):
+        conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
+
+        include = sap.adt.Include(conn, 'ZHELLO_INCLUDE', master='ZHELLO_WORLD')
+        with include.open_editor() as editor:
+            editor.write(FIXTURE_INCLUDE_CODE)
+
+        put_request = conn.execs[1]
+
+        self.assertEqual(put_request.method, 'PUT')
+        self.assertEqual(put_request.adt_uri, '/sap/bc/adt/programs/includes/zhello_include/source/main'
+                                              '?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzhello_world')
+        self.assertEqual(put_request.params, {'lockHandle': 'win'})
+
+    def test_adt_include_text_with_master(self):
+        conn = Connection([Response(text=FIXTURE_INCLUDE_CODE, status_code=200, headers={})])
+
+        include = sap.adt.Include(conn, 'ZHELLO_INCLUDE', master='ZHELLO_WORLD')
+
+        self.assertEqual(include.text, FIXTURE_INCLUDE_CODE)
+        self.assertEqual(conn.mock_methods(),
+                         [('GET', '/sap/bc/adt/programs/includes/zhello_include/source/main'
+                                  '?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2Fzhello_world')])
+
     def test_adt_include_write_with_corrnr(self):
         conn = Connection([LOCK_RESPONSE_OK, EMPTY_RESPONSE_OK, None])
 

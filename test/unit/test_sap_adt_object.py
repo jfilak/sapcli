@@ -664,6 +664,24 @@ class TestLockUnlockParams(unittest.TestCase):
         self.assertEqual(params, {'_action': 'UNLOCK', 'lockHandle': 'abc'})
 
 
+class TestAppendUriPath(unittest.TestCase):
+
+    def test_without_query(self):
+        uri = sap.adt.objects.append_uri_path('programs/includes/zinc', '/source/main')
+
+        self.assertEqual(uri, 'programs/includes/zinc/source/main')
+
+    def test_with_query(self):
+        uri = sap.adt.objects.append_uri_path('programs/includes/zinc?context=%2Fsap%2Fbc%2Fadt', '/source/main')
+
+        self.assertEqual(uri, 'programs/includes/zinc/source/main?context=%2Fsap%2Fbc%2Fadt')
+
+    def test_empty_suffix(self):
+        uri = sap.adt.objects.append_uri_path('programs/includes/zinc?context=%2Fsap', '')
+
+        self.assertEqual(uri, 'programs/includes/zinc?context=%2Fsap')
+
+
 class TestADTObjectSourceEditorFactoryMethods(unittest.TestCase):
 
     def test_plain_text_factory_returns_source_editor(self):
