@@ -304,6 +304,14 @@ class TestPackageName(unittest.TestCase):
         self.assertEqual(self.package_name('./src/myapp/myapp_tests', root_package_name='$unittest'),
                          '$myapp_tests')
 
+    def test_full_local_package_dir_with_dollar(self):
+        self.assertEqual(self.package_name('./src/$victory_tests', root_package_name='$victory'),
+                         '$victory_tests')
+
+    def test_full_dir_with_dollar_of_not_local_package(self):
+        self.assertEqual(self.package_name('./src/$victory_tests', root_package_name='victory'),
+                         '$victory_tests')
+
     def test_prefix(self):
         self.assertEqual(self.package_name('./src/full/package/name', FOLDER_LOGIC=FOLDER_LOGIC_PREFIX),
                          'unittest_full_package_name')
