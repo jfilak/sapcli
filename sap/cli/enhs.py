@@ -3,6 +3,7 @@ ADT proxy for Enhancement Spots commands
 """
 
 import sap.adt
+import sap.adt.whereused
 import sap.cli.core
 import sap.cli.helpers
 
@@ -37,6 +38,22 @@ def list_implementations(connection, args):
     impls = enhs.get_implementations()
     for impl in impls:
         console.printout(f'{impl}')
+
+
+@CommandGroup.command('whereused')
+def whereused(connection, args):
+    """Find objects that reference the given Enhancement Spot (BAdI definition)
+    """
+
+    console = args.console_factory()
+
+    obj = sap.adt.EnhancementSpot(connection, args.enhancement_spot)
+    result = sap.adt.whereused.where_used(connection, obj.full_adt_uri)
+
+    for ref_obj in result.referenced_objects:
+        adt_obj = ref_obj.adt_object
+        typ = adt_obj.typ or ''
+        console.printout(f'  {typ} {adt_obj.name}')
 
 
 @CommandGroup.argument('--columns', type=str, default=None,

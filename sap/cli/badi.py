@@ -4,6 +4,7 @@ ADT proxy for New BAdI (Enhancement Implementation BAdIs) commands
 
 import sap
 import sap.adt
+import sap.adt.whereused
 import sap.cli.core
 import sap.cli.helpers
 import sap.cli.object
@@ -78,6 +79,22 @@ def list_badis(connection, args):
     """
 
     return _list(connection, args)
+
+
+@CommandGroup.command('whereused')
+def whereused(connection, args):
+    """Find objects that reference the given Enhancement Implementation (BAdI implementation)
+    """
+
+    console = args.console_factory()
+
+    obj = sap.adt.EnhancementImplementation(connection, args.enhancement_implementation)
+    result = sap.adt.whereused.where_used(connection, obj.full_adt_uri)
+
+    for ref_obj in result.referenced_objects:
+        adt_obj = ref_obj.adt_object
+        typ = adt_obj.typ or ''
+        console.printout(f'  {typ} {adt_obj.name}')
 
 
 @CommandGroup.argument('-a', '--activate', action='store_true', default=False,
