@@ -105,7 +105,16 @@ class TestCommandGroupObjectTemplateDefine(unittest.TestCase):
         act_whereused_cmd = self.commands.get_declaration(self.group.whereused_object)
 
         self.assertEqual(act_whereused_cmd, exp_whereused_cmd)
-        self.assertEqual(len(exp_whereused_cmd.arguments), 1)
+        # name, --line, --column
+        self.assertEqual(len(exp_whereused_cmd.arguments), 3)
+
+        arg_names = [args[0] for args, _ in exp_whereused_cmd.arguments]
+        self.assertIn('--line', arg_names)
+        self.assertIn('--column', arg_names)
+
+        line_kwargs = next(kw for args, kw in exp_whereused_cmd.arguments if args[0] == '--line')
+        self.assertEqual(line_kwargs.get('type'), int)
+        self.assertIsNone(line_kwargs.get('default'))
 
     def test_define_edit(self):
         exp_edit_cmd = self.group.define_edit(self.commands)
@@ -701,6 +710,99 @@ Errors: 0
         self.assertEqual(fake_console.capout,
                          '  CLAS/OC ZCL_ABAPGIT_ABAP_LANGUAGE_VERS\n'
                          '   Local Test Classes\n')
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_object_position(self, fake_where_used):
+        connection = MagicMock()
+
+        mock_result = MagicMock()
+        mock_result.referenced_objects = []
+        fake_where_used.return_value = mock_result
+
+        self.group.new_object_mock.OBJTYPE.get_uri_for_type.return_value = '/source/main'
+        self.group.new_object_mock.full_adt_uri = '/sap/bc/adt/programs/includes/myname'
+
+        args = self.parse_args('whereused', '--line', '10', '--column', '6', 'myname')
+
+        self.assertEqual(args.line, 10)
+        self.assertEqual(args.column, 6)
+
+        with patch_get_print_console_with_buffer():
+            args.execute(connection, args)
+
+        fake_where_used.assert_called_once_with(
+            connection, '/sap/bc/adt/programs/includes/myname/source/main#start=10,6'
+        )
+
+    def test_whereused_object_line_without_column(self):
+        args = self.parse_args('whereused', '--line', '10', 'myname')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            ret = args.execute(MagicMock(), args)
+
+        self.assertEqual(ret, 1)
+        self.assertIn('--line and --column must be provided together', fake_console.caperr)
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_object_position_unsupported_type(self, fake_where_used):
+        import sap.errors
+        connection = MagicMock()
+
+        self.group.new_object_mock.OBJTYPE.get_uri_for_type.side_effect = sap.errors.SAPCliError('no source')
+
+        args = self.parse_args('whereused', '--line', '5', '--column', '3', 'myname')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            ret = args.execute(connection, args)
+
+        self.assertEqual(ret, 1)
+        self.assertIn('position-based where-used is not supported', fake_console.caperr)
+        fake_where_used.assert_not_called()
+
+    def test_whereused_object_negative_line(self):
+        args = self.parse_args('whereused', '--line', '-1', '--column', '6', 'myname')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            ret = args.execute(MagicMock(), args)
+
+        self.assertEqual(ret, 1)
+        self.assertIn('positive integers', fake_console.caperr)
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_object_position_strips_query_string(self, fake_where_used):
+        connection = MagicMock()
+
+        mock_result = MagicMock()
+        mock_result.referenced_objects = []
+        fake_where_used.return_value = mock_result
+
+        self.group.new_object_mock.OBJTYPE.get_uri_for_type.return_value = '/source/main'
+        self.group.new_object_mock.full_adt_uri = \
+            '/sap/bc/adt/programs/includes/myname?context=%2Fsap%2Fbc%2Fadt%2Fprograms%2Fprograms%2FMAIN'
+
+        args = self.parse_args('whereused', '--line', '10', '--column', '6', 'myname')
+
+        with patch_get_print_console_with_buffer():
+            args.execute(connection, args)
+
+        fake_where_used.assert_called_once_with(
+            connection, '/sap/bc/adt/programs/includes/myname/source/main#start=10,6'
+        )
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_object_position_type_error(self, fake_where_used):
+        connection = MagicMock()
+
+        self.group.new_object_mock.OBJTYPE.get_uri_for_type.side_effect = TypeError('typeuris is None')
+
+        args = self.parse_args('whereused', '--line', '5', '--column', '3', 'myname')
+
+        with patch_get_print_console_with_buffer() as fake_console:
+            ret = args.execute(connection, args)
+
+        self.assertEqual(ret, 1)
+        self.assertIn('position-based where-used is not supported', fake_console.caperr)
+        fake_where_used.assert_not_called()
 
     def test_activate_objects(self):
         connection = MagicMock()

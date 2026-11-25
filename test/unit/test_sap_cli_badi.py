@@ -414,3 +414,36 @@ Errors: 0
                          'The BAdI Definition UNKNOWN_DEF not found in the enhancement spot SAPCLI_ENH_SPOT;'
                          ' available BAdI Definitions: SAMPLE_ENHS')
         self.assertEqual(len(conn.execs), 2)
+
+
+class TestBadiWhereUsed(unittest.TestCase):
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_zero_results(self, fake_where_used):
+        mock_result = MagicMock()
+        mock_result.referenced_objects = []
+        fake_where_used.return_value = mock_result
+
+        cmd = parse_args('-i', 'SAPCLI_ENH_IMPL', 'whereused')
+        from mock import ConsoleOutputTestCase
+        console = MagicMock()
+        console_buf = []
+        cmd.console_factory = lambda: console
+
+        cmd.execute(Connection([]), cmd)
+
+        fake_where_used.assert_called_once()
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_uses_enho_uri(self, fake_where_used):
+        mock_result = MagicMock()
+        mock_result.referenced_objects = []
+        fake_where_used.return_value = mock_result
+
+        cmd = parse_args('-i', 'SAPCLI_ENH_IMPL', 'whereused')
+        cmd.console_factory = lambda: MagicMock()
+        cmd.execute(Connection([]), cmd)
+
+        called_uri = fake_where_used.call_args[0][1]
+        self.assertIn('enhancements/enhoxhb', called_uri)
+        self.assertIn('sapcli_enh_impl', called_uri)

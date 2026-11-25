@@ -265,6 +265,11 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         whereused_cmd = commands.add_command(self.whereused_object, name='whereused')
         whereused_cmd.append_argument('name')
+        whereused_cmd.append_argument('--line', type=int, default=None,
+                                      help='Line number for position-based where-used (requires --column;'
+                                           ' only valid for source-backed objects such as classes, includes, programs)')
+        whereused_cmd.append_argument('--column', type=int, default=None,
+                                      help='Column number for position-based where-used (requires --line)')
 
         return whereused_cmd
 
@@ -356,8 +361,28 @@ class CommandGroupObjectTemplate(sap.cli.core.CommandGroup):
 
         console = args.console_factory()
 
+        if (args.line is None) != (args.column is None):
+            console.printerr('error: --line and --column must be provided together')
+            return 1
+
+        if args.line is not None and (args.line < 1 or args.column < 1):
+            console.printerr('error: --line and --column must be positive integers')
+            return 1
+
         obj = self.instance(connection, args.name, args)
-        result = sap.adt.whereused.where_used(connection, obj.full_adt_uri)
+
+        uri = obj.full_adt_uri
+        if args.line is not None:
+            try:
+                source_path = obj.OBJTYPE.get_uri_for_type('text/plain')
+            except (sap.errors.SAPCliError, TypeError):
+                console.printerr(f'error: position-based where-used is not supported for {type(obj).__name__}')
+                return 1
+            # Strip query string — source/main path must come before any query parameters
+            base_uri = uri.split('?')[0]
+            uri = f'{base_uri}{source_path}#start={args.line},{args.column}'
+
+        result = sap.adt.whereused.where_used(connection, uri)
 
         for ref_obj in result.referenced_objects:
             adt_obj = ref_obj.adt_object
