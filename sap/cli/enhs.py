@@ -66,7 +66,7 @@ def list_badi_definitions(connection, args):
 @CommandGroup.argument('enhancement_spot', help='Enhancement Spot Name')
 @CommandGroup.command('whereused')
 def whereused(connection, args):
-    """Find objects that reference the given Enhancement Spot (BAdI definition)
+    """Find objects that reference the given Enhancement Spot
     """
 
     console = args.console_factory()

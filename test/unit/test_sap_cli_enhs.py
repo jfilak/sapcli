@@ -4,6 +4,8 @@
 # pylint: disable=protected-access,missing-function-docstring
 
 import unittest
+from argparse import ArgumentParser
+from unittest.mock import patch, MagicMock
 
 import sap.cli.enhs
 
@@ -118,3 +120,43 @@ class TestEnhancementSpotListBadiDefinitions(unittest.TestCase):
 
         self.assertEqual(console.capout, 'SAMPLE_ENHS | IF_SAMPLE_ENHS\n')
         self.assertEqual(console.caperr, '')
+
+
+class TestEnhancementSpotWhereUsed(unittest.TestCase):
+
+    def setUp(self):
+        self.parser = ArgumentParser()
+        group = sap.cli.enhs.CommandGroup()
+        group.install_parser(self.parser)
+
+    def parse_args(self, *argv):
+        return self.parser.parse_args(argv)
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_zero_results(self, fake_where_used):
+        mock_result = MagicMock()
+        mock_result.referenced_objects = []
+        fake_where_used.return_value = mock_result
+
+        args = self.parse_args('whereused', ENHANCEMENT_SPOT_NAME)
+        console = BufferConsole()
+        args.console_factory = lambda: console
+        args.execute(Connection([]), args)
+
+        self.assertEqual(console.capout, '')
+        self.assertEqual(console.caperr, '')
+
+    @patch('sap.adt.whereused.where_used')
+    def test_whereused_uses_enhs_uri(self, fake_where_used):
+        mock_result = MagicMock()
+        mock_result.referenced_objects = []
+        fake_where_used.return_value = mock_result
+
+        args = self.parse_args('whereused', ENHANCEMENT_SPOT_NAME)
+        console = BufferConsole()
+        args.console_factory = lambda: console
+        args.execute(Connection([]), args)
+
+        called_uri = fake_where_used.call_args[0][1]
+        self.assertIn('enhancements/enhsxsb', called_uri)
+        self.assertIn(ENHANCEMENT_SPOT_NAME.lower(), called_uri)
