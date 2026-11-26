@@ -25,7 +25,7 @@ dependencies = [
     "pyodata>=1.12.1",
     "PyYAML>=6.0.3",
     "platformdirs>=4.11.1",
-    "truststore>=0.10.4",
+    "truststore>=0.10.5",
 ]
 
 [project.urls]
