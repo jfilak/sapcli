@@ -1,6 +1,7 @@
 """Function Group and Function Module object proxies"""
 import logging
 from copy import copy
+from urllib.parse import quote_plus, unquote_plus
 
 # pylint: disable=unused-import
 import sap.errors
@@ -132,7 +133,7 @@ class FunctionGroup(ADTObject):
         """Builds reference to Function Group"""
 
         return ADTContainer(
-            uri=f'/{connection.uri}/{cls.OBJTYPE.basepath}/{name.lower()}',
+            uri=f'/{connection.uri}/{cls.OBJTYPE.basepath}/{quote_plus(name.lower())}',
             object_type=cls.OBJTYPE.code,
             object_name=name,
             package_name=package_name)
@@ -168,7 +169,7 @@ class FunctionGroup(ADTObject):
                 f'URI "{uri}" contains an empty Function Group name after "{marker}"'
             )
 
-        return group_name.upper()
+        return unquote_plus(group_name).upper()
 
     def walk(self):
         """Returns the same structure as python os.walk"""
@@ -201,7 +202,8 @@ class FunctionModule(ADTObject):
         self._function_group_name = function_group_name
 
         self._objtype = copy(FunctionModule.OBJTYPE)
-        self._objtype.basepath = FunctionModule.OBJTYPE.basepath.format(groupname=function_group_name.lower())
+        self._objtype.basepath = FunctionModule.OBJTYPE.basepath.format(
+            groupname=quote_plus(function_group_name.lower()))
 
         self._processing_type = None
         self._reference = None
@@ -443,7 +445,8 @@ class FunctionInclude(ADTObject):
         self._function_group_name = function_group_name
 
         self._objtype = copy(FunctionInclude.OBJTYPE)
-        self._objtype.basepath = FunctionInclude.OBJTYPE.basepath.format(groupname=function_group_name.lower())
+        self._objtype.basepath = FunctionInclude.OBJTYPE.basepath.format(
+            groupname=quote_plus(function_group_name.lower()))
 
         self._reference = None
 
