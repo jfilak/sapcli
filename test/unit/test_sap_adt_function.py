@@ -96,6 +96,14 @@ class TestFunctionGroup(unittest.TestCase):
         self.assertEqual(fugr.walk(), [([], [], 'objects')])
 
 
+class TestCreateReference(unittest.TestCase):
+
+    def test_namespaced_group(self):
+        reference = sap.adt.FunctionGroup.create_reference(Connection(), '/DMO/FLIGHT_TRAVEL_API', '/DMO/FLIGHT_LEGACY')
+
+        self.assertEqual(reference.uri, '/sap/bc/adt/functions/groups/%2Fdmo%2Fflight_travel_api')
+
+
 class TestGroupNameFromUri(unittest.TestCase):
 
     def test_valid_uri(self):
@@ -131,6 +139,12 @@ class TestGroupNameFromUri(unittest.TestCase):
 
         self.assertEqual(group, 'ZFG_CUSTOM')
 
+    def test_namespaced_group(self):
+        group = sap.adt.FunctionGroup.group_name_from_uri(
+            '/sap/bc/adt/functions/groups/%2fdmo%2fflight_travel_api/fmodules/%2fdmo%2fflight_travel_read')
+
+        self.assertEqual(group, '/DMO/FLIGHT_TRAVEL_API')
+
     def test_empty_group_name_raises(self):
         with self.assertRaises(SAPCliError) as caught:
             sap.adt.FunctionGroup.group_name_from_uri(
@@ -140,6 +154,12 @@ class TestGroupNameFromUri(unittest.TestCase):
 
 
 class TestFunctionModule(unittest.TestCase):
+
+    def test_uri_namespaced_group(self):
+        function = sap.adt.FunctionModule(Connection(), '/DMO/FLIGHT_TRAVEL_READ', '/DMO/FLIGHT_TRAVEL_API')
+
+        self.assertEqual(function.uri,
+                         'functions/groups/%2Fdmo%2Fflight_travel_api/fmodules/%2Fdmo%2Fflight_travel_read')
 
     def test_function_module_serializable(self):
         conn = Connection()
@@ -385,6 +405,12 @@ class TestResolveGroup(unittest.TestCase):
 
 
 class TestFunctionInclude(unittest.TestCase):
+
+    def test_uri_namespaced_group(self):
+        include = sap.adt.FunctionInclude(Connection(), '/DMO/LFLIGHT_TRAVEL_APITOP', '/DMO/FLIGHT_TRAVEL_API')
+
+        self.assertEqual(include.uri,
+                         'functions/groups/%2Fdmo%2Fflight_travel_api/includes/%2Fdmo%2Flflight_travel_apitop')
 
     def test_function_include_serializable(self):
         conn = Connection()
