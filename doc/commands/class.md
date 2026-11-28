@@ -49,6 +49,15 @@ Changes implementations source code of the given class without activation
 sapcli class write "ZCL_HELLOWORLD" --type implementations zcl_helloworld.implementations.abap
 ```
 
+Changes macros source code of the given class without activation
+
+```bash
+sapcli class write "ZCL_HELLOWORLD" --type macros zcl_helloworld.macros.abap
+```
+
+ADT writes only an existing macros include. Classes created by ADT or SE24 have
+it, but old form-based classes may not, and ADT cannot create it.
+
 Changes test classes source code of the given class without activation
 
 ```bash
@@ -91,6 +100,12 @@ Downloads implementations source codes of the given public class
 
 ```bash
 sapcli class read ZCL_HELLOWORLD --type implementations
+```
+
+Downloads macros source codes of the given public class
+
+```bash
+sapcli class read ZCL_HELLOWORLD --type macros
 ```
 
 Downloads test classes source codes of the given public class
