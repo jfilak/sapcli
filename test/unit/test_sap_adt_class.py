@@ -17,7 +17,7 @@ from fixtures_adt_clas import (CREATE_CLASS_ADT_XML, GET_CLASS_ADT_XML, WRITE_IN
                                GENERATE_INCLUDE_REQUEST_XML, GET_CLASS_WITHOUT_TEST_CLASSES_ADT_XML,
                                DESCRIPTION_GET_CLASS_ADT_XML, DESCRIPTION_PUT_CLASS_ADT_XML,
                                DESCRIPTION_GT_GET_CLASS_ADT_XML, DESCRIPTION_GT_PUT_CLASS_ADT_XML,
-                               NO_DESCRIPTION_GET_CLASS_ADT_XML)
+                               NO_DESCRIPTION_GET_CLASS_ADT_XML, MACROS_READ_RESPONSE_OK)
 
 
 FIXTURE_CLASS_MAIN_CODE='''class zcl_hello_world definition public.
@@ -57,6 +57,7 @@ class TestADTClass(unittest.TestCase):
         self.assertEqual('CLAS/OC ZCL_HELLO_WORLD', str(clas))
         self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/definitions', str(clas.definitions))
         self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/implementations', str(clas.implementations))
+        self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/macros', str(clas.macros))
         self.assertEqual('CLAS/OC ZCL_HELLO_WORLD/testclasses', str(clas.test_classes))
 
     def test_adt_class_include_objtype_code(self):
@@ -66,6 +67,7 @@ class TestADTClass(unittest.TestCase):
 
         self.assertEqual('CLAS/OC', clas.definitions.objtype.code)
         self.assertEqual('CLAS/OC', clas.implementations.objtype.code)
+        self.assertEqual('CLAS/OC', clas.macros.objtype.code)
         self.assertEqual('CLAS/OC', clas.test_classes.objtype.code)
 
     def test_adt_class_write(self):
@@ -125,6 +127,9 @@ class TestADTClass(unittest.TestCase):
     def test_adt_class_read_implementations(self):
         self.include_read_test(IMPLEMENTATIONS_READ_RESPONSE_OK, lambda clas: clas.implementations, 'includes/implementations')
 
+    def test_adt_class_read_macros(self):
+        self.include_read_test(MACROS_READ_RESPONSE_OK, lambda clas: clas.macros, 'includes/macros')
+
     def test_adt_class_read_tests(self):
         self.include_read_test(TEST_CLASSES_READ_RESPONSE_OK, lambda clas: clas.test_classes, 'includes/testclasses')
 
@@ -134,6 +139,10 @@ class TestADTClass(unittest.TestCase):
 
     def test_adt_class_read_implementations_normalizes_crlf(self):
         self.include_read_test(INCLUDE_CRLF_READ_RESPONSE_OK, lambda clas: clas.implementations, 'includes/implementations',
+                               expected_source_code='* Line 1\n* Line2\n* Line3\n')
+
+    def test_adt_class_read_macros_normalizes_crlf(self):
+        self.include_read_test(INCLUDE_CRLF_READ_RESPONSE_OK, lambda clas: clas.macros, 'includes/macros',
                                expected_source_code='* Line 1\n* Line2\n* Line3\n')
 
     def test_adt_class_read_tests_normalizes_crlf(self):
@@ -165,6 +174,9 @@ class TestADTClass(unittest.TestCase):
 
     def test_adt_class_write_implementations(self):
         self.include_write_test(lambda clas: clas.implementations, 'includes/implementations')
+
+    def test_adt_class_write_macros(self):
+        self.include_write_test(lambda clas: clas.macros, 'includes/macros')
 
     def test_adt_class_write_tests(self):
         self.include_write_test(lambda clas: clas.test_classes, 'includes/testclasses')
@@ -210,6 +222,9 @@ class TestADTClass(unittest.TestCase):
 
     def test_adt_class_activate_implementations(self):
         self.include_activate_test(lambda clas: clas.implementations, 'includes/implementations')
+
+    def test_adt_class_activate_macros(self):
+        self.include_activate_test(lambda clas: clas.macros, 'includes/macros')
 
     def test_adt_class_activate_tests(self):
         self.include_activate_test(lambda clas: clas.test_classes, 'includes/testclasses')

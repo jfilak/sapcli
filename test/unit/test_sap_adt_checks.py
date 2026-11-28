@@ -223,6 +223,12 @@ class TestCheckObjectWithArtifacts(unittest.TestCase):
         self.assertEqual(sap.adt.checks.source_artifact_uri(clas.test_classes),
                          '/sap/bc/adt/oo/classes/cl_foo/includes/testclasses')
 
+    def test_source_artifact_uri_of_class_macros(self):
+        clas = sap.adt.Class(Connection(), 'CL_FOO')
+
+        self.assertEqual(sap.adt.checks.source_artifact_uri(clas.macros),
+                         '/sap/bc/adt/oo/classes/cl_foo/includes/macros')
+
     def test_source_artifact_uri_of_include_with_master(self):
         include = sap.adt.Include(Connection(), 'ZHELLO_INCLUDE', master='ZHELLO_WORLD')
 
