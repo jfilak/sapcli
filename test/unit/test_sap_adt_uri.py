@@ -137,6 +137,29 @@ class TestFormatCheckLocation(unittest.TestCase):
     def test_empty_uri_without_label_returns_unknown(self):
         self.assertEqual(format_check_location(''), '<unknown>')
 
+    def test_start_without_end_keeps_part_in_label(self):
+        uri = '/sap/bc/adt/oo/classes/zcl_victorious/includes/macros#start=2,2'
+        self.assertEqual(format_check_location(uri), 'zcl_victorious/includes/macros:2:2')
+
+    def test_start_without_end_with_source_label(self):
+        uri = '/sap/bc/adt/oo/classes/zcl_victorious/source/main#start=7,4'
+        self.assertEqual(
+            format_check_location(uri, source_label='src/zcl_victorious.clas.abap'),
+            'src/zcl_victorious.clas.abap:7:4',
+        )
+
+    def test_start_without_column(self):
+        uri = '/sap/bc/adt/oo/classes/zcl_victorious/source/main#start=7'
+        self.assertEqual(format_check_location(uri), 'zcl_victorious:7:0')
+
+    def test_malformed_fragment_falls_back_to_path(self):
+        uri = '/sap/bc/adt/oo/classes/zcl_victorious/source/main#start=x,1;end=1,2'
+        self.assertEqual(format_check_location(uri), '/sap/bc/adt/oo/classes/zcl_victorious/source/main')
+
+    def test_fragment_without_start_falls_back_to_path(self):
+        uri = '/sap/bc/adt/oo/classes/zcl_victorious/source/main#end=1,2'
+        self.assertEqual(format_check_location(uri), '/sap/bc/adt/oo/classes/zcl_victorious/source/main')
+
 
 class TestParseObjectImplementationStartUri(unittest.TestCase):
 

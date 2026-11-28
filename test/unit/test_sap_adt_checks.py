@@ -288,6 +288,18 @@ class TestFormatCheckMessage(unittest.TestCase):
             'cl_foo:27:2: E SYNTAX(001): Bad variable',
         )
 
+    def test_start_without_end(self):
+        msg = self._make_message(
+            '/sap/bc/adt/oo/classes/zcl_victorious_macros/includes/macros#start=2,2',
+            'E', 'DEFINE(004)',
+            'Open macro definition at end of source code: DEFINE VICTORIOUS was not closed with END-OF-DEFINITION.',
+        )
+        self.assertEqual(
+            sap.adt.checks.format_check_message(msg),
+            'zcl_victorious_macros/includes/macros:2:2: E DEFINE(004): '
+            'Open macro definition at end of source code: DEFINE VICTORIOUS was not closed with END-OF-DEFINITION.',
+        )
+
     def test_missing_code_omits_code_segment(self):
         msg = self._make_message(
             '/sap/bc/adt/oo/classes/cl_foo/source/main#start=5,1;end=5,3',
