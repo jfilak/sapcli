@@ -7,13 +7,14 @@ import sap.cli.core
 import sap.cli.object
 
 
-SOURCE_TYPES = ['main', 'definitions', 'implementations', 'testclasses', 'textelements']
+SOURCE_TYPES = ['main', 'definitions', 'implementations', 'macros', 'testclasses', 'textelements']
 
 FILE_NAME_SUFFIX_TYPES = {
     'clas.abap': None,
     'clas.locals_def.abap': 'definitions',
     'clas.testclasses.abap': 'testclasses',
-    'clas.locals_imp.abap': 'implementations'
+    'clas.locals_imp.abap': 'implementations',
+    'clas.macros.abap': 'macros',
 }
 
 
@@ -33,6 +34,9 @@ def instance_from_args(connection, name, typ, args, metadata):
 
     if typ == 'implementations':
         return clas.implementations
+
+    if typ == 'macros':
+        return clas.macros
 
     if typ == 'testclasses':
         return clas.test_classes

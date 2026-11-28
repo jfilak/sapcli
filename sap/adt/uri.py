@@ -70,6 +70,21 @@ def _parse_fragment_tokens(fragment: str) -> dict:
     return result
 
 
+def _object_name_and_part(parts):
+    """Returns (object name, object part) of the source URI path split to
+       parts, e.g. ('zcx_foo', 'includes/definitions') of
+       /sap/bc/adt/oo/classes/zcx_foo/includes/definitions. The part is
+       empty if the path has no source part.
+    """
+
+    for marker in ('source', 'includes'):
+        if marker in parts:
+            idx = parts.index(marker)
+            return parts[idx - 1], '/'.join(parts[idx:])
+
+    return parts[-1], ''
+
+
 def parse_statement_uri(uri: str) -> StatementPosition:
     """Parse an ADT statement URI into a StatementPosition.
 
@@ -91,17 +106,7 @@ def parse_statement_uri(uri: str) -> StatementPosition:
         raise InvalidURIError(f'Fragment missing start+end: {fragment!r}')
 
     parts = path.strip('/').split('/')
-    object_name = parts[-1] if parts else uri
-    object_part = ''
-    for marker in ('source', 'includes'):
-        try:
-            idx = parts.index(marker)
-        except ValueError:
-            pass
-        else:
-            object_name = parts[idx - 1]
-            object_part = '/'.join(parts[idx:])
-            break
+    object_name, object_part = _object_name_and_part(parts)
 
     return StatementPosition(
         object_name=object_name,
@@ -118,24 +123,35 @@ def format_check_location(uri: str, source_label: Optional[str] = None) -> str:
     """Render a checkrun URI as ``<label>:<line>:<column>``.
 
     ``source_label``, when given, replaces the object-name derived from
-    the URI path - used by checkin to show the on-disk file path. If the
-    URI cannot be parsed (no fragment / malformed), the label is returned
+    the URI path - used by checkin to show the on-disk file path. Only the
+    start position is needed because ADT reports some findings without
+    the end, e.g. an open macro definition (``#start=2,2``). If the URI
+    has no start position (no fragment / malformed), the label is returned
     so the output still points at *something* meaningful.
     """
 
+    path, _, fragment = (uri or '').partition('#')
+
     try:
-        pos = parse_statement_uri(uri)
-    except InvalidURIError:
-        return source_label or (uri or '').partition('#')[0] or '<unknown>'
+        start = _parse_fragment_tokens(fragment).get('start')
+    except ValueError:
+        # A malformed fragment has no position to show - the label or
+        # the path returned below still points at the source.
+        start = None
+
+    if start is None:
+        return source_label or path or '<unknown>'
 
     if source_label is not None:
         label = source_label
-    elif pos.object_part in ('', 'source/main'):
-        label = pos.object_name
     else:
-        label = f'{pos.object_name}/{pos.object_part}'
+        object_name, object_part = _object_name_and_part(path.strip('/').split('/'))
+        if object_part in ('', 'source/main'):
+            label = object_name
+        else:
+            label = f'{object_name}/{object_part}'
 
-    return f'{label}:{pos.start_line}:{pos.start_column}'
+    return f'{label}:{start[0]}:{start[1]}'
 
 
 def parse_object_implementation_start_uri(location: str) -> tuple:

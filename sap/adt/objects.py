@@ -1371,6 +1371,9 @@ class Class(OOADTObjectBase):
         ImplementationsMetadata = ClassIncludeMetadata(
             'CLAS/OC', 'CLAS/OC', 'implementations', '/includes/implementations')
 
+        MacrosMetadata = ClassIncludeMetadata(
+            'CLAS/OC', 'CLAS/OC', 'macros', '/includes/macros')
+
         TestClassesMetadata = ClassIncludeMetadata(
             'CLAS/OC', 'CLAS/OC', 'testclasses', '/includes/testclasses')
 
@@ -1422,6 +1425,12 @@ class Class(OOADTObjectBase):
             """Include for Local Implementations"""
 
             return Class.Include(clas, Class.Include.ImplementationsMetadata)
+
+        @staticmethod
+        def macros(clas):
+            """Include for Macros"""
+
+            return Class.Include(clas, Class.Include.MacrosMetadata)
 
         @staticmethod
         def test_classes(clas):
@@ -1488,6 +1497,7 @@ class Class(OOADTObjectBase):
         self._superclass = ADTCoreData.Reference()
         self._definitions = None
         self._implementations = None
+        self._macros = None
         self._test_classes = None
         self._includes = []
         self._fixpntar = None
@@ -1605,6 +1615,15 @@ class Class(OOADTObjectBase):
             self._implementations = Class.Include.implementations(self)
 
         return self._implementations
+
+    @property
+    def macros(self):
+        """Macros"""
+
+        if self._macros is None:
+            self._macros = Class.Include.macros(self)
+
+        return self._macros
 
     @property
     def test_classes(self):

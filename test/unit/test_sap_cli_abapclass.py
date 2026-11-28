@@ -10,7 +10,7 @@ import sap.cli.abapclass
 from mock import Connection, Response, patch_get_print_console_with_buffer
 from fixtures_adt import (EMPTY_RESPONSE_OK, LOCK_RESPONSE_OK, TEST_CLASSES_READ_RESPONSE_OK,
                           DEFINITIONS_READ_RESPONSE_OK, IMPLEMENTATIONS_READ_RESPONSE_OK)
-from fixtures_adt_clas import GET_CLASS_ADT_XML
+from fixtures_adt_clas import GET_CLASS_ADT_XML, MACROS_READ_RESPONSE_OK
 from fixtures_sap_adt_textelements import GET_CLASS_TEXT_ELEMENTS_XML
 
 
@@ -152,6 +152,9 @@ class TestClassIncludes(unittest.TestCase):
     def test_class_read_implementations(self):
         self.read_test(IMPLEMENTATIONS_READ_RESPONSE_OK, 'implementations')
 
+    def test_class_read_macros(self):
+        self.read_test(MACROS_READ_RESPONSE_OK, 'macros')
+
     def test_class_read_tests(self):
         self.read_test(TEST_CLASSES_READ_RESPONSE_OK, 'testclasses')
 
@@ -173,6 +176,9 @@ class TestClassIncludes(unittest.TestCase):
     def test_class_write_implementations(self):
         self.write_test('implementations')
 
+    def test_class_write_macros(self):
+        self.write_test('macros')
+
     def test_class_write_tests(self):
         self.write_test('testclasses')
 
@@ -180,7 +186,8 @@ class TestClassIncludes(unittest.TestCase):
         exts = {
             'definitions': 'locals_def',
             'testclasses': 'testclasses',
-            'implementations': 'locals_imp' }
+            'implementations': 'locals_imp',
+            'macros': 'macros' }
 
 
         args = parse_args(['write', '-', f'zcl_writer.clas.{exts[typ]}.abap'])
@@ -199,6 +206,9 @@ class TestClassIncludes(unittest.TestCase):
 
     def test_class_write_implementations_file_name(self):
         self.write_test_file_name('implementations')
+
+    def test_class_write_macros_file_name(self):
+        self.write_test_file_name('macros')
 
     def test_class_write_tests_file_name(self):
         self.write_test_file_name('testclasses')
@@ -233,6 +243,9 @@ class TestClassIncludes(unittest.TestCase):
 
     def test_class_write_implementations_activate(self):
         self.write_test_with_activation('implementations')
+
+    def test_class_write_macros_activate(self):
+        self.write_test_with_activation('macros')
 
     def test_class_write_tests_activate(self):
         self.write_test_with_activation('testclasses')

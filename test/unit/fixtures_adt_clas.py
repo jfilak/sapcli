@@ -1,3 +1,5 @@
+from mock import Response
+
 CREATE_CLASS_ADT_XML="""<?xml version="1.0" encoding="UTF-8"?>
 <class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:type="CLAS/OC" adtcore:description="Say hello!" adtcore:language="EN" adtcore:name="ZCL_HELLO_WORLD" adtcore:masterLanguage="EN" adtcore:masterSystem="NPL" adtcore:responsible="FILAK" class:final="true" class:visibility="public">
 <adtcore:packageRef adtcore:name="$TEST"/>
@@ -84,3 +86,8 @@ NO_DESCRIPTION_GET_CLASS_ADT_XML = '''<?xml version="1.0" encoding="utf-8"?>
 <class:abapClass xmlns:class="http://www.sap.com/adt/oo/classes" xmlns:adtcore="http://www.sap.com/adt/core" adtcore:name="ZCL_HELLO_WORLD" adtcore:language="EN">
   <adtcore:packageRef adtcore:uri="/sap/bc/adt/packages/%24iamtheking" adtcore:type="DEVC/K" adtcore:name="$IAMTHEKING" adtcore:description="You cannot stop me!"/>
 </class:abapClass>'''
+
+
+MACROS_READ_RESPONSE_OK = Response(text="* Jakub's marvelous macros",
+                                   status_code=200,
+                                   headers={'Content-Type': 'text/plain; charset=utf-8'})
